@@ -1,0 +1,36 @@
+diff --git a/node_modules/react-native-record-screen/android/src/main/java/com/recordscreen/RecordScreenModule.kt b/node_modules/react-native-record-screen/android/src/main/java/com/recordscreen/RecordScreenModule.kt
+index e3850d5..c7835b5 100644
+--- a/node_modules/react-native-record-screen/android/src/main/java/com/recordscreen/RecordScreenModule.kt
++++ b/node_modules/react-native-record-screen/android/src/main/java/com/recordscreen/RecordScreenModule.kt
+@@ -101,7 +101,7 @@ class RecordScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
+   private fun startRecordingScreen() {
+     val mediaProjectionManager = reactApplicationContext.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager;
+     val permissionIntent = mediaProjectionManager.createScreenCaptureIntent();
+-    currentActivity!!.startActivityForResult(permissionIntent, SCREEN_RECORD_REQUEST_CODE);
++    reactApplicationContext.currentActivity!!.startActivityForResult(permissionIntent, SCREEN_RECORD_REQUEST_CODE);
+   }
+ 
+ 
+diff --git a/node_modules/react-native-record-screen/android/src/main/java/com/recordscreen/RecordScreenPackage.kt b/node_modules/react-native-record-screen/android/src/main/java/com/recordscreen/RecordScreenPackage.kt
+index 1234567..abcdefg 100644
+--- a/node_modules/react-native-record-screen/android/src/main/java/com/recordscreen/RecordScreenPackage.kt
++++ b/node_modules/react-native-record-screen/android/src/main/java/com/recordscreen/RecordScreenPackage.kt
+@@ -1,17 +1,14 @@
+ package com.recordscreen
+ 
+-import android.os.Bundle
+-import androidx.appcompat.app.AppCompatActivity
+-import com.facebook.react.ReactActivity
+ import java.util.Arrays
+ import java.util.Collections
+ 
+ import com.facebook.react.ReactPackage
+ import com.facebook.react.bridge.NativeModule
+ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.uimanager.ViewManager
+ import com.facebook.react.bridge.JavaScriptModule
+ 
+-class RecordScreenPackage : ReactPackage, AppCompatActivity() {
++class RecordScreenPackage : ReactPackage {
+   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+     return Arrays.asList<NativeModule>(RecordScreenModule(reactContext))

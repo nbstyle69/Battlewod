@@ -1,0 +1,7 @@
+{
+  "name": "screen-recorder",
+  "version": "1.0.0",
+  "description": "Native screen recorder module for BattleWOD",
+  "main": "src/index.ts",
+  "react-native": "src/index.ts"
+}
