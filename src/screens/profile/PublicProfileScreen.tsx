@@ -7,7 +7,8 @@ import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { LevelColors } from '../../theme/colors';
 import { HomeStackParamList } from '../../navigation';
 
 type Props = {
@@ -32,6 +33,8 @@ interface PublicUser {
 export default function PublicProfileScreen({ navigation, route }: Props) {
   const { userId } = route.params;
   const { user: me } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const [profile, setProfile] = useState<PublicUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [friendStatus, setFriendStatus] = useState<FriendStatus>('none');
@@ -90,88 +93,88 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
   }
 
   if (loading) return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator color={Colors.primary} size="large" />
+    <View style={S.loadingContainer}>
+      <ActivityIndicator color={theme.accent} size="large" />
     </View>
   );
 
   if (!profile) return (
-    <View style={styles.loadingContainer}>
-      <Text style={styles.notFound}>Profil introuvable</Text>
+    <View style={S.loadingContainer}>
+      <Text style={S.notFound}>Profil introuvable</Text>
     </View>
   );
 
   const level = profile.level ?? 'scaled';
-  const levelColor = LevelColors[level] ?? Colors.primary;
+  const levelColor = LevelColors[level] ?? theme.accent;
   const winRate = profile.total_matches ? Math.round((profile.wins / profile.total_matches) * 100) : 0;
 
   function FriendButton() {
     if (me?.id === userId) return null;
     if (friendStatus === 'friends') return (
-      <View style={styles.friendsBadge}>
-        <Check color={Colors.success} size={14} />
-        <Text style={styles.friendsBadgeText}>Amis</Text>
+      <View style={S.friendsBadge}>
+        <Check color={theme.success} size={14} />
+        <Text style={S.friendsBadgeText}>Amis</Text>
       </View>
     );
     if (friendStatus === 'pending_sent') return (
-      <View style={styles.pendingBadge}>
-        <Clock color={Colors.textMuted} size={14} />
-        <Text style={styles.pendingBadgeText}>Demande envoyée</Text>
+      <View style={S.pendingBadge}>
+        <Clock color={theme.textMuted} size={14} />
+        <Text style={S.pendingBadgeText}>Demande envoyée</Text>
       </View>
     );
     if (friendStatus === 'pending_received') return (
-      <TouchableOpacity style={styles.acceptBtn} onPress={handleAcceptFriend} disabled={actionLoading}>
+      <TouchableOpacity style={S.acceptBtn} onPress={handleAcceptFriend} disabled={actionLoading}>
         {actionLoading ? <ActivityIndicator color="#fff" size="small" /> : (
-          <><Check color="#fff" size={16} /><Text style={styles.acceptBtnText}>Accepter</Text></>
+          <><Check color="#fff" size={16} /><Text style={S.acceptBtnText}>Accepter</Text></>
         )}
       </TouchableOpacity>
     );
     return (
-      <TouchableOpacity style={styles.addFriendBtn} onPress={handleAddFriend} disabled={actionLoading}>
+      <TouchableOpacity style={S.addFriendBtn} onPress={handleAddFriend} disabled={actionLoading}>
         {actionLoading ? <ActivityIndicator color="#fff" size="small" /> : (
-          <><UserPlus color="#fff" size={16} /><Text style={styles.addFriendBtnText}>Demander en ami</Text></>
+          <><UserPlus color="#fff" size={16} /><Text style={S.addFriendBtnText}>Demander en ami</Text></>
         )}
       </TouchableOpacity>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft color={Colors.text} size={24} />
+    <View style={S.container}>
+      <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
+          <ChevronLeft color={theme.text} size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profil</Text>
+        <Text style={S.headerTitle}>Profil</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
         {/* Avatar + name */}
-        <View style={styles.heroCard}>
-          <View style={[styles.avatarCircle, { borderColor: levelColor }]}>
-            <Text style={styles.avatarLetter}>{profile.username?.[0]?.toUpperCase() ?? '?'}</Text>
+        <View style={S.heroCard}>
+          <View style={[S.avatarCircle, { borderColor: levelColor }]}>
+            <Text style={S.avatarLetter}>{profile.username?.[0]?.toUpperCase() ?? '?'}</Text>
           </View>
-          <Text style={styles.username}>{profile.username}</Text>
-          {profile.full_name ? <Text style={styles.fullName}>{profile.full_name}</Text> : null}
-          <View style={[styles.levelPill, { backgroundColor: `${levelColor}20` }]}>
-            <View style={[styles.levelDot, { backgroundColor: levelColor }]} />
-            <Text style={[styles.levelText, { color: levelColor }]}>{level.toUpperCase()}</Text>
+          <Text style={S.username}>{profile.username}</Text>
+          {profile.full_name ? <Text style={S.fullName}>{profile.full_name}</Text> : null}
+          <View style={[S.levelPill, { backgroundColor: `${levelColor}20` }]}>
+            <View style={[S.levelDot, { backgroundColor: levelColor }]} />
+            <Text style={[S.levelText, { color: levelColor }]}>{level.toUpperCase()}</Text>
           </View>
-          {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+          {profile.bio ? <Text style={S.bio}>{profile.bio}</Text> : null}
           <FriendButton />
         </View>
 
         {/* Stats */}
-        <View style={styles.statsRow}>
+        <View style={S.statsRow}>
           {[
-            { icon: Zap, color: Colors.primary, value: profile.elo, label: 'ELO' },
-            { icon: Trophy, color: Colors.gold, value: profile.wins, label: 'Victoires' },
-            { icon: TrendingUp, color: Colors.success, value: `${winRate}%`, label: 'Win Rate' },
+            { icon: Zap, color: theme.accent, value: profile.elo, label: 'ELO' },
+            { icon: Trophy, color: theme.gold, value: profile.wins, label: 'Victoires' },
+            { icon: TrendingUp, color: theme.success, value: `${winRate}%`, label: 'Win Rate' },
           ].map(({ icon: Icon, color, value, label }) => (
-            <View key={label} style={styles.statCard}>
+            <View key={label} style={S.statCard}>
               <Icon color={color} size={16} />
-              <Text style={styles.statValue}>{value}</Text>
-              <Text style={styles.statLabel}>{label}</Text>
+              <Text style={S.statValue}>{value}</Text>
+              <Text style={S.statLabel}>{label}</Text>
             </View>
           ))}
         </View>
@@ -182,68 +185,63 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  notFound: { fontSize: 15, color: Colors.textMuted },
-
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background },
+  notFound: { fontSize: 15, color: theme.textMuted },
   header: {
     flexDirection: 'row', alignItems: 'center', paddingTop: 56,
     paddingHorizontal: 16, paddingBottom: 16,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
   },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '900', color: Colors.text },
-
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '900', color: theme.text },
   content: { padding: 16, gap: 14 },
-
   heroCard: {
-    backgroundColor: Colors.card, borderRadius: 18,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.card, borderRadius: 18,
+    borderWidth: 1, borderColor: theme.border,
     padding: 24, alignItems: 'center', gap: 8,
   },
   avatarCircle: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Colors.surface, borderWidth: 3,
+    backgroundColor: theme.surface, borderWidth: 3,
     justifyContent: 'center', alignItems: 'center',
   },
-  avatarLetter: { fontSize: 32, fontWeight: '900', color: Colors.text },
-  username: { fontSize: 22, fontWeight: '900', color: Colors.text },
-  fullName: { fontSize: 14, color: Colors.textMuted },
+  avatarLetter: { fontSize: 32, fontWeight: '900', color: theme.text },
+  username: { fontSize: 22, fontWeight: '900', color: theme.text },
+  fullName: { fontSize: 14, color: theme.textMuted },
   levelPill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
   levelDot: { width: 6, height: 6, borderRadius: 3 },
   levelText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
-  bio: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, maxWidth: 240 },
-
+  bio: { fontSize: 13, color: theme.textSecondary, textAlign: 'center', lineHeight: 18, maxWidth: 240 },
   addFriendBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, marginTop: 4,
+    backgroundColor: theme.accent, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, marginTop: 4,
   },
   addFriendBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   acceptBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.success, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, marginTop: 4,
+    backgroundColor: theme.success, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, marginTop: 4,
   },
   acceptBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   friendsBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: `${Colors.success}15`, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: `${Colors.success}40`, marginTop: 4,
+    backgroundColor: `${theme.success}15`, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: `${theme.success}40`, marginTop: 4,
   },
-  friendsBadgeText: { color: Colors.success, fontSize: 13, fontWeight: '700' },
+  friendsBadgeText: { color: theme.success, fontSize: 13, fontWeight: '700' },
   pendingBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: Colors.border, marginTop: 4,
+    backgroundColor: theme.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: theme.border, marginTop: 4,
   },
-  pendingBadgeText: { color: Colors.textMuted, fontSize: 13, fontWeight: '600' },
-
+  pendingBadgeText: { color: theme.textMuted, fontSize: 13, fontWeight: '600' },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: {
-    flex: 1, backgroundColor: Colors.card, borderRadius: 14,
-    borderWidth: 1, borderColor: Colors.border,
+    flex: 1, backgroundColor: theme.card, borderRadius: 14,
+    borderWidth: 1, borderColor: theme.border,
     paddingVertical: 14, alignItems: 'center', gap: 4,
   },
-  statValue: { fontSize: 18, fontWeight: '900', color: Colors.text },
-  statLabel: { fontSize: 10, color: Colors.textMuted, fontWeight: '700', textTransform: 'uppercase' },
-});
+  statValue: { fontSize: 18, fontWeight: '900', color: theme.text },
+  statLabel: { fontSize: 10, color: theme.textMuted, fontWeight: '700', textTransform: 'uppercase' },
+}); }

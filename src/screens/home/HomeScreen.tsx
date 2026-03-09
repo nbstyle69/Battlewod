@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
 } from 'react-native';
-import { Zap, Swords, Trophy, TrendingUp, ChevronRight, Flame, Timer, BarChart2, Sparkles, Target } from 'lucide-react-native';
+import { Zap, Swords, Trophy, TrendingUp, ChevronRight, Flame, Timer, BarChart2, Sparkles, Target, User, Users } from 'lucide-react-native';
 import KettlebellIcon from '../../components/KettlebellIcon';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
+import { LevelColors } from '../../theme/colors';
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 
@@ -21,22 +22,31 @@ interface RecentScore {
   status: string;
 }
 
-const QUICK_ACTIONS = [
-  { icon: Swords, label: 'Match 1v1', color: Colors.primary, desc: 'Défie un athlète' },
-  { icon: Trophy, label: 'Tournoi', color: Colors.gold, desc: 'Rejoins la compét' },
-  { icon: Zap, label: 'WOD du jour', color: Colors.success, desc: 'Entraîne-toi' },
-  { icon: TrendingUp, label: 'Mon niveau', color: LevelColors.gx, desc: 'Voir progression' },
+const QUICK_ACTIONS_BASE = [
+  { icon: Trophy,     label: 'Tournoi',        colorKey: 'gold' as const,    desc: 'Rejoins la compét',  fixedColor: undefined },
+  { icon: Zap,        label: 'WOD du jour',    colorKey: 'success' as const, desc: 'Entraîne-toi',       fixedColor: undefined },
+  { icon: TrendingUp, label: 'Mon niveau',     colorKey: null,               desc: 'Voir progression',   fixedColor: LevelColors.gx },
 ];
 
 export default function HomeScreen() {
   const { user, currentBox } = useAuth();
+  const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const level = user?.level ?? 'scaled';
+  const S = createStyles(theme);
 
-  const [competitions,  setCompetitions]  = useState<CompetitionSummary[]>([]);
-  const [recentScores,  setRecentScores]  = useState<RecentScore[]>([]);
-  const [rank,          setRank]          = useState<number | null>(null);
-  const [streak,        setStreak]        = useState(0);
+  const TOOLS = [
+    { icon: BarChart2, label: 'Classement',      desc: 'Individuel · Équipes · Box',   color: theme.gold,    screen: 'Leaderboard'     },
+    { icon: Timer,     label: 'Minuteur vidéo',  desc: 'For Time · AMRAP · EMOM…',    color: theme.accent,  screen: 'Timer'           },
+    { icon: Sparkles,  label: 'Générateur WOD',  desc: 'For Time · AMRAP · Tabata',   color: '#6366F1',     screen: 'WODGenerator'    },
+    { icon: Target,    label: 'Calculateur 1RM', desc: '50% → 130% · Zones',          color: '#10B981',     screen: 'OneRMCalculator' },
+  ];
+
+  const [competitions,   setCompetitions]   = useState<CompetitionSummary[]>([]);
+  const [recentScores,   setRecentScores]   = useState<RecentScore[]>([]);
+  const [rank,           setRank]           = useState<number | null>(null);
+  const [streak,         setStreak]         = useState(0);
+  const [pendingFriends, setPendingFriends] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -93,6 +103,14 @@ export default function HomeScreen() {
     }));
     setCompetitions(mapped);
 
+    // Pending friend requests
+    const { count: friendCount } = await supabase
+      .from('friend_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('receiver_id', user.id)
+      .eq('status', 'pending');
+    setPendingFriends(friendCount ?? 0);
+
     // Recent scores
     const { data: scores } = await supabase
       .from('tournament_scores')
@@ -113,168 +131,135 @@ export default function HomeScreen() {
   useEffect(() => { loadData(); }, [loadData]);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={S.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View style={styles.header}>
+      <View style={S.header}>
 
         {/* Logo BattleWOD */}
-        <View style={styles.logoRow}>
-          <KettlebellIcon size={30} />
-          <View style={styles.logoTextWrap}>
-            <Text style={styles.logoTextBattle}>BATTLE</Text>
-            <Text style={styles.logoTextWod}>WOD</Text>
+        <View style={S.logoRow}>
+          <KettlebellIcon size={30} color={theme.accent} />
+          <View style={S.logoTextWrap}>
+            <Text style={S.logoTextBattle}>BATTLE</Text>
+            <Text style={S.logoTextWod}>WOD</Text>
           </View>
         </View>
 
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.username}>{user?.username ?? 'Athlète'}</Text>
-            <View style={styles.levelPill}>
-              <View style={[styles.levelDot, { backgroundColor: LevelColors[level] }]} />
-              <Text style={[styles.levelText, { color: LevelColors[level] }]}>{level.toUpperCase()}</Text>
+        <View style={S.headerRow}>
+          <View style={S.headerLeft}>
+            <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
+            <View style={S.levelPill}>
+              <View style={[S.levelDot, { backgroundColor: LevelColors[level] }]} />
+              <Text style={[S.levelText, { color: LevelColors[level] }]}>{level.toUpperCase()}</Text>
             </View>
           </View>
-          <View style={styles.headerRight}>
-            <View style={styles.eloBox}>
-              <Text style={styles.eloLabel}>ELO</Text>
-              <Text style={styles.eloValue}>{user?.elo ?? 1000}</Text>
-              <Text style={styles.eloSub}>points</Text>
+          <View style={S.headerRight}>
+            <View style={S.eloBox}>
+              <Text style={S.eloLabel}>ELO</Text>
+              <Text style={S.eloValue}>{user?.elo ?? 1000}</Text>
+              <Text style={S.eloSub}>points</Text>
             </View>
-            <TouchableOpacity
-              style={styles.profileBtn}
-              onPress={() => navigation.navigate('Profile')}
-              activeOpacity={0.8}
-            >
-              <KettlebellIcon size={22} />
-            </TouchableOpacity>
+            <View style={S.headerBtns}>
+              <TouchableOpacity
+                style={S.profileBtn}
+                onPress={() => navigation.navigate('Friends')}
+                activeOpacity={0.8}
+              >
+                <Users size={19} color={theme.textSecondary} />
+                {pendingFriends > 0 && (
+                  <View style={S.badge}>
+                    <Text style={S.badgeText}>{pendingFriends > 9 ? '9+' : pendingFriends}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={S.profileBtn}
+                onPress={() => navigation.navigate('Profile')}
+                activeOpacity={0.8}
+              >
+                <User size={19} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
 
       {/* ── Stats ──────────────────────────────────────────────────────── */}
-      <View style={styles.statsRow}>
+      <View style={S.statsRow}>
         {[
-          { icon: Flame,      color: Colors.primary, value: streak, label: 'Série' },
-          { icon: Trophy,     color: Colors.gold,    value: rank !== null ? `#${rank}` : '—', label: 'Rang' },
-          { icon: Swords,     color: Colors.success, value: user?.wins ?? 0,   label: 'Victoires' },
-          { icon: TrendingUp, color: '#9C27B0',      value: user?.total_matches ?? 0, label: 'Matchs' },
+          { icon: Flame,      color: theme.accent, value: streak, label: 'Série' },
+          { icon: Trophy,     color: theme.gold,   value: rank !== null ? `#${rank}` : '—', label: 'Rang' },
+          { icon: Swords,     color: theme.success, value: user?.wins ?? 0,   label: 'Victoires' },
+          { icon: TrendingUp, color: '#9C27B0',     value: user?.total_matches ?? 0, label: 'Matchs' },
         ].map(({ icon: Icon, color, value, label }) => (
-          <View key={label} style={styles.statCard}>
+          <View key={label} style={S.statCard}>
             <Icon color={color} size={18} />
-            <Text style={styles.statValue}>{value}</Text>
-            <Text style={styles.statLabel}>{label}</Text>
+            <Text style={S.statValue}>{value}</Text>
+            <Text style={S.statLabel}>{label}</Text>
           </View>
         ))}
       </View>
 
-      {/* ── Actions rapides ────────────────────────────────────────────── */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Actions rapides</Text>
-
-        {/* Classement card */}
-        <TouchableOpacity style={styles.timerHero} onPress={() => navigation.navigate('Leaderboard')} activeOpacity={0.82}>
-          <View style={styles.timerHeroLeft}>
-            <View style={[styles.timerIconBox, { backgroundColor: `${Colors.gold}18` }]}>
-              <BarChart2 color={Colors.gold} size={24} />
-            </View>
-            <View>
-              <Text style={styles.timerHeroTitle}>Classement</Text>
-              <Text style={styles.timerHeroSub}>Individuel · Équipes · Box</Text>
-            </View>
-          </View>
-          <ChevronRight color={Colors.textMuted} size={18} />
-        </TouchableOpacity>
-
-        {/* Timer hero card — rouge et visible */}
-        <TouchableOpacity style={styles.timerHeroRed} onPress={() => navigation.navigate('Timer')} activeOpacity={0.82}>
-          <View style={styles.timerHeroLeft}>
-            <View style={styles.timerIconBoxRed}>
-              <Timer color="#fff" size={24} />
-            </View>
-            <View>
-              <Text style={styles.timerHeroTitleRed}>Minuteur vidéo</Text>
-              <Text style={styles.timerHeroSubRed}>For Time · AMRAP · EMOM · Tabata · YWYR · Intervalles</Text>
-            </View>
-          </View>
-          <ChevronRight color="rgba(255,255,255,0.6)" size={18} />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Générateur de WOD ─────────────────────────────────────────── */}
-      <View style={styles.section}>
-        <TouchableOpacity style={styles.wodGenHero} onPress={() => navigation.navigate('WODGenerator')} activeOpacity={0.82}>
-          <View style={styles.timerHeroLeft}>
-            <View style={styles.wodGenIconBox}>
-              <Sparkles color="#fff" size={24} />
-            </View>
-            <View>
-              <Text style={styles.wodGenTitle}>Générateur de WOD</Text>
-              <Text style={styles.wodGenSub}>For Time · AMRAP · EMOM · Tabata · Max Reps</Text>
-            </View>
-          </View>
-          <ChevronRight color="rgba(255,255,255,0.6)" size={18} />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Calculateur 1RM ──────────────────────────────────────────── */}
-      <View style={styles.section}>
-        <TouchableOpacity style={styles.oneRMHero} onPress={() => navigation.navigate('OneRMCalculator')} activeOpacity={0.82}>
-          <View style={styles.timerHeroLeft}>
-            <View style={styles.oneRMIconBox}>
-              <Target color="#0A0A0A" size={24} />
-            </View>
-            <View>
-              <Text style={styles.oneRMTitle}>Calculateur 1RM</Text>
-              <Text style={styles.oneRMSub}>50% → 130% · Zones · Charges · Répétitions</Text>
-            </View>
-          </View>
-          <ChevronRight color="rgba(0,0,0,0.4)" size={18} />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Actions rapides (suite) ───────────────────────────────────────── */}
-      <View style={styles.section}>
-        {/* 2×2 action grid */}
-        <View style={styles.actionsGrid}>
-          {QUICK_ACTIONS.map((action) => (
-            <TouchableOpacity key={action.label} style={styles.actionCard} activeOpacity={0.75}>
-              <View style={[styles.actionIconBox, { backgroundColor: `${action.color}12` }]}>
-                <action.icon color={action.color} size={20} />
+      {/* ── Outils ─────────────────────────────────────────────────────── */}
+      <View style={S.section}>
+        <Text style={S.sectionTitle}>Outils</Text>
+        <View style={S.actionsGrid}>
+          {TOOLS.map((tool) => (
+            <TouchableOpacity key={tool.label} style={S.actionCard} onPress={() => navigation.navigate(tool.screen as any)} activeOpacity={0.75}>
+              <View style={[S.actionIconBox, { backgroundColor: `${tool.color}18` }]}>
+                <tool.icon color={tool.color} size={20} />
               </View>
-              <Text style={styles.actionLabel}>{action.label}</Text>
-              <Text style={styles.actionDesc}>{action.desc}</Text>
+              <Text style={S.actionLabel}>{tool.label}</Text>
+              <Text style={S.actionDesc}>{tool.desc}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
+      {/* ── Actions rapides ──────────────────────────────────────────────── */}
+      <View style={S.section}>
+        <View style={S.actionsGrid}>
+          {QUICK_ACTIONS_BASE.map((action) => {
+            const color = action.fixedColor ?? (action.colorKey ? theme[action.colorKey] : theme.accent);
+            return (
+              <TouchableOpacity key={action.label} style={S.actionCard} activeOpacity={0.75}>
+                <View style={[S.actionIconBox, { backgroundColor: `${color}18` }]}>
+                  <action.icon color={color} size={20} />
+                </View>
+                <Text style={S.actionLabel}>{action.label}</Text>
+                <Text style={S.actionDesc}>{action.desc}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
       {/* ── Compétitions ──────────────────────────────────────────────── */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Compétitions</Text>
-          <TouchableOpacity style={styles.seeAll} activeOpacity={0.7}>
-            <Text style={styles.seeAllText}>Voir tout</Text>
-            <ChevronRight color={Colors.primary} size={14} />
+      <View style={S.section}>
+        <View style={S.sectionHeader}>
+          <Text style={S.sectionTitle}>Compétitions</Text>
+          <TouchableOpacity style={S.seeAll} activeOpacity={0.7}>
+            <Text style={S.seeAllText}>Voir tout</Text>
+            <ChevronRight color={theme.accent} size={14} />
           </TouchableOpacity>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compHScroll} contentContainerStyle={styles.compHScrollContent}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={S.compHScroll} contentContainerStyle={S.compHScrollContent}>
           {competitions.map((comp: CompetitionSummary) => (
             <TouchableOpacity
               key={comp.id}
-              style={styles.compCard}
+              style={S.compCard}
               onPress={() => navigation.navigate('CompetitionDetail', { competition: comp })}
               activeOpacity={0.82}
             >
-              <View style={styles.compCardTop}>
-                <View style={[styles.compStatusDot, { backgroundColor: comp.status === 'open' ? Colors.success : comp.status === 'active' ? Colors.warning : Colors.textMuted }]} />
-                <Text style={styles.compStatusLabel}>{comp.status === 'open' ? 'Ouvert' : comp.status === 'active' ? 'En cours' : 'Terminé'}</Text>
+              <View style={S.compCardTop}>
+                <View style={[S.compStatusDot, { backgroundColor: comp.status === 'open' ? theme.success : comp.status === 'active' ? theme.warning : theme.textMuted }]} />
+                <Text style={S.compStatusLabel}>{comp.status === 'open' ? 'Ouvert' : comp.status === 'active' ? 'En cours' : 'Terminé'}</Text>
               </View>
-              <Text style={styles.compName} numberOfLines={2}>{comp.name}</Text>
-              <Text style={styles.compPrize}>{comp.prize}</Text>
-              <View style={styles.compFooter}>
-                <Text style={styles.compParticipants}>{comp.participants}/{comp.maxParticipants} 👥</Text>
-                <Text style={styles.compDate}>{comp.startDate}</Text>
+              <Text style={S.compName} numberOfLines={2}>{comp.name}</Text>
+              <Text style={S.compPrize}>{comp.prize}</Text>
+              <View style={S.compFooter}>
+                <Text style={S.compParticipants}>{comp.participants}/{comp.maxParticipants} 👥</Text>
+                <Text style={S.compDate}>{comp.startDate}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -282,31 +267,31 @@ export default function HomeScreen() {
       </View>
 
       {/* ── Derniers résultats ─────────────────────────────────────────── */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Derniers résultats</Text>
+      <View style={S.section}>
+        <Text style={S.sectionTitle}>Derniers résultats</Text>
         {recentScores.length === 0 ? (
-          <View style={[styles.resultRow, { justifyContent: 'center' }]}>
-            <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Aucun score soumis pour l'instant.</Text>
+          <View style={[S.resultRow, { justifyContent: 'center' }]}>
+            <Text style={{ color: theme.textMuted, fontSize: 13 }}>Aucun score soumis pour l'instant.</Text>
           </View>
         ) : (
           recentScores.map(r => (
-            <View key={r.id} style={styles.resultRow}>
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{r.wod_title[0]}</Text>
+            <View key={r.id} style={S.resultRow}>
+              <View style={S.avatarPlaceholder}>
+                <Text style={S.avatarText}>{r.wod_title[0]}</Text>
               </View>
-              <View style={styles.resultMid}>
-                <Text style={styles.resultOpp}>{r.wod_title}</Text>
-                <Text style={styles.resultWod}>
+              <View style={S.resultMid}>
+                <Text style={S.resultOpp}>{r.wod_title}</Text>
+                <Text style={S.resultWod}>
                   {new Date(r.submitted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </Text>
               </View>
-              <View style={styles.resultRight}>
-                <Text style={[styles.resultBadge, {
-                  color: r.status === 'approved' ? Colors.success : r.status === 'rejected' ? Colors.error : Colors.textMuted,
+              <View style={S.resultRight}>
+                <Text style={[S.resultBadge, {
+                  color: r.status === 'approved' ? theme.success : r.status === 'rejected' ? theme.error : theme.textMuted,
                 }]}>
                   {r.status === 'approved' ? 'VALIDÉ' : r.status === 'rejected' ? 'REJETÉ' : 'EN ATTENTE'}
                 </Text>
-                <Text style={styles.resultWod}>{r.score_value}</Text>
+                <Text style={S.resultWod}>{r.score_value}</Text>
               </View>
             </View>
           ))
@@ -317,154 +302,158 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+import { AppTheme } from '../../context/ThemeContext';
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.background },
 
-  // ── Header
-  header: {
-    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerLeft: { flex: 1, gap: 4 },
-  headerRight: { alignItems: 'flex-end', gap: 8 },
-  profileBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  logoTextWrap: { flexDirection: 'column', justifyContent: 'center' },
-  logoTextBattle: { fontSize: 11, fontWeight: '900', color: Colors.text, letterSpacing: 2.5, lineHeight: 12 },
-  logoTextWod: { fontSize: 17, fontWeight: '900', color: Colors.text, letterSpacing: 2, lineHeight: 18 },
-  username: { fontSize: 26, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
-  levelPill: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
-  levelDot: { width: 7, height: 7, borderRadius: 4 },
-  levelText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
-  eloBox: {
-    backgroundColor: Colors.surface, borderRadius: 14,
-    paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center',
-    borderWidth: 1, borderColor: Colors.border, minWidth: 72,
-  },
-  eloLabel: { fontSize: 9, color: Colors.textMuted, fontWeight: '800', letterSpacing: 1.5 },
-  eloValue: { fontSize: 24, fontWeight: '900', color: Colors.text, lineHeight: 28 },
-  eloSub: { fontSize: 9, color: Colors.textMuted, fontWeight: '600' },
+    header: {
+      paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20,
+      backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
+    },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    headerLeft: { flex: 1, gap: 4 },
+    headerRight: { alignItems: 'flex-end', gap: 8 },
+    headerBtns: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    profileBtn: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    badge: {
+      position: 'absolute', top: -4, right: -4,
+      backgroundColor: '#EF4444', borderRadius: 8,
+      minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center',
+      paddingHorizontal: 3, borderWidth: 1.5, borderColor: theme.card,
+    },
+    badgeText: { fontSize: 9, fontWeight: '900', color: '#fff' },
+    logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+    logoTextWrap: { flexDirection: 'column', justifyContent: 'center' },
+    logoTextBattle: { fontSize: 11, fontWeight: '900', color: theme.text, letterSpacing: 2.5, lineHeight: 12 },
+    logoTextWod: { fontSize: 17, fontWeight: '900', color: theme.accent, letterSpacing: 2, lineHeight: 18 },
+    username: { fontSize: 26, fontWeight: '900', color: theme.text, letterSpacing: -0.5 },
+    levelPill: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+    levelDot: { width: 7, height: 7, borderRadius: 4 },
+    levelText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+    eloBox: {
+      backgroundColor: theme.surface, borderRadius: 14,
+      paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center',
+      borderWidth: 1, borderColor: theme.border, minWidth: 72,
+    },
+    eloLabel: { fontSize: 9, color: theme.textMuted, fontWeight: '800', letterSpacing: 1.5 },
+    eloValue: { fontSize: 24, fontWeight: '900', color: theme.text, lineHeight: 28 },
+    eloSub: { fontSize: 9, color: theme.textMuted, fontWeight: '600' },
 
-  // ── Stats
-  statsRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
-  statCard: {
-    flex: 1, backgroundColor: Colors.card, borderRadius: 12,
-    paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center', gap: 3,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  statValue: { fontSize: 15, fontWeight: '800', color: Colors.text },
-  statLabel: { fontSize: 9, color: Colors.textMuted, fontWeight: '600', letterSpacing: 0.3 },
+    statsRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
+    statCard: {
+      flex: 1, backgroundColor: theme.card, borderRadius: 12,
+      paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center', gap: 3,
+      borderWidth: 1, borderColor: theme.border,
+      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 2,
+    },
+    statValue: { fontSize: 15, fontWeight: '800', color: theme.text },
+    statLabel: { fontSize: 9, color: theme.textMuted, fontWeight: '600', letterSpacing: 0.3 },
 
-  // ── Sections
-  section: { paddingHorizontal: 16, marginTop: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: '900', color: Colors.text, marginBottom: 12, letterSpacing: -0.2 },
-  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  seeAllText: { fontSize: 12, color: Colors.primary, fontWeight: '700' },
+    section: { paddingHorizontal: 16, marginTop: 20 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    sectionTitle: { fontSize: 17, fontWeight: '900', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
+    seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    seeAllText: { fontSize: 12, color: theme.accent, fontWeight: '700' },
 
-  // ── Timer hero
-  timerHero: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.card, borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: Colors.border, marginBottom: 12,
-  },
-  timerHeroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  timerIconBox: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: `${Colors.primary}12`,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  timerHeroTitle: { fontSize: 14, fontWeight: '800', color: Colors.text, marginBottom: 2 },
-  timerHeroSub: { fontSize: 10, color: Colors.textMuted, lineHeight: 15 },
+    timerHero: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: theme.card, borderRadius: 16, padding: 16,
+      borderWidth: 1, borderColor: theme.border, marginBottom: 12,
+      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2,
+    },
+    timerHeroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    timerIconBox: {
+      width: 44, height: 44, borderRadius: 12,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    timerHeroTitle: { fontSize: 14, fontWeight: '800', color: theme.text, marginBottom: 2 },
+    timerHeroSub: { fontSize: 10, color: theme.textMuted, lineHeight: 15 },
 
-  // ── Actions grid
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  actionCard: {
-    width: '47.5%', borderRadius: 14, borderWidth: 1,
-    borderColor: Colors.border, backgroundColor: Colors.card,
-    padding: 14, gap: 6,
-  },
-  actionIconBox: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  actionLabel: { fontSize: 13, fontWeight: '800', color: Colors.text, marginTop: 2 },
-  actionDesc: { fontSize: 11, color: Colors.textMuted },
+    timerHeroEmerald: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: theme.accentDark, borderRadius: 16, padding: 16, marginBottom: 12,
+      shadowColor: theme.accentShadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 20, elevation: 4,
+    },
+    timerIconBoxEmerald: {
+      width: 44, height: 44, borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center', alignItems: 'center',
+    },
+    timerHeroTitleWhite: { fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 2 },
+    timerHeroSubWhite: { fontSize: 10, color: 'rgba(255,255,255,0.75)', lineHeight: 15 },
 
-  // ── 1RM Calculator hero
-  oneRMHero: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#00ff88', borderRadius: 16, padding: 16,
-  },
-  oneRMIconBox: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12,
-  },
-  oneRMTitle: { fontSize: 16, fontWeight: '900', color: '#0A0A0A', marginBottom: 2 },
-  oneRMSub: { fontSize: 11, color: 'rgba(0,0,0,0.55)', fontWeight: '600' },
+    actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    actionCard: {
+      width: '47.5%', borderRadius: 14, borderWidth: 1,
+      borderColor: theme.border, backgroundColor: theme.card, padding: 14, gap: 6,
+      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2,
+    },
+    actionIconBox: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+    actionLabel: { fontSize: 13, fontWeight: '800', color: theme.text, marginTop: 2 },
+    actionDesc: { fontSize: 11, color: theme.textMuted },
 
-  // ── WOD Generator hero
-  wodGenHero: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16,
-  },
-  wodGenIconBox: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12,
-  },
-  wodGenTitle: { fontSize: 16, fontWeight: '900', color: '#fff', marginBottom: 2 },
-  wodGenSub: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+    oneRMHero: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: theme.accent, borderRadius: 16, padding: 16,
+      shadowColor: theme.accentShadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 20, elevation: 4,
+    },
+    oneRMIconBox: {
+      width: 44, height: 44, borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center', alignItems: 'center', marginRight: 12,
+    },
+    oneRMTitle: { fontSize: 16, fontWeight: '900', color: '#fff', marginBottom: 2 },
+    oneRMSub: { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
 
-  // ── Timer hero RED variant
-  timerHeroRed: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#CC1A1A', borderRadius: 16, padding: 16, marginBottom: 12,
-    opacity: 0.92,
-  },
-  timerIconBoxRed: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  timerHeroTitleRed: { fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 2 },
-  timerHeroSubRed: { fontSize: 10, color: 'rgba(255,255,255,0.75)', lineHeight: 15 },
+    wodGenHero: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: theme.mode === 'dark' ? '#1e293b' : '#1A1A2E', borderRadius: 16, padding: 16,
+    },
+    wodGenIconBox: {
+      width: 44, height: 44, borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      justifyContent: 'center', alignItems: 'center', marginRight: 12,
+    },
+    wodGenTitle: { fontSize: 16, fontWeight: '900', color: '#fff', marginBottom: 2 },
+    wodGenSub: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
 
-  // ── Competitions horizontal scroll
-  compHScroll: { marginHorizontal: -16 },
-  compHScrollContent: { paddingHorizontal: 16, gap: 12 },
-  compCard: {
-    width: 160, backgroundColor: Colors.card, borderRadius: 16,
-    borderWidth: 1, borderColor: Colors.border, padding: 14, gap: 6,
-  },
-  compCardTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  compStatusDot: { width: 7, height: 7, borderRadius: 4 },
-  compStatusLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted },
-  compName: { fontSize: 13, fontWeight: '900', color: Colors.text, lineHeight: 17 },
-  compPrize: { fontSize: 12, color: Colors.gold, fontWeight: '700' },
-  compFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  compParticipants: { fontSize: 10, color: Colors.textMuted },
-  compDate: { fontSize: 10, color: Colors.textMuted },
+    compHScroll: { marginHorizontal: -16 },
+    compHScrollContent: { paddingHorizontal: 16, gap: 12 },
+    compCard: {
+      width: 160, backgroundColor: theme.card, borderRadius: 16,
+      borderWidth: 1, borderColor: theme.border, padding: 14, gap: 6,
+      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2,
+    },
+    compCardTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    compStatusDot: { width: 7, height: 7, borderRadius: 4 },
+    compStatusLabel: { fontSize: 10, fontWeight: '700', color: theme.textMuted },
+    compName: { fontSize: 13, fontWeight: '900', color: theme.text, lineHeight: 17 },
+    compPrize: { fontSize: 12, color: theme.gold, fontWeight: '700' },
+    compFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+    compParticipants: { fontSize: 10, color: theme.textMuted },
+    compDate: { fontSize: 10, color: theme.textMuted },
 
-  // ── Results
-  resultRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.card, borderRadius: 12, padding: 12,
-    marginBottom: 8, borderWidth: 1, borderColor: Colors.border, gap: 12,
-  },
-  avatarPlaceholder: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  avatarText: { fontSize: 15, fontWeight: '900', color: Colors.text },
-  resultMid: { flex: 1 },
-  resultOpp: { fontSize: 14, fontWeight: '700', color: Colors.text },
-  resultWod: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
-  resultRight: { alignItems: 'flex-end', gap: 1 },
-  resultBadge: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
-  eloChange: { fontSize: 12, fontWeight: '700' },
-});
+    resultRow: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: theme.card, borderRadius: 12, padding: 12,
+      marginBottom: 8, borderWidth: 1, borderColor: theme.border, gap: 12,
+      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2,
+    },
+    avatarPlaceholder: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: theme.accentShadow, justifyContent: 'center', alignItems: 'center',
+    },
+    avatarText: { fontSize: 15, fontWeight: '900', color: '#fff' },
+    resultMid: { flex: 1 },
+    resultOpp: { fontSize: 14, fontWeight: '700', color: theme.text },
+    resultWod: { fontSize: 11, color: theme.textMuted, marginTop: 1 },
+    resultRight: { alignItems: 'flex-end', gap: 1 },
+    resultBadge: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+    eloChange: { fontSize: 12, fontWeight: '700' },
+  });
+}

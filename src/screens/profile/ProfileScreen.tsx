@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Image, Share,
+  Image, Share, Switch,
 } from 'react-native';
 import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { HomeStackParamList } from '../../navigation';
 
@@ -118,7 +119,9 @@ const BADGE_CATEGORIES = [
 
 export default function ProfileScreen() {
   const { user, signOut, currentBox, joinBox, leaveBox, updateUser } = useAuth();
+  const { theme, mode, toggleTheme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const S = createStyles(theme);
   const [activeTab, setActiveTab]   = useState(3);
   const [expandedPR, setExpandedPR] = useState<string | null>('Haltérophilie');
 
@@ -319,70 +322,70 @@ export default function ProfileScreen() {
   const totalBadges = COMPUTED_BADGES.flatMap(c => c.badges).length;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
+    <View style={S.container}>
+      <View style={S.header}>
+        <View style={S.headerTop}>
           {user?.avatar_url ? (
-            <Image source={{ uri: user.avatar_url }} style={[styles.avatar, { borderColor: levelColor }]} />
+            <Image source={{ uri: user.avatar_url }} style={[S.avatar, { borderColor: levelColor }]} />
           ) : (
-            <View style={[styles.avatar, { borderColor: levelColor }]}>
-              <Text style={styles.avatarText}>{user?.username?.[0]?.toUpperCase() ?? 'A'}</Text>
+            <View style={[S.avatar, { borderColor: levelColor }]}>
+              <Text style={S.avatarText}>{user?.username?.[0]?.toUpperCase() ?? 'A'}</Text>
             </View>
           )}
-          <View style={styles.userInfo}>
-            <Text style={styles.username}>{user?.username ?? 'Athlète'}</Text>
-            <Text style={styles.email}>{user?.email}</Text>
-            <View style={[styles.levelBadge, { backgroundColor: `${levelColor}18`, borderColor: `${levelColor}40` }]}>
-              <View style={[styles.levelDot, { backgroundColor: levelColor }]} />
-              <Text style={[styles.levelText, { color: levelColor }]}>
+          <View style={S.userInfo}>
+            <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
+            <Text style={S.email}>{user?.email}</Text>
+            <View style={[S.levelBadge, { backgroundColor: `${levelColor}18`, borderColor: `${levelColor}40` }]}>
+              <View style={[S.levelDot, { backgroundColor: levelColor }]} />
+              <Text style={[S.levelText, { color: levelColor }]}>
                 {(user?.level ?? 'scaled').toUpperCase()}
               </Text>
             </View>
           </View>
-          <TouchableOpacity onPress={handleSignOut} style={styles.logoutBtn}>
-            <LogOut color={Colors.textMuted} size={20} />
+          <TouchableOpacity onPress={handleSignOut} style={S.logoutBtn}>
+            <LogOut color={theme.textMuted} size={20} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.statsRow}>
+        <View style={S.statsRow}>
           {[
             { label: 'ELO', value: user?.elo ?? 1000 },
             { label: 'Victoires', value: user?.wins ?? 0 },
             { label: 'Matchs', value: user?.total_matches ?? 0 },
             { label: 'Win Rate', value: `${winRate}%` },
           ].map((s, i) => (
-            <View key={s.label} style={[styles.statPill, i < 3 && styles.statPillBorder]}>
-              <Text style={styles.statPillValue}>{s.value}</Text>
-              <Text style={styles.statPillLabel}>{s.label}</Text>
+            <View key={s.label} style={[S.statPill, i < 3 && S.statPillBorder]}>
+              <Text style={S.statPillValue}>{s.value}</Text>
+              <Text style={S.statPillLabel}>{s.label}</Text>
             </View>
           ))}
         </View>
 
-        <View style={styles.progressSection}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Progression vers Légende</Text>
-            <Text style={styles.progressPct}>{Math.round(eloProgress)}%</Text>
+        <View style={S.progressSection}>
+          <View style={S.progressHeader}>
+            <Text style={S.progressLabel}>Progression vers Légende</Text>
+            <Text style={S.progressPct}>{Math.round(eloProgress)}%</Text>
           </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${eloProgress}%` as any }]} />
+          <View style={S.progressTrack}>
+            <View style={[S.progressFill, { width: `${eloProgress}%` as any }]} />
           </View>
-          <Text style={styles.progressNote}>{(user?.elo ?? 1000)} / 2000 ELO</Text>
+          <Text style={S.progressNote}>{(user?.elo ?? 1000)} / 2000 ELO</Text>
         </View>
       </View>
 
-      <View style={styles.tabs}>
+      <View style={S.tabs}>
         {TABS.map((tab, i) => (
           <TouchableOpacity key={tab} onPress={() => setActiveTab(i)}
-            style={[styles.tab, activeTab === i && styles.tabActive]}>
-            <Text style={[styles.tabText, activeTab === i && styles.tabTextActive]}>{tab}</Text>
+            style={[S.tab, activeTab === i && S.tabActive]}>
+            <Text style={[S.tabText, activeTab === i && S.tabTextActive]}>{tab}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
         {activeTab === 0 && (
           <>
-            <View style={styles.gridRow}>
+            <View style={S.gridRow}>
               {[
                 { label: 'Total matchs', value: user?.total_matches ?? 0, icon: Zap },
                 { label: 'Victoires', value: user?.wins ?? 0, icon: Trophy },
@@ -392,10 +395,10 @@ export default function ProfileScreen() {
                 { label: 'Badges obtenus', value: `${earnedCount}/${totalBadges}`, icon: Award },
                 ...(currentBox ? [{ label: 'WODs effectués', value: wodCount, icon: Zap }] : []),
               ].map((s) => (
-                <View key={s.label} style={styles.gridCard}>
-                  <s.icon color={Colors.primary} size={18} />
-                  <Text style={styles.gridValue}>{s.value}</Text>
-                  <Text style={styles.gridLabel}>{s.label}</Text>
+                <View key={s.label} style={S.gridCard}>
+                  <s.icon color={theme.accent} size={18} />
+                  <Text style={S.gridValue}>{s.value}</Text>
+                  <Text style={S.gridLabel}>{s.label}</Text>
                 </View>
               ))}
             </View>
@@ -407,17 +410,17 @@ export default function ProfileScreen() {
             {PR_CATEGORIES.map((cat) => {
               const isOpen = expandedPR === cat.label;
               return (  
-                <View key={cat.label} style={styles.prCategory}>
+                <View key={cat.label} style={S.prCategory}>
                   <TouchableOpacity
-                    style={styles.prCategoryHeader}
+                    style={S.prCategoryHeader}
                     onPress={() => setExpandedPR(isOpen ? null : cat.label)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.prCategoryIcon}>{cat.icon}</Text>
-                    <Text style={styles.prCategoryLabel}>{cat.label}</Text>
-                    <Text style={styles.prCategoryCount}>{cat.items.length} records</Text>
+                    <Text style={S.prCategoryIcon}>{cat.icon}</Text>
+                    <Text style={S.prCategoryLabel}>{cat.label}</Text>
+                    <Text style={S.prCategoryCount}>{cat.items.length} records</Text>
                     <ChevronRight
-                      color={Colors.textMuted} size={16}
+                      color={theme.textMuted} size={16}
                       style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
                     />
                   </TouchableOpacity>
@@ -425,30 +428,30 @@ export default function ProfileScreen() {
                     const key = `${cat.label}_${pr.movement}`;
                     const isEditingThis = editingPR === key;
                     return (
-                      <View key={i} style={[styles.prRow, i === cat.items.length - 1 && { borderBottomWidth: 0 }]}>
+                      <View key={i} style={[S.prRow, i === cat.items.length - 1 && { borderBottomWidth: 0 }]}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.prMovement}>{pr.movement}</Text>
-                          <Text style={styles.prDate}>{pr.date}</Text>
+                          <Text style={S.prMovement}>{pr.movement}</Text>
+                          <Text style={S.prDate}>{pr.date}</Text>
                         </View>
                         {isEditingThis ? (
-                          <View style={styles.prEditRow}>
+                          <View style={S.prEditRow}>
                             <TextInput
-                              style={styles.prEditInput}
+                              style={S.prEditInput}
                               value={prValues[key]}
                               onChangeText={v => setPrValues(prev => ({ ...prev, [key]: v }))}
                               keyboardType="numeric"
                               autoFocus
                               selectTextOnFocus
                             />
-                            <Text style={styles.prUnit}>{pr.unit}</Text>
-                            <TouchableOpacity onPress={() => { setEditingPR(null); savePRs(prValues); }} style={styles.prEditConfirm}>
-                              <Check color={Colors.success} size={16} />
+                            <Text style={S.prUnit}>{pr.unit}</Text>
+                            <TouchableOpacity onPress={() => { setEditingPR(null); savePRs(prValues); }} style={S.prEditConfirm}>
+                              <Check color={theme.success} size={16} />
                             </TouchableOpacity>
                           </View>
                         ) : (
-                          <TouchableOpacity onPress={() => setEditingPR(key)} style={styles.prValueBtn}>
-                            <Text style={styles.prValue}>{prValues[key]} <Text style={styles.prUnit}>{pr.unit}</Text></Text>
-                            <Edit3 color={Colors.textMuted} size={12} />
+                          <TouchableOpacity onPress={() => setEditingPR(key)} style={S.prValueBtn}>
+                            <Text style={S.prValue}>{prValues[key]} <Text style={S.prUnit}>{pr.unit}</Text></Text>
+                            <Edit3 color={theme.textMuted} size={12} />
                           </TouchableOpacity>
                         )}
                       </View>
@@ -462,25 +465,25 @@ export default function ProfileScreen() {
 
         {activeTab === 2 && (
           <>
-            <View style={styles.badgeSummary}>
-              <Text style={styles.badgeSummaryText}>
-                <Text style={{ fontWeight: '900', color: Colors.primary }}>{earnedCount}</Text>
+            <View style={S.badgeSummary}>
+              <Text style={S.badgeSummaryText}>
+                <Text style={{ fontWeight: '900', color: theme.accent }}>{earnedCount}</Text>
                 {' '}badges obtenus sur{' '}
                 <Text style={{ fontWeight: '900' }}>{totalBadges}</Text>
               </Text>
             </View>
             {COMPUTED_BADGES.map((cat) => (
-              <View key={cat.label} style={styles.badgeCategoryBlock}>
-                <Text style={styles.badgeCategoryTitle}>{cat.label}</Text>
-                <View style={styles.badgesGrid}>
+              <View key={cat.label} style={S.badgeCategoryBlock}>
+                <Text style={S.badgeCategoryTitle}>{cat.label}</Text>
+                <View style={S.badgesGrid}>
                   {cat.badges.map((badge) => (
-                    <View key={badge.id} style={[styles.badgeCard, !badge.earned && styles.badgeCardLocked]}>
-                      <Text style={styles.badgeIcon}>{badge.earned ? badge.icon : '🔒'}</Text>
-                      <Text style={[styles.badgeName, !badge.earned && { color: Colors.textMuted }]}>
+                    <View key={badge.id} style={[S.badgeCard, !badge.earned && S.badgeCardLocked]}>
+                      <Text style={S.badgeIcon}>{badge.earned ? badge.icon : '🔒'}</Text>
+                      <Text style={[S.badgeName, !badge.earned && { color: theme.textMuted }]}>
                         {badge.name}
                       </Text>
-                      <Text style={styles.badgeDesc}>{badge.desc}</Text>
-                      {badge.earned && <View style={styles.earnedBar} />}
+                      <Text style={S.badgeDesc}>{badge.desc}</Text>
+                      {badge.earned && <View style={S.earnedBar} />}
                     </View>
                   ))}
                 </View>
@@ -489,145 +492,145 @@ export default function ProfileScreen() {
           </>
         )}
         {activeTab === 3 && (
-          <View style={styles.compteSection}>
+          <View style={S.compteSection}>
 
             {/* ── Box ─────────────────────────────────── */}
-            <View style={styles.compteCard}>
-              <Text style={styles.compteCardTitle}>Ma box</Text>
+            <View style={S.compteCard}>
+              <Text style={S.compteCardTitle}>Ma box</Text>
               {currentBox ? (
                 <>
-                  <View style={styles.boxRow}>
-                    <Building2 color={Colors.primary} size={20} />
+                  <View style={S.boxRow}>
+                    <Building2 color={theme.accent} size={20} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.boxName}>{currentBox.name}</Text>
-                      {currentBox.description ? <Text style={styles.boxDesc}>{currentBox.description}</Text> : null}
+                      <Text style={S.boxName}>{currentBox.name}</Text>
+                      {currentBox.description ? <Text style={S.boxDesc}>{currentBox.description}</Text> : null}
                     </View>
-                    <View style={styles.activeTag}><Text style={styles.activeTagText}>Actif</Text></View>
+                    <View style={S.activeTag}><Text style={S.activeTagText}>Actif</Text></View>
                   </View>
-                  <TouchableOpacity style={styles.leaveBtn} onPress={handleLeaveBox} activeOpacity={0.8}>
-                    <Text style={styles.leaveBtnText}>Quitter la box</Text>
+                  <TouchableOpacity style={S.leaveBtn} onPress={handleLeaveBox} activeOpacity={0.8}>
+                    <Text style={S.leaveBtnText}>Quitter la box</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <Text style={styles.noBoxText}>Tu n'es rattaché à aucune box.</Text>
-                  <TouchableOpacity style={styles.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
+                  <Text style={S.noBoxText}>Tu n'es rattaché à aucune box.</Text>
+                  <TouchableOpacity style={S.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
                     <Hash color="#fff" size={16} />
-                    <Text style={styles.joinBtnText}>Rejoindre une box</Text>
+                    <Text style={S.joinBtnText}>Rejoindre une box</Text>
                   </TouchableOpacity>
                 </>
               )}
             </View>
 
             {/* ── Edit profile ─────────────────────────── */}
-            <View style={styles.compteCard}>
-              <View style={styles.compteCardHeader}>
-                <Text style={styles.compteCardTitle}>Mes informations</Text>
+            <View style={S.compteCard}>
+              <View style={S.compteCardHeader}>
+                <Text style={S.compteCardTitle}>Mes informations</Text>
                 {!editing ? (
-                  <TouchableOpacity onPress={() => setEditing(true)} style={styles.editIconBtn}>
-                    <Edit3 color={Colors.primary} size={16} />
-                    <Text style={styles.editIconText}>Modifier</Text>
+                  <TouchableOpacity onPress={() => setEditing(true)} style={S.editIconBtn}>
+                    <Edit3 color={theme.accent} size={16} />
+                    <Text style={S.editIconText}>Modifier</Text>
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity onPress={() => setEditing(false)} style={styles.editIconBtn}>
-                    <X color={Colors.textMuted} size={16} />
-                    <Text style={[styles.editIconText, { color: Colors.textMuted }]}>Annuler</Text>
+                  <TouchableOpacity onPress={() => setEditing(false)} style={S.editIconBtn}>
+                    <X color={theme.textMuted} size={16} />
+                    <Text style={[S.editIconText, { color: theme.textMuted }]}>Annuler</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
               {!editing ? (
-                <View style={styles.infoRows}>
-                  <InfoRow label="Pseudo" value={user?.username ?? ''} />
-                  <InfoRow label="Nom" value={user?.full_name || '—'} />
-                  <InfoRow label="Email" value={user?.email ?? ''} />
-                  <InfoRow label="Bio" value={user?.bio || 'Non renseignée'} />
-                  <InfoRow label="Photo" value={user?.avatar_url ? 'Définie' : 'Non définie'} />
+                <View style={S.infoRows}>
+                  <InfoRow label="Pseudo" value={user?.username ?? ''} S={S} />
+                  <InfoRow label="Nom" value={user?.full_name || '—'} S={S} />
+                  <InfoRow label="Email" value={user?.email ?? ''} S={S} />
+                  <InfoRow label="Bio" value={user?.bio || 'Non renseignée'} S={S} />
+                  <InfoRow label="Photo" value={user?.avatar_url ? 'Définie' : 'Non définie'} S={S} />
                 </View>
               ) : (
-                <View style={styles.editForm}>
+                <View style={S.editForm}>
                   {/* Photo */}
-                  <View style={styles.photoPickerRow}>
+                  <View style={S.photoPickerRow}>
                     {avatarUrl ? (
-                      <Image source={{ uri: avatarUrl }} style={styles.photoPreview} />
+                      <Image source={{ uri: avatarUrl }} style={S.photoPreview} />
                     ) : (
-                      <View style={styles.photoPlaceholder}>
-                        <Text style={styles.photoPlaceholderText}>{user?.username?.[0]?.toUpperCase() ?? 'A'}</Text>
+                      <View style={S.photoPlaceholder}>
+                        <Text style={S.photoPlaceholderText}>{user?.username?.[0]?.toUpperCase() ?? 'A'}</Text>
                       </View>
                     )}
-                    <View style={styles.photoPickerBtns}>
-                      <TouchableOpacity style={styles.photoBtn} onPress={handlePickPhoto} disabled={pickingPhoto} activeOpacity={0.8}>
-                        {pickingPhoto ? <ActivityIndicator color={Colors.primary} size="small" /> : <><Camera color={Colors.primary} size={14} /><Text style={styles.photoBtnText}>Galerie</Text></>}
+                    <View style={S.photoPickerBtns}>
+                      <TouchableOpacity style={S.photoBtn} onPress={handlePickPhoto} disabled={pickingPhoto} activeOpacity={0.8}>
+                        {pickingPhoto ? <ActivityIndicator color={theme.accent} size="small" /> : <><Camera color={theme.accent} size={14} /><Text style={S.photoBtnText}>Galerie</Text></>}
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.photoBtn} onPress={handleTakePhoto} disabled={pickingPhoto} activeOpacity={0.8}>
-                        <Camera color={Colors.textMuted} size={14} />
-                        <Text style={[styles.photoBtnText, { color: Colors.textMuted }]}>Caméra</Text>
+                      <TouchableOpacity style={S.photoBtn} onPress={handleTakePhoto} disabled={pickingPhoto} activeOpacity={0.8}>
+                        <Camera color={theme.textMuted} size={14} />
+                        <Text style={[S.photoBtnText, { color: theme.textMuted }]}>Caméra</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
 
-                  <Text style={styles.editLabel}>Pseudo</Text>
-                  <TextInput style={styles.editInput} value={editUsername} onChangeText={setEditUsername} autoCapitalize="none" placeholder="Pseudo" placeholderTextColor={Colors.textMuted} />
+                  <Text style={S.editLabel}>Pseudo</Text>
+                  <TextInput style={S.editInput} value={editUsername} onChangeText={setEditUsername} autoCapitalize="none" placeholder="Pseudo" placeholderTextColor={theme.textMuted} />
 
-                  <View style={styles.editRow}>
-                    <View style={styles.editField}>
-                      <Text style={styles.editLabel}>Prénom</Text>
-                      <TextInput style={styles.editInput} value={firstName} onChangeText={setFirstName} placeholder="Prénom" placeholderTextColor={Colors.textMuted} />
+                  <View style={S.editRow}>
+                    <View style={S.editField}>
+                      <Text style={S.editLabel}>Prénom</Text>
+                      <TextInput style={S.editInput} value={firstName} onChangeText={setFirstName} placeholder="Prénom" placeholderTextColor={theme.textMuted} />
                     </View>
-                    <View style={styles.editField}>
-                      <Text style={styles.editLabel}>Nom</Text>
-                      <TextInput style={styles.editInput} value={lastName} onChangeText={setLastName} placeholder="Nom" placeholderTextColor={Colors.textMuted} />
+                    <View style={S.editField}>
+                      <Text style={S.editLabel}>Nom</Text>
+                      <TextInput style={S.editInput} value={lastName} onChangeText={setLastName} placeholder="Nom" placeholderTextColor={theme.textMuted} />
                     </View>
                   </View>
 
-                  <Text style={styles.editLabel}>Email</Text>
-                  <TextInput style={styles.editInput} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Email" placeholderTextColor={Colors.textMuted} />
+                  <Text style={S.editLabel}>Email</Text>
+                  <TextInput style={S.editInput} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Email" placeholderTextColor={theme.textMuted} />
 
-                  <Text style={styles.editLabel}>Bio (avec #hashtags)</Text>
+                  <Text style={S.editLabel}>Bio (avec #hashtags)</Text>
                   <TextInput
-                    style={[styles.editInput, styles.bioInput]}
+                    style={[S.editInput, S.bioInput]}
                     value={editBio}
                     onChangeText={setEditBio}
                     multiline
                     numberOfLines={3}
                     placeholder="Parle de toi... #crossfit #rx #motivation"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={theme.textMuted}
                   />
 
-                  <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile} disabled={saving} activeOpacity={0.85}>
-                    {saving ? <ActivityIndicator color="#fff" size="small" /> : <><Check color="#fff" size={16} /><Text style={styles.saveBtnText}>Enregistrer</Text></>}
+                  <TouchableOpacity style={S.saveBtn} onPress={handleSaveProfile} disabled={saving} activeOpacity={0.85}>
+                    {saving ? <ActivityIndicator color="#fff" size="small" /> : <><Check color="#fff" size={16} /><Text style={S.saveBtnText}>Enregistrer</Text></>}
                   </TouchableOpacity>
                 </View>
               )}
             </View>
             {/* ── Mes amis ─────────────────────────────── */}
-            <View style={styles.compteCard}>
-              <Text style={styles.compteCardTitle}>Mes amis ({friends.length})</Text>
+            <View style={S.compteCard}>
+              <Text style={S.compteCardTitle}>Mes amis ({friends.length})</Text>
               {friends.length === 0 ? (
-                <Text style={styles.friendsEmpty}>Aucun ami pour l'instant. Consulte les profils publics pour en ajouter.</Text>
+                <Text style={S.friendsEmpty}>Aucun ami pour l'instant. Consulte les profils publics pour en ajouter.</Text>
               ) : (
-                <View style={styles.friendsList}>
+                <View style={S.friendsList}>
                   {friends.map(f => {
-                    const fc = LevelColors[f.level as keyof typeof LevelColors] ?? Colors.primary;
+                    const fc = LevelColors[f.level as keyof typeof LevelColors] ?? theme.accent;
                     return (
                       <TouchableOpacity
                         key={f.id}
-                        style={styles.friendRow}
+                        style={S.friendRow}
                         onPress={() => navigation.navigate('PublicProfile', { userId: f.id })}
                         activeOpacity={0.8}
                       >
                         {f.avatar_url ? (
-                          <Image source={{ uri: f.avatar_url }} style={[styles.friendAvatar, { borderColor: fc }]} />
+                          <Image source={{ uri: f.avatar_url }} style={[S.friendAvatar, { borderColor: fc }]} />
                         ) : (
-                          <View style={[styles.friendAvatar, { borderColor: fc, backgroundColor: `${fc}20`, justifyContent: 'center', alignItems: 'center' }]}>
-                            <Text style={[styles.friendAvatarLetter, { color: fc }]}>{f.username?.[0]?.toUpperCase()}</Text>
+                          <View style={[S.friendAvatar, { borderColor: fc, backgroundColor: `${fc}20`, justifyContent: 'center', alignItems: 'center' }]}>
+                            <Text style={[S.friendAvatarLetter, { color: fc }]}>{f.username?.[0]?.toUpperCase()}</Text>
                           </View>
                         )}
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.friendName}>{f.username}</Text>
-                          <Text style={[styles.friendLevel, { color: fc }]}>{f.level?.toUpperCase()}</Text>
+                          <Text style={S.friendName}>{f.username}</Text>
+                          <Text style={[S.friendLevel, { color: fc }]}>{f.level?.toUpperCase()}</Text>
                         </View>
-                        <ChevronRight color={Colors.textMuted} size={16} />
+                        <ChevronRight color={theme.textMuted} size={16} />
                       </TouchableOpacity>
                     );
                   })}
@@ -635,27 +638,42 @@ export default function ProfileScreen() {
               )}
             </View>
 
+            {/* ── Apparence ───────────────────────────── */}
+            <View style={S.compteCard}>
+              <Text style={S.compteCardTitle}>Apparence</Text>
+              <View style={S.themeRow}>
+                <Text style={S.themeLabel}>{mode === 'dark' ? '🌙 Mode sombre' : '☀️ Mode clair'}</Text>
+                <Switch
+                  value={mode === 'dark'}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: theme.surfaceAlt, true: theme.accentDark }}
+                  thumbColor={mode === 'dark' ? theme.accentLight : '#fff'}
+                  ios_backgroundColor={theme.surfaceAlt}
+                />
+              </View>
+            </View>
+
             {/* ── Referral code ────────────────────────── */}
-            <View style={styles.compteCard}>
-              <Text style={styles.compteCardTitle}>Mon code de parrainage</Text>
-              <Text style={styles.referralDesc}>
+            <View style={S.compteCard}>
+              <Text style={S.compteCardTitle}>Mon code de parrainage</Text>
+              <Text style={S.referralDesc}>
                 Partage ce code pour inviter des amis et gagner des récompenses.
               </Text>
               {referralCode ? (
-                <View style={styles.referralBox}>
-                  <Text style={styles.referralCode}>{referralCode}</Text>
+                <View style={S.referralBox}>
+                  <Text style={S.referralCode}>{referralCode}</Text>
                 </View>
               ) : (
-                <ActivityIndicator color={Colors.primary} size="small" style={{ marginVertical: 8 }} />
+                <ActivityIndicator color={theme.accent} size="small" style={{ marginVertical: 8 }} />
               )}
-              <View style={styles.referralBtns}>
-                <TouchableOpacity style={styles.referralBtn} onPress={handleCopyReferral} disabled={!referralCode} activeOpacity={0.8}>
-                  <Copy color={Colors.primary} size={15} />
-                  <Text style={styles.referralBtnText}>Copier</Text>
+              <View style={S.referralBtns}>
+                <TouchableOpacity style={S.referralBtn} onPress={handleCopyReferral} disabled={!referralCode} activeOpacity={0.8}>
+                  <Copy color={theme.accent} size={15} />
+                  <Text style={S.referralBtnText}>Copier</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.referralBtn, styles.referralBtnShare]} onPress={handleShareReferral} disabled={!referralCode} activeOpacity={0.8}>
+                <TouchableOpacity style={[S.referralBtn, S.referralBtnShare]} onPress={handleShareReferral} disabled={!referralCode} activeOpacity={0.8}>
                   <Share2 color="#fff" size={15} />
-                  <Text style={[styles.referralBtnText, { color: '#fff' }]}>Partager</Text>
+                  <Text style={[S.referralBtnText, { color: '#fff' }]}>Partager</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -667,31 +685,31 @@ export default function ProfileScreen() {
 
       {/* ── Join box modal ────────────────────────────────────── */}
       <Modal visible={joinModal} transparent animationType="slide" onRequestClose={() => setJoinModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Rejoindre une box</Text>
-            <Text style={styles.modalSub}>Entre le code d'invitation (6 caractères)</Text>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
+          <View style={S.modalSheet}>
+            <View style={S.modalHandle} />
+            <Text style={S.modalTitle}>Rejoindre une box</Text>
+            <Text style={S.modalSub}>Entre le code d'invitation (6 caractères)</Text>
             <TextInput
-              style={styles.codeInput}
+              style={S.codeInput}
               value={joinCode}
               onChangeText={t => setJoinCode(t.toUpperCase())}
               placeholder="Ex : ABC123"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               maxLength={6}
               autoCapitalize="characters"
               autoFocus
             />
             <TouchableOpacity
-              style={[styles.joinBtn, (!joinCode.trim() || joining) && { opacity: 0.5 }]}
+              style={[S.joinBtn, (!joinCode.trim() || joining) && { opacity: 0.5 }]}
               onPress={handleJoinBox}
               disabled={!joinCode.trim() || joining}
               activeOpacity={0.85}
             >
-              {joining ? <ActivityIndicator color="#fff" size="small" /> : <><Hash color="#fff" size={16} /><Text style={styles.joinBtnText}>Rejoindre</Text></>}
+              {joining ? <ActivityIndicator color="#fff" size="small" /> : <><Hash color="#fff" size={16} /><Text style={S.joinBtnText}>Rejoindre</Text></>}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setJoinModal(false)} style={styles.modalCancel}>
-              <Text style={styles.modalCancelText}>Annuler</Text>
+            <TouchableOpacity onPress={() => setJoinModal(false)} style={S.modalCancel}>
+              <Text style={S.modalCancelText}>Annuler</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -700,32 +718,32 @@ export default function ProfileScreen() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, S }: { label: string; value: string; S: ReturnType<typeof createStyles> }) {
   return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoRowLabel}>{label}</Text>
-      <Text style={styles.infoRowValue} numberOfLines={1}>{value}</Text>
+    <View style={S.infoRow}>
+      <Text style={S.infoRowLabel}>{label}</Text>
+      <Text style={S.infoRowValue} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    backgroundColor: theme.card,
+    borderBottomWidth: 1, borderBottomColor: theme.border,
   },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 },
   avatar: {
     width: 60, height: 60, borderRadius: 30,
-    backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
     borderWidth: 2,
   },
-  avatarText: { fontSize: 24, fontWeight: '900', color: Colors.text },
+  avatarText: { fontSize: 24, fontWeight: '900', color: theme.text },
   userInfo: { flex: 1 },
-  username: { fontSize: 18, fontWeight: '900', color: Colors.text },
-  email: { fontSize: 11, color: Colors.textMuted, marginBottom: 6 },
+  username: { fontSize: 18, fontWeight: '900', color: theme.text },
+  email: { fontSize: 11, color: theme.textMuted, marginBottom: 6 },
   levelBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
@@ -736,202 +754,194 @@ const styles = StyleSheet.create({
   logoutBtn: { padding: 8 },
   statsRow: { flexDirection: 'row', marginBottom: 14 },
   statPill: { flex: 1, alignItems: 'center', paddingVertical: 4 },
-  statPillBorder: { borderRightWidth: 1, borderRightColor: Colors.border },
-  statPillValue: { fontSize: 18, fontWeight: '900', color: Colors.text },
-  statPillLabel: { fontSize: 9, color: Colors.textMuted, fontWeight: '600', marginTop: 1 },
+  statPillBorder: { borderRightWidth: 1, borderRightColor: theme.border },
+  statPillValue: { fontSize: 18, fontWeight: '900', color: theme.text },
+  statPillLabel: { fontSize: 9, color: theme.textMuted, fontWeight: '600', marginTop: 1 },
   progressSection: {},
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  progressLabel: { fontSize: 11, color: Colors.textMuted, fontWeight: '600' },
-  progressPct: { fontSize: 11, fontWeight: '700', color: Colors.primary },
-  progressTrack: { height: 4, backgroundColor: Colors.surface, borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
-  progressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
-  progressNote: { fontSize: 10, color: Colors.textMuted },
+  progressLabel: { fontSize: 11, color: theme.textMuted, fontWeight: '600' },
+  progressPct: { fontSize: 11, fontWeight: '700', color: theme.accent },
+  progressTrack: { height: 4, backgroundColor: theme.surfaceAlt, borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
+  progressFill: { height: '100%', backgroundColor: theme.accent, borderRadius: 2 },
+  progressNote: { fontSize: 10, color: theme.textMuted },
   tabs: {
-    flexDirection: 'row', backgroundColor: Colors.background,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    flexDirection: 'row', backgroundColor: theme.card,
+    borderBottomWidth: 1, borderBottomColor: theme.border,
   },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: Colors.primary },
-  tabText: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
-  tabTextActive: { color: Colors.primary, fontWeight: '800' },
+  tabActive: { borderBottomColor: theme.accent },
+  tabText: { fontSize: 13, fontWeight: '600', color: theme.textMuted },
+  tabTextActive: { color: theme.accent, fontWeight: '800' },
   content: { padding: 16 },
   gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   gridCard: {
-    width: '47%', backgroundColor: Colors.card, borderRadius: 12,
+    width: '47%', backgroundColor: theme.card, borderRadius: 12,
     padding: 16, alignItems: 'center', gap: 6,
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1, borderColor: theme.border,
   },
-  gridValue: { fontSize: 22, fontWeight: '900', color: Colors.text },
-  gridLabel: { fontSize: 10, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
+  gridValue: { fontSize: 22, fontWeight: '900', color: theme.text },
+  gridLabel: { fontSize: 10, color: theme.textMuted, fontWeight: '600', textAlign: 'center' },
   prCategory: {
-    backgroundColor: Colors.card, borderRadius: 12,
-    borderWidth: 1, borderColor: Colors.border, marginBottom: 10, overflow: 'hidden',
+    backgroundColor: theme.card, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.border, marginBottom: 10, overflow: 'hidden',
   },
   prCategoryHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14,
   },
   prCategoryIcon: { fontSize: 20 },
-  prCategoryLabel: { flex: 1, fontSize: 14, fontWeight: '800', color: Colors.text },
-  prCategoryCount: { fontSize: 11, color: Colors.textMuted },
+  prCategoryLabel: { flex: 1, fontSize: 14, fontWeight: '800', color: theme.text },
+  prCategoryCount: { fontSize: 11, color: theme.textMuted },
   prRow: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: Colors.border,
+    borderTopWidth: 1, borderTopColor: theme.border,
   },
-  prMovement: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.text },
-  prDate: { fontSize: 10, color: Colors.textMuted, marginRight: 12 },
-  prValue: { fontSize: 15, fontWeight: '900', color: Colors.text },
-  prUnit: { fontSize: 11, color: Colors.textMuted, fontWeight: '400' },
+  prMovement: { flex: 1, fontSize: 13, fontWeight: '600', color: theme.text },
+  prDate: { fontSize: 10, color: theme.textMuted, marginRight: 12 },
+  prValue: { fontSize: 15, fontWeight: '900', color: theme.text },
+  prUnit: { fontSize: 11, color: theme.textMuted, fontWeight: '400' },
   badgeSummary: { marginBottom: 16 },
-  badgeSummaryText: { fontSize: 13, color: Colors.textSecondary },
+  badgeSummaryText: { fontSize: 13, color: theme.textSecondary },
   badgeCategoryBlock: { marginBottom: 20 },
-  badgeCategoryTitle: { fontSize: 13, fontWeight: '800', color: Colors.textSecondary, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+  badgeCategoryTitle: { fontSize: 13, fontWeight: '800', color: theme.textSecondary, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   badgeCard: {
-    width: '47%', backgroundColor: Colors.card, borderRadius: 12,
+    width: '47%', backgroundColor: theme.card, borderRadius: 12,
     padding: 14, alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1, borderColor: theme.border,
   },
   badgeCardLocked: { opacity: 0.35 },
   badgeIcon: { fontSize: 28, marginBottom: 4 },
-  badgeName: { fontSize: 12, fontWeight: '800', color: Colors.text, textAlign: 'center' },
-  badgeDesc: { fontSize: 10, color: Colors.textMuted, textAlign: 'center', lineHeight: 14 },
-  earnedBar: { height: 2, width: 24, backgroundColor: Colors.success, borderRadius: 1, marginTop: 4 },
+  badgeName: { fontSize: 12, fontWeight: '800', color: theme.text, textAlign: 'center' },
+  badgeDesc: { fontSize: 10, color: theme.textMuted, textAlign: 'center', lineHeight: 14 },
+  earnedBar: { height: 2, width: 24, backgroundColor: theme.success, borderRadius: 1, marginTop: 4 },
 
-  // ── Compte tab
   compteSection: { gap: 14, paddingBottom: 8 },
   compteCard: {
-    backgroundColor: Colors.card, borderRadius: 14,
-    borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 12,
+    backgroundColor: theme.card, borderRadius: 14,
+    borderWidth: 1, borderColor: theme.border, padding: 16, gap: 12,
   },
   compteCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  compteCardTitle: { fontSize: 13, fontWeight: '800', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  compteCardTitle: { fontSize: 13, fontWeight: '800', color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
   editIconBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editIconText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  editIconText: { fontSize: 12, fontWeight: '700', color: theme.accent },
+  themeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  themeLabel: { fontSize: 15, fontWeight: '600', color: theme.text },
 
-  // box display
   boxRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  boxName: { fontSize: 15, fontWeight: '800', color: Colors.text },
-  boxDesc: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+  boxName: { fontSize: 15, fontWeight: '800', color: theme.text },
+  boxDesc: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
   activeTag: {
-    backgroundColor: `${Colors.success}18`, borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: `${Colors.success}40`,
+    backgroundColor: `${theme.success}18`, borderRadius: 6,
+    paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: `${theme.success}40`,
   },
-  activeTagText: { fontSize: 10, fontWeight: '800', color: Colors.success },
-  noBoxText: { fontSize: 13, color: Colors.textMuted },
+  activeTagText: { fontSize: 10, fontWeight: '800', color: theme.success },
+  noBoxText: { fontSize: 13, color: theme.textMuted },
   joinBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: Colors.primary, borderRadius: 12, padding: 14,
+    gap: 8, backgroundColor: theme.accent, borderRadius: 12, padding: 14,
   },
   joinBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   leaveBtn: {
-    borderWidth: 1.5, borderColor: Colors.error, borderRadius: 12,
+    borderWidth: 1.5, borderColor: theme.error, borderRadius: 12,
     padding: 12, alignItems: 'center',
   },
-  leaveBtnText: { color: Colors.error, fontSize: 13, fontWeight: '800' },
+  leaveBtnText: { color: theme.error, fontSize: 13, fontWeight: '800' },
 
-  // info rows (read mode)
   infoRows: { gap: 0 },
   infoRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border,
   },
-  infoRowLabel: { fontSize: 13, color: Colors.textMuted, fontWeight: '600' },
-  infoRowValue: { fontSize: 13, fontWeight: '700', color: Colors.text, maxWidth: '60%' },
+  infoRowLabel: { fontSize: 13, color: theme.textMuted, fontWeight: '600' },
+  infoRowValue: { fontSize: 13, fontWeight: '700', color: theme.text, maxWidth: '60%' },
 
-  // edit form
   editForm: { gap: 10 },
   editRow: { flexDirection: 'row', gap: 10 },
   editField: { flex: 1, gap: 4 },
-  editLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  editLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.4 },
   editInput: {
-    backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1,
-    borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, color: Colors.text,
+    backgroundColor: theme.surface, borderRadius: 10, borderWidth: 1,
+    borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: theme.text,
   },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: Colors.primary, borderRadius: 12, padding: 14, marginTop: 4,
+    gap: 8, backgroundColor: theme.accent, borderRadius: 12, padding: 14, marginTop: 4,
   },
   saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
 
-  // join modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalSheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, gap: 14, paddingBottom: 40,
   },
-  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 4 },
-  modalTitle: { fontSize: 20, fontWeight: '900', color: Colors.text, textAlign: 'center' },
-  modalSub: { fontSize: 13, color: Colors.textMuted, textAlign: 'center' },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 4 },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: theme.text, textAlign: 'center' },
+  modalSub: { fontSize: 13, color: theme.textMuted, textAlign: 'center' },
   codeInput: {
-    backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1.5,
-    borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 22, fontWeight: '900', color: Colors.text, textAlign: 'center', letterSpacing: 6,
+    backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1.5,
+    borderColor: theme.border, paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 22, fontWeight: '900', color: theme.text, textAlign: 'center', letterSpacing: 6,
   },
   modalCancel: { alignItems: 'center', paddingVertical: 8 },
-  modalCancelText: { fontSize: 13, color: Colors.textMuted, fontWeight: '600' },
+  modalCancelText: { fontSize: 13, color: theme.textMuted, fontWeight: '600' },
 
-  // ── Photo picker
   photoPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  photoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: Colors.primary },
+  photoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: theme.accent },
   photoPlaceholder: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: `${Colors.primary}20`, justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: Colors.border,
+    backgroundColor: `${theme.accent}20`, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: theme.border,
   },
-  photoPlaceholderText: { fontSize: 24, fontWeight: '900', color: Colors.primary },
+  photoPlaceholderText: { fontSize: 24, fontWeight: '900', color: theme.accent },
   photoPickerBtns: { flex: 1, gap: 8 },
   photoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: `${Colors.primary}12`, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: `${theme.accent}14`, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12,
+    borderWidth: 1, borderColor: theme.border,
   },
-  photoBtnText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  photoBtnText: { fontSize: 12, fontWeight: '700', color: theme.accent },
 
-  // ── Bio
   bioInput: { minHeight: 70, textAlignVertical: 'top' },
 
-  // ── Friends list
-  friendsEmpty: { fontSize: 12, color: Colors.textMuted, lineHeight: 17 },
+  friendsEmpty: { fontSize: 12, color: theme.textMuted, lineHeight: 17 },
   friendsList: { gap: 8 },
   friendRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.surface, borderRadius: 12,
-    padding: 10, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.surface, borderRadius: 12,
+    padding: 10, borderWidth: 1, borderColor: theme.border,
   },
   friendAvatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 2 },
   friendAvatarLetter: { fontSize: 16, fontWeight: '900' },
-  friendName: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  friendName: { fontSize: 14, fontWeight: '700', color: theme.text },
   friendLevel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5, marginTop: 1 },
 
-  // ── PR inline edit
   prValueBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   prEditRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   prEditInput: {
-    backgroundColor: Colors.surface, borderRadius: 8, borderWidth: 1,
-    borderColor: Colors.primary, paddingHorizontal: 8, paddingVertical: 4,
-    fontSize: 16, fontWeight: '800', color: Colors.text, width: 70, textAlign: 'right',
+    backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1,
+    borderColor: theme.accent, paddingHorizontal: 8, paddingVertical: 4,
+    fontSize: 16, fontWeight: '800', color: theme.text, width: 70, textAlign: 'right',
   },
   prEditConfirm: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: `${Colors.success}18`, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: `${theme.success}18`, justifyContent: 'center', alignItems: 'center',
   },
 
-  // ── Referral
-  referralDesc: { fontSize: 12, color: Colors.textMuted, lineHeight: 17 },
+  referralDesc: { fontSize: 12, color: theme.textMuted, lineHeight: 17 },
   referralBox: {
-    backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1.5,
-    borderColor: Colors.border, paddingVertical: 14, alignItems: 'center',
+    backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1.5,
+    borderColor: theme.border, paddingVertical: 14, alignItems: 'center',
     borderStyle: 'dashed',
   },
-  referralCode: { fontSize: 26, fontWeight: '900', color: Colors.text, letterSpacing: 6 },
+  referralCode: { fontSize: 26, fontWeight: '900', color: theme.text, letterSpacing: 6 },
   referralBtns: { flexDirection: 'row', gap: 10 },
   referralBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, borderRadius: 12, paddingVertical: 11,
-    backgroundColor: `${Colors.primary}12`, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: `${theme.accent}14`, borderWidth: 1, borderColor: theme.border,
   },
-  referralBtnShare: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  referralBtnText: { fontSize: 13, fontWeight: '800', color: Colors.primary },
-});
+  referralBtnShare: { backgroundColor: theme.accent, borderColor: theme.accent },
+  referralBtnText: { fontSize: 13, fontWeight: '800', color: theme.accent },
+}); }

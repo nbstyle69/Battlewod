@@ -7,7 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Zap, ChevronLeft, Building2, Dumbbell } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { LevelColors } from '../../theme/colors';
 import { AuthStackParamList } from '../../navigation';
 import { AthleteLevel } from '../../types';
 
@@ -24,6 +25,8 @@ const LEVELS: { value: AthleteLevel; label: string; description: string }[] = [
 
 export default function RegisterScreen({ navigation }: Props) {
   const { signUp } = useAuth();
+  const { theme, mode } = useTheme();
+  const S = createStyles(theme);
   const [email,       setEmail]       = useState('');
   const [username,    setUsername]    = useState('');
   const [password,    setPassword]    = useState('');
@@ -48,43 +51,47 @@ export default function RegisterScreen({ navigation }: Props) {
     }
   }
 
+  const gradColors = mode === 'dark'
+    ? ['#0A0A0F', '#12121A', '#0A0A0F'] as const
+    : ['#f0fdf9', '#ffffff', '#f0fdf9'] as const;
+
   return (
-    <LinearGradient colors={['#0A0A0F', '#12121A', '#0A0A0F']} style={styles.gradient}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-            <ChevronLeft color={Colors.textSecondary} size={24} />
-            <Text style={styles.backText}>Retour</Text>
+    <LinearGradient colors={gradColors} style={S.gradient}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.flex}>
+        <ScrollView contentContainerStyle={S.container} keyboardShouldPersistTaps="handled">
+          <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
+            <ChevronLeft color={theme.textSecondary} size={24} />
+            <Text style={S.backText}>Retour</Text>
           </TouchableOpacity>
 
-          <View style={styles.logoContainer}>
-            <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.logoBox}>
+          <View style={S.logoContainer}>
+            <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.logoBox}>
               <Zap color="#fff" size={32} />
             </LinearGradient>
-            <Text style={styles.appName}>BattleWOD</Text>
+            <Text style={S.appName}>BattleWOD</Text>
           </View>
 
-          <View style={styles.form}>
-            <Text style={styles.title}>Créer un compte</Text>
+          <View style={S.form}>
+            <Text style={S.title}>Créer un compte</Text>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Pseudo</Text>
+            <View style={S.inputContainer}>
+              <Text style={S.label}>Pseudo</Text>
               <TextInput
-                style={styles.input}
+                style={S.input}
                 placeholder="TonPseudo"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
+            <View style={S.inputContainer}>
+              <Text style={S.label}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={S.input}
                 placeholder="ton@email.com"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -92,68 +99,68 @@ export default function RegisterScreen({ navigation }: Props) {
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Mot de passe</Text>
+            <View style={S.inputContainer}>
+              <Text style={S.label}>Mot de passe</Text>
               <TextInput
-                style={styles.input}
+                style={S.input}
                 placeholder="••••••••"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Tu es…</Text>
-              <View style={styles.roleRow}>
+            <View style={S.inputContainer}>
+              <Text style={S.label}>Tu es…</Text>
+              <View style={S.roleRow}>
                 <TouchableOpacity
-                  style={[styles.roleCard, !asBoxOwner && styles.roleCardActive]}
+                  style={[S.roleCard, !asBoxOwner && S.roleCardActive]}
                   onPress={() => setAsBoxOwner(false)}
                   activeOpacity={0.8}
                 >
-                  <Dumbbell color={!asBoxOwner ? Colors.primary : Colors.textMuted} size={20} />
-                  <Text style={[styles.roleLabel, !asBoxOwner && styles.roleLabelActive]}>Athlète</Text>
-                  <Text style={styles.roleDesc}>Je veux m'entraîner et compétir</Text>
+                  <Dumbbell color={!asBoxOwner ? theme.accent : theme.textMuted} size={20} />
+                  <Text style={[S.roleLabel, !asBoxOwner && S.roleLabelActive]}>Athlète</Text>
+                  <Text style={S.roleDesc}>Je veux m'entraîner et compétir</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.roleCard, asBoxOwner && styles.roleCardActive]}
+                  style={[S.roleCard, asBoxOwner && S.roleCardActive]}
                   onPress={() => setAsBoxOwner(true)}
                   activeOpacity={0.8}
                 >
-                  <Building2 color={asBoxOwner ? Colors.primary : Colors.textMuted} size={20} />
-                  <Text style={[styles.roleLabel, asBoxOwner && styles.roleLabelActive]}>Gérant de box</Text>
-                  <Text style={styles.roleDesc}>Je gère une box / salle</Text>
+                  <Building2 color={asBoxOwner ? theme.accent : theme.textMuted} size={20} />
+                  <Text style={[S.roleLabel, asBoxOwner && S.roleLabelActive]}>Gérant de box</Text>
+                  <Text style={S.roleDesc}>Je gère une box / salle</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Ton niveau</Text>
-              <View style={styles.levelsGrid}>
+            <View style={S.inputContainer}>
+              <Text style={S.label}>Ton niveau</Text>
+              <View style={S.levelsGrid}>
                 {LEVELS.map((l) => (
                   <TouchableOpacity
                     key={l.value}
                     onPress={() => setLevel(l.value)}
                     style={[
-                      styles.levelCard,
+                      S.levelCard,
                       level === l.value && { borderColor: LevelColors[l.value], backgroundColor: `${LevelColors[l.value]}20` },
                     ]}
                   >
-                    <Text style={[styles.levelLabel, level === l.value && { color: LevelColors[l.value] }]}>
+                    <Text style={[S.levelLabel, level === l.value && { color: LevelColors[l.value] }]}>
                       {l.label}
                     </Text>
-                    <Text style={styles.levelDesc}>{l.description}</Text>
+                    <Text style={S.levelDesc}>{l.description}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
             <TouchableOpacity onPress={handleRegister} disabled={loading} activeOpacity={0.8}>
-              <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.button}>
+              <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
                 {loading
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.buttonText}>REJOINDRE LA BATAILLE</Text>}
+                  : <Text style={S.buttonText}>REJOINDRE LA BATAILLE</Text>}
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -163,46 +170,46 @@ export default function RegisterScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) { return StyleSheet.create({
   gradient: { flex: 1 },
   flex: { flex: 1 },
   container: { flexGrow: 1, padding: 24, paddingTop: 60 },
   back: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  backText: { color: Colors.textSecondary, fontSize: 15, marginLeft: 4 },
+  backText: { color: theme.textSecondary, fontSize: 15, marginLeft: 4 },
   logoContainer: { alignItems: 'center', marginBottom: 32 },
   logoBox: {
     width: 64, height: 64, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center', marginBottom: 12,
   },
-  appName: { fontSize: 28, fontWeight: '900', color: Colors.text, letterSpacing: 2 },
+  appName: { fontSize: 28, fontWeight: '900', color: theme.text, letterSpacing: 2 },
   form: {
-    backgroundColor: Colors.card, borderRadius: 20,
-    padding: 24, borderWidth: 1, borderColor: Colors.cardBorder,
+    backgroundColor: theme.card, borderRadius: 20,
+    padding: 24, borderWidth: 1, borderColor: theme.cardBorder,
   },
-  title: { fontSize: 22, fontWeight: '800', color: Colors.text, marginBottom: 24 },
+  title: { fontSize: 22, fontWeight: '800', color: theme.text, marginBottom: 24 },
   inputContainer: { marginBottom: 16 },
-  label: { fontSize: 13, color: Colors.textSecondary, marginBottom: 6, fontWeight: '600' },
+  label: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '600' },
   input: {
-    backgroundColor: Colors.surface, borderRadius: 12, padding: 14,
-    color: Colors.text, fontSize: 15, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.surface, borderRadius: 12, padding: 14,
+    color: theme.text, fontSize: 15, borderWidth: 1, borderColor: theme.border,
   },
   roleRow:       { flexDirection: 'row', gap: 10 },
   roleCard: {
     flex: 1, padding: 14, borderRadius: 14,
-    borderWidth: 1.5, borderColor: Colors.border,
-    backgroundColor: Colors.surface, alignItems: 'center', gap: 4,
+    borderWidth: 1.5, borderColor: theme.border,
+    backgroundColor: theme.surface, alignItems: 'center', gap: 4,
   },
-  roleCardActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}08` },
-  roleLabel:      { fontSize: 13, fontWeight: '800', color: Colors.textMuted, textAlign: 'center' },
-  roleLabelActive: { color: Colors.primary },
-  roleDesc:       { fontSize: 10, color: Colors.textMuted, textAlign: 'center' },
+  roleCardActive: { borderColor: theme.accent, backgroundColor: `${theme.accent}12` },
+  roleLabel:      { fontSize: 13, fontWeight: '800', color: theme.textMuted, textAlign: 'center' },
+  roleLabelActive: { color: theme.accent },
+  roleDesc:       { fontSize: 10, color: theme.textMuted, textAlign: 'center' },
   levelsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   levelCard: {
     width: '48%', padding: 12, borderRadius: 12,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+    borderWidth: 1.5, borderColor: theme.border, backgroundColor: theme.surface,
   },
-  levelLabel: { fontSize: 14, fontWeight: '700', color: Colors.text, marginBottom: 2 },
-  levelDesc: { fontSize: 11, color: Colors.textMuted },
+  levelLabel: { fontSize: 14, fontWeight: '700', color: theme.text, marginBottom: 2 },
+  levelDesc: { fontSize: 11, color: theme.textMuted },
   button: { borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
-});
+}); }

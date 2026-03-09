@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Send, Megaphone } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Colors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { MessageType } from '../../types';
 
 interface MsgRow {
@@ -30,6 +30,8 @@ interface Group { id: string; name: string; color: string | null; }
 
 export default function MessagesScreen() {
   const { user, currentBox } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const [messages,   setMessages]   = useState<MsgRow[]>([]);
   const [groups,     setGroups]     = useState<Group[]>([]);
   const [activeTab,  setActiveTab]  = useState<string | null>(null); // null = Tous
@@ -187,17 +189,17 @@ export default function MessagesScreen() {
 
   if (!currentBox) {
     return (
-      <View style={s.container}>
-        <View style={s.header}><Text style={s.headerTitle}>Messages</Text></View>
-        <View style={s.empty}><Text style={s.emptyText}>Rejoins une box pour accéder aux messages 🏋️</Text></View>
+      <View style={S.container}>
+        <View style={S.header}><Text style={S.headerTitle}>Messages</Text></View>
+        <View style={S.empty}><Text style={S.emptyText}>Rejoins une box pour accéder aux messages 🏋️</Text></View>
       </View>
     );
   }
 
   if (loading) {
     return (
-      <View style={[s.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }
@@ -225,14 +227,14 @@ export default function MessagesScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={s.container}
+      style={S.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       {/* Header */}
-      <View style={s.header}>
+      <View style={S.header}>
         <View>
-          <Text style={s.headerTitle}>Messages</Text>
-          <Text style={s.headerSub}>{currentBox.name}</Text>
+          <Text style={S.headerTitle}>Messages</Text>
+          <Text style={S.headerSub}>{currentBox.name}</Text>
         </View>
       </View>
 
@@ -241,26 +243,26 @@ export default function MessagesScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={s.tabsContainer}
-          contentContainerStyle={s.tabsContent}
+          style={S.tabsContainer}
+          contentContainerStyle={S.tabsContent}
         >
           <TouchableOpacity
-            style={[s.tab, activeTab === null && s.tabActive]}
+            style={[S.tab, activeTab === null && S.tabActive]}
             onPress={() => setActiveTab(null)}
           >
-            <Text style={[s.tabText, activeTab === null && s.tabTextActive]}>Tous</Text>
+            <Text style={[S.tabText, activeTab === null && S.tabTextActive]}>Tous</Text>
           </TouchableOpacity>
           {groups.map(g => (
             <TouchableOpacity
               key={g.id}
               style={[
-                s.tab,
-                activeTab === g.id && { backgroundColor: g.color ?? Colors.primary, borderColor: g.color ?? Colors.primary },
+                S.tab,
+                activeTab === g.id && { backgroundColor: g.color ?? theme.accent, borderColor: g.color ?? theme.accent },
               ]}
               onPress={() => setActiveTab(g.id)}
             >
-              <View style={[s.tabDot, { backgroundColor: g.color ?? Colors.primary }]} />
-              <Text style={[s.tabText, activeTab === g.id && s.tabTextActive]}>{g.name}</Text>
+              <View style={[S.tabDot, { backgroundColor: g.color ?? theme.accent }]} />
+              <Text style={[S.tabText, activeTab === g.id && S.tabTextActive]}>{g.name}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -271,7 +273,7 @@ export default function MessagesScreen() {
         ref={listRef}
         data={grouped}
         keyExtractor={item => ('id' in item ? item.id : item.key)}
-        contentContainerStyle={s.list}
+        contentContainerStyle={S.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -282,10 +284,10 @@ export default function MessagesScreen() {
         renderItem={({ item }) => {
           if ('type' in item && item.type === 'date') {
             return (
-              <View style={s.dateDivider}>
-                <View style={s.dateLine} />
-                <Text style={s.dateLabel}>{item.label}</Text>
-                <View style={s.dateLine} />
+              <View style={S.dateDivider}>
+                <View style={S.dateLine} />
+                <Text style={S.dateLabel}>{item.label}</Text>
+                <View style={S.dateLine} />
               </View>
             );
           }
@@ -293,42 +295,42 @@ export default function MessagesScreen() {
           const isMe = msg.sender_id === user?.id;
           const initial = (msg.sender?.username?.[0] ?? '?').toUpperCase();
           return (
-            <View style={[s.msgRow, isMe && s.msgRowMe]}>
+            <View style={[S.msgRow, isMe && S.msgRowMe]}>
               {!isMe && (
-                <View style={s.avatar}>
-                  <Text style={s.avatarText}>{initial}</Text>
+                <View style={S.avatar}>
+                  <Text style={S.avatarText}>{initial}</Text>
                 </View>
               )}
-              <View style={[s.bubble, isMe ? s.bubbleMe : s.bubbleThem]}>
+              <View style={[S.bubble, isMe ? S.bubbleMe : S.bubbleThem]}>
                 {!isMe && (
-                  <Text style={s.senderName}>{msg.sender?.username ?? 'Inconnu'}</Text>
+                  <Text style={S.senderName}>{msg.sender?.username ?? 'Inconnu'}</Text>
                 )}
                 {msg.is_announcement && (
-                  <View style={s.announcementTag}>
-                    <Megaphone color={Colors.warning} size={10} />
-                    <Text style={s.announcementText}>Annonce</Text>
+                  <View style={S.announcementTag}>
+                    <Megaphone color={theme.warning} size={10} />
+                    <Text style={S.announcementText}>Annonce</Text>
                   </View>
                 )}
-                <Text style={[s.bubbleText, isMe && s.bubbleTextMe]}>{msg.content}</Text>
-                <Text style={[s.timeText, isMe && s.timeTextMe]}>{formatTime(msg.created_at)}</Text>
+                <Text style={[S.bubbleText, isMe && S.bubbleTextMe]}>{msg.content}</Text>
+                <Text style={[S.timeText, isMe && S.timeTextMe]}>{formatTime(msg.created_at)}</Text>
               </View>
             </View>
           );
         }}
         ListEmptyComponent={
-          <View style={s.empty}>
-            <Text style={s.emptyEmoji}>💬</Text>
-            <Text style={s.emptyText}>Aucun message pour l'instant.{'\n'}Soyez le premier à écrire !</Text>
+          <View style={S.empty}>
+            <Text style={S.emptyEmoji}>💬</Text>
+            <Text style={S.emptyText}>Aucun message pour l'instant.{'\n'}Soyez le premier à écrire !</Text>
           </View>
         }
       />
 
       {/* Input bar */}
-      <View style={s.inputBar}>
+      <View style={S.inputBar}>
         <TextInput
-          style={s.input}
+          style={S.input}
           placeholder="Écrire un message…"
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={input}
           onChangeText={setInput}
           multiline
@@ -336,7 +338,7 @@ export default function MessagesScreen() {
           returnKeyType="default"
         />
         <TouchableOpacity
-          style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnDisabled]}
+          style={[S.sendBtn, (!input.trim() || sending) && S.sendBtnDisabled]}
           onPress={sendMessage}
           disabled={!input.trim() || sending}
           activeOpacity={0.8}
@@ -350,77 +352,67 @@ export default function MessagesScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 14,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
   },
-  headerTitle: { fontSize: 22, fontWeight: '900', color: Colors.text },
-  headerSub:   { fontSize: 12, color: Colors.textMuted, marginTop: 1 },
-
+  headerTitle: { fontSize: 22, fontWeight: '900', color: theme.text },
+  headerSub:   { fontSize: 12, color: theme.textMuted, marginTop: 1 },
   list: { padding: 12, paddingBottom: 8 },
-
   dateDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 8 },
-  dateLine:    { flex: 1, height: 1, backgroundColor: Colors.border },
-  dateLabel:   { fontSize: 11, color: Colors.textMuted, fontWeight: '600' },
-
+  dateLine:    { flex: 1, height: 1, backgroundColor: theme.border },
+  dateLabel:   { fontSize: 11, color: theme.textMuted, fontWeight: '600' },
   msgRow:   { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 10 },
   msgRowMe: { flexDirection: 'row-reverse' },
-
-  avatar:     { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 11, fontWeight: '900', color: Colors.text },
-
+  avatar:     { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' },
+  avatarText: { fontSize: 11, fontWeight: '900', color: theme.text },
   bubble: {
     maxWidth: '75%', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 9, gap: 3,
   },
   bubbleThem: {
-    backgroundColor: Colors.card,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.card,
+    borderWidth: 1, borderColor: theme.border,
     borderBottomLeftRadius: 4,
   },
   bubbleMe: {
-    backgroundColor: Colors.primary,
+    backgroundColor: theme.accent,
     borderBottomRightRadius: 4,
   },
-
-  senderName:       { fontSize: 11, fontWeight: '800', color: Colors.primary, marginBottom: 1 },
+  senderName:       { fontSize: 11, fontWeight: '800', color: theme.accent, marginBottom: 1 },
   announcementTag:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
-  announcementText: { fontSize: 9, fontWeight: '800', color: Colors.warning },
-  bubbleText:       { fontSize: 14, color: Colors.text, lineHeight: 20 },
+  announcementText: { fontSize: 9, fontWeight: '800', color: theme.warning },
+  bubbleText:       { fontSize: 14, color: theme.text, lineHeight: 20 },
   bubbleTextMe:     { color: '#fff' },
-  timeText:         { fontSize: 10, color: Colors.textMuted, alignSelf: 'flex-end' },
+  timeText:         { fontSize: 10, color: theme.textMuted, alignSelf: 'flex-end' },
   timeTextMe:       { color: 'rgba(255,255,255,0.6)' },
-
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
     paddingHorizontal: 12, paddingVertical: 10,
-    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border,
+    backgroundColor: theme.card, borderTopWidth: 1, borderTopColor: theme.border,
   },
   input: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: 20,
-    borderWidth: 1, borderColor: Colors.border,
+    flex: 1, backgroundColor: theme.surface, borderRadius: 20,
+    borderWidth: 1, borderColor: theme.border,
     paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 14, color: Colors.text, maxHeight: 100,
+    fontSize: 14, color: theme.text, maxHeight: 100,
   },
-  sendBtn:         { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+  sendBtn:         { width: 42, height: 42, borderRadius: 21, backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { opacity: 0.4 },
-
   empty:     { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, paddingTop: 60, gap: 12 },
   emptyEmoji: { fontSize: 40 },
-  emptyText: { fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 22 },
-
-  tabsContainer: { maxHeight: 48, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  emptyText: { fontSize: 14, color: theme.textMuted, textAlign: 'center', lineHeight: 22 },
+  tabsContainer: { maxHeight: 48, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   tabsContent:   { paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: 'row', alignItems: 'center' },
   tab: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 14, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1, borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+    borderRadius: 20, borderWidth: 1, borderColor: theme.border,
+    backgroundColor: theme.surface,
   },
-  tabActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  tabActive:     { backgroundColor: theme.accent, borderColor: theme.accent },
   tabDot:        { width: 7, height: 7, borderRadius: 4 },
-  tabText:       { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
+  tabText:       { fontSize: 12, fontWeight: '700', color: theme.textMuted },
   tabTextActive: { color: '#fff' },
-});
+}); }

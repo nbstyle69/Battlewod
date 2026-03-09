@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Target } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 
 const ZONES: Array<{
   pct: number;
@@ -39,6 +40,8 @@ function round(val: number, step: number): number {
 
 export default function OneRMCalculatorScreen() {
   const navigation = useNavigation();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const [input, setInput] = useState('');
   const [isLbs, setIsLbs] = useState(false);
 
@@ -48,76 +51,76 @@ export default function OneRMCalculatorScreen() {
   const valid = !isNaN(raw) && raw > 0;
 
   return (
-    <SafeAreaView style={s.screen}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
-          <ArrowLeft color="#fff" size={22} />
+    <SafeAreaView style={S.screen}>
+      <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn} activeOpacity={0.7}>
+          <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
-        <View style={s.headerCenter}>
-          <Target color="#00ff88" size={18} />
-          <Text style={s.headerTitle}>Calculateur 1RM</Text>
+        <View style={S.headerCenter}>
+          <Target color={theme.success} size={18} />
+          <Text style={S.headerTitle}>Calculateur 1RM</Text>
         </View>
-        <View style={s.backBtn} />
+        <View style={S.backBtn} />
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={S.scroll} contentContainerStyle={S.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Input */}
-        <View style={s.inputCard}>
-          <Text style={s.inputLabel}>TON 1RM</Text>
-          <View style={s.inputRow}>
+        <View style={S.inputCard}>
+          <Text style={S.inputLabel}>TON 1RM</Text>
+          <View style={S.inputRow}>
             <TextInput
-              style={s.input}
+              style={S.input}
               value={input}
               onChangeText={setInput}
               keyboardType="decimal-pad"
               placeholder="ex: 100"
-              placeholderTextColor="#444"
+              placeholderTextColor={theme.textMuted}
               maxLength={6}
             />
-            <Text style={s.inputUnit}>{unit}</Text>
+            <Text style={S.inputUnit}>{unit}</Text>
           </View>
 
-          <View style={s.toggleRow}>
-            <Text style={[s.toggleLabel, !isLbs && { color: '#00ff88', fontWeight: '800' }]}>KG</Text>
+          <View style={S.toggleRow}>
+            <Text style={[S.toggleLabel, !isLbs && { color: theme.success, fontWeight: '800' }]}>KG</Text>
             <Switch
               value={isLbs}
               onValueChange={setIsLbs}
-              trackColor={{ false: '#00ff88', true: '#FF3B30' }}
+              trackColor={{ false: theme.success, true: '#FF3B30' }}
               thumbColor="#fff"
             />
-            <Text style={[s.toggleLabel, isLbs && { color: '#FF3B30', fontWeight: '800' }]}>LBS</Text>
+            <Text style={[S.toggleLabel, isLbs && { color: '#FF3B30', fontWeight: '800' }]}>LBS</Text>
           </View>
         </View>
 
         {/* Table header */}
-        <View style={s.tableHeader}>
-          <Text style={[s.thTxt, { flex: 0.7 }]}>%</Text>
-          <Text style={[s.thTxt, { flex: 1 }]}>Charge</Text>
-          <Text style={[s.thTxt, { flex: 1.5 }]}>Zone</Text>
-          <Text style={[s.thTxt, { flex: 1.3 }]}>Reps</Text>
+        <View style={S.tableHeader}>
+          <Text style={[S.thTxt, { flex: 0.7 }]}>%</Text>
+          <Text style={[S.thTxt, { flex: 1 }]}>Charge</Text>
+          <Text style={[S.thTxt, { flex: 1.5 }]}>Zone</Text>
+          <Text style={[S.thTxt, { flex: 1.3 }]}>Reps</Text>
         </View>
 
         {/* Table rows */}
         {ZONES.map((z) => {
           const load = valid ? round(raw * z.pct / 100, step) : null;
           return (
-            <View key={z.pct} style={[s.row, { backgroundColor: z.bg }]}>
-              <View style={[s.pctBadge, { borderColor: z.color }]}>
-                <Text style={[s.pctTxt, { color: z.color }]}>{z.pct}%</Text>
+            <View key={z.pct} style={[S.row, { backgroundColor: z.bg }]}>
+              <View style={[S.pctBadge, { borderColor: z.color }]}>
+                <Text style={[S.pctTxt, { color: z.color }]}>{z.pct}%</Text>
               </View>
-              <Text style={[s.loadTxt, { flex: 1, color: load ? '#fff' : '#333' }]}>
+              <Text style={[S.loadTxt, { flex: 1, color: load ? '#fff' : theme.textMuted }]}>
                 {load != null ? `${load} ${unit}` : '—'}
               </Text>
-              <Text style={[s.zoneTxt, { flex: 1.5, color: z.color }]}>{z.zone}</Text>
-              <Text style={[s.repsTxt, { flex: 1.3 }]}>{z.reps}</Text>
+              <Text style={[S.zoneTxt, { flex: 1.5, color: z.color }]}>{z.zone}</Text>
+              <Text style={[S.repsTxt, { flex: 1.3 }]}>{z.reps}</Text>
             </View>
           );
         })}
 
-        <View style={s.footer}>
-          <Text style={s.footerTxt}>
-            Charges arrondies au {step} {unit} le plus proche.{'\n'}
+        <View style={S.footer}>
+          <Text style={S.footerTxt}>
+            Charges arrondiées au {step} {unit} le plus proche.{'\n'}
             Au-delà de 100% : excentrique, partiel ou assisté uniquement.
           </Text>
         </View>
@@ -126,48 +129,45 @@ export default function OneRMCalculatorScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0A0A0A' },
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: theme.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+    borderBottomWidth: 1, borderBottomColor: theme.border,
   },
   backBtn: { width: 38, height: 38, justifyContent: 'center', alignItems: 'center' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 0.2 },
+  headerTitle: { fontSize: 16, fontWeight: '900', color: theme.text, letterSpacing: 0.2 },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
-
   inputCard: {
-    backgroundColor: '#111', borderRadius: 16, padding: 20,
+    backgroundColor: theme.card, borderRadius: 16, padding: 20,
     marginTop: 20, marginBottom: 20,
-    borderWidth: 1, borderColor: '#222',
+    borderWidth: 1, borderColor: theme.border,
   },
   inputLabel: {
-    fontSize: 10, fontWeight: '800', color: '#00ff88',
+    fontSize: 10, fontWeight: '800', color: theme.success,
     letterSpacing: 1.5, marginBottom: 12,
   },
   inputRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16,
   },
   input: {
-    flex: 1, backgroundColor: '#1a1a1a', borderRadius: 12,
+    flex: 1, backgroundColor: theme.surface, borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 28, fontWeight: '900', color: '#fff',
-    borderWidth: 1, borderColor: '#333',
+    fontSize: 28, fontWeight: '900', color: theme.text,
+    borderWidth: 1, borderColor: theme.border,
   },
-  inputUnit: { fontSize: 20, fontWeight: '800', color: '#555' },
+  inputUnit: { fontSize: 20, fontWeight: '800', color: theme.textMuted },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'center' },
-  toggleLabel: { fontSize: 14, fontWeight: '700', color: '#444', letterSpacing: 1 },
-
+  toggleLabel: { fontSize: 14, fontWeight: '700', color: theme.textMuted, letterSpacing: 1 },
   tableHeader: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 8,
-    backgroundColor: '#111', borderRadius: 10, marginBottom: 4,
+    backgroundColor: theme.card, borderRadius: 10, marginBottom: 4,
   },
-  thTxt: { fontSize: 9, fontWeight: '800', color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
-
+  thTxt: { fontSize: 9, fontWeight: '800', color: theme.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
   row: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 11,
@@ -181,8 +181,7 @@ const s = StyleSheet.create({
   pctTxt: { fontSize: 12, fontWeight: '900' },
   loadTxt: { fontSize: 13, fontWeight: '800' },
   zoneTxt: { fontSize: 11, fontWeight: '700' },
-  repsTxt: { fontSize: 10, fontWeight: '600', color: '#aaa' },
-
+  repsTxt: { fontSize: 10, fontWeight: '600', color: theme.textSecondary },
   footer: { marginTop: 20, paddingHorizontal: 4 },
-  footerTxt: { fontSize: 11, color: '#444', lineHeight: 18, textAlign: 'center' },
-});
+  footerTxt: { fontSize: 11, color: theme.textMuted, lineHeight: 18, textAlign: 'center' },
+}); }

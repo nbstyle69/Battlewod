@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions, ActivityIndicator, ScrollView, Modal,
-  TextInput, Linking, Clipboard, Alert,
+  TextInput, Linking, Clipboard, Alert, useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle } from 'react-native-svg';
@@ -10,7 +10,8 @@ import ViewShot from 'react-native-view-shot';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings, Youtube, Copy, ExternalLink } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -68,11 +69,9 @@ async function playTone(hz: number, ms: number, fadeOutMs = 20): Promise<void> {
     const wav  = buildMultiWAV([{ hz, ms, fadeInMs: 5, fadeOutMs }]);
     const path = (FileSystem.cacheDirectory ?? '') + `bwod_tone_${hz}_${ms}.wav`;
     await FileSystem.writeAsStringAsync(path, wav, { encoding: FileSystem.EncodingType.Base64 });
-    const { sound } = await Audio.Sound.createAsync({ uri: path });
-    await sound.playAsync();
-    sound.setOnPlaybackStatusUpdate(status => {
-      if (status.isLoaded && status.didJustFinish) sound.unloadAsync();
-    });
+    const player = createAudioPlayer({ uri: path });
+    player.play();
+    setTimeout(() => player.remove(), ms + 300);
   } catch {}
 }
 
@@ -84,12 +83,11 @@ function playArmingSequence(): void {
   setTimeout(() => playTone(1000, 550, 40), 3000);
 }
 
-async function createBeepMulti(segs: WavSeg[], name: string): Promise<Audio.Sound | null> {
+async function createBeepMulti(segs: WavSeg[], name: string): Promise<AudioPlayer | null> {
   try {
     const path = (FileSystem.cacheDirectory ?? '') + name;
     await FileSystem.writeAsStringAsync(path, buildMultiWAV(segs), { encoding: FileSystem.EncodingType.Base64 });
-    const { sound } = await Audio.Sound.createAsync({ uri: path });
-    return sound;
+    return createAudioPlayer({ uri: path });
   } catch { return null; }
 }
 
@@ -104,12 +102,13 @@ const DEFAULT_DISPLAY: TimerDisplayOpts = {
   clockStyle: 'arc', fontSize: Math.round(SW * 0.22), digitColor: '#FFFFFF',
   bgCountdown: '#2a2a2a', bgRunning: '#111111', bgDone: '#0d2a18', bipsEnabled: true,
 };
-const COLOR_PRESETS = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC'];
-const BG_PRESETS    = ['#111111', '#2a2a2a', '#0d2a18', '#2d1515', '#0d1a2a', '#000000'];
+const COLOR_PRESETS = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC', '#000000'];
+const BG_PRESETS    = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC', '#000000'];
 
 // ─── ARC clock (SVG) ─────────────────────────────────────────────────────────
 function ArcTimer({ time, progress, color }: { time: string; progress: number; color: string }) {
-  const size = Math.min(SW * 0.76, 280);
+  const { width: aw, height: ah } = useWindowDimensions();
+  const size = Math.min(Math.min(aw, ah) * 0.76, 280);
   const r    = size / 2 - 18;
   const circ = 2 * Math.PI * r;
   const dash = circ * (1 - Math.max(0, Math.min(1, progress)));
@@ -130,10 +129,12 @@ function ArcTimer({ time, progress, color }: { time: string; progress: number; c
 
 // ─── BAR clock ──────────────────────────────────────────────────────────────
 function BarTimer({ time, progress, color, fontSize }: { time: string; progress: number; color: string; fontSize: number }) {
+  const { width: bw, height: bh } = useWindowDimensions();
+  const isLandscapeBar = bw > bh;
   const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
   return (
     <View style={{ alignItems: 'center', gap: 20 }}>
-      <View style={{ width: SW * 0.75, height: 14, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 7, overflow: 'hidden', position: 'relative' }}>
+      <View style={{ width: isLandscapeBar ? bw * 0.38 : bw * 0.75, height: 14, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 7, overflow: 'hidden', position: 'relative' }}>
         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%` as `${number}%`, backgroundColor: color, borderRadius: 7 }} />
       </View>
       <Text style={{ fontSize, fontWeight: '200', color, letterSpacing: -2,
@@ -325,7 +326,7 @@ export default function TimerRunScreen() {
   const intervalRef       = useRef<ReturnType<typeof setInterval> | null>(null);
   const cameraRef         = useRef<CameraView>(null);
   const recordingActiveRef = useRef(false);
-  const soundsRef         = useRef<{ tick: Audio.Sound | null; go: Audio.Sound | null; done: Audio.Sound | null }>({ tick: null, go: null, done: null });
+  const soundsRef         = useRef<{ tick: AudioPlayer | null; go: AudioPlayer | null; done: AudioPlayer | null }>({ tick: null, go: null, done: null });
 
   const [displayOpts, setDisplayOptsRaw] = useState<TimerDisplayOpts>(DEFAULT_DISPLAY);
   const [showSettings, setShowSettings]  = useState(false);
@@ -356,7 +357,7 @@ export default function TimerRunScreen() {
       if (seqBlocksRef.current.length > 0) initSeqBlockByIdx(0);
     }
     async function setup() {
-      try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false, shouldDuckAndroid: false }); } catch {}
+      try { await setAudioModeAsync({ playsInSilentMode: true }); } catch {}
       if (withCamera) {
         if (!camPermission?.granted) requestCamPermission();
         if (!micPermission?.granted) requestMicPermission();
@@ -377,7 +378,7 @@ export default function TimerRunScreen() {
       ], 'bwod_done.wav');
     }
     setup();
-    return () => { soundsRef.current.tick?.unloadAsync(); soundsRef.current.go?.unloadAsync(); soundsRef.current.done?.unloadAsync(); };
+    return () => { soundsRef.current.tick?.remove(); soundsRef.current.go?.remove(); soundsRef.current.done?.remove(); };
   }, []);
 
   useEffect(() => {
@@ -395,7 +396,7 @@ export default function TimerRunScreen() {
   }
 
   async function playBeep(type: 'tick' | 'go' | 'done') {
-    try { if (!displayOptsRef.current.bipsEnabled) return; const snd = soundsRef.current[type]; if (snd) { await snd.setPositionAsync(0); await snd.playAsync(); } } catch {}
+    try { if (!displayOptsRef.current.bipsEnabled) return; const snd = soundsRef.current[type]; if (snd) { snd.seekTo(0); snd.play(); } } catch {}
   }
 
   function stopAndSave() {
@@ -561,6 +562,8 @@ export default function TimerRunScreen() {
                   playBeep('tick');
                 }
               }
+            } else if (roundTimeLeftRef.current <= 3) {
+              playBeep('tick');
             }
             break;
 
@@ -576,6 +579,8 @@ export default function TimerRunScreen() {
                 setInnerPhase('work');
                 ywyrWorkRef.current = 0;
                 timerValRef.current = 0;
+                playBeep('tick');
+              } else if (timerValRef.current <= 3) {
                 playBeep('tick');
               }
             }
@@ -614,11 +619,11 @@ export default function TimerRunScreen() {
                 if (roundTimeLeftRef.current <= 0) {
                   if (innerPhaseRef.current === 'work') { innerPhaseRef.current = 'rest'; setInnerPhase('rest'); roundTimeLeftRef.current = blk.restSec; setRoundTimeLeft(blk.restSec); playBeep('go'); }
                   else { const nxt = currentRoundRef.current + 1; if (nxt > blk.tabRounds) seqBlockDone(); else { currentRoundRef.current = nxt; setCurrentRound(nxt); innerPhaseRef.current = 'work'; setInnerPhase('work'); roundTimeLeftRef.current = blk.workSec; setRoundTimeLeft(blk.workSec); playBeep('tick'); } }
-                }
+                } else if (roundTimeLeftRef.current <= 3) { playBeep('tick'); }
                 break;
               case 'ywyr':
                 if (innerPhaseRef.current === 'work') { ywyrWorkRef.current += 1; setTimerVal(ywyrWorkRef.current); }
-                else { timerValRef.current -= 1; setTimerVal(timerValRef.current); if (timerValRef.current <= 0) seqBlockDone(); }
+                else { timerValRef.current -= 1; setTimerVal(timerValRef.current); if (timerValRef.current <= 0) seqBlockDone(); else if (timerValRef.current <= 3) playBeep('tick'); }
                 break;
             }
             break;
@@ -706,6 +711,8 @@ export default function TimerRunScreen() {
   }
 
   const isActive = phase === 'countdown' || phase === 'running';
+  const { width: winW, height: winH } = useWindowDimensions();
+  const isLandscape = winW > winH;
 
   const curBlk = timerType === 'libre' ? seqBlocksRef.current[seqIdx] : undefined;
   const seqTotal = seqBlocksRef.current.length;
@@ -841,7 +848,7 @@ export default function TimerRunScreen() {
   );
 
   const renderContent = () => (
-    <View style={styles.overlay}>
+    <View style={[styles.overlay, isLandscape && { paddingVertical: 20 }]}>
       {renderTopBar()}
 
       {phase === 'done' ? (
@@ -929,6 +936,9 @@ export default function TimerRunScreen() {
             </View>
           )}
 
+          <View style={isLandscape
+            ? { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 }
+            : { flex: 1, justifyContent: 'flex-end' }}>
           {/* TIMER — visible seulement hors countdown */}
           {phase !== 'countdown' && (!withCamera || camState >= 1) && (
             <View style={styles.timerCenter}>
@@ -966,7 +976,7 @@ export default function TimerRunScreen() {
             </View>
           )}
 
-          <View style={styles.controls}>
+          <View style={[styles.controls, isLandscape && { paddingBottom: 0, justifyContent: 'center' }]}>
             {withCamera ? (
               /* ── SINGLE BUTTON (camera mode) ─────────────────────── */
               <>
@@ -1044,6 +1054,7 @@ export default function TimerRunScreen() {
                 )}
               </>
             )}
+          </View>
           </View>
         </>
       )}

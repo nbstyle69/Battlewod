@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { ChevronLeft, Hash, LogIn } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import { Colors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 
 export default function JoinBoxScreen({ navigation }: any) {
   const { joinBox, user } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const [code, setCode]       = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,26 +29,26 @@ export default function JoinBoxScreen({ navigation }: any) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={S.container}
     >
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-        <ChevronLeft color={Colors.textSecondary} size={22} />
+      <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
+        <ChevronLeft color={theme.textSecondary} size={22} />
       </TouchableOpacity>
 
-      <View style={styles.inner}>
-        <View style={styles.iconWrap}>
-          <Hash color={Colors.primary} size={32} />
+      <View style={S.inner}>
+        <View style={S.iconWrap}>
+          <Hash color={theme.accent} size={32} />
         </View>
-        <Text style={styles.title}>Rejoindre une box</Text>
-        <Text style={styles.subtitle}>
+        <Text style={S.title}>Rejoindre une box</Text>
+        <Text style={S.subtitle}>
           Demande le code à 6 caractères à ton coach ou gérant de box.
         </Text>
 
-        <View style={styles.inputWrap}>
+        <View style={S.inputWrap}>
           <TextInput
-            style={styles.codeInput}
+            style={S.codeInput}
             placeholder="ABC123"
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             value={code}
             onChangeText={t => setCode(t.toUpperCase())}
             autoCapitalize="characters"
@@ -56,7 +58,7 @@ export default function JoinBoxScreen({ navigation }: any) {
         </View>
 
         <TouchableOpacity
-          style={[styles.btn, code.length !== 6 && styles.btnDisabled]}
+          style={[S.btn, code.length !== 6 && S.btnDisabled]}
           onPress={handleJoin}
           disabled={loading || code.length !== 6}
           activeOpacity={0.85}
@@ -66,12 +68,12 @@ export default function JoinBoxScreen({ navigation }: any) {
             : (
               <>
                 <LogIn color="#fff" size={18} />
-                <Text style={styles.btnText}>Rejoindre</Text>
+                <Text style={S.btnText}>Rejoindre</Text>
               </>
             )}
         </TouchableOpacity>
 
-        <Text style={styles.hint}>
+        <Text style={S.hint}>
           Bonjour {user?.username} · si tu n'as pas encore de code, contacte ton box
         </Text>
       </View>
@@ -79,33 +81,33 @@ export default function JoinBoxScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   back: { paddingTop: 56, paddingLeft: 20, paddingBottom: 8 },
   inner: { flex: 1, paddingHorizontal: 28, justifyContent: 'center', gap: 18, marginTop: -60 },
   iconWrap: {
     width: 64, height: 64, borderRadius: 18,
-    backgroundColor: `${Colors.primary}10`,
+    backgroundColor: `${theme.accent}10`,
     justifyContent: 'center', alignItems: 'center',
     alignSelf: 'center', marginBottom: 8,
   },
-  title: { fontSize: 26, fontWeight: '900', color: Colors.text, textAlign: 'center' },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  title: { fontSize: 26, fontWeight: '900', color: theme.text, textAlign: 'center' },
+  subtitle: { fontSize: 14, color: theme.textSecondary, textAlign: 'center', lineHeight: 20 },
   inputWrap: { alignItems: 'center', marginVertical: 8 },
   codeInput: {
-    fontSize: 32, fontWeight: '900', color: Colors.text,
+    fontSize: 32, fontWeight: '900', color: theme.text,
     letterSpacing: 12, textAlign: 'center',
-    backgroundColor: Colors.card, borderRadius: 16,
-    borderWidth: 1.5, borderColor: Colors.border,
+    backgroundColor: theme.card, borderRadius: 16,
+    borderWidth: 1.5, borderColor: theme.border,
     paddingHorizontal: 28, paddingVertical: 18,
     width: '100%',
   },
   btn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: Colors.primary,
+    gap: 8, backgroundColor: theme.accent,
     borderRadius: 16, padding: 18,
   },
   btnDisabled: { opacity: 0.4 },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
-  hint: { fontSize: 12, color: Colors.textMuted, textAlign: 'center', marginTop: 4 },
-});
+  hint: { fontSize: 12, color: theme.textMuted, textAlign: 'center', marginTop: 4 },
+}); }

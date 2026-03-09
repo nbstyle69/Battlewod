@@ -5,7 +5,8 @@ import {
 import { Zap, Clock, ChevronRight, Filter, Sparkles } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WOD } from '../../types';
 import { WODStackParamList } from '../../navigation';
 
@@ -57,6 +58,8 @@ const MOCK_WODS: WOD[] = [
 
 export default function WODScreen() {
   const navigation = useNavigation<Nav>();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const [selectedLevel, setSelectedLevel] = useState<AthleteLevel | 'all'>('all');
 
   const filtered = selectedLevel === 'all'
@@ -64,42 +67,42 @@ export default function WODScreen() {
     : MOCK_WODS.filter(w => w.level === selectedLevel);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
+    <View style={S.container}>
+      <View style={S.header}>
+        <View style={S.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>WOD</Text>
-            <Text style={styles.headerSubtitle}>Workouts of the Day</Text>
+            <Text style={S.headerTitle}>WOD</Text>
+            <Text style={S.headerSubtitle}>Workouts of the Day</Text>
           </View>
           <TouchableOpacity
-            style={styles.generateButton}
+            style={S.generateButton}
             onPress={() => navigation.navigate('WODGenerator')}
             activeOpacity={0.8}
           >
             <Sparkles color="#fff" size={18} />
-            <Text style={styles.generateText}>Générer</Text>
+            <Text style={S.generateText}>Générer</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.filterRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+      <View style={S.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.filters}>
           <TouchableOpacity
             onPress={() => setSelectedLevel('all')}
-            style={[styles.filterChip, selectedLevel === 'all' && styles.filterChipActive]}
+            style={[S.filterChip, selectedLevel === 'all' && S.filterChipActive]}
           >
-            <Text style={[styles.filterText, selectedLevel === 'all' && styles.filterTextActive]}>Tous</Text>
+            <Text style={[S.filterText, selectedLevel === 'all' && S.filterTextActive]}>Tous</Text>
           </TouchableOpacity>
           {LEVELS.map((l) => (
             <TouchableOpacity
               key={l}
               onPress={() => setSelectedLevel(l)}
               style={[
-                styles.filterChip,
+                S.filterChip,
                 selectedLevel === l && { backgroundColor: `${LevelColors[l]}25`, borderColor: LevelColors[l] },
               ]}
             >
-              <Text style={[styles.filterText, selectedLevel === l && { color: LevelColors[l] }]}>
+              <Text style={[S.filterText, selectedLevel === l && { color: LevelColors[l] }]}>
                 {l.toUpperCase()}
               </Text>
             </TouchableOpacity>
@@ -110,44 +113,44 @@ export default function WODScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={S.list}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.wodCard} activeOpacity={0.8}>
-            <View style={styles.wodCardHeader}>
-              <View style={styles.wodMeta}>
-                <View style={[styles.typeBadge, { backgroundColor: `${Colors.primary}20` }]}>
-                  <Text style={[styles.typeText, { color: Colors.primary }]}>{item.type}</Text>
+          <TouchableOpacity style={S.wodCard} activeOpacity={0.8}>
+            <View style={S.wodCardHeader}>
+              <View style={S.wodMeta}>
+                <View style={[S.typeBadge, { backgroundColor: `${theme.accent}20` }]}>
+                  <Text style={[S.typeText, { color: theme.accent }]}>{item.type}</Text>
                 </View>
-                <View style={[styles.typeBadge, { backgroundColor: `${LevelColors[item.level]}20` }]}>
-                  <Text style={[styles.typeText, { color: LevelColors[item.level] }]}>
+                <View style={[S.typeBadge, { backgroundColor: `${LevelColors[item.level]}20` }]}>
+                  <Text style={[S.typeText, { color: LevelColors[item.level] }]}>
                     {item.level.toUpperCase()}
                   </Text>
                 </View>
               </View>
-              <View style={styles.duration}>
-                <Clock color={Colors.textMuted} size={14} />
-                <Text style={styles.durationText}>{item.duration_minutes} min</Text>
+              <View style={S.duration}>
+                <Clock color={theme.textMuted} size={14} />
+                <Text style={S.durationText}>{item.duration_minutes} min</Text>
               </View>
             </View>
-            <Text style={styles.wodTitle}>{item.title}</Text>
-            <Text style={styles.wodDesc}>{item.description}</Text>
-            <View style={styles.movements}>
+            <Text style={S.wodTitle}>{item.title}</Text>
+            <Text style={S.wodDesc}>{item.description}</Text>
+            <View style={S.movements}>
               {item.movements.slice(0, 3).map((m, i) => (
-                <Text key={i} style={styles.movement}>• {m.reps} {m.name}</Text>
+                <Text key={i} style={S.movement}>• {m.reps} {m.name}</Text>
               ))}
             </View>
-            <View style={styles.wodFooter}>
-              <View style={styles.equipmentList}>
+            <View style={S.wodFooter}>
+              <View style={S.equipmentList}>
                 {item.equipment.slice(0, 2).map((e, i) => (
-                  <View key={i} style={styles.equipTag}>
-                    <Text style={styles.equipText}>{e}</Text>
+                  <View key={i} style={S.equipTag}>
+                    <Text style={S.equipText}>{e}</Text>
                   </View>
                 ))}
               </View>
-              <View style={styles.scoringRow}>
-                <Zap color={Colors.primary} size={14} />
-                <Text style={styles.scoringText}>{item.scoring}</Text>
+              <View style={S.scoringRow}>
+                <Zap color={theme.accent} size={14} />
+                <Text style={S.scoringText}>{item.scoring}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -157,46 +160,46 @@ export default function WODScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border },
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
+  header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: Colors.text },
-  headerSubtitle: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
-  generateButton: { borderRadius: 12, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 6 },
+  headerTitle: { fontSize: 28, fontWeight: '900', color: theme.text },
+  headerSubtitle: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
+  generateButton: { borderRadius: 12, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 6 },
   generateGradient: {},
   generateText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   filterRow: { paddingTop: 12 },
   filters: { paddingHorizontal: 16, gap: 8 },
   filterChip: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card,
+    borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
   },
-  filterChipActive: { backgroundColor: `${Colors.primary}25`, borderColor: Colors.primary },
-  filterText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  filterTextActive: { color: Colors.primary },
+  filterChipActive: { backgroundColor: `${theme.accent}25`, borderColor: theme.accent },
+  filterText: { fontSize: 13, color: theme.textSecondary, fontWeight: '600' },
+  filterTextActive: { color: theme.accent },
   list: { padding: 16, gap: 12 },
   wodCard: {
-    backgroundColor: Colors.card, borderRadius: 18,
-    padding: 18, borderWidth: 1, borderColor: Colors.cardBorder,
+    backgroundColor: theme.card, borderRadius: 18,
+    padding: 18, borderWidth: 1, borderColor: theme.cardBorder,
   },
   wodCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   wodMeta: { flexDirection: 'row', gap: 6 },
   typeBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   typeText: { fontSize: 11, fontWeight: '700' },
   duration: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  durationText: { fontSize: 12, color: Colors.textMuted },
-  wodTitle: { fontSize: 18, fontWeight: '900', color: Colors.text, marginBottom: 6 },
-  wodDesc: { fontSize: 13, color: Colors.textSecondary, marginBottom: 10 },
+  durationText: { fontSize: 12, color: theme.textMuted },
+  wodTitle: { fontSize: 18, fontWeight: '900', color: theme.text, marginBottom: 6 },
+  wodDesc: { fontSize: 13, color: theme.textSecondary, marginBottom: 10 },
   movements: { gap: 3, marginBottom: 12 },
-  movement: { fontSize: 13, color: Colors.text },
+  movement: { fontSize: 13, color: theme.text },
   wodFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   equipmentList: { flexDirection: 'row', gap: 6 },
   equipTag: {
-    backgroundColor: Colors.surface, borderRadius: 6,
+    backgroundColor: theme.surface, borderRadius: 6,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  equipText: { fontSize: 11, color: Colors.textMuted },
+  equipText: { fontSize: 11, color: theme.textMuted },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  scoringText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
-});
+  scoringText: { fontSize: 12, color: theme.accent, fontWeight: '600' },
+}); }

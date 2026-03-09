@@ -7,13 +7,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Zap } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
-import { Colors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { AuthStackParamList } from '../../navigation';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
 export default function LoginScreen({ navigation }: Props) {
   const { signIn } = useAuth();
+  const { theme, mode } = useTheme();
+  const S = createStyles(theme);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,27 +28,31 @@ export default function LoginScreen({ navigation }: Props) {
     if (error) Alert.alert('Connexion impossible', error);
   }
 
+  const gradColors = mode === 'dark'
+    ? ['#0A0A0F', '#12121A', '#0A0A0F'] as const
+    : ['#f0fdf9', '#ffffff', '#f0fdf9'] as const;
+
   return (
-    <LinearGradient colors={['#0A0A0F', '#12121A', '#0A0A0F']} style={styles.gradient}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.logoContainer}>
-            <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.logoBox}>
+    <LinearGradient colors={gradColors} style={S.gradient}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.flex}>
+        <ScrollView contentContainerStyle={S.container} keyboardShouldPersistTaps="handled">
+          <View style={S.logoContainer}>
+            <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.logoBox}>
               <Zap color="#fff" size={40} />
             </LinearGradient>
-            <Text style={styles.appName}>BattleWOD</Text>
-            <Text style={styles.tagline}>Compétition • Partout • Maintenant</Text>
+            <Text style={S.appName}>BattleWOD</Text>
+            <Text style={S.tagline}>Compétition • Partout • Maintenant</Text>
           </View>
 
-          <View style={styles.form}>
-            <Text style={styles.title}>Connexion</Text>
+          <View style={S.form}>
+            <Text style={S.title}>Connexion</Text>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
+            <View style={S.inputContainer}>
+              <Text style={S.label}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={S.input}
                 placeholder="ton@email.com"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -54,12 +60,12 @@ export default function LoginScreen({ navigation }: Props) {
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Mot de passe</Text>
+            <View style={S.inputContainer}>
+              <Text style={S.label}>Mot de passe</Text>
               <TextInput
-                style={styles.input}
+                style={S.input}
                 placeholder="••••••••"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -67,16 +73,16 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
 
             <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8}>
-              <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.button}>
+              <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
                 {loading
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.buttonText}>SE CONNECTER</Text>}
+                  : <Text style={S.buttonText}>SE CONNECTER</Text>}
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.registerLink}>
-              <Text style={styles.registerText}>
-                Pas encore de compte ? <Text style={styles.registerHighlight}>Créer un compte</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')} style={S.registerLink}>
+              <Text style={S.registerText}>
+                Pas encore de compte ? <Text style={S.registerHighlight}>Créer un compte</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -86,7 +92,7 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) { return StyleSheet.create({
   gradient: { flex: 1 },
   flex: { flex: 1 },
   container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
@@ -95,35 +101,22 @@ const styles = StyleSheet.create({
     width: 80, height: 80, borderRadius: 24,
     justifyContent: 'center', alignItems: 'center', marginBottom: 16,
   },
-  appName: { fontSize: 36, fontWeight: '900', color: Colors.text, letterSpacing: 2 },
-  tagline: { fontSize: 13, color: Colors.textSecondary, marginTop: 4, letterSpacing: 1 },
+  appName: { fontSize: 36, fontWeight: '900', color: theme.text, letterSpacing: 2 },
+  tagline: { fontSize: 13, color: theme.textSecondary, marginTop: 4, letterSpacing: 1 },
   form: {
-    backgroundColor: Colors.card,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    backgroundColor: theme.card, borderRadius: 20, padding: 24,
+    borderWidth: 1, borderColor: theme.cardBorder,
   },
-  title: { fontSize: 22, fontWeight: '800', color: Colors.text, marginBottom: 24 },
+  title: { fontSize: 22, fontWeight: '800', color: theme.text, marginBottom: 24 },
   inputContainer: { marginBottom: 16 },
-  label: { fontSize: 13, color: Colors.textSecondary, marginBottom: 6, fontWeight: '600' },
+  label: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '600' },
   input: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    color: Colors.text,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: theme.surface, borderRadius: 12, padding: 14,
+    color: theme.text, fontSize: 15, borderWidth: 1, borderColor: theme.border,
   },
-  button: {
-    borderRadius: 14,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
+  button: { borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
   registerLink: { alignItems: 'center', marginTop: 20 },
-  registerText: { color: Colors.textSecondary, fontSize: 14 },
-  registerHighlight: { color: Colors.primary, fontWeight: '700' },
-});
+  registerText: { color: theme.textSecondary, fontSize: 14 },
+  registerHighlight: { color: theme.accent, fontWeight: '700' },
+}); }

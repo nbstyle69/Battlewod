@@ -4,10 +4,11 @@ import Svg, { Path, Circle, Ellipse, G } from 'react-native-svg';
 interface Props {
   size?: number;
   style?: object;
+  color?: string;
 }
 
-export default function KettlebellIcon({ size = 32, style }: Props) {
-  const bodyFill = '#111111';
+export default function KettlebellIcon({ size = 32, style, color = '#111111' }: Props) {
+  const bodyFill = color;
 
   return (
     <Svg width={size} height={size * 1.15} viewBox="0 0 100 115" style={style}>

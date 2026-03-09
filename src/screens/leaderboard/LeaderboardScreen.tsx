@@ -7,7 +7,8 @@ import { Trophy, Zap, Users, MapPin, Plus, X, ChevronRight, ChevronLeft } from '
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation';
-import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { LevelColors } from '../../theme/colors';
 import { AthleteLevel } from '../../types';
 
 const LEVELS: (AthleteLevel | 'all')[] = ['all', 'scaled', 'inter', 'rx', 'rx+', 'gx', 'pro'];
@@ -44,16 +45,20 @@ const MOCK_GYMS = [
 ];
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <Text style={styles.rankEmoji}>�</Text>;
-  if (rank === 2) return <Text style={styles.rankEmoji}>🥈</Text>;
-  if (rank === 3) return <Text style={styles.rankEmoji}>🥉</Text>;
-  return <Text style={styles.rankNum}>#{rank}</Text>;
+  const { theme } = useTheme();
+  const S = createStyles(theme);
+  if (rank === 1) return <Text style={S.rankEmoji}>🥇</Text>;
+  if (rank === 2) return <Text style={S.rankEmoji}>🥈</Text>;
+  if (rank === 3) return <Text style={S.rankEmoji}>🥉</Text>;
+  return <Text style={S.rankNum}>#{rank}</Text>;
 }
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Leaderboard'>;
 
 export default function LeaderboardScreen() {
   const navigation = useNavigation<Nav>();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const [mainTab, setMainTab] = useState(0);
   const [selectedLevel, setSelectedLevel] = useState<AthleteLevel | 'all'>('all');
   const [showCreateTeam, setShowCreateTeam] = useState(false);
@@ -75,27 +80,27 @@ export default function LeaderboardScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft color={Colors.textSecondary} size={24} />
+    <View style={S.container}>
+      <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
+          <ChevronLeft color={theme.textSecondary} size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Classement</Text>
-        <Text style={styles.headerSub}>Qui domine BattleWOD ?</Text>
+        <Text style={S.headerTitle}>Classement</Text>
+        <Text style={S.headerSub}>Qui domine BattleWOD ?</Text>
 
-        <View style={styles.podium}>
+        <View style={S.podium}>
           {[top3[1], top3[0], top3[2]].map((p, idx) => {
             const heights = [56, 76, 44];
             const medals = ['🥈', '🥇', '🥉'];
             return (
-              <View key={idx} style={styles.podiumCol}>
-                <View style={[styles.podiumAvatar, idx === 1 && styles.podiumAvatarFirst]}>
-                  <Text style={styles.podiumAvatarText}>{p?.username[0]}</Text>
+              <View key={idx} style={S.podiumCol}>
+                <View style={[S.podiumAvatar, idx === 1 && S.podiumAvatarFirst]}>
+                  <Text style={S.podiumAvatarText}>{p?.username[0]}</Text>
                 </View>
-                <View style={[styles.podiumBase, { height: heights[idx] }]}>
-                  <Text style={styles.podiumMedal}>{medals[idx]}</Text>
-                  <Text style={styles.podiumName} numberOfLines={1}>{p?.username}</Text>
-                  <Text style={styles.podiumElo}>{p?.elo}</Text>
+                <View style={[S.podiumBase, { height: heights[idx] }]}>
+                  <Text style={S.podiumMedal}>{medals[idx]}</Text>
+                  <Text style={S.podiumName} numberOfLines={1}>{p?.username}</Text>
+                  <Text style={S.podiumElo}>{p?.elo}</Text>
                 </View>
               </View>
             );
@@ -103,11 +108,11 @@ export default function LeaderboardScreen() {
         </View>
       </View>
 
-      <View style={styles.mainTabs}>
+      <View style={S.mainTabs}>
         {MAIN_TABS.map((t, i) => (
           <TouchableOpacity key={t} onPress={() => setMainTab(i)}
-            style={[styles.mainTab, mainTab === i && styles.mainTabActive]}>
-            <Text style={[styles.mainTabText, mainTab === i && styles.mainTabTextActive]}>{t}</Text>
+            style={[S.mainTab, mainTab === i && S.mainTabActive]}>
+            <Text style={[S.mainTabText, mainTab === i && S.mainTabTextActive]}>{t}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -115,45 +120,45 @@ export default function LeaderboardScreen() {
       {mainTab === 0 && (
         <>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.levelFilters}>
+            contentContainerStyle={S.levelFilters}>
             {LEVELS.map((l) => (
               <TouchableOpacity key={l} onPress={() => setSelectedLevel(l)}
-                style={[styles.chip, selectedLevel === l && styles.chipActive]}>
-                <Text style={[styles.chipText, selectedLevel === l && styles.chipTextActive]}>
+                style={[S.chip, selectedLevel === l && S.chipActive]}>
+                <Text style={[S.chipText, selectedLevel === l && S.chipTextActive]}>
                   {l === 'all' ? 'Tous' : l.toUpperCase()}
                 </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
             {filtered.map((item) => (
-              <View key={item.rank} style={[styles.row, item.isMe && styles.rowMe]}>
-                <View style={styles.rankCell}><RankBadge rank={item.rank} /></View>
-                <View style={[styles.avatarBox, { borderColor: LevelColors[item.level] }]}>
-                  <Text style={styles.avatarText}>{item.username[0]}</Text>
+              <View key={item.rank} style={[S.row, item.isMe && S.rowMe]}>
+                <View style={S.rankCell}><RankBadge rank={item.rank} /></View>
+                <View style={[S.avatarBox, { borderColor: LevelColors[item.level] }]}>
+                  <Text style={S.avatarText}>{item.username[0]}</Text>
                 </View>
-                <View style={styles.info}>
-                  <Text style={[styles.name, item.isMe && { color: Colors.primary }]}>
+                <View style={S.info}>
+                  <Text style={[S.name, item.isMe && { color: theme.accent }]}>
                     {item.username}{item.isMe ? ' 👈' : ''}
                   </Text>
-                  <View style={styles.metaRow}>
-                    <View style={[styles.lvlPill, { backgroundColor: `${LevelColors[item.level]}18` }]}>
-                      <Text style={[styles.lvlText, { color: LevelColors[item.level] }]}>
+                  <View style={S.metaRow}>
+                    <View style={[S.lvlPill, { backgroundColor: `${LevelColors[item.level]}18` }]}>
+                      <Text style={[S.lvlText, { color: LevelColors[item.level] }]}>
                         {item.level.toUpperCase()}
                       </Text>
                     </View>
-                    <Text style={styles.winsText}>{item.wins}V – {item.matches - item.wins}D</Text>
+                    <Text style={S.winsText}>{item.wins}V – {item.matches - item.wins}D</Text>
                     {item.streak > 0 && (
-                      <View style={styles.streakPill}>
-                        <Zap color={Colors.warning} size={9} />
-                        <Text style={styles.streakText}>{item.streak}</Text>
+                      <View style={S.streakPill}>
+                        <Zap color={theme.warning} size={9} />
+                        <Text style={S.streakText}>{item.streak}</Text>
                       </View>
                     )}
                   </View>
                 </View>
-                <View style={styles.eloCell}>
-                  <Text style={styles.eloValue}>{item.elo}</Text>
-                  <Text style={styles.eloLabel}>ELO</Text>
+                <View style={S.eloCell}>
+                  <Text style={S.eloValue}>{item.elo}</Text>
+                  <Text style={S.eloLabel}>ELO</Text>
                 </View>
               </View>
             ))}
@@ -163,30 +168,30 @@ export default function LeaderboardScreen() {
       )}
 
       {mainTab === 1 && (
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={styles.createTeamBtn} onPress={() => setShowCreateTeam(true)} activeOpacity={0.8}>
-            <Plus color={Colors.primary} size={18} />
-            <Text style={styles.createTeamText}>Créer une équipe</Text>
+        <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
+          <TouchableOpacity style={S.createTeamBtn} onPress={() => setShowCreateTeam(true)} activeOpacity={0.8}>
+            <Plus color={theme.accent} size={18} />
+            <Text style={S.createTeamText}>Créer une équipe</Text>
           </TouchableOpacity>
 
           {MOCK_TEAMS.map((team) => (
-            <TouchableOpacity key={team.rank} style={styles.teamRow} activeOpacity={0.7}>
-              <View style={styles.rankCell}><RankBadge rank={team.rank} /></View>
-              <View style={styles.teamAvatar}>
+            <TouchableOpacity key={team.rank} style={S.teamRow} activeOpacity={0.7}>
+              <View style={S.rankCell}><RankBadge rank={team.rank} /></View>
+              <View style={S.teamAvatar}>
                 <Text style={{ fontSize: 22 }}>{team.tag}</Text>
               </View>
-              <View style={styles.info}>
-                <Text style={styles.name}>{team.name}</Text>
-                <View style={styles.metaRow}>
-                  <MapPin color={Colors.textMuted} size={11} />
-                  <Text style={styles.gymText}>{team.gym}</Text>
-                  <Users color={Colors.textMuted} size={11} />
-                  <Text style={styles.gymText}>{team.members} membres</Text>
+              <View style={S.info}>
+                <Text style={S.name}>{team.name}</Text>
+                <View style={S.metaRow}>
+                  <MapPin color={theme.textMuted} size={11} />
+                  <Text style={S.gymText}>{team.gym}</Text>
+                  <Users color={theme.textMuted} size={11} />
+                  <Text style={S.gymText}>{team.members} membres</Text>
                 </View>
               </View>
-              <View style={styles.eloCell}>
-                <Text style={styles.eloValue}>{team.avgElo}</Text>
-                <Text style={styles.eloLabel}>ELO moy.</Text>
+              <View style={S.eloCell}>
+                <Text style={S.eloValue}>{team.avgElo}</Text>
+                <Text style={S.eloLabel}>ELO moy.</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -195,29 +200,29 @@ export default function LeaderboardScreen() {
       )}
 
       {mainTab === 2 && (
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionHint}>
+        <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
+          <Text style={S.sectionHint}>
             Classement des box par ELO moyen de leurs athlètes
           </Text>
           {MOCK_GYMS.map((gym) => (
-            <TouchableOpacity key={gym.rank} style={styles.gymRow} activeOpacity={0.7}>
-              <View style={styles.rankCell}><RankBadge rank={gym.rank} /></View>
-              <View style={styles.gymIcon}>
-                <MapPin color={Colors.primary} size={20} />
+            <TouchableOpacity key={gym.rank} style={S.gymRow} activeOpacity={0.7}>
+              <View style={S.rankCell}><RankBadge rank={gym.rank} /></View>
+              <View style={S.gymIcon}>
+                <MapPin color={theme.accent} size={20} />
               </View>
-              <View style={styles.info}>
-                <Text style={styles.name}>{gym.name}</Text>
-                <View style={styles.metaRow}>
-                  <Text style={styles.gymText}>{gym.city}</Text>
-                  <Text style={styles.dotSep}>·</Text>
-                  <Text style={styles.gymText}>{gym.athletes} athlètes</Text>
-                  <Text style={styles.dotSep}>·</Text>
-                  <Text style={styles.gymText}>Top: {gym.topAthlete}</Text>
+              <View style={S.info}>
+                <Text style={S.name}>{gym.name}</Text>
+                <View style={S.metaRow}>
+                  <Text style={S.gymText}>{gym.city}</Text>
+                  <Text style={S.dotSep}>·</Text>
+                  <Text style={S.gymText}>{gym.athletes} athlètes</Text>
+                  <Text style={S.dotSep}>·</Text>
+                  <Text style={S.gymText}>Top: {gym.topAthlete}</Text>
                 </View>
               </View>
-              <View style={styles.eloCell}>
-                <Text style={styles.eloValue}>{gym.avgElo}</Text>
-                <Text style={styles.eloLabel}>ELO moy.</Text>
+              <View style={S.eloCell}>
+                <Text style={S.eloValue}>{gym.avgElo}</Text>
+                <Text style={S.eloLabel}>ELO moy.</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -226,35 +231,35 @@ export default function LeaderboardScreen() {
       )}
 
       <Modal visible={showCreateTeam} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nouvelle équipe</Text>
+        <View style={S.modalOverlay}>
+          <View style={S.modalSheet}>
+            <View style={S.modalHeader}>
+              <Text style={S.modalTitle}>Nouvelle équipe</Text>
               <TouchableOpacity onPress={() => setShowCreateTeam(false)}>
-                <X color={Colors.textMuted} size={22} />
+                <X color={theme.textMuted} size={22} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalLabel}>Nom de l'équipe *</Text>
+            <Text style={S.modalLabel}>Nom de l'équipe *</Text>
             <TextInput
-              style={styles.modalInput}
+              style={S.modalInput}
               value={teamName}
               onChangeText={setTeamName}
-              placeholder="Ex: CrossFire Alpha"
-              placeholderTextColor={Colors.textMuted}
+              placeholder="Ex: CrossFit Alpha"
+              placeholderTextColor={theme.textMuted}
             />
-            <Text style={styles.modalLabel}>Box CrossFit (optionnel)</Text>
+            <Text style={S.modalLabel}>Box CrossFit (optionnel)</Text>
             <TextInput
-              style={styles.modalInput}
+              style={S.modalInput}
               value={teamGym}
               onChangeText={setTeamGym}
               placeholder="Ex: CrossFit Paris 11"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={theme.textMuted}
             />
-            <Text style={styles.modalHint}>
+            <Text style={S.modalHint}>
               Tu seras capitaine. Tu pourras inviter jusqu'à 4 coéquipiers depuis leur profil.
             </Text>
-            <TouchableOpacity style={styles.modalCreateBtn} onPress={handleCreateTeam} activeOpacity={0.85}>
-              <Text style={styles.modalCreateText}>Créer l'équipe</Text>
+            <TouchableOpacity style={S.modalCreateBtn} onPress={handleCreateTeam} activeOpacity={0.85}>
+              <Text style={S.modalCreateText}>Créer l'équipe</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -263,126 +268,126 @@ export default function LeaderboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
   },
   backBtn: { marginBottom: 12 },
-  headerTitle: { fontSize: 26, fontWeight: '900', color: Colors.text },
-  headerSub: { fontSize: 12, color: Colors.textMuted, marginTop: 2, marginBottom: 20 },
+  headerTitle: { fontSize: 26, fontWeight: '900', color: theme.text },
+  headerSub: { fontSize: 12, color: theme.textMuted, marginTop: 2, marginBottom: 20 },
   podium: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 8 },
   podiumCol: { flex: 1, alignItems: 'center' },
   podiumAvatar: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center',
-    marginBottom: 6, borderWidth: 2, borderColor: Colors.border,
+    backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
+    marginBottom: 6, borderWidth: 2, borderColor: theme.border,
   },
-  podiumAvatarFirst: { width: 48, height: 48, borderRadius: 24, borderColor: Colors.gold },
-  podiumAvatarText: { fontSize: 18, fontWeight: '900', color: Colors.text },
+  podiumAvatarFirst: { width: 48, height: 48, borderRadius: 24, borderColor: theme.gold },
+  podiumAvatarText: { fontSize: 18, fontWeight: '900', color: theme.text },
   podiumBase: {
-    width: '100%', backgroundColor: Colors.surface, borderRadius: 8,
+    width: '100%', backgroundColor: theme.surface, borderRadius: 8,
     alignItems: 'center', justifyContent: 'flex-end', padding: 6,
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1, borderColor: theme.border,
   },
   podiumMedal: { fontSize: 14 },
-  podiumName: { fontSize: 9, fontWeight: '800', color: Colors.text, marginTop: 2 },
-  podiumElo: { fontSize: 11, fontWeight: '900', color: Colors.primary },
+  podiumName: { fontSize: 9, fontWeight: '800', color: theme.text, marginTop: 2 },
+  podiumElo: { fontSize: 11, fontWeight: '900', color: theme.accent },
   mainTabs: {
-    flexDirection: 'row', backgroundColor: Colors.background,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    flexDirection: 'row', backgroundColor: theme.background,
+    borderBottomWidth: 1, borderBottomColor: theme.border,
   },
   mainTab: {
     flex: 1, paddingVertical: 12, alignItems: 'center',
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  mainTabActive: { borderBottomColor: Colors.primary },
-  mainTabText: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
-  mainTabTextActive: { color: Colors.primary, fontWeight: '800' },
+  mainTabActive: { borderBottomColor: theme.accent },
+  mainTabText: { fontSize: 13, fontWeight: '600', color: theme.textMuted },
+  mainTabTextActive: { color: theme.accent, fontWeight: '800' },
   levelFilters: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background,
+    borderWidth: 1, borderColor: theme.border, backgroundColor: theme.background,
   },
-  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary },
+  chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+  chipText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
   chipTextActive: { color: '#FFFFFF' },
   list: { padding: 16, gap: 8 },
-  sectionHint: { fontSize: 12, color: Colors.textMuted, marginBottom: 8 },
+  sectionHint: { fontSize: 12, color: theme.textMuted, marginBottom: 8 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.card, borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.card, borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: theme.border,
   },
-  rowMe: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}06` },
+  rowMe: { borderColor: theme.accent, backgroundColor: `${theme.accent}10` },
   rankCell: { width: 32, alignItems: 'center' },
   rankEmoji: { fontSize: 18 },
-  rankNum: { fontSize: 13, fontWeight: '800', color: Colors.textMuted },
+  rankNum: { fontSize: 13, fontWeight: '800', color: theme.textMuted },
   avatarBox: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
     borderWidth: 2,
   },
-  avatarText: { fontSize: 15, fontWeight: '900', color: Colors.text },
+  avatarText: { fontSize: 15, fontWeight: '900', color: theme.text },
   info: { flex: 1 },
-  name: { fontSize: 14, fontWeight: '800', color: Colors.text, marginBottom: 3 },
+  name: { fontSize: 14, fontWeight: '800', color: theme.text, marginBottom: 3 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   lvlPill: { borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   lvlText: { fontSize: 9, fontWeight: '800' },
-  winsText: { fontSize: 11, color: Colors.textMuted },
+  winsText: { fontSize: 11, color: theme.textMuted },
   streakPill: {
     flexDirection: 'row', alignItems: 'center', gap: 2,
-    backgroundColor: `${Colors.warning}18`, borderRadius: 5,
+    backgroundColor: `${theme.warning}18`, borderRadius: 5,
     paddingHorizontal: 5, paddingVertical: 2,
   },
-  streakText: { fontSize: 10, color: Colors.warning, fontWeight: '700' },
+  streakText: { fontSize: 10, color: theme.warning, fontWeight: '700' },
   eloCell: { alignItems: 'flex-end' },
-  eloValue: { fontSize: 17, fontWeight: '900', color: Colors.text },
-  eloLabel: { fontSize: 8, color: Colors.textMuted, fontWeight: '600', letterSpacing: 0.5 },
+  eloValue: { fontSize: 17, fontWeight: '900', color: theme.text },
+  eloLabel: { fontSize: 8, color: theme.textMuted, fontWeight: '600', letterSpacing: 0.5 },
   createTeamBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' as any,
-    borderColor: Colors.primary, padding: 14,
+    borderColor: theme.accent, padding: 14,
     justifyContent: 'center',
   },
-  createTeamText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  createTeamText: { fontSize: 14, fontWeight: '700', color: theme.accent },
   teamRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.card, borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.card, borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: theme.border,
   },
   teamAvatar: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
   },
   gymRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.card, borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.card, borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: theme.border,
   },
   gymIcon: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
   },
-  gymText: { fontSize: 11, color: Colors.textMuted },
-  dotSep: { color: Colors.border, fontSize: 11 },
+  gymText: { fontSize: 11, color: theme.textMuted },
+  dotSep: { color: theme.border, fontSize: 11 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, paddingBottom: 40,
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '900', color: Colors.text },
-  modalLabel: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
+  modalLabel: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   modalInput: {
-    backgroundColor: Colors.surface, borderRadius: 12, padding: 14,
-    fontSize: 15, color: Colors.text, marginBottom: 16,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.surface, borderRadius: 12, padding: 14,
+    fontSize: 15, color: theme.text, marginBottom: 16,
+    borderWidth: 1, borderColor: theme.border,
   },
-  modalHint: { fontSize: 12, color: Colors.textMuted, lineHeight: 18, marginBottom: 20 },
+  modalHint: { fontSize: 12, color: theme.textMuted, lineHeight: 18, marginBottom: 20 },
   modalCreateBtn: {
-    backgroundColor: Colors.primary, borderRadius: 14, padding: 16, alignItems: 'center',
+    backgroundColor: theme.accent, borderRadius: 14, padding: 16, alignItems: 'center',
   },
   modalCreateText: { color: '#FFFFFF', fontWeight: '900', fontSize: 15 },
-});
+}); }

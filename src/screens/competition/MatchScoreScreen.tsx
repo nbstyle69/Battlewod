@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle, Clock, Zap, Trophy } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { Colors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -19,6 +19,8 @@ type Props = {
 export default function MatchScoreScreen({ navigation, route }: Props) {
   const { matchId, recordedSeconds, wodTitle, wodType, wodScoring } = route.params;
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const [scoreInput, setScoreInput] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -63,29 +65,29 @@ export default function MatchScoreScreen({ navigation, route }: Props) {
 
   if (submitted) {
     return (
-      <View style={styles.container}>
-        <LinearGradient colors={['#0A0A0F', '#12121A']} style={styles.successContainer}>
-          <View style={styles.successIcon}>
-            <CheckCircle color={Colors.success} size={72} />
+      <View style={S.container}>
+        <LinearGradient colors={['#0A0A0F', '#12121A']} style={S.successContainer}>
+          <View style={S.successIcon}>
+            <CheckCircle color={theme.success} size={72} />
           </View>
-          <Text style={styles.successTitle}>Score soumis !</Text>
-          <Text style={styles.successSub}>
+          <Text style={S.successTitle}>Score soumis !</Text>
+          <Text style={S.successSub}>
             Ton score est en attente de validation par un admin.{'\n'}
             Le résultat ELO sera mis à jour après validation.
           </Text>
 
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>WOD</Text>
-              <Text style={styles.summaryValue}>{wodTitle}</Text>
+          <View style={S.summaryCard}>
+            <View style={S.summaryRow}>
+              <Text style={S.summaryLabel}>WOD</Text>
+              <Text style={S.summaryValue}>{wodTitle}</Text>
             </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Temps chrono</Text>
-              <Text style={styles.summaryValue}>{formatTime(recordedSeconds)}</Text>
+            <View style={S.summaryRow}>
+              <Text style={S.summaryLabel}>Temps chrono</Text>
+              <Text style={S.summaryValue}>{formatTime(recordedSeconds)}</Text>
             </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Score soumis</Text>
-              <Text style={[styles.summaryValue, { color: Colors.primary }]}>{scoreInput || formatTime(recordedSeconds)}</Text>
+            <View style={S.summaryRow}>
+              <Text style={S.summaryLabel}>Score soumis</Text>
+              <Text style={[S.summaryValue, { color: theme.accent }]}>{scoreInput || formatTime(recordedSeconds)}</Text>
             </View>
           </View>
 
@@ -93,9 +95,9 @@ export default function MatchScoreScreen({ navigation, route }: Props) {
             onPress={() => navigation.navigate('CompetitionList')}
             activeOpacity={0.85}
           >
-            <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.homeBtn}>
+            <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.homeBtn}>
               <Trophy color="#fff" size={20} />
-              <Text style={styles.homeBtnText}>RETOUR AUX COMPÉTITIONS</Text>
+              <Text style={S.homeBtnText}>RETOUR AUX COMPÉTITIONS</Text>
             </LinearGradient>
           </TouchableOpacity>
         </LinearGradient>
@@ -104,61 +106,61 @@ export default function MatchScoreScreen({ navigation, route }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#12121A', '#0A0A0F']} style={styles.header}>
-        <Text style={styles.headerTitle}>Confirme ton score</Text>
-        <Text style={styles.headerSub}>{wodTitle} · {wodType}</Text>
+    <View style={S.container}>
+      <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
+        <Text style={S.headerTitle}>Confirme ton score</Text>
+        <Text style={S.headerSub}>{wodTitle} · {wodType}</Text>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.chronoCard}>
-          <Clock color={Colors.primary} size={28} />
+      <ScrollView contentContainerStyle={S.content} showsVerticalScrollIndicator={false}>
+        <View style={S.chronoCard}>
+          <Clock color={theme.accent} size={28} />
           <View>
-            <Text style={styles.chronoLabel}>Temps chrono enregistré</Text>
-            <Text style={styles.chronoValue}>{formatTime(recordedSeconds)}</Text>
+            <Text style={S.chronoLabel}>Temps chrono enregistré</Text>
+            <Text style={S.chronoValue}>{formatTime(recordedSeconds)}</Text>
           </View>
         </View>
 
-        <View style={styles.scoringInfo}>
-          <Zap color={Colors.gold} size={16} />
-          <Text style={styles.scoringText}>Scoring : {wodScoring}</Text>
+        <View style={S.scoringInfo}>
+          <Zap color={theme.gold} size={16} />
+          <Text style={S.scoringText}>Scoring : {wodScoring}</Text>
         </View>
 
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>
+        <View style={S.inputSection}>
+          <Text style={S.inputLabel}>
             {isForTime ? '⏱ Ton temps final' : '🔢 Ton score final'}
           </Text>
-          <Text style={styles.inputHint}>
+          <Text style={S.inputHint}>
             {isForTime
               ? 'Le chrono est indicatif. Saisis ton temps exact ou laisse vide pour utiliser le chrono.'
               : 'Reps, rounds ou unité selon le WOD.'}
           </Text>
           <TextInput
-            style={styles.scoreInput}
+            style={S.scoreInput}
             value={scoreInput}
             onChangeText={setScoreInput}
             placeholder={getScorePlaceholder()}
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             autoCapitalize="none"
           />
         </View>
 
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>📝 Notes (optionnel)</Text>
+        <View style={S.inputSection}>
+          <Text style={S.inputLabel}>📝 Notes (optionnel)</Text>
           <TextInput
-            style={[styles.scoreInput, styles.notesInput]}
+            style={[S.scoreInput, S.notesInput]}
             value={notes}
             onChangeText={setNotes}
             placeholder="Ex: standards respectés, scaling utilisé..."
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             multiline
             numberOfLines={3}
           />
         </View>
 
-        <View style={styles.honestBox}>
-          <Text style={styles.honestTitle}>⚖️ Code d'honneur BattleWOD</Text>
-          <Text style={styles.honestText}>
+        <View style={S.honestBox}>
+          <Text style={S.honestTitle}>⚖️ Code d'honneur BattleWOD</Text>
+          <Text style={S.honestText}>
             En soumettant ce score, je certifie avoir respecté tous les standards du WOD.
             Un faux score entraîne une disqualification et perte d'ELO.
           </Text>
@@ -166,11 +168,11 @@ export default function MatchScoreScreen({ navigation, route }: Props) {
 
         <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
           <LinearGradient
-            colors={submitting ? [Colors.surface, Colors.surface] : [Colors.primary, Colors.secondary]}
-            style={styles.submitBtn}
+            colors={submitting ? [theme.surface, theme.surface] : [theme.accent, theme.secondary ?? theme.accent]}
+            style={S.submitBtn}
           >
             <CheckCircle color="#fff" size={22} />
-            <Text style={styles.submitText}>
+            <Text style={S.submitText}>
               {submitting ? 'Envoi en cours...' : 'SOUMETTRE MON SCORE'}
             </Text>
           </LinearGradient>
@@ -182,39 +184,39 @@ export default function MatchScoreScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 24 },
-  headerTitle: { fontSize: 26, fontWeight: '900', color: Colors.text },
-  headerSub: { fontSize: 13, color: Colors.textSecondary, marginTop: 4 },
+  headerTitle: { fontSize: 26, fontWeight: '900', color: '#fff' },
+  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
   content: { padding: 16 },
   chronoCard: {
     flexDirection: 'row', alignItems: 'center', gap: 16,
-    backgroundColor: `${Colors.primary}15`, borderRadius: 18, padding: 20,
-    borderWidth: 1, borderColor: `${Colors.primary}30`, marginBottom: 12,
+    backgroundColor: `${theme.accent}15`, borderRadius: 18, padding: 20,
+    borderWidth: 1, borderColor: `${theme.accent}30`, marginBottom: 12,
   },
-  chronoLabel: { fontSize: 12, color: Colors.textSecondary, marginBottom: 4 },
-  chronoValue: { fontSize: 40, fontWeight: '900', color: Colors.primary, letterSpacing: 2 },
+  chronoLabel: { fontSize: 12, color: theme.textSecondary, marginBottom: 4 },
+  chronoValue: { fontSize: 40, fontWeight: '900', color: theme.accent, letterSpacing: 2 },
   scoringInfo: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: `${Colors.gold}15`, borderRadius: 10, padding: 12, marginBottom: 20,
+    backgroundColor: `${theme.gold}15`, borderRadius: 10, padding: 12, marginBottom: 20,
   },
-  scoringText: { fontSize: 13, color: Colors.gold, fontWeight: '600' },
+  scoringText: { fontSize: 13, color: theme.gold, fontWeight: '600' },
   inputSection: { marginBottom: 20 },
-  inputLabel: { fontSize: 15, fontWeight: '800', color: Colors.text, marginBottom: 4 },
-  inputHint: { fontSize: 12, color: Colors.textMuted, marginBottom: 10, lineHeight: 16 },
+  inputLabel: { fontSize: 15, fontWeight: '800', color: theme.text, marginBottom: 4 },
+  inputHint: { fontSize: 12, color: theme.textMuted, marginBottom: 10, lineHeight: 16 },
   scoreInput: {
-    backgroundColor: Colors.card, borderRadius: 14, padding: 16,
-    color: Colors.text, fontSize: 18, fontWeight: '700',
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.card, borderRadius: 14, padding: 16,
+    color: theme.text, fontSize: 18, fontWeight: '700',
+    borderWidth: 1, borderColor: theme.border,
   },
   notesInput: { fontSize: 14, fontWeight: '400', height: 80, textAlignVertical: 'top' },
   honestBox: {
-    backgroundColor: `${Colors.warning}10`, borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: `${Colors.warning}30`, marginBottom: 20, gap: 6,
+    backgroundColor: `${theme.warning}10`, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: `${theme.warning}30`, marginBottom: 20, gap: 6,
   },
-  honestTitle: { fontSize: 13, fontWeight: '800', color: Colors.warning },
-  honestText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
+  honestTitle: { fontSize: 13, fontWeight: '800', color: theme.warning },
+  honestText: { fontSize: 12, color: theme.textSecondary, lineHeight: 18 },
   submitBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 18, padding: 20, gap: 10,
@@ -222,18 +224,18 @@ const styles = StyleSheet.create({
   submitText: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   successContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
   successIcon: { marginBottom: 8 },
-  successTitle: { fontSize: 32, fontWeight: '900', color: Colors.text },
-  successSub: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  successTitle: { fontSize: 32, fontWeight: '900', color: '#fff' },
+  successSub: { fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 22 },
   summaryCard: {
-    backgroundColor: Colors.card, borderRadius: 18, padding: 20,
-    borderWidth: 1, borderColor: Colors.cardBorder, width: '100%', gap: 12,
+    backgroundColor: theme.card, borderRadius: 18, padding: 20,
+    borderWidth: 1, borderColor: theme.cardBorder, width: '100%', gap: 12,
   },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryLabel: { fontSize: 13, color: Colors.textSecondary },
-  summaryValue: { fontSize: 15, fontWeight: '800', color: Colors.text },
+  summaryLabel: { fontSize: 13, color: theme.textSecondary },
+  summaryValue: { fontSize: 15, fontWeight: '800', color: theme.text },
   homeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 16, paddingVertical: 16, paddingHorizontal: 28, gap: 10, marginTop: 8,
   },
   homeBtnText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
-});
+}); }

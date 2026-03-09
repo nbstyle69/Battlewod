@@ -12,7 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Colors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'TournamentWOD'>;
@@ -20,14 +20,14 @@ type Route = RouteProp<CompetitionStackParamList, 'TournamentWOD'>;
 
 const YOUTUBE_REGEX = /(youtube\.com\/watch\?v=|youtu\.be\/)/;
 
-function formatCountdown(ms: number): { text: string; color: string } {
-  if (ms <= 0) return { text: 'DÉLAI EXPIRÉ', color: Colors.error };
+function formatCountdown(ms: number, theme: AppTheme): { text: string; color: string } {
+  if (ms <= 0) return { text: 'DÉLAI EXPIRÉ', color: theme.error };
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
   const text = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  const color = ms < 3600000 ? Colors.error : ms < 7200000 ? Colors.warning : Colors.success;
+  const color = ms < 3600000 ? theme.error : ms < 7200000 ? theme.warning : theme.success;
   return { text, color };
 }
 
@@ -36,6 +36,8 @@ export default function TournamentWODScreen() {
   const route      = useRoute<Route>();
   const { tournamentId, tournamentName, wod, existingScore } = route.params;
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
 
   const [phase,         setPhase]         = useState<'detail' | 'submit' | 'success'>('detail');
   const [scoreValue,    setScoreValue]    = useState(existingScore?.score_value ?? '');
@@ -98,153 +100,159 @@ export default function TournamentWODScreen() {
   }
 
   function launchTimer() {
-    // Use timer_type from back office config if available, else derive from wod.type
-    const timerType: string = wod.timer_type
-      ? wod.timer_type
-      : wod.type === 'AMRAP'    ? 'stopwatch'
-      : wod.type === 'For Time' ? 'countdown'
-      : wod.type === 'EMOM'     ? 'emom'
-      : wod.type === 'Tabata'   ? 'tabata'
-      : 'countdown';
+    const rawType = (wod.timer_type ?? wod.type ?? '').toLowerCase();
+    const timerType =
+      rawType === 'amrap'    || rawType === 'amrap'     ? 'amrap'    :
+      rawType === 'for-time' || rawType === 'for time'  ? 'for-time' :
+      rawType === 'emom'                                ? 'emom'     :
+      rawType === 'tabata'                              ? 'tabata'   :
+      rawType === 'ywyr'                                ? 'ywyr'     :
+      'for-time';
 
-    const timeCap = wod.time_cap_seconds ?? wod.duration_minutes * 60;
+    const durSeconds = (wod.time_cap_seconds ?? 0) > 0
+      ? wod.time_cap_seconds!
+      : wod.duration_minutes * 60;
+
+    const rounds   = (wod as any).rounds       ?? (timerType === 'emom' ? wod.duration_minutes : 3);
+    const workTime = (wod as any).work_seconds ?? 40;
+    const restTime = (wod as any).rest_seconds ?? 20;
 
     (navigation as any).navigate('TimerRun', {
       timerType,
-      totalSeconds:  timeCap,
-      maxTime:       timerType === 'countdown' ? timeCap : 0,
-      interval:      0,
-      rounds:        (wod as any).rounds        ?? (wod.type === 'EMOM' ? wod.duration_minutes : 0),
-      workTime:      (wod as any).work_seconds  ?? 20,
-      restTime:      (wod as any).rest_seconds  ?? 10,
+      countdown:     10,
+      totalSeconds:  timerType === 'amrap' ? durSeconds : 0,
+      maxTime:       timerType === 'for-time' ? durSeconds : 0,
+      interval:      timerType === 'emom' ? 1 : 0,
+      rounds,
+      workTime,
+      restTime,
       sequence:      '[]',
       withCamera:    true,
       videoTitle:    `${tournamentName} · ${wod.title}`,
       withTimestamp: true,
-      countdown:     10,
     });
   }
 
-  const countdown = formatCountdown(remainingMs);
+  const countdown = formatCountdown(remainingMs, theme);
 
   // ══ PHASE : SUCCESS ═══════════════════════════════════════════════════════
   if (phase === 'success') return (
-    <LinearGradient colors={['#12121A', '#0A0A0F']} style={s.successContainer}>
-      <CheckCircle color={Colors.success} size={72} />
-      <Text style={s.successTitle}>Score soumis !</Text>
-      <Text style={s.successSub}>Ton score est en attente de validation par un admin.</Text>
-      <View style={s.successCard}>
-        <Text style={s.successLabel}>WOD</Text>
-        <Text style={s.successValue}>{wod.title}</Text>
-        <Text style={[s.successLabel, { marginTop: 12 }]}>SCORE</Text>
-        <Text style={s.successValue}>{scoreValue}</Text>
+    <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.successContainer}>
+      <CheckCircle color={theme.success} size={72} />
+      <Text style={S.successTitle}>Score soumis !</Text>
+      <Text style={S.successSub}>Ton score est en attente de validation par un admin.</Text>
+      <View style={S.successCard}>
+        <Text style={S.successLabel}>WOD</Text>
+        <Text style={S.successValue}>{wod.title}</Text>
+        <Text style={[S.successLabel, { marginTop: 12 }]}>SCORE</Text>
+        <Text style={S.successValue}>{scoreValue}</Text>
         {tiebreakValue ? (
           <>
-            <Text style={[s.successLabel, { marginTop: 12 }]}>TIE-BREAK</Text>
-            <Text style={s.successValue}>{tiebreakValue} reps</Text>
+            <Text style={[S.successLabel, { marginTop: 12 }]}>TIE-BREAK</Text>
+            <Text style={S.successValue}>{tiebreakValue} reps</Text>
           </>
         ) : null}
-        <View style={s.successYtRow}>
+        <View style={S.successYtRow}>
           <Youtube color="#FF0000" size={16} />
-          <Text style={s.successYtText}>Lien YouTube soumis ✓</Text>
+          <Text style={S.successYtText}>Lien YouTube soumis ✓</Text>
         </View>
       </View>
-      <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
-        <LinearGradient colors={[Colors.primary, Colors.secondary]} style={s.backBtnInner}>
-          <Text style={s.backBtnText}>RETOUR AU TOURNOI</Text>
+      <TouchableOpacity style={S.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
+        <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.backBtnInner}>
+          <Text style={S.backBtnText}>RETOUR AU TOURNOI</Text>
         </LinearGradient>
       </TouchableOpacity>
     </LinearGradient>
   );
 
-  // ══ PHASE : DETAIL ════════════════════════════════════════════════════════
+  // ══ PHASE : DETAIL ═════════════════════════════════════════════════════
   if (phase === 'detail') return (
-    <View style={s.container}>
-      <LinearGradient colors={['#12121A', '#0A0A0F']} style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.back}>
+    <View style={S.container}>
+      <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color="rgba(255,255,255,0.6)" size={24} />
         </TouchableOpacity>
-        <View style={s.headerInfo}>
-          <Text style={s.headerSub}>{tournamentName}</Text>
-          <Text style={s.headerTitle}>{wod.title}</Text>
-          <View style={s.headerBadges}>
-            <View style={s.typeBadge}><Text style={s.typeBadgeText}>{wod.type}</Text></View>
-            <View style={s.durationBadge}>
+        <View style={S.headerInfo}>
+          <Text style={S.headerSub}>{tournamentName}</Text>
+          <Text style={S.headerTitle}>{wod.title}</Text>
+          <View style={S.headerBadges}>
+            <View style={S.typeBadge}><Text style={S.typeBadgeText}>{wod.type}</Text></View>
+            <View style={S.durationBadge}>
               <Clock color="rgba(255,255,255,0.4)" size={12} />
-              <Text style={s.durationText}>{wod.duration_minutes} min</Text>
+              <Text style={S.durationText}>{wod.duration_minutes} min</Text>
             </View>
-            <View style={s.scoringBadge}>
-              <Zap color={Colors.gold} size={12} />
-              <Text style={s.scoringText}>{wod.scoring}</Text>
+            <View style={S.scoringBadge}>
+              <Zap color={theme.gold} size={12} />
+              <Text style={S.scoringText}>{wod.scoring}</Text>
             </View>
           </View>
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
         {wod.description ? (
-          <View style={s.card}>
-            <Text style={s.cardLabel}>DESCRIPTION</Text>
-            <Text style={s.descText}>{wod.description}</Text>
+          <View style={S.card}>
+            <Text style={S.cardLabel}>DESCRIPTION</Text>
+            <Text style={S.descText}>{wod.description}</Text>
           </View>
         ) : null}
 
         {Array.isArray(wod.movements) && wod.movements.length > 0 && (
-          <View style={s.card}>
-            <Text style={s.cardLabel}>MOUVEMENTS</Text>
+          <View style={S.card}>
+            <Text style={S.cardLabel}>MOUVEMENTS</Text>
             {wod.movements.map((m, i) => (
-              <View key={i} style={s.movRow}>
-                <View style={[s.movDot, { backgroundColor: Colors.primary }]} />
-                <Text style={s.movText}>{m}</Text>
+              <View key={i} style={S.movRow}>
+                <View style={[S.movDot, { backgroundColor: theme.accent }]} />
+                <Text style={S.movText}>{m}</Text>
               </View>
             ))}
           </View>
         )}
 
-        <View style={s.card}>
-          <Text style={s.cardLabel}>RÈGLES DE FILMAGE</Text>
+        <View style={S.card}>
+          <Text style={S.cardLabel}>RÈGLES DE FILMAGE</Text>
           {['📷 Caméra stable, angle fixe, corps entier visible',
             '🏋️ Chaque répétition clairement identifiable',
             '⏱ Timer visible à l\'écran pendant l\'effort',
             `🔗 Upload YouTube requis dans les ${wod.deadline_hours}h`,
             '🔒 Vidéo non répertoriée acceptée',
-          ].map((r, i) => <Text key={i} style={s.ruleText}>{r}</Text>)}
+          ].map((r, i) => <Text key={i} style={S.ruleText}>{r}</Text>)}
         </View>
 
         {existingScore && (
-          <View style={[s.card, { borderColor: `${Colors.warning}40` }]}>
-            <Text style={s.cardLabel}>TON SCORE PRÉCÉDENT</Text>
-            <Text style={s.prevScore}>{existingScore.score_value}</Text>
+          <View style={[S.card, { borderColor: `${theme.warning}40` }]}>
+            <Text style={S.cardLabel}>TON SCORE PRÉCÉDENT</Text>
+            <Text style={S.prevScore}>{existingScore.score_value}</Text>
             {existingScore.video_url ? (
-              <TouchableOpacity style={s.ytPrevBtn} onPress={() => Linking.openURL(existingScore.video_url!)}>
+              <TouchableOpacity style={S.ytPrevBtn} onPress={() => Linking.openURL(existingScore.video_url!)}>
                 <Youtube color="#FF0000" size={16} />
-                <Text style={s.ytPrevText}>Voir la vidéo soumise</Text>
+                <Text style={S.ytPrevText}>Voir la vidéo soumise</Text>
               </TouchableOpacity>
             ) : null}
           </View>
         )}
 
-        <View style={[s.card, { borderColor: `${Colors.warning}40`, backgroundColor: `${Colors.warning}08` }]}>
-          <View style={s.warningRow}>
-            <AlertTriangle color={Colors.warning} size={16} />
-            <Text style={s.warningText}>
+        <View style={[S.card, { borderColor: `${theme.warning}40`, backgroundColor: `${theme.warning}08` }]}>
+          <View style={S.warningRow}>
+            <AlertTriangle color={theme.warning} size={16} />
+            <Text style={S.warningText}>
               Le chrono de {wod.deadline_hours}h démarre dès que tu passes en mode soumission.
             </Text>
           </View>
         </View>
 
-        <TouchableOpacity style={s.actionBtn} onPress={launchTimer} activeOpacity={0.85}>
-          <LinearGradient colors={['#EF4444', '#DC2626']} style={s.actionBtnInner}>
+        <TouchableOpacity style={S.actionBtn} onPress={launchTimer} activeOpacity={0.85}>
+          <LinearGradient colors={['#EF4444', '#DC2626']} style={S.actionBtnInner}>
             <Play color="#fff" size={18} />
-            <Text style={s.actionBtnText}>Lancer le WOD avec caméra</Text>
+            <Text style={S.actionBtnText}>Lancer le WOD avec caméra</Text>
           </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity style={s.actionBtn}
+        <TouchableOpacity style={S.actionBtn}
           onPress={() => { startCountdown(); setPhase('submit'); }} activeOpacity={0.85}>
-          <LinearGradient colors={[Colors.primary, Colors.secondary]} style={s.actionBtnInner}>
+          <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.actionBtnInner}>
             <FileText color="#fff" size={18} />
-            <Text style={s.actionBtnText}>Soumettre mon score</Text>
+            <Text style={S.actionBtnText}>Soumettre mon score</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -253,112 +261,112 @@ export default function TournamentWODScreen() {
     </View>
   );
 
-  // ══ PHASE : SUBMIT ════════════════════════════════════════════════════════
+  // ══ PHASE : SUBMIT ═════════════════════════════════════════════════════
   return (
-    <View style={s.container}>
-      <LinearGradient colors={['#12121A', '#0A0A0F']} style={s.header}>
-        <TouchableOpacity onPress={() => setPhase('detail')} style={s.back}>
+    <View style={S.container}>
+      <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
+        <TouchableOpacity onPress={() => setPhase('detail')} style={S.back}>
           <ChevronLeft color="rgba(255,255,255,0.6)" size={24} />
         </TouchableOpacity>
-        <View style={s.headerInfo}>
-          <Text style={s.headerSub}>{tournamentName}</Text>
-          <Text style={s.headerTitle}>{wod.title}</Text>
-          <View style={[s.countdownRow, { backgroundColor: `${countdown.color}15` }]}>
+        <View style={S.headerInfo}>
+          <Text style={S.headerSub}>{tournamentName}</Text>
+          <Text style={S.headerTitle}>{wod.title}</Text>
+          <View style={[S.countdownRow, { backgroundColor: `${countdown.color}15` }]}>
             <Clock color={countdown.color} size={14} />
-            <Text style={[s.countdownText, { color: countdown.color }]}>{countdown.text}</Text>
+            <Text style={[S.countdownText, { color: countdown.color }]}>{countdown.text}</Text>
           </View>
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}
         keyboardShouldPersistTaps="handled">
 
-        <View style={s.card}>
-          <Text style={s.cardLabel}>
+        <View style={S.card}>
+          <Text style={S.cardLabel}>
             {wod.type === 'For Time' ? '⏱ TON TEMPS FINAL' : '🔢 TON SCORE FINAL'}
           </Text>
           <TextInput
-            style={s.scoreInput}
+            style={S.scoreInput}
             value={scoreValue}
             onChangeText={setScoreValue}
             placeholder={
               wod.type === 'For Time' ? 'ex: 12:45' :
               wod.type === 'AMRAP'    ? 'ex: 8 rounds + 15 reps' : 'ex: 185'
             }
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             autoCapitalize="none"
           />
         </View>
 
-        <View style={s.card}>
-          <Text style={s.cardLabel}>🔗 TIE-BREAK (optionnel)</Text>
-          <Text style={s.cardHint}>
+        <View style={S.card}>
+          <Text style={S.cardLabel}>🔗 TIE-BREAK (optionnel)</Text>
+          <Text style={S.cardHint}>
             Reps du dernier mouvement réalisé — départage en cas d'ex-aequo.
           </Text>
           <TextInput
-            style={[s.scoreInput, { fontSize: 16 }]}
+            style={[S.scoreInput, { fontSize: 16 }]}
             value={tiebreakValue}
             onChangeText={setTiebreakValue}
             placeholder="ex: 15"
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             keyboardType="numeric"
           />
         </View>
 
-        <View style={s.card}>
-          <Text style={s.cardLabel}>🎬 LIEN YOUTUBE (obligatoire)</Text>
-          <View style={s.ytRow}>
-            <Youtube color={urlValid ? Colors.success : '#FF0000'} size={20} />
+        <View style={S.card}>
+          <Text style={S.cardLabel}>� LIEN YOUTUBE (obligatoire)</Text>
+          <View style={S.ytRow}>
+            <Youtube color={urlValid ? theme.success : '#FF0000'} size={20} />
             <TextInput
-              style={s.ytInput}
+              style={S.ytInput}
               value={youtubeUrl}
               onChangeText={v => { setYoutubeUrl(v); setUrlValid(YOUTUBE_REGEX.test(v)); }}
               placeholder="https://youtube.com/watch?v=..."
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
             />
           </View>
           {youtubeUrl.length > 0 && !urlValid && (
-            <Text style={s.urlError}>Lien YouTube invalide. Format attendu : youtube.com/watch?v= ou youtu.be/</Text>
+            <Text style={S.urlError}>Lien YouTube invalide. Format attendu : youtube.com/watch?v= ou youtu.be/</Text>
           )}
-          <TouchableOpacity onPress={() => setShowYtHelp(true)} style={s.ytHelpLink}>
-            <Info color={Colors.primary} size={13} />
-            <Text style={s.ytHelpText}>Comment uploader sur YouTube ?</Text>
+          <TouchableOpacity onPress={() => setShowYtHelp(true)} style={S.ytHelpLink}>
+            <Info color={theme.accent} size={13} />
+            <Text style={S.ytHelpText}>Comment uploader sur YouTube ?</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={s.card}>
-          <Text style={s.cardLabel}>📝 NOTES (optionnel)</Text>
+        <View style={S.card}>
+          <Text style={S.cardLabel}>📝 NOTES (optionnel)</Text>
           <TextInput
-            style={[s.scoreInput, { height: 80, textAlignVertical: 'top', fontSize: 13 }]}
+            style={[S.scoreInput, { height: 80, textAlignVertical: 'top', fontSize: 13 }]}
             value={notes}
             onChangeText={setNotes}
             placeholder="Conditions, blessures, commentaires..."
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             multiline
           />
         </View>
 
-        <View style={[s.card, { backgroundColor: `${Colors.warning}08`, borderColor: `${Colors.warning}30` }]}>
-          <Text style={s.cardLabel}>⚖️ CODE D'HONNEUR</Text>
-          <Text style={s.honorText}>
+        <View style={[S.card, { backgroundColor: `${theme.warning}08`, borderColor: `${theme.warning}30` }]}>
+          <Text style={S.cardLabel}>⚖️ CODE D'HONNEUR</Text>
+          <Text style={S.honorText}>
             En soumettant ce score, je certifie avoir respecté tous les standards de mouvement,
             que ma vidéo est complète et authentique, et que le score déclaré est exact.
           </Text>
         </View>
 
         <TouchableOpacity
-          style={[s.actionBtn, (submitting || remainingMs <= 0) && { opacity: 0.5 }]}
+          style={[S.actionBtn, (submitting || remainingMs <= 0) && { opacity: 0.5 }]}
           onPress={handleSubmit}
           disabled={submitting || remainingMs <= 0}
           activeOpacity={0.85}>
           <LinearGradient
-            colors={remainingMs <= 0 ? [Colors.surface, Colors.surface] : [Colors.primary, Colors.secondary]}
-            style={s.actionBtnInner}>
+            colors={remainingMs <= 0 ? [theme.surface, theme.surface] : [theme.accent, theme.secondary ?? theme.accent]}
+            style={S.actionBtnInner}>
             {submitting
               ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={s.actionBtnText}>
+              : <Text style={S.actionBtnText}>
                   {remainingMs <= 0 ? 'DÉLAI EXPIRÉ' : 'SOUMETTRE MON SCORE'}
                 </Text>}
           </LinearGradient>
@@ -369,9 +377,9 @@ export default function TournamentWODScreen() {
 
       {/* YouTube help modal */}
       <Modal visible={showYtHelp} animationType="slide" transparent onRequestClose={() => setShowYtHelp(false)}>
-        <View style={s.modalOverlay}>
-          <View style={s.modalSheet}>
-            <Text style={s.modalTitle}>Uploader sur YouTube</Text>
+        <View style={S.modalOverlay}>
+          <View style={S.modalSheet}>
+            <Text style={S.modalTitle}>Uploader sur YouTube</Text>
             {['1. Ouvre l\'app YouTube sur ton téléphone',
               '2. Appuie sur le "+" en bas de l\'écran',
               '3. Sélectionne "Importer une vidéo"',
@@ -379,14 +387,14 @@ export default function TournamentWODScreen() {
               '5. Titre : ex "BattleWOD – Fran 23/03/2026"',
               '6. Visibilité : "Non répertoriée" (recommandé)',
               '7. Copie le lien et colle-le ici',
-            ].map((step, i) => <Text key={i} style={s.modalStep}>{step}</Text>)}
-            <TouchableOpacity style={s.ytStudioBtn}
+            ].map((step, i) => <Text key={i} style={S.modalStep}>{step}</Text>)}
+            <TouchableOpacity style={S.ytStudioBtn}
               onPress={() => Linking.openURL('https://studio.youtube.com')}>
               <Youtube color="#FF0000" size={18} />
-              <Text style={s.ytStudioText}>Ouvrir YouTube Studio</Text>
+              <Text style={S.ytStudioText}>Ouvrir YouTube Studio</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.modalClose} onPress={() => setShowYtHelp(false)}>
-              <Text style={s.modalCloseTxt}>Fermer</Text>
+            <TouchableOpacity style={S.modalClose} onPress={() => setShowYtHelp(false)}>
+              <Text style={S.modalCloseTxt}>Fermer</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -395,52 +403,46 @@ export default function TournamentWODScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: Colors.background },
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container:   { flex: 1, backgroundColor: theme.background },
   header:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 20, flexDirection: 'row', gap: 12 },
   back:        { paddingTop: 4 },
   headerInfo:  { flex: 1 },
   headerSub:   { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1, marginBottom: 4 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 10 },
   headerBadges:{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  typeBadge:     { backgroundColor: `${Colors.primary}20`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  typeBadgeText: { fontSize: 11, fontWeight: '800', color: Colors.primary },
+  typeBadge:     { backgroundColor: `${theme.accent}20`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  typeBadgeText: { fontSize: 11, fontWeight: '800', color: theme.accent },
   durationBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   durationText:  { fontSize: 11, color: 'rgba(255,255,255,0.5)' },
-  scoringBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.gold}15`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  scoringText:   { fontSize: 11, color: Colors.gold, fontWeight: '700' },
+  scoringBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${theme.gold}15`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  scoringText:   { fontSize: 11, color: theme.gold, fontWeight: '700' },
   countdownRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, marginTop: 4 },
   countdownText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
-
   content: { padding: 16, paddingTop: 14 },
-
-  card:      { backgroundColor: Colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.cardBorder, gap: 10, marginBottom: 14 },
-  cardLabel: { fontSize: 10, fontWeight: '800', color: Colors.textMuted, letterSpacing: 1.5 },
-  cardHint:  { fontSize: 12, color: Colors.textMuted, lineHeight: 18 },
-  descText:  { fontSize: 14, color: Colors.textSecondary, lineHeight: 22 },
+  card:      { backgroundColor: theme.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.cardBorder, gap: 10, marginBottom: 14 },
+  cardLabel: { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 1.5 },
+  cardHint:  { fontSize: 12, color: theme.textMuted, lineHeight: 18 },
+  descText:  { fontSize: 14, color: theme.textSecondary, lineHeight: 22 },
   movRow:    { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   movDot:    { width: 7, height: 7, borderRadius: 4, marginTop: 7 },
-  movText:   { fontSize: 14, color: Colors.textSecondary, flex: 1, lineHeight: 22 },
-  ruleText:  { fontSize: 13, color: Colors.textSecondary, lineHeight: 22 },
+  movText:   { fontSize: 14, color: theme.textSecondary, flex: 1, lineHeight: 22 },
+  ruleText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 22 },
   warningRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  warningText: { fontSize: 13, color: Colors.warning, lineHeight: 20, flex: 1 },
-
-  prevScore:  { fontSize: 22, fontWeight: '900', color: Colors.text },
+  warningText: { fontSize: 13, color: theme.warning, lineHeight: 20, flex: 1 },
+  prevScore:  { fontSize: 22, fontWeight: '900', color: theme.text },
   ytPrevBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   ytPrevText: { fontSize: 13, color: '#FF0000', fontWeight: '600' },
-
-  scoreInput: { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, fontSize: 18, fontWeight: '900', color: Colors.text, borderWidth: 1, borderColor: Colors.border },
-  ytRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.surface, borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: Colors.border },
-  ytInput:    { flex: 1, padding: 14, fontSize: 13, color: Colors.text },
-  urlError:   { fontSize: 12, color: Colors.error },
+  scoreInput: { backgroundColor: theme.surface, borderRadius: 12, padding: 14, fontSize: 18, fontWeight: '900', color: theme.text, borderWidth: 1, borderColor: theme.border },
+  ytRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.surface, borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: theme.border },
+  ytInput:    { flex: 1, padding: 14, fontSize: 13, color: theme.text },
+  urlError:   { fontSize: 12, color: theme.error },
   ytHelpLink: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4 },
-  ytHelpText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
-  honorText:  { fontSize: 13, color: Colors.textSecondary, lineHeight: 21 },
-
+  ytHelpText: { fontSize: 12, color: theme.accent, fontWeight: '600' },
+  honorText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 21 },
   actionBtn:      { marginBottom: 12 },
   actionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, paddingVertical: 18 },
   actionBtnText:  { color: '#fff', fontSize: 15, fontWeight: '900' },
-
   successContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16 },
   successTitle:     { fontSize: 26, fontWeight: '900', color: '#fff' },
   successSub:       { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center' },
@@ -448,17 +450,16 @@ const s = StyleSheet.create({
   successLabel:     { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.35)', letterSpacing: 1.5 },
   successValue:     { fontSize: 18, fontWeight: '900', color: '#fff' },
   successYtRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  successYtText:    { fontSize: 13, color: Colors.success, fontWeight: '700' },
+  successYtText:    { fontSize: 13, color: theme.success, fontWeight: '700' },
   backBtn:          { width: '100%', marginTop: 8 },
   backBtnInner:     { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   backBtnText:      { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 1 },
-
   modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalSheet:    { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 12, borderWidth: 1, borderColor: Colors.cardBorder },
-  modalTitle:    { fontSize: 17, fontWeight: '900', color: Colors.text, marginBottom: 4 },
-  modalStep:     { fontSize: 14, color: Colors.textSecondary, lineHeight: 24 },
-  ytStudioBtn:   { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: `${Colors.error}15`, borderRadius: 12, padding: 14, marginTop: 4 },
+  modalSheet:    { backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 12, borderWidth: 1, borderColor: theme.cardBorder },
+  modalTitle:    { fontSize: 17, fontWeight: '900', color: theme.text, marginBottom: 4 },
+  modalStep:     { fontSize: 14, color: theme.textSecondary, lineHeight: 24 },
+  ytStudioBtn:   { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: `${theme.error}15`, borderRadius: 12, padding: 14, marginTop: 4 },
   ytStudioText:  { fontSize: 14, fontWeight: '800', color: '#FF0000' },
   modalClose:    { alignItems: 'center', padding: 14 },
-  modalCloseTxt: { fontSize: 14, color: Colors.textMuted, fontWeight: '700' },
-});
+  modalCloseTxt: { fontSize: 14, color: theme.textMuted, fontWeight: '700' },
+}); }

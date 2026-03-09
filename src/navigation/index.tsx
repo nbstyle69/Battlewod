@@ -3,11 +3,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, ActivityIndicator } from 'react-native';
-import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle } from 'lucide-react-native';
+import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
 
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -23,6 +24,7 @@ import WODGeneratorScreen from '../screens/wod/WODGeneratorScreen';
 import HomeWODGeneratorScreen from '../components/WodGeneratorCard';
 import OneRMCalculatorScreen from '../screens/home/OneRMCalculatorScreen';
 import CompetitionScreen from '../screens/competition/CompetitionScreen';
+import PhysicalCompetitionScreen from '../screens/competition/PhysicalCompetitionScreen';
 import MatchScreen from '../screens/competition/MatchScreen';
 import MatchmakingScreen from '../screens/competition/MatchmakingScreen';
 import MatchWODScreen from '../screens/competition/MatchWODScreen';
@@ -39,8 +41,10 @@ import BODashboardScreen from '../screens/backoffice/BODashboardScreen';
 import BOMembersScreen from '../screens/backoffice/BOMembersScreen';
 import BOWODsScreen from '../screens/backoffice/BOWODsScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
+import CommunityScreen from '../screens/community/CommunityScreen';
 import CompetitionDetailScreen from '../screens/competition/CompetitionDetailScreen';
 import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
+import FriendsScreen from '../screens/home/FriendsScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -77,10 +81,8 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  WOD: undefined;
   Competitions: undefined;
   Whiteboard: undefined;
-  Messages: undefined;
 };
 
 export type TimerType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'ywyr' | 'libre';
@@ -118,6 +120,7 @@ export type HomeStackParamList = {
   Timer: undefined;
   Leaderboard: undefined;
   Profile: undefined;
+  Friends: undefined;
   CompetitionDetail: { competition: CompetitionSummary };
   PublicProfile: { userId: string };
   VideoPlayback: {
@@ -151,6 +154,21 @@ export type WODStackParamList = {
 
 export type CompetitionStackParamList = {
   CompetitionList: undefined;
+  PhysicalCompetition: undefined;
+  TimerRun: {
+    timerType: TimerType;
+    countdown: number;
+    totalSeconds: number;
+    maxTime: number;
+    interval: number;
+    rounds: number;
+    workTime: number;
+    restTime: number;
+    withCamera: boolean;
+    sequence: string;
+    videoTitle: string;
+    withTimestamp: boolean;
+  };
   Matchmaking: undefined;
   Match: { matchId: string };
   MatchWOD: {
@@ -212,15 +230,28 @@ export type CompetitionStackParamList = {
   };
 };
 
-const RootStack    = createNativeStackNavigator<RootStackParamList>();
-const AuthStack    = createNativeStackNavigator<AuthStackParamList>();
-const OnbStack     = createNativeStackNavigator<OnboardingStackParamList>();
-const Tab          = createBottomTabNavigator<MainTabParamList>();
-const BOTab        = createBottomTabNavigator<BoxOwnerTabParamList>();
-const BODashStack  = createNativeStackNavigator<BODashboardStackParamList>();
-const WODStack     = createNativeStackNavigator<WODStackParamList>();
-const CompStack    = createNativeStackNavigator<CompetitionStackParamList>();
-const HomeStack    = createNativeStackNavigator<HomeStackParamList>();
+export type WhiteboardStackParamList = {
+  WhiteboardMain: undefined;
+  PublicProfile: { userId: string };
+  Messages: undefined;
+};
+
+export type CommunityStackParamList = {
+  CommunityMain: undefined;
+  PublicProfile: { userId: string };
+};
+
+const RootStack       = createNativeStackNavigator<RootStackParamList>();
+const AuthStack       = createNativeStackNavigator<AuthStackParamList>();
+const OnbStack        = createNativeStackNavigator<OnboardingStackParamList>();
+const Tab             = createBottomTabNavigator<MainTabParamList>();
+const BOTab           = createBottomTabNavigator<BoxOwnerTabParamList>();
+const BODashStack     = createNativeStackNavigator<BODashboardStackParamList>();
+const WODStack        = createNativeStackNavigator<WODStackParamList>();
+const CompStack       = createNativeStackNavigator<CompetitionStackParamList>();
+const HomeStack       = createNativeStackNavigator<HomeStackParamList>();
+const WhiteboardStack  = createNativeStackNavigator<WhiteboardStackParamList>();
+const CommunityStack   = createNativeStackNavigator<CommunityStackParamList>();
 
 function AuthNavigator() {
   return (
@@ -252,6 +283,7 @@ function HomeNavigator() {
       <HomeStack.Screen name="TimerRun" component={TimerRunScreen} />
       <HomeStack.Screen name="VideoPlayback" component={VideoPlaybackScreen} />
       <HomeStack.Screen name="Leaderboard" component={LeaderboardScreen} />
+      <HomeStack.Screen name="Friends"     component={FriendsScreen} />
       <HomeStack.Screen name="Profile" component={user?.role === 'admin' ? AdminScreen : ProfileScreen} />
       <HomeStack.Screen name="CompetitionDetail" component={CompetitionDetailScreen} />
       <HomeStack.Screen name="PublicProfile" component={PublicProfileScreen} />
@@ -268,10 +300,31 @@ function WODNavigator() {
   );
 }
 
+function WhiteboardNavigator() {
+  return (
+    <WhiteboardStack.Navigator screenOptions={{ headerShown: false }}>
+      <WhiteboardStack.Screen name="WhiteboardMain" component={WhiteboardScreen} />
+      <WhiteboardStack.Screen name="PublicProfile"  component={PublicProfileScreen} />
+      <WhiteboardStack.Screen name="Messages"       component={MessagesScreen} />
+    </WhiteboardStack.Navigator>
+  );
+}
+
+function CommunityNavigator() {
+  return (
+    <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
+      <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
+      <CommunityStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+    </CommunityStack.Navigator>
+  );
+}
+
 function CompetitionNavigator() {
   return (
     <CompStack.Navigator screenOptions={{ headerShown: false }}>
-      <CompStack.Screen name="CompetitionList" component={CompetitionScreen} />
+      <CompStack.Screen name="CompetitionList"    component={CompetitionScreen} />
+      <CompStack.Screen name="PhysicalCompetition" component={PhysicalCompetitionScreen} />
+      <CompStack.Screen name="TimerRun"            component={TimerRunScreen} />
       <CompStack.Screen name="Matchmaking" component={MatchmakingScreen} />
       <CompStack.Screen name="Match" component={MatchScreen} />
       <CompStack.Screen name="MatchWOD" component={MatchWODScreen} />
@@ -294,23 +347,23 @@ function BODashboardNavigator() {
   );
 }
 
-const BOTabStyle = {
-  backgroundColor: Colors.tabBar,
-  borderTopColor: Colors.border,
-  borderTopWidth: 1,
-  height: 70,
-  paddingBottom: 10,
-  paddingTop: 8,
-};
-
 function BoxOwnerTabs() {
+  const { theme } = useTheme();
+  const tabStyle = {
+    backgroundColor: theme.tabBar,
+    borderTopColor: theme.tabBarBorder,
+    borderTopWidth: 1,
+    height: 70,
+    paddingBottom: 10,
+    paddingTop: 8,
+  };
   return (
     <BOTab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: BOTabStyle,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarStyle: tabStyle,
+        tabBarActiveTintColor: theme.tabBarActive,
+        tabBarInactiveTintColor: theme.tabBarInactive,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarIcon: ({ color, size }) => {
           const icons: Record<string, React.ReactNode> = {
@@ -334,38 +387,36 @@ function BoxOwnerTabs() {
 }
 
 function MainTabs() {
+  const { theme } = useTheme();
   return (
     <Tab.Navigator
+      initialRouteName="Home"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: Colors.tabBar,
-          borderTopColor: Colors.border,
+          backgroundColor: theme.tabBar,
+          borderTopColor: theme.tabBarBorder,
           borderTopWidth: 1,
           height: 70,
           paddingBottom: 10,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveTintColor: theme.tabBarActive,
+        tabBarInactiveTintColor: theme.tabBarInactive,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarIcon: ({ color, size, focused }) => {
           const icons: Record<string, React.ReactNode> = {
-            Home:         <KettlebellIcon size={focused ? size + 4 : size + 2} />,
-            WOD:          <Dumbbell color={color} size={size} />,
+            Home:         <Home color={color} size={size} />,
             Competitions: <Trophy color={color} size={size} />,
             Whiteboard:   <Layout color={color} size={size} />,
-            Messages:     <MessageCircle color={color} size={size} />,
           };
           return icons[route.name] ?? null;
         },
       })}
     >
-      <Tab.Screen name="WOD"         component={WODNavigator}         options={{ tabBarLabel: 'WOD' }} />
       <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compétitions' }} />
       <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: 'Accueil', tabBarAccessibilityLabel: 'Accueil' }} />
-      <Tab.Screen name="Whiteboard"   component={WhiteboardScreen}      options={{ tabBarLabel: 'Whiteboard' }} />
-      <Tab.Screen name="Messages"     component={MessagesScreen}        options={{ tabBarLabel: 'Messages' }} />
+      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Whiteboard' }} />
     </Tab.Navigator>
   );
 }
@@ -373,10 +424,12 @@ function MainTabs() {
 export default function AppNavigator() {
   const { session, user, currentBox, loading, boxSkipped } = useAuth();
 
+  const { theme } = useTheme();
+
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={{ flex: 1, backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }

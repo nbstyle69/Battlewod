@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, Square, Download, ChevronRight } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { Colors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 
 type Props = {
@@ -18,6 +18,8 @@ type Props = {
 
 export default function MatchCameraScreen({ navigation, route }: Props) {
   const { matchId, wodTitle, wodType, wodDuration, wodMovements, wodScoring } = route.params;
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const movements: string[] = JSON.parse(wodMovements);
 
   const [camPermission, requestCamPermission] = useCameraPermissions();
@@ -93,12 +95,12 @@ export default function MatchCameraScreen({ navigation, route }: Props) {
 
   if (!camPermission?.granted || !micPermission?.granted) {
     return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionTitle}>Accès caméra requis</Text>
-        <Text style={styles.permissionSub}>BattleWOD a besoin de la caméra et du micro pour enregistrer ton WOD.</Text>
+      <View style={S.permissionContainer}>
+        <Text style={S.permissionTitle}>Accès caméra requis</Text>
+        <Text style={S.permissionSub}>BattleWOD a besoin de la caméra et du micro pour enregistrer ton WOD.</Text>
         <TouchableOpacity onPress={requestPermissions} activeOpacity={0.8}>
-          <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.permissionBtn}>
-            <Text style={styles.permissionBtnText}>Autoriser</Text>
+          <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.permissionBtn}>
+            <Text style={S.permissionBtnText}>Autoriser</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -106,81 +108,81 @@ export default function MatchCameraScreen({ navigation, route }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={S.container}>
       <CameraView
         ref={cameraRef}
-        style={styles.camera}
+        style={S.camera}
         facing="back"
         mode="video"
       >
-        <View style={styles.overlay}>
-          <View style={styles.topOverlay}>
-            <View style={styles.wodInfo}>
-              <Text style={styles.wodTitleOverlay}>{wodTitle}</Text>
-              <Text style={styles.wodTypeOverlay}>{wodType} • {wodDuration} min</Text>
+        <View style={S.overlay}>
+          <View style={S.topOverlay}>
+            <View style={S.wodInfo}>
+              <Text style={S.wodTitleOverlay}>{wodTitle}</Text>
+              <Text style={S.wodTypeOverlay}>{wodType} • {wodDuration} min</Text>
             </View>
             {isRecording && (
-              <View style={styles.recBadge}>
-                <View style={styles.recDot} />
-                <Text style={styles.recText}>REC</Text>
+              <View style={S.recBadge}>
+                <View style={S.recDot} />
+                <Text style={S.recText}>REC</Text>
               </View>
             )}
           </View>
 
-          <View style={styles.timerContainer}>
-            <Text style={[styles.timer, isRecording && { color: '#FF4500' }]}>
+          <View style={S.timerContainer}>
+            <Text style={[S.timer, isRecording && { color: '#FF4500' }]}>
               {formatTime(elapsed)}
             </Text>
             {phase === 'recording' && (
-              <Text style={styles.timerLabel}>
+              <Text style={S.timerLabel}>
                 max {formatTime(wodDuration * 60)}
               </Text>
             )}
           </View>
 
           {phase !== 'done' && (
-            <View style={styles.movementsOverlay}>
+            <View style={S.movementsOverlay}>
               {movements.slice(0, 3).map((m, i) => (
-                <Text key={i} style={styles.movementOverlay}>• {m}</Text>
+                <Text key={i} style={S.movementOverlay}>• {m}</Text>
               ))}
             </View>
           )}
 
-          <View style={styles.bottomControls}>
+          <View style={S.bottomControls}>
             {phase === 'ready' && (
-              <TouchableOpacity onPress={startRecording} activeOpacity={0.85} style={styles.recordBtnWrapper}>
-                <LinearGradient colors={['#FF4500', '#FF6B35']} style={styles.recordBtn}>
+              <TouchableOpacity onPress={startRecording} activeOpacity={0.85} style={S.recordBtnWrapper}>
+                <LinearGradient colors={['#FF4500', '#FF6B35']} style={S.recordBtn}>
                   <Video color="#fff" size={28} />
-                  <Text style={styles.recordBtnText}>DÉMARRER</Text>
+                  <Text style={S.recordBtnText}>DÉMARRER</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
 
             {phase === 'recording' && (
-              <TouchableOpacity onPress={stopRecording} activeOpacity={0.85} style={styles.recordBtnWrapper}>
-                <View style={styles.stopBtn}>
+              <TouchableOpacity onPress={stopRecording} activeOpacity={0.85} style={S.recordBtnWrapper}>
+                <View style={S.stopBtn}>
                   <Square color="#fff" size={28} fill="#fff" />
-                  <Text style={styles.stopBtnText}>TERMINER</Text>
+                  <Text style={S.stopBtnText}>TERMINER</Text>
                 </View>
               </TouchableOpacity>
             )}
 
             {phase === 'done' && (
-              <View style={styles.doneControls}>
-                <Text style={styles.doneTitle}>WOD terminé ! 🔥</Text>
-                <Text style={styles.doneTime}>Temps : {formatTime(elapsed)}</Text>
+              <View style={S.doneControls}>
+                <Text style={S.doneTitle}>WOD terminé ! 🔥</Text>
+                <Text style={S.doneTime}>Temps : {formatTime(elapsed)}</Text>
                 <TouchableOpacity
                   onPress={saveToGallery}
-                  style={[styles.actionBtn, saved && { opacity: 0.5 }]}
+                  style={[S.actionBtn, saved && { opacity: 0.5 }]}
                   disabled={saved}
                   activeOpacity={0.8}
                 >
                   <Download color="#fff" size={18} />
-                  <Text style={styles.actionBtnText}>{saved ? 'Vidéo sauvegardée ✓' : 'Sauvegarder la vidéo'}</Text>
+                  <Text style={S.actionBtnText}>{saved ? 'Vidéo sauvegardée ✓' : 'Sauvegarder la vidéo'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={goToScore} activeOpacity={0.85}>
-                  <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.nextBtn}>
-                    <Text style={styles.nextBtnText}>CONFIRMER MON SCORE</Text>
+                  <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.nextBtn}>
+                    <Text style={S.nextBtnText}>CONFIRMER MON SCORE</Text>
                     <ChevronRight color="#fff" size={20} />
                   </LinearGradient>
                 </TouchableOpacity>
@@ -193,7 +195,7 @@ export default function MatchCameraScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   camera: { flex: 1 },
   overlay: { flex: 1, justifyContent: 'space-between', padding: 0 },
@@ -251,11 +253,11 @@ const styles = StyleSheet.create({
   },
   nextBtnText: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 1 },
   permissionContainer: {
-    flex: 1, backgroundColor: Colors.background,
+    flex: 1, backgroundColor: theme.background,
     justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16,
   },
-  permissionTitle: { fontSize: 22, fontWeight: '900', color: Colors.text, textAlign: 'center' },
-  permissionSub: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  permissionTitle: { fontSize: 22, fontWeight: '900', color: theme.text, textAlign: 'center' },
+  permissionSub: { fontSize: 14, color: theme.textSecondary, textAlign: 'center', lineHeight: 20 },
   permissionBtn: { borderRadius: 16, paddingHorizontal: 40, paddingVertical: 16, marginTop: 8 },
   permissionBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-});
+}); }

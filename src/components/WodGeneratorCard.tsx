@@ -7,6 +7,9 @@ import { Colors, LevelColors } from '../theme/colors';
 import { HomeStackParamList } from '../navigation';
 import { AthleteLevel } from '../types';
 
+const HYROX_ORANGE = '#F97316';
+type Sport = 'functional' | 'hybrid';
+
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
 type WODType = 'For Time' | 'AMRAP' | 'EMOM' | 'Tabata' | 'Max Reps';
 type LK = AthleteLevel;
@@ -18,6 +21,186 @@ const LEVELS: { key: LK; label: string }[] = [
 ];
 const LI: Record<LK, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, gx: 4, pro: 5 };
 const FORMATS = ['Solo', 'Équipe'];
+
+const HYROX_LEVELS = ['Open', 'Pro', 'Elite'];
+const HYROX_FORMATS = ['Solo', 'Doubles', 'Relais', 'Mixed Relais'];
+const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force', 'Running Intervals'];
+const HYROX_DURATIONS = [20, 30, 45, 60];
+const HYROX_EQ_LIST = [
+  { key: 'ski',  label: 'SkiErg' },       { key: 'slp',  label: 'Sled Push' },
+  { key: 'slpu', label: 'Sled Pull' },    { key: 'row',  label: 'RowErg' },
+  { key: 'bbj',  label: 'Burpee BJ' },   { key: 'fc',   label: 'Farmers Carry' },
+  { key: 'sbl',  label: 'Sandbag Lunge' },{ key: 'wb',   label: 'Wall Balls' },
+  { key: 'run',  label: 'Tapis course' }, { key: 'db2',  label: 'Haltères' },
+];
+
+interface HyroxWOD {
+  name: string; level: string; format: string; type: string; duration: number;
+  stations: string[]; scoring: string; coach: string;
+}
+
+const HYROX_NAMES: Record<string, string[]> = {
+  'Race Simulation':   ['Race Day Protocol','HYROX Race Sim','Competition Mode','Full Distance','Race Forge','Pre-Race Drill','Event Simulator','Race Crusher','Qualifier Prep','Podium Run'],
+  'Station Training':  ['Station Domination','Power Station','Station Mastery','Station Siege','Platform Work','Station Builder','Force Station','Block Drill','Station Storm','Grid Work'],
+  'Cardio Force':      ['Hybrid Forge','Cardio Machine','Hybrid Engine','Power Cardio','Endurance Force','Hybrid Burn','Engine Room','Cross Cardio','Hybrid Blast','Force Cardio'],
+  'Running Intervals': ['Track & Station','Run & Gun','Interval Force','Run Blocks','Speed Station','Running Man','Run Circuit','Lap & Station','Road & Station','Track Crusher'],
+};
+const HYROX_COACHES: Record<string, string[]> = {
+  'Race Simulation': [
+    'Gère ton allure sur les courses. Attaque chaque station à 85% max.',
+    'Ne sprint jamais. La régularité fait la performance en HYROX.',
+    'Optimise tes transitions : chaque seconde perdue compte.',
+    'Les courses sont ta récupération active. Allure constante.',
+    'Objectif : sortir de chaque station sans dépasser le seuil anaérobie.',
+  ],
+  'Station Training': [
+    'Qualité > vitesse. Maîtrise le geste avant d\'accélérer.',
+    'Simule la fatigue de course avant chaque station.',
+    'Travaille chaque station comme si tu sortais d\'un 1km.',
+    'Focus sur le pattern de mouvement. La technique prime sous la fatigue.',
+    'Repos strictement respecté. La surcharge vient du volume.',
+  ],
+  'Cardio Force': [
+    'Enchaîne sans repos. Adapte les charges pour tenir le rythme.',
+    'Maintiens le nombre de rounds. Baisse la charge plutôt que de t\'arrêter.',
+    'Tes transitions cardio→force doivent être instantanées.',
+    'Optimise ta respiration sur les stations de force.',
+    'Marcher c\'est acceptable. S\'asseoir non.',
+  ],
+  'Running Intervals': [
+    'Allure de course régulière. Les stations sont ta récup active.',
+    'Vitesse identique sur chaque intervalle. La constance prime.',
+    'Ne t\'épuise pas sur les stations : elles régulent ta fréquence cardiaque.',
+    'Simule les conditions race sur chaque run.',
+    'Trouve ton tempo optimal race sur ces intervalles.',
+  ],
+};
+
+function generateHyroxWOD(level: string, format: string, type: string, duration: number, eqKeys: string[]): HyroxWOD {
+  const li   = ({ Open: 0, Pro: 1, Elite: 2 } as Record<string, number>)[level] ?? 0;
+  const ski  = eqKeys.includes('ski');
+  const slp  = eqKeys.includes('slp');
+  const slpu = eqKeys.includes('slpu');
+  const row  = eqKeys.includes('row');
+  const sbl  = eqKeys.includes('sbl');
+  const wb   = eqKeys.includes('wb');
+  const bbj  = eqKeys.includes('bbj');
+  const fc   = eqKeys.includes('fc');
+  const db   = eqKeys.includes('db2');
+  const trd  = eqKeys.includes('run');
+
+  const sp_kg  = ['60','80','100+'][li];
+  const sl_kg  = ['40','60','80+'][li];
+  const wb_rep = [75, 90, 100][li];
+  const wb_kg  = ['6','9','9'][li];
+  const fc_kg  = ['16','20','24'][li];
+  const sb_kg  = ['10','15','20'][li];
+  const db_kg  = ['12','15','20'][li];
+  const ski_d  = ['800m','1000m','1200m'][li];
+  const row_d  = ['800m','1000m','1200m'][li];
+  const r1k    = trd ? '1km Tapis' : '1km Course';
+  const r800   = trd ? '800m Tapis' : '800m Course';
+  const r400   = trd ? '400m Tapis' : '400m Course';
+
+  const E = {
+    ski1k:  ski  ? `${ski_d} SkiErg`                                         : row ? `${row_d} RowErg`              : `${ski_d} Course`,
+    row1k:  row  ? `${row_d} RowErg`                                         : ski ? `${ski_d} SkiErg`              : `${row_d} Course`,
+    ski500: ski  ? '500m SkiErg'                                              : row ? '500m RowErg'                  : r800,
+    row500: row  ? '500m RowErg'                                              : ski ? '500m SkiErg'                  : r800,
+    slp:    slp  ? `50m Sled Push (${sp_kg} kg)`                             : bbj ? `${[15,20,25][li]} Burpee BJ`  : `${[20,25,30][li]} KB Swings lourds`,
+    slpu:   slpu ? `50m Sled Pull (${sl_kg} kg)`                             : fc  ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)` : `${[15,20,25][li]} Burpees`,
+    sbl:    sbl  ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)`      : fc  ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)` : `${[40,60,80][li]} Air Squats`,
+    wb:     wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`                      : `${[80,100,120][li]} Air Squats`,
+    fc:     fc   ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)`     : sbl ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)` : `${[40,60,80][li]} Goblet Squats`,
+    bbj:    bbj  ? `${[15,20,25][li]} Burpee Broad Jump`                     : `${[20,25,30][li]} Burpees`,
+    db:     db   ? `${[12,15,20][li]} DB Thrusters (${db_kg}kg/main)`       : `${[15,20,25][li]} KB Thrusters lourds`,
+    ski250: ski  ? `${['250m','300m','400m'][li]} SkiErg`                    : row ? `${['250m','300m','400m'][li]} RowErg` : `${['200m','300m','400m'][li]} Course`,
+  };
+
+  const name  = rand(HYROX_NAMES[type]   ?? HYROX_NAMES['Race Simulation']);
+  const coach = rand(HYROX_COACHES[type] ?? HYROX_COACHES['Race Simulation']);
+  let stations: string[] = [];
+  let scoring  = '';
+
+  if (type === 'Race Simulation') {
+    const variant = duration >= 50 ? 0 : Math.floor(Math.random() * 5);
+    if (variant === 0) {
+      stations = [r1k, E.ski1k, r1k, E.slp, r1k, E.slpu, r1k, E.sbl, r1k, E.wb];
+    } else if (variant === 1) {
+      stations = [r1k, E.row1k, r1k, E.slp, r1k, E.fc, r1k, E.sbl, r1k, E.wb];
+    } else if (variant === 2) {
+      const s4 = pick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 4);
+      stations = [r1k, s4[0], r1k, s4[1], r1k, s4[2], r1k, s4[3]];
+    } else if (variant === 3) {
+      const s3 = pick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 3);
+      stations = [r800, s3[0], r800, s3[1], r800, s3[2]];
+    } else {
+      const s4 = pick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 4);
+      stations = [r400, s4[0], r800, s4[1], r1k, s4[2], r800, s4[3]];
+    }
+    scoring = `Temps total — objectif ${level === 'Elite' ? '< 55 min' : level === 'Pro' ? '< 70 min' : '< 85 min'}`;
+  }
+
+  else if (type === 'Station Training') {
+    const sets = ['4 ×','5 ×','6 ×'][li];
+    const stPool: string[] = [
+      ski ? `${sets} ${ski_d} SkiErg`              : row ? `${sets} ${row_d} RowErg`       : `${sets} ${r800}`,
+      slp  ? `${sets} 20m Sled Push (max charge)` : `${sets} ${E.bbj}`,
+      slpu ? `${sets} 30m Sled Pull (${sl_kg} kg)`: `${sets} ${E.fc}`,
+      sbl  ? `${sets} 25m Sandbag Lunges (${sb_kg} kg)` : `${sets} ${E.fc}`,
+      wb   ? `${sets} 25 Wall Balls (${wb_kg} kg)`: `${sets} 30 Air Squats`,
+      fc   ? `${sets} 50m Farmers Carry (${fc_kg}kg×2)` : `${sets} 20 KB Swings lourds`,
+      row  ? `${sets} 250m RowErg tempo`           : ski ? `${sets} 250m SkiErg tempo`      : `${sets} ${r400}`,
+      `${sets} ${E.bbj}`,
+      `${sets} ${E.db}`,
+      ski  ? `${sets} 150m SkiErg sprint`          : `${sets} 150m RowErg sprint`,
+    ];
+    const count = duration <= 20 ? 3 : duration <= 30 ? 4 : duration <= 45 ? 5 : 6;
+    stations = pick(stPool, count);
+    scoring  = `Score = stations complétées en ${duration} min`;
+  }
+
+  else if (type === 'Cardio Force') {
+    const cardioPool = [E.ski500, E.row500, r800, r400, `${[20,25,30][li]} Cal Assault Bike`, E.ski250, `${['400m','500m','600m'][li]} Course`];
+    const forcePool  = [E.slp, E.slpu, E.wb, E.sbl, E.fc, E.bbj, E.db, `${[10,15,20][li]} KB Thrusters lourds`];
+    const count = duration <= 20 ? 4 : duration <= 30 ? 5 : duration <= 45 ? 6 : 8;
+    const nC = Math.ceil(count / 2);
+    const nF = Math.floor(count / 2);
+    const pC = pick(cardioPool, nC);
+    const pF = pick(forcePool, nF);
+    const combined: string[] = [];
+    for (let i = 0; i < Math.max(nC, nF); i++) {
+      if (pC[i]) combined.push(pC[i]);
+      if (pF[i]) combined.push(pF[i]);
+    }
+    stations = combined;
+    scoring  = `AMRAP ${duration} min — max rounds`;
+  }
+
+  else {
+    const runOpts = [r400, r800, r1k];
+    const stPool  = [E.ski500, E.row500, E.wb, E.slp, E.sbl, E.fc, E.bbj, E.db, `${[20,25,30][li]} Cal SkiErg`, E.ski250];
+    const cycles  = duration <= 20 ? 2 : duration <= 30 ? 3 : duration <= 45 ? 4 : 5;
+    const runDist = rand(runOpts);
+    const picked  = pick(stPool, Math.min(cycles, 4));
+    const result: string[] = [];
+    for (let i = 0; i < cycles; i++) {
+      result.push(runDist);
+      result.push(picked[i % picked.length]);
+    }
+    stations = result;
+    scoring  = `Temps total pour ${cycles} cycles`;
+  }
+
+  const fmtStation = (s: string): string => {
+    if (format === 'Doubles')      return `(split) ${s}`;
+    if (format === 'Relais')       return `[relais] ${s}`;
+    if (format === 'Mixed Relais') return `[mixed] ${s}`;
+    return s;
+  };
+  stations = stations.map(fmtStation);
+  return { name, level, format, type, duration, stations, scoring, coach };
+}
 const DURATIONS = [5, 10, 15, 20, 30, 40, 60];
 const WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Reps'];
 const EQ_LIST = [
@@ -258,13 +441,26 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
 export default function WodGeneratorCard({ navigation: navProp }: { navigation?: Nav }) {
   const navHook = useNavigation<Nav>();
   const navigation = navProp ?? navHook;
-  const [level, setLevel] = useState<LK>('rx');
-  const [format, setFormat] = useState('Solo');
-  const [duration, setDuration] = useState(10);
-  const [wodType, setWodType] = useState<WODType>('AMRAP');
-  const [equipment, setEquipment] = useState<string[]>(['bw']);
-  const [wod, setWod] = useState<GeneratedWOD | null>(null);
+
+  const [sport,       setSport]       = useState<Sport>('functional');
+  // Functional Fitness
+  const [level,       setLevel]       = useState<LK>('rx');
+  const [format,      setFormat]      = useState('Solo');
+  const [duration,    setDuration]    = useState(10);
+  const [wodType,     setWodType]     = useState<WODType>('AMRAP');
+  const [equipment,   setEquipment]   = useState<string[]>(['bw']);
+  const [wod,         setWod]         = useState<GeneratedWOD | null>(null);
+  // Hybrid / Hyrox
+  const [hyroxLevel,  setHyroxLevel]  = useState('Open');
+  const [hyroxFormat, setHyroxFormat] = useState('Solo');
+  const [hyroxType,   setHyroxType]   = useState('Race Simulation');
+  const [hyroxDur,    setHyroxDur]    = useState(45);
+  const [hyroxEquip,  setHyroxEquip]  = useState<string[]>(['ski', 'slp', 'row', 'wb']);
+  const [hyroxWod,    setHyroxWod]    = useState<HyroxWOD | null>(null);
+
   const [loading, setLoading] = useState(false);
+
+  const accent = sport === 'hybrid' ? HYROX_ORANGE : Colors.primary;
 
   function toggleEq(k: string) {
     if (k === 'bw') { setEquipment(['bw']); return; }
@@ -274,10 +470,20 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     });
   }
 
+  function toggleHyroxEq(k: string) {
+    setHyroxEquip(prev => prev.includes(k) ? prev.filter(e => e !== k) : [...prev, k]);
+  }
+
   async function handleGenerate() {
     setLoading(true);
     await new Promise(r => setTimeout(r, 600));
-    setWod(generateWOD(level, format, duration, wodType, equipment));
+    if (sport === 'hybrid') {
+      setHyroxWod(generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip));
+      setWod(null);
+    } else {
+      setWod(generateWOD(level, format, duration, wodType, equipment));
+      setHyroxWod(null);
+    }
     setLoading(false);
   }
 
@@ -296,6 +502,27 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={s.wrapper}>
 
+      {/* Sport selector */}
+      <View style={s.sportRow}>
+        <TouchableOpacity
+          style={[s.sportCard, sport === 'functional' && s.sportCardActive]}
+          onPress={() => setSport('functional')} activeOpacity={0.8}
+        >
+          <Text style={s.sportEmoji}>🏋️</Text>
+          <Text style={[s.sportLabel, sport === 'functional' && { color: Colors.primary }]}>{"Functional\nFitness"}</Text>
+          {sport === 'functional' && <View style={[s.sportDot, { backgroundColor: Colors.primary }]} />}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.sportCard, sport === 'hybrid' && s.sportCardHybrid]}
+          onPress={() => setSport('hybrid')} activeOpacity={0.8}
+        >
+          <Text style={s.sportEmoji}>⚡</Text>
+          <Text style={[s.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>{"Hybrid\n(Hyrox)"}</Text>
+          {sport === 'hybrid' && <View style={[s.sportDot, { backgroundColor: HYROX_ORANGE }]} />}
+        </TouchableOpacity>
+      </View>
+
+      {sport === 'functional' ? (<>
       {/* Level */}
       <Text style={s.optLabel}>NIVEAU</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
@@ -353,14 +580,123 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         ))}
       </View>
 
+      </>) : (<>
+
+      {/* Hyrox level */}
+      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>CATÉGORIE</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+        {HYROX_LEVELS.map(l => (
+          <TouchableOpacity key={l} onPress={() => setHyroxLevel(l)} activeOpacity={0.7}
+            style={[s.chip, hyroxLevel === l && s.chipHybrid]}>
+            <Text style={[s.chipTxt, hyroxLevel === l && { color: HYROX_ORANGE, fontWeight: '900' }]}>{l}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Hyrox format */}
+      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>FORMAT</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+        {HYROX_FORMATS.map(f => (
+          <TouchableOpacity key={f} onPress={() => setHyroxFormat(f)} activeOpacity={0.7}
+            style={[s.chip, hyroxFormat === f && s.chipHybrid]}>
+            <Text style={[s.chipTxt, hyroxFormat === f && { color: HYROX_ORANGE, fontWeight: '900' }]}>{f}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Hyrox type */}
+      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>TYPE D'ENTRAÎNEMENT</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+        {HYROX_TYPES.map(t => (
+          <TouchableOpacity key={t} onPress={() => setHyroxType(t)} activeOpacity={0.7}
+            style={[s.chip, hyroxType === t && s.chipHybrid]}>
+            <Text style={[s.chipTxt, hyroxType === t && { color: HYROX_ORANGE, fontWeight: '900' }]}>{t}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Hyrox duration */}
+      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>DURÉE</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+        {HYROX_DURATIONS.map(d => (
+          <TouchableOpacity key={d} onPress={() => setHyroxDur(d)} activeOpacity={0.7}
+            style={[s.chip, hyroxDur === d && s.chipHybrid]}>
+            <Clock color={hyroxDur === d ? HYROX_ORANGE : Colors.textMuted} size={12} />
+            <Text style={[s.chipTxt, hyroxDur === d && { color: HYROX_ORANGE, fontWeight: '900' }]}>{d} min</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Hyrox equipment */}
+      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>ÉQUIPEMENT</Text>
+      <View style={s.eqGrid}>
+        {HYROX_EQ_LIST.map(e => (
+          <TouchableOpacity key={e.key} onPress={() => toggleHyroxEq(e.key)} activeOpacity={0.7}
+            style={[s.eqChip, hyroxEquip.includes(e.key) && s.eqChipHybrid]}>
+            <Text style={[s.eqTxt, hyroxEquip.includes(e.key) && { color: HYROX_ORANGE, fontWeight: '900' }]}>{e.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      </>)}
+
       {/* Generate button */}
-      <TouchableOpacity onPress={handleGenerate} activeOpacity={0.85} disabled={loading} style={s.genBtn}>
+      <TouchableOpacity onPress={handleGenerate} activeOpacity={0.85} disabled={loading}
+        style={[s.genBtn, { backgroundColor: accent }]}>
         {loading ? <ActivityIndicator color="#fff" size="small" /> : (
           <><Sparkles color="#fff" size={18} /><Text style={s.genBtnTxt}>GÉNÉRER MON WOD</Text></>
         )}
       </TouchableOpacity>
 
-      {/* Result */}
+      {/* Hyrox Result */}
+      {hyroxWod && (
+        <View style={[s.resultCard, { borderColor: `${HYROX_ORANGE}40` }]}>
+          <View style={s.resultTop}>
+            <View style={s.badges}>
+              <View style={[s.badge, { backgroundColor: `${HYROX_ORANGE}25` }]}>
+                <Text style={[s.badgeTxt, { color: HYROX_ORANGE }]}>HYBRID</Text>
+              </View>
+              <View style={[s.badge, { backgroundColor: `${HYROX_ORANGE}15` }]}>
+                <Text style={[s.badgeTxt, { color: HYROX_ORANGE }]}>{hyroxWod.level}</Text>
+              </View>
+              <View style={[s.badge, { backgroundColor: Colors.surface }]}>
+                <Clock color={Colors.textMuted} size={11} />
+                <Text style={[s.badgeTxt, { color: Colors.textMuted }]}>{hyroxWod.duration} min</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={handleGenerate} activeOpacity={0.7}>
+              <RefreshCw color={HYROX_ORANGE} size={18} />
+            </TouchableOpacity>
+          </View>
+          <Text style={s.wodName}>{hyroxWod.name}</Text>
+          <View style={[s.badge, { backgroundColor: `${HYROX_ORANGE}15`, alignSelf: 'flex-start' }]}>
+            <Text style={[s.badgeTxt, { color: HYROX_ORANGE }]}>{hyroxWod.format} · {hyroxWod.type}</Text>
+          </View>
+          <View style={s.movBox}>
+            {hyroxWod.stations.map((st, i) => (
+              <View key={i} style={s.stationRow}>
+                <View style={[s.stationDot, { backgroundColor: HYROX_ORANGE }]} />
+                <Text style={s.movLine}>{st}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={s.scoringRow}>
+            <Zap color={HYROX_ORANGE} size={14} />
+            <Text style={[s.scoringTxt, { color: HYROX_ORANGE }]}>{hyroxWod.scoring}</Text>
+          </View>
+          <View style={[s.coachBox, { backgroundColor: `${HYROX_ORANGE}12` }]}>
+            <Text style={[s.coachLabel, { color: HYROX_ORANGE }]}>💡 Coach</Text>
+            <Text style={s.coachTxt}>{hyroxWod.coach}</Text>
+          </View>
+          <TouchableOpacity style={[s.startBtn, { backgroundColor: HYROX_ORANGE }]} activeOpacity={0.85}
+            onPress={() => navigation.navigate('Timer')}>
+            <Zap color="#fff" size={16} />
+            <Text style={s.startBtnTxt}>LANCER CET ENTRAÎNEMENT</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Functional Result */}
       {wod && (
         <View style={s.resultCard}>
           <View style={s.resultTop}>
@@ -454,6 +790,20 @@ const s = StyleSheet.create({
   eqChipSel: { backgroundColor: `${Colors.primary}15`, borderColor: Colors.primary },
   eqTxt: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
   eqTxtSel: { color: Colors.primary, fontWeight: '900' },
+  sportRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  sportCard: {
+    flex: 1, borderRadius: 14, padding: 14, alignItems: 'center', gap: 3,
+    backgroundColor: Colors.card, borderWidth: 2, borderColor: Colors.border,
+  },
+  sportCardActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}10` },
+  sportCardHybrid: { borderColor: HYROX_ORANGE, backgroundColor: `${HYROX_ORANGE}10` },
+  sportEmoji: { fontSize: 24, marginBottom: 2 },
+  sportLabel: { fontSize: 12, fontWeight: '800', color: Colors.textMuted, textAlign: 'center', lineHeight: 17 },
+  sportDot: { width: 7, height: 7, borderRadius: 4, marginTop: 3 },
+  chipHybrid: { backgroundColor: `${HYROX_ORANGE}15`, borderColor: HYROX_ORANGE },
+  eqChipHybrid: { backgroundColor: `${HYROX_ORANGE}15`, borderColor: HYROX_ORANGE },
+  stationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stationDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
   genBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.primary, borderRadius: 14, padding: 16, marginBottom: 4,

@@ -7,7 +7,7 @@ import {
 import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Colors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, BoxWODType } from '../../types';
 
 const WOD_TYPES: { value: BoxWODType; label: string }[] = [
@@ -41,6 +41,8 @@ function toISO(d: Date): string {
 
 export default function BOWODsScreen({ navigation }: any) {
   const { user, currentBox } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
 
   const [wods,      setWods]      = useState<BoxWOD[]>([]);
   const [loading,   setLoading]   = useState(true);
@@ -147,32 +149,32 @@ export default function BOWODsScreen({ navigation }: any) {
   const todayISO = toISO(new Date());
 
   return (
-    <View style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.back}>
-          <ChevronLeft color={Colors.text} size={22} />
+    <View style={S.container}>
+      <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
+          <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Calendrier WODs</Text>
+        <Text style={S.headerTitle}>Calendrier WODs</Text>
         <View style={{ width: 22 }} />
       </View>
 
       {/* Week navigation */}
-      <View style={s.weekNav}>
-        <TouchableOpacity onPress={() => setWeekOffset(w => w - 1)} style={s.weekArrow}>
-          <ChevronLeft color={Colors.text} size={20} />
+      <View style={S.weekNav}>
+        <TouchableOpacity onPress={() => setWeekOffset(w => w - 1)} style={S.weekArrow}>
+          <ChevronLeft color={theme.text} size={20} />
         </TouchableOpacity>
-        <Text style={s.weekLabel}>
+        <Text style={S.weekLabel}>
           {weekDates[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
           {' — '}
           {weekDates[6].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
         </Text>
-        <TouchableOpacity onPress={() => setWeekOffset(w => w + 1)} style={s.weekArrow}>
-          <ChevronRight color={Colors.text} size={20} />
+        <TouchableOpacity onPress={() => setWeekOffset(w => w + 1)} style={S.weekArrow}>
+          <ChevronRight color={theme.text} size={20} />
         </TouchableOpacity>
       </View>
 
       {loading
-        ? <ActivityIndicator style={{ marginTop: 40 }} size="large" color={Colors.primary} />
+        ? <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.accent} />
         : (
           <ScrollView
             contentContainerStyle={{ paddingBottom: 40 }}
@@ -183,43 +185,43 @@ export default function BOWODsScreen({ navigation }: any) {
               const isToday = iso === todayISO;
               const dayWODs = wods.filter(w => w.scheduled_date === iso);
               return (
-                <View key={iso} style={s.dayBlock}>
-                  <View style={[s.dayHeader, isToday && s.dayHeaderToday]}>
-                    <Text style={[s.dayLabel, isToday && s.dayLabelToday]}>
+                <View key={iso} style={S.dayBlock}>
+                  <View style={[S.dayHeader, isToday && S.dayHeaderToday]}>
+                    <Text style={[S.dayLabel, isToday && S.dayLabelToday]}>
                       {DAY_LABELS[i]} {d.getDate()}
                     </Text>
-                    {isToday && <Text style={s.todayBadge}>Aujourd'hui</Text>}
-                    <TouchableOpacity onPress={() => openCreate(iso)} style={s.addDayBtn}>
-                      <Plus color={isToday ? Colors.card : Colors.primary} size={16} />
+                    {isToday && <Text style={S.todayBadge}>Aujourd'hui</Text>}
+                    <TouchableOpacity onPress={() => openCreate(iso)} style={S.addDayBtn}>
+                      <Plus color={isToday ? theme.card : theme.accent} size={16} />
                     </TouchableOpacity>
                   </View>
 
                   {dayWODs.length === 0 ? (
-                    <TouchableOpacity style={s.emptyDay} onPress={() => openCreate(iso)} activeOpacity={0.7}>
-                      <Text style={s.emptyDayText}>+ Ajouter un WOD</Text>
+                    <TouchableOpacity style={S.emptyDay} onPress={() => openCreate(iso)} activeOpacity={0.7}>
+                      <Text style={S.emptyDayText}>+ Ajouter un WOD</Text>
                     </TouchableOpacity>
                   ) : (
                     dayWODs.map(wod => {
                       const tc = TYPE_COLORS[wod.wod_type ?? 'custom'] ?? '#6B7280';
                       return (
-                        <View key={wod.id} style={[s.wodRow, !wod.is_published && s.wodRowDraft]}>
-                          <View style={[s.wodTypeBar, { backgroundColor: tc }]} />
-                          <View style={s.wodRowContent}>
-                            <Text style={s.wodRowType}>{(wod.wod_type ?? 'WOD').toUpperCase()}</Text>
-                            <Text style={s.wodRowTitle}>{wod.title}</Text>
-                            {!wod.is_published && <Text style={s.draftTag}>Brouillon</Text>}
+                        <View key={wod.id} style={[S.wodRow, !wod.is_published && S.wodRowDraft]}>
+                          <View style={[S.wodTypeBar, { backgroundColor: tc }]} />
+                          <View style={S.wodRowContent}>
+                            <Text style={S.wodRowType}>{(wod.wod_type ?? 'WOD').toUpperCase()}</Text>
+                            <Text style={S.wodRowTitle}>{wod.title}</Text>
+                            {!wod.is_published && <Text style={S.draftTag}>Brouillon</Text>}
                           </View>
-                          <View style={s.wodRowActions}>
-                            <TouchableOpacity onPress={() => togglePublish(wod)} style={s.iconBtn}>
+                          <View style={S.wodRowActions}>
+                            <TouchableOpacity onPress={() => togglePublish(wod)} style={S.iconBtn}>
                               {wod.is_published
-                                ? <Eye color={Colors.success} size={16} />
-                                : <EyeOff color={Colors.textMuted} size={16} />}
+                                ? <Eye color={theme.success} size={16} />
+                                : <EyeOff color={theme.textMuted} size={16} />}
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => openEdit(wod)} style={s.iconBtn}>
-                              <Pencil color={Colors.primary} size={16} />
+                            <TouchableOpacity onPress={() => openEdit(wod)} style={S.iconBtn}>
+                              <Pencil color={theme.accent} size={16} />
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => deleteWOD(wod)} style={s.iconBtn}>
-                              <Trash2 color={Colors.error} size={16} />
+                            <TouchableOpacity onPress={() => deleteWOD(wod)} style={S.iconBtn}>
+                              <Trash2 color={theme.error} size={16} />
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -235,75 +237,75 @@ export default function BOWODsScreen({ navigation }: any) {
       {/* Create / Edit Modal */}
       <Modal visible={modalOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModalOpen(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <View style={s.modalContainer}>
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>{editWOD ? 'Modifier le WOD' : 'Créer un WOD'}</Text>
+          <View style={S.modalContainer}>
+            <View style={S.modalHeader}>
+              <Text style={S.modalTitle}>{editWOD ? 'Modifier le WOD' : 'Créer un WOD'}</Text>
               <TouchableOpacity onPress={() => setModalOpen(false)}>
-                <Text style={s.modalCancel}>Annuler</Text>
+                <Text style={S.modalCancel}>Annuler</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={S.modalBody} keyboardShouldPersistTaps="handled">
 
-              <Text style={s.mLabel}>DATE *</Text>
-              <TextInput style={s.mInput} value={date} onChangeText={setDate} placeholder="2025-01-15" placeholderTextColor={Colors.textMuted} />
+              <Text style={S.mLabel}>DATE *</Text>
+              <TextInput style={S.mInput} value={date} onChangeText={setDate} placeholder="2025-01-15" placeholderTextColor={theme.textMuted} />
 
-              <Text style={s.mLabel}>TITRE *</Text>
-              <TextInput style={s.mInput} value={title} onChangeText={setTitle} placeholder="Fran, Cindy, Helen…" placeholderTextColor={Colors.textMuted} />
+              <Text style={S.mLabel}>TITRE *</Text>
+              <TextInput style={S.mInput} value={title} onChangeText={setTitle} placeholder="Fran, Cindy, Helen…" placeholderTextColor={theme.textMuted} />
 
-              <Text style={s.mLabel}>TYPE</Text>
-              <View style={s.typeGrid}>
+              <Text style={S.mLabel}>TYPE</Text>
+              <View style={S.typeGrid}>
                 {WOD_TYPES.map(t => (
                   <TouchableOpacity
                     key={t.value}
-                    style={[s.typeChip, wodType === t.value && { backgroundColor: TYPE_COLORS[t.value], borderColor: TYPE_COLORS[t.value] }]}
+                    style={[S.typeChip, wodType === t.value && { backgroundColor: TYPE_COLORS[t.value], borderColor: TYPE_COLORS[t.value] }]}
                     onPress={() => setWodType(t.value)}
                   >
-                    <Text style={[s.typeChipText, wodType === t.value && { color: '#fff' }]}>{t.label}</Text>
+                    <Text style={[S.typeChipText, wodType === t.value && { color: '#fff' }]}>{t.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={s.mLabel}>DESCRIPTION</Text>
+              <Text style={S.mLabel}>DESCRIPTION</Text>
               <TextInput
-                style={[s.mInput, s.mTextarea]}
+                style={[S.mInput, S.mTextarea]}
                 value={description} onChangeText={setDescription}
                 placeholder="21-15-9 Thrusters + Pull-ups…"
-                placeholderTextColor={Colors.textMuted} multiline
+                placeholderTextColor={theme.textMuted} multiline
               />
 
-              <View style={s.mRow}>
+              <View style={S.mRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.mLabel}>TIME CAP (min)</Text>
-                  <TextInput style={s.mInput} value={timeCap} onChangeText={setTimeCap} keyboardType="numeric" placeholder="20" placeholderTextColor={Colors.textMuted} />
+                  <Text style={S.mLabel}>TIME CAP (min)</Text>
+                  <TextInput style={S.mInput} value={timeCap} onChangeText={setTimeCap} keyboardType="numeric" placeholder="20" placeholderTextColor={theme.textMuted} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.mLabel}>ROUNDS</Text>
-                  <TextInput style={s.mInput} value={rounds} onChangeText={setRounds} keyboardType="numeric" placeholder="5" placeholderTextColor={Colors.textMuted} />
+                  <Text style={S.mLabel}>ROUNDS</Text>
+                  <TextInput style={S.mInput} value={rounds} onChangeText={setRounds} keyboardType="numeric" placeholder="5" placeholderTextColor={theme.textMuted} />
                 </View>
               </View>
 
-              <Text style={s.mLabel}>NOTES COACH</Text>
+              <Text style={S.mLabel}>NOTES COACH</Text>
               <TextInput
-                style={[s.mInput, s.mTextarea]}
+                style={[S.mInput, S.mTextarea]}
                 value={notes} onChangeText={setNotes}
                 placeholder="Conseils, scaling options…"
-                placeholderTextColor={Colors.textMuted} multiline
+                placeholderTextColor={theme.textMuted} multiline
               />
 
-              <View style={s.publishRow}>
-                <Text style={s.publishLabel}>Publier maintenant</Text>
-                <Switch value={published} onValueChange={setPublished} trackColor={{ true: Colors.success }} />
+              <View style={S.publishRow}>
+                <Text style={S.publishLabel}>Publier maintenant</Text>
+                <Switch value={published} onValueChange={setPublished} trackColor={{ true: theme.success }} />
               </View>
 
               <TouchableOpacity
-                style={[s.saveBtn, (!title.trim() || submitting) && s.saveBtnDisabled]}
+                style={[S.saveBtn, (!title.trim() || submitting) && S.saveBtnDisabled]}
                 onPress={saveWOD}
                 disabled={!title.trim() || submitting}
                 activeOpacity={0.85}
               >
                 {submitting
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={s.saveBtnText}>{editWOD ? 'Enregistrer' : 'Créer le WOD'}</Text>}
+                  : <Text style={S.saveBtnText}>{editWOD ? 'Enregistrer' : 'Créer le WOD'}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -313,65 +315,60 @@ export default function BOWODsScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   header: {
     paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   back:        { padding: 2 },
-  headerTitle: { fontSize: 18, fontWeight: '900', color: Colors.text },
-
-  weekNav:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  headerTitle: { fontSize: 18, fontWeight: '900', color: theme.text },
+  weekNav:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   weekArrow: { padding: 6 },
-  weekLabel: { fontSize: 13, fontWeight: '700', color: Colors.text },
-
+  weekLabel: { fontSize: 13, fontWeight: '700', color: theme.text },
   dayBlock:  { marginHorizontal: 16, marginTop: 14 },
   dayHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10 },
-  dayHeaderToday: { backgroundColor: Colors.primary },
-  dayLabel:  { fontSize: 13, fontWeight: '800', color: Colors.textSecondary, flex: 1 },
+  dayHeaderToday: { backgroundColor: theme.accent },
+  dayLabel:  { fontSize: 13, fontWeight: '800', color: theme.textSecondary, flex: 1 },
   dayLabelToday: { color: '#fff' },
   todayBadge: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
   addDayBtn: { padding: 2 },
-
-  emptyDay:  { borderRadius: 10, borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.border, padding: 12, alignItems: 'center' },
-  emptyDayText: { fontSize: 12, color: Colors.textMuted, fontWeight: '600' },
-
-  wodRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  emptyDay:  { borderRadius: 10, borderWidth: 1.5, borderStyle: 'dashed', borderColor: theme.border, padding: 12, alignItems: 'center' },
+  emptyDayText: { fontSize: 12, color: theme.textMuted, fontWeight: '600' },
+  wodRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.card, borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
   wodRowDraft: { opacity: 0.65 },
   wodTypeBar: { width: 4, alignSelf: 'stretch' },
   wodRowContent: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 2 },
-  wodRowType:  { fontSize: 9, fontWeight: '800', color: Colors.textMuted, letterSpacing: 0.8 },
-  wodRowTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
-  draftTag:    { fontSize: 9, fontWeight: '700', color: Colors.warning, letterSpacing: 0.5 },
+  wodRowType:  { fontSize: 9, fontWeight: '800', color: theme.textMuted, letterSpacing: 0.8 },
+  wodRowTitle: { fontSize: 14, fontWeight: '800', color: theme.text },
+  draftTag:    { fontSize: 9, fontWeight: '700', color: theme.warning, letterSpacing: 0.5 },
   wodRowActions: { flexDirection: 'row', paddingRight: 8, gap: 2 },
   iconBtn:     { padding: 8 },
-
-  modalContainer: { flex: 1, backgroundColor: Colors.background },
+  modalContainer: { flex: 1, backgroundColor: theme.background },
   modalHeader: {
     paddingTop: 20, paddingHorizontal: 20, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
-    backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderBottomWidth: 1, borderBottomColor: theme.border,
+    backgroundColor: theme.card, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  modalTitle:  { fontSize: 18, fontWeight: '900', color: Colors.text },
-  modalCancel: { fontSize: 14, color: Colors.primary, fontWeight: '700' },
+  modalTitle:  { fontSize: 18, fontWeight: '900', color: theme.text },
+  modalCancel: { fontSize: 14, color: theme.accent, fontWeight: '700' },
   modalBody:   { padding: 20, gap: 10 },
-  mLabel:      { fontSize: 10, fontWeight: '800', color: Colors.textMuted, letterSpacing: 1 },
+  mLabel:      { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 1 },
   mInput: {
-    backgroundColor: Colors.card, borderRadius: 10,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: theme.card, borderRadius: 10,
+    borderWidth: 1, borderColor: theme.border,
     paddingHorizontal: 12, paddingVertical: 11,
-    fontSize: 14, color: Colors.text,
+    fontSize: 14, color: theme.text,
   },
   mTextarea:   { minHeight: 80, textAlignVertical: 'top' },
   mRow:        { flexDirection: 'row', gap: 10 },
   typeGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  typeChip:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
-  typeChipText: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
-  publishRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border },
-  publishLabel: { fontSize: 14, fontWeight: '700', color: Colors.text },
-  saveBtn:     { backgroundColor: Colors.primary, borderRadius: 14, padding: 18, alignItems: 'center', marginTop: 4 },
+  typeChip:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
+  typeChipText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary },
+  publishRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: theme.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: theme.border },
+  publishLabel: { fontSize: 14, fontWeight: '700', color: theme.text },
+  saveBtn:     { backgroundColor: theme.accent, borderRadius: 14, padding: 18, alignItems: 'center', marginTop: 4 },
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
-});
+}); }

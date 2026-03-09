@@ -7,7 +7,7 @@ import { X, Zap, Swords, Clock } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 
 type Props = { navigation: NativeStackNavigationProp<CompetitionStackParamList, 'Matchmaking'> };
@@ -25,6 +25,8 @@ const MATCH_WODS = [
 
 export default function MatchmakingScreen({ navigation }: Props) {
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const [countdown, setCountdown] = useState(30);
   const [phase, setPhase] = useState<'searching' | 'found' | 'timeout'>('searching');
   const [statusText, setStatusText] = useState('Recherche en cours...');
@@ -222,45 +224,45 @@ export default function MatchmakingScreen({ navigation }: Props) {
 
   const ringStyle = (anim: Animated.Value, size: number) => ({
     width: size, height: size, borderRadius: size / 2,
-    borderWidth: 2, borderColor: Colors.primary,
+    borderWidth: 2, borderColor: theme.accent,
     position: 'absolute' as const,
     opacity: anim,
     transform: [{ scale: anim.interpolate({ inputRange: [0.3, 1], outputRange: [0.8, 1.4] }) }],
   });
 
   return (
-    <LinearGradient colors={['#0A0A0F', '#12121A', '#0A0A0F']} style={styles.container}>
-      <TouchableOpacity onPress={handleCancel} style={styles.closeBtn}>
-        <X color={Colors.textSecondary} size={24} />
+    <LinearGradient colors={['#0A0A0F', '#12121A', '#0A0A0F']} style={S.container}>
+      <TouchableOpacity onPress={handleCancel} style={S.closeBtn}>
+        <X color="rgba(255,255,255,0.6)" size={24} />
       </TouchableOpacity>
 
-      <View style={styles.content}>
-        <View style={styles.radarContainer}>
+      <View style={S.content}>
+        <View style={S.radarContainer}>
           <Animated.View style={ringStyle(pulse1, 240)} />
           <Animated.View style={ringStyle(pulse2, 180)} />
           <Animated.View style={ringStyle(pulse3, 120)} />
-          <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.radarCenter}>
+          <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.radarCenter}>
             <Swords color="#fff" size={36} />
           </LinearGradient>
         </View>
 
-        <Text style={styles.title}>Recherche d'adversaire</Text>
-        <Text style={[styles.statusText, phase === 'found' && { color: Colors.success }]}>
+        <Text style={S.title}>Recherche d'adversaire</Text>
+        <Text style={[S.statusText, phase === 'found' && { color: theme.success }]}>
           {statusText}
         </Text>
 
-        <View style={styles.eloCard}>
-          <Zap color={Colors.primary} size={16} />
-          <Text style={styles.eloLabel}>Ton ELO</Text>
-          <Text style={styles.eloValue}>{user?.elo ?? 1000}</Text>
-          <Text style={styles.eloRange}>± 400</Text>
+        <View style={S.eloCard}>
+          <Zap color={theme.accent} size={16} />
+          <Text style={S.eloLabel}>Ton ELO</Text>
+          <Text style={S.eloValue}>{user?.elo ?? 1000}</Text>
+          <Text style={S.eloRange}>± 400</Text>
         </View>
 
         {phase === 'searching' && (
-          <View style={styles.countdownRow}>
-            <Clock color={Colors.textMuted} size={16} />
-            <Text style={styles.countdown}>
-              Expiration dans <Text style={{ color: countdown <= 10 ? Colors.error : Colors.primary }}>
+          <View style={S.countdownRow}>
+            <Clock color="rgba(255,255,255,0.5)" size={16} />
+            <Text style={S.countdown}>
+              Expiration dans <Text style={{ color: countdown <= 10 ? theme.error : theme.accent }}>
                 {countdown}s
               </Text>
             </Text>
@@ -269,8 +271,8 @@ export default function MatchmakingScreen({ navigation }: Props) {
 
         {phase === 'timeout' && (
           <TouchableOpacity onPress={() => { matchedRef.current = false; setCountdown(30); setPhase('searching'); setStatusText('Recherche en cours...'); startSearch(); }} activeOpacity={0.8}>
-            <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.retryBtn}>
-              <Text style={styles.retryText}>Relancer la recherche</Text>
+            <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.retryBtn}>
+              <Text style={S.retryText}>Relancer la recherche</Text>
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -279,24 +281,24 @@ export default function MatchmakingScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) { return StyleSheet.create({
   container: { flex: 1 },
   closeBtn: { position: 'absolute', top: 56, right: 20, zIndex: 10, padding: 8 },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   radarContainer: { width: 240, height: 240, justifyContent: 'center', alignItems: 'center', marginBottom: 48 },
   radarCenter: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: '900', color: Colors.text, marginBottom: 8, letterSpacing: 1 },
-  statusText: { fontSize: 15, color: Colors.textSecondary, marginBottom: 32 },
+  title: { fontSize: 24, fontWeight: '900', color: '#fff', marginBottom: 8, letterSpacing: 1 },
+  statusText: { fontSize: 15, color: 'rgba(255,255,255,0.6)', marginBottom: 32 },
   eloCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Colors.card, borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 24, width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', marginBottom: 24, width: '100%',
   },
-  eloLabel: { fontSize: 13, color: Colors.textSecondary, flex: 1 },
-  eloValue: { fontSize: 22, fontWeight: '900', color: Colors.primary },
-  eloRange: { fontSize: 12, color: Colors.textMuted },
+  eloLabel: { fontSize: 13, color: 'rgba(255,255,255,0.6)', flex: 1 },
+  eloValue: { fontSize: 22, fontWeight: '900', color: theme.accent },
+  eloRange: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
   countdownRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  countdown: { fontSize: 14, color: Colors.textMuted },
+  countdown: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
   retryBtn: { borderRadius: 16, paddingHorizontal: 32, paddingVertical: 16, marginTop: 16 },
   retryText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-});
+}); }

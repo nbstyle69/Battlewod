@@ -1,8 +1,8 @@
 export const Fonts = {
-  regular:   'Barlow_400Regular',
-  medium:    'Barlow_500Medium',
-  semiBold:  'Barlow_600SemiBold',
-  bold:      'Barlow_700Bold',
-  extraBold: 'Barlow_800ExtraBold',
-  black:     'Barlow_900Black',
+  regular:   'Inter_400Regular',
+  medium:    'Inter_500Medium',
+  semiBold:  'Inter_600SemiBold',
+  bold:      'Inter_700Bold',
+  extraBold: 'Inter_800ExtraBold',
+  black:     'Inter_900Black',
 };

@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   Trophy, Clock, CheckCircle, XCircle, Youtube,
   ChevronDown, ChevronUp, Bot, BarChart2, Lock, Zap,
-  RotateCcw, AlertTriangle,
+  RotateCcw, AlertTriangle, Users, UserX, Star,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
@@ -46,7 +46,7 @@ export default function BOTournamentScreen() {
   const [participants,    setParticipants]    = useState<any[]>([]);
   const [loading,         setLoading]         = useState(true);
   const [refreshing,      setRefreshing]      = useState(false);
-  const [tab,             setTab]             = useState<'leaderboard' | 'validate'>('leaderboard');
+  const [tab,             setTab]             = useState<'leaderboard' | 'participants' | 'validate'>('leaderboard');
   const [filterStatus,    setFilterStatus]    = useState<'all' | 'pending' | 'validated' | 'rejected'>('all');
   const [expandedId,      setExpandedId]      = useState<string | null>(null);
   const [rankFrom,        setRankFrom]        = useState('1');
@@ -77,9 +77,9 @@ export default function BOTournamentScreen() {
         .order('submitted_at', { ascending: false }),
       supabase.from('tournament_wods').select('*').eq('tournament_id', selectedId).order('order_index'),
       supabase.from('tournament_participants')
-        .select('athlete_id, score, profile:profiles(id, username, elo, level)')
+        .select('athlete_id, score, created_at, profile:profiles(id, username, elo, level, box_members(box:boxes(name)))')
         .eq('tournament_id', selectedId)
-        .order('score', { ascending: false }),
+        .order('created_at', { ascending: true }),
     ]);
     setScores((sc ?? []) as TournamentScore[]);
     setWods(tw ?? []);
@@ -98,6 +98,26 @@ export default function BOTournamentScreen() {
   };
 
   const selectedTourn = tournaments.find(t => t.id === selectedId);
+
+  // ── Kick participant
+  async function handleKick(athleteId: string, username: string) {
+    Alert.alert(
+      'Exclure le participant',
+      `Exclure ${username} du tournoi ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Exclure', style: 'destructive', onPress: async () => {
+          const { error } = await supabase
+            .from('tournament_participants')
+            .delete()
+            .eq('tournament_id', selectedId!)
+            .eq('athlete_id', athleteId);
+          if (error) { Alert.alert('Erreur', error.message); return; }
+          loadData();
+        }},
+      ]
+    );
+  }
 
   // ── Recalc leaderboard ────────────────────────────────────────────────────
   async function recalcLeaderboard() {
@@ -364,12 +384,14 @@ Réponds en français, sois concis et factuel.`;
         ))}
       </View>
 
-      {/* ── Tabs ── */}
+      {/* ══ Tabs ══ */}
       <View style={s.tabs}>
-        {(['leaderboard', 'validate'] as const).map(t => (
+        {(['leaderboard', 'participants', 'validate'] as const).map(t => (
           <TouchableOpacity key={t} style={[s.tab, tab === t && s.tabActive]} onPress={() => setTab(t)}>
-            <Text style={[s.tabTxt, tab === t && s.tabTxtActive]}>
-              {t === 'leaderboard' ? '🏆 Classement' : `⚖️ Scores${stats.pending > 0 ? ` (${stats.pending})` : ''}`}
+            <Text style={[s.tabTxt, tab === t && s.tabTxtActive]} numberOfLines={1}>
+              {t === 'leaderboard' ? '🏆 Classement'
+                : t === 'participants' ? `👥 (${participants.length})`
+                : `⚖️${stats.pending > 0 ? ` (${stats.pending})` : ''}`}
             </Text>
           </TouchableOpacity>
         ))}
@@ -464,6 +486,63 @@ Réponds en français, sois concis et factuel.`;
                   : <><Lock color="#fff" size={16} /><Text style={s.closeBtnTxt}>Clôturer le tournoi</Text></>}
               </TouchableOpacity>
             )}
+          </>
+        )}
+
+        {/* ══ PARTICIPANTS ══ */}
+        {tab === 'participants' && (
+          <>
+            <View style={s.partHeader}>
+              <Users color={Colors.primary} size={14} />
+              <Text style={s.partHeaderTxt}>{participants.length} inscrits — admin : exclure en appuyant sur 🗑</Text>
+            </View>
+            {participants.length === 0 ? (
+              <View style={s.emptyState}>
+                <Text style={s.emptyEmoji}>👥</Text>
+                <Text style={s.emptyTxt}>Aucun inscrit pour ce tournoi.</Text>
+              </View>
+            ) : participants.map((p: any) => {
+              const levelColor = LevelColors[p.profile?.level ?? ''] ?? Colors.primary;
+              const boxName = p.profile?.box_members?.[0]?.box?.name ?? null;
+              const regDate = p.created_at
+                ? new Date(p.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : '—';
+              return (
+                <View key={p.athlete_id} style={s.partRow}>
+                  <View style={[s.partAvatar, { backgroundColor: `${levelColor}25` }]}>
+                    <Text style={[s.partAvatarTxt, { color: levelColor }]}>
+                      {(p.profile?.username ?? '?')[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={s.partInfo}>
+                    <View style={s.partNameRow}>
+                      <Text style={s.partName}>{p.profile?.username ?? '?'}</Text>
+                      {p.profile?.level && (
+                        <View style={[s.levelBadge, { backgroundColor: `${levelColor}20` }]}>
+                          <Text style={[s.levelBadgeTxt, { color: levelColor }]}>
+                            {p.profile.level.toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={s.partMeta}>
+                      <Star color={Colors.gold} size={10} />
+                      <Text style={s.partMetaTxt}>ELO {p.profile?.elo ?? 1000}</Text>
+                      {boxName && (
+                        <><Text style={s.partMetaDot}>·</Text>
+                        <Text style={s.partMetaTxt}>{boxName}</Text></>
+                      )}
+                    </View>
+                    <Text style={s.partDate}>Inscrit le {regDate}</Text>
+                  </View>
+                  <TouchableOpacity style={s.kickBtn}
+                    onPress={() => handleKick(p.athlete_id, p.profile?.username ?? '?')}
+                    activeOpacity={0.7}>
+                    <UserX color={Colors.error} size={16} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </>
         )}
 
@@ -774,6 +853,19 @@ const s = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingTop: 40, gap: 8 },
   emptyEmoji: { fontSize: 36 },
   emptyTxt:   { fontSize: 13, color: Colors.textMuted, textAlign: 'center' },
+  partHeader:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${Colors.primary}10`, borderRadius: 10, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: `${Colors.primary}20` },
+  partHeaderTxt: { fontSize: 12, color: Colors.primary, fontWeight: '600', flex: 1 },
+  partRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.cardBorder },
+  partAvatar:    { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  partAvatarTxt: { fontSize: 18, fontWeight: '900' },
+  partInfo:      { flex: 1, gap: 2 },
+  partNameRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  partName:      { fontSize: 14, fontWeight: '800', color: Colors.text },
+  partMeta:      { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  partMetaTxt:   { fontSize: 11, color: Colors.textSecondary },
+  partMetaDot:   { fontSize: 11, color: Colors.textMuted },
+  partDate:      { fontSize: 10, color: Colors.textMuted, marginTop: 1 },
+  kickBtn:       { width: 34, height: 34, borderRadius: 9, backgroundColor: `${Colors.error}12`, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: `${Colors.error}30` },
 
   modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalSheet:     { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 12, borderWidth: 1, borderColor: Colors.cardBorder },
