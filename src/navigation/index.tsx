@@ -198,6 +198,14 @@ export type CompetitionStackParamList = {
     wodScoring: string;
   };
   Tournament: { tournamentId: string };
+  VideoPlayback: {
+    videoURL: string;
+    title?: string;
+    recordedAt?: string;
+    timerStartOffset?: number;
+    timerStopOffset?: number;
+    countdownDuration?: number;
+  };
   TournamentWOD: {
     tournamentId: string;
     tournamentName: string;
@@ -332,6 +340,7 @@ function CompetitionNavigator() {
       <CompStack.Screen name="MatchScore" component={MatchScoreScreen} />
       <CompStack.Screen name="Tournament" component={TournamentScreen} />
       <CompStack.Screen name="TournamentWOD" component={TournamentWODScreen} />
+      <CompStack.Screen name="VideoPlayback" component={VideoPlaybackScreen} />
     </CompStack.Navigator>
   );
 }
