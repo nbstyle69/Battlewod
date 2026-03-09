@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions, ActivityIndicator, ScrollView, Modal,
-  TextInput, Linking, Clipboard, Alert, useWindowDimensions,
+  TextInput, Linking, Clipboard, Alert, useWindowDimensions, Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle } from 'react-native-svg';
@@ -976,6 +976,17 @@ export default function TimerRunScreen() {
             </View>
           )}
 
+          {/* LOGO — coin bas-droite pendant l'enregistrement */}
+          {withCamera && camState >= 1 && (
+            <View style={styles.recLogoWrap} pointerEvents="none">
+              <Image
+                source={require('../../../assets/logo.png')}
+                style={styles.recLogoImg}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+
           <View style={[styles.controls, isLandscape && { paddingBottom: 0, justifyContent: 'center' }]}>
             {withCamera ? (
               /* ── SINGLE BUTTON (camera mode) ─────────────────────── */
@@ -1374,4 +1385,9 @@ const styles = StyleSheet.create({
   ytAnalyseTxt: { fontSize: 14, fontWeight: '900', color: '#0A0A0A' },
   ytCloseBtn: { alignItems: 'center', paddingVertical: 8 },
   ytCloseTxt: { fontSize: 13, color: '#555', fontWeight: '700' },
+  recLogoWrap: {
+    position: 'absolute', bottom: 100, right: 16,
+    backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 14, padding: 6,
+  },
+  recLogoImg: { width: 48, height: 48, opacity: 0.85 },
 });

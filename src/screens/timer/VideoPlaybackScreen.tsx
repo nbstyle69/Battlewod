@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -10,16 +10,18 @@ import { X, Play, Pause } from 'lucide-react-native';
 type Route = RouteProp<HomeStackParamList, 'VideoPlayback'>;
 type Nav   = NativeStackNavigationProp<HomeStackParamList, 'VideoPlayback'>;
 
-function formatChronoTime(totalSec: number): string {
+function formatChronoTime(totalMs: number): string {
+  const tenths  = Math.floor((totalMs % 1000) / 100);
+  const totalSec = Math.floor(totalMs / 1000);
   if (totalSec >= 3600) {
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${tenths}`;
   }
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${tenths}`;
 }
 
 function formatRecordedAt(iso: string): string {
@@ -84,7 +86,7 @@ export default function VideoPlaybackScreen() {
   const elapsedMs     = isFrozen
     ? timerStopOffset - timerStartOffset
     : Math.max(0, currentMs - timerStartOffset);
-  const chronoDisplay = formatChronoTime(Math.floor(elapsedMs / 1000));
+  const chronoDisplay = formatChronoTime(elapsedMs);
 
   return (
     <View style={styles.container}>
@@ -142,9 +144,18 @@ export default function VideoPlaybackScreen() {
           )}
         </View>
 
-        {/* BAS — chrono */}
+        {/* BAS — chrono + logo */}
         <View style={styles.bottomRow} pointerEvents="none">
           {chronoVisible && <Text style={styles.chronoText}>{chronoDisplay}</Text>}
+        </View>
+
+        {/* LOGO — coin bas-droite, toujours visible */}
+        <View style={styles.logoWrap} pointerEvents="none">
+          <Image
+            source={require('../../../assets/logo.png')}
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
         </View>
 
       </View>
@@ -199,4 +210,9 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6,
     fontVariant: ['tabular-nums'],
   },
+  logoWrap: {
+    position: 'absolute', bottom: 52, right: 16,
+    backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 14, padding: 6,
+  },
+  logoImg: { width: 48, height: 48, opacity: 0.9 },
 });
