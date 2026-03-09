@@ -74,7 +74,10 @@ export default function TournamentScreen() {
     ]);
     setTournament(t);
     setWods((tw ?? []) as TournamentWOD[]);
-    setParticipants(tp ?? []);
+    setParticipants((tp ?? []).map((p: any) => ({
+      ...p,
+      profile: Array.isArray(p.profile) ? p.profile[0] : p.profile,
+    })));
     setMyScores((ms ?? []) as TournamentScore[]);
     if (isAdminUser) setAllScores(((as_ ?? []) as any[]).map((s: any) => ({
       ...s,

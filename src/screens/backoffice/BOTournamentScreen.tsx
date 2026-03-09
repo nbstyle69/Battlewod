@@ -87,9 +87,16 @@ export default function BOTournamentScreen() {
         .eq('tournament_id', selectedId)
         .order('created_at', { ascending: true }),
     ]);
-    setScores((sc ?? []) as TournamentScore[]);
+    setScores(((sc ?? []) as any[]).map((s: any) => ({
+      ...s,
+      profile: Array.isArray(s.profile) ? s.profile[0] : s.profile,
+      tw:      Array.isArray(s.tw)      ? s.tw[0]      : s.tw,
+    })) as TournamentScore[]);
     setWods(tw ?? []);
-    setParticipants(tp ?? []);
+    setParticipants((tp ?? []).map((p: any) => ({
+      ...p,
+      profile: Array.isArray(p.profile) ? p.profile[0] : p.profile,
+    })));
     setRankTo(String((tp ?? []).length));
     setRefreshing(false);
   }, [selectedId]);
