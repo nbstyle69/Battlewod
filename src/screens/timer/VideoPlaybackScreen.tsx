@@ -11,17 +11,17 @@ type Route = RouteProp<HomeStackParamList, 'VideoPlayback'>;
 type Nav   = NativeStackNavigationProp<HomeStackParamList, 'VideoPlayback'>;
 
 function formatChronoTime(totalMs: number): string {
-  const tenths  = Math.floor((totalMs % 1000) / 100);
+  const hundredths = String(Math.floor((totalMs % 1000) / 10)).padStart(2, '0');
   const totalSec = Math.floor(totalMs / 1000);
   if (totalSec >= 3600) {
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${tenths}`;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${hundredths}`;
   }
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${tenths}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${hundredths}`;
 }
 
 function formatRecordedAt(iso: string): string {
