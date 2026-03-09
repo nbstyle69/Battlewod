@@ -976,16 +976,6 @@ export default function TimerRunScreen() {
             </View>
           )}
 
-          {/* LOGO — coin bas-droite pendant l'enregistrement */}
-          {withCamera && camState >= 1 && (
-            <View style={styles.recLogoWrap} pointerEvents="none">
-              <Image
-                source={require('../../../assets/logo.png')}
-                style={styles.recLogoImg}
-                resizeMode="contain"
-              />
-            </View>
-          )}
 
           <View style={[styles.controls, isLandscape && { paddingBottom: 0, justifyContent: 'center' }]}>
             {withCamera ? (
