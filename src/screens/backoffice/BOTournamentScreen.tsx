@@ -12,6 +12,7 @@ import {
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import {
   TournamentScore, MOVEMENT_BADGE_LEVELS,
@@ -38,6 +39,7 @@ const pill = StyleSheet.create({
 // ═════════════════════════════════════════════════════════════════════════════
 export default function BOTournamentScreen() {
   const navigation = useNavigation();
+  const { currentBox } = useAuth();
 
   const [tournaments,     setTournaments]     = useState<any[]>([]);
   const [selectedId,      setSelectedId]      = useState<string | null>(null);
@@ -59,13 +61,17 @@ export default function BOTournamentScreen() {
 
   // ── Load tournaments list ─────────────────────────────────────────────────
   useEffect(() => {
-    supabase.from('tournaments').select('id, name, status').order('created_at', { ascending: false })
+    if (!currentBox) { setLoading(false); return; }
+    supabase.from('tournaments')
+      .select('id, name, status')
+      .eq('box_id', currentBox.id)
+      .order('created_at', { ascending: false })
       .then(({ data }) => {
         setTournaments(data ?? []);
         if (data && data.length > 0) setSelectedId(data[0].id);
         setLoading(false);
       });
-  }, []);
+  }, [currentBox]);
 
   // ── Load tournament data ──────────────────────────────────────────────────
   const loadData = useCallback(async () => {
