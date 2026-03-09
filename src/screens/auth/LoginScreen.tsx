@@ -40,7 +40,7 @@ export default function LoginScreen({ navigation }: Props) {
             <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.logoBox}>
               <Zap color="#fff" size={40} />
             </LinearGradient>
-            <Text style={S.appName}>BattleWOD</Text>
+            <Text style={S.appName}>TheHub</Text>
             <Text style={S.tagline}>Compétition • Partout • Maintenant</Text>
           </View>
 
@@ -101,7 +101,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     width: 80, height: 80, borderRadius: 24,
     justifyContent: 'center', alignItems: 'center', marginBottom: 16,
   },
-  appName: { fontSize: 36, fontWeight: '900', color: theme.text, letterSpacing: 2 },
+  appName: { fontSize: 42, fontFamily: 'Barlow_900Black', color: theme.text, letterSpacing: 3 },
   tagline: { fontSize: 13, color: theme.textSecondary, marginTop: 4, letterSpacing: 1 },
   form: {
     backgroundColor: theme.card, borderRadius: 20, padding: 24,

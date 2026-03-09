@@ -5,6 +5,9 @@ import { useFonts,
   Inter_400Regular, Inter_500Medium, Inter_600SemiBold,
   Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
 } from '@expo-google-fonts/inter';
+import {
+  Barlow_800ExtraBold, Barlow_900Black,
+} from '@expo-google-fonts/barlow';
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import AppNavigator from './src/navigation';
@@ -50,6 +53,8 @@ export default function App() {
     Inter_700Bold,
     Inter_800ExtraBold,
     Inter_900Black,
+    Barlow_800ExtraBold,
+    Barlow_900Black,
   });
 
   if (!fontsLoaded) return null;

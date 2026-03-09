@@ -136,12 +136,12 @@ export default function HomeScreen() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={S.header}>
 
-        {/* Logo BattleWOD */}
+        {/* Logo TheHub */}
         <View style={S.logoRow}>
           <KettlebellIcon size={30} color={theme.accent} />
           <View style={S.logoTextWrap}>
-            <Text style={S.logoTextBattle}>BATTLE</Text>
-            <Text style={S.logoTextWod}>WOD</Text>
+            <Text style={S.logoTextBattle}>THE</Text>
+            <Text style={S.logoTextWod}>HUB</Text>
           </View>
         </View>
 
@@ -329,8 +329,8 @@ function createStyles(theme: AppTheme) {
     badgeText: { fontSize: 9, fontWeight: '900', color: '#fff' },
     logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
     logoTextWrap: { flexDirection: 'column', justifyContent: 'center' },
-    logoTextBattle: { fontSize: 11, fontWeight: '900', color: theme.text, letterSpacing: 2.5, lineHeight: 12 },
-    logoTextWod: { fontSize: 17, fontWeight: '900', color: theme.accent, letterSpacing: 2, lineHeight: 18 },
+    logoTextBattle: { fontSize: 10, fontFamily: 'Barlow_800ExtraBold', color: theme.textMuted, letterSpacing: 3, lineHeight: 11 },
+    logoTextWod: { fontSize: 20, fontFamily: 'Barlow_900Black', color: theme.accent, letterSpacing: 2, lineHeight: 21 },
     username: { fontSize: 26, fontWeight: '900', color: theme.text, letterSpacing: -0.5 },
     levelPill: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
     levelDot: { width: 7, height: 7, borderRadius: 4 },

@@ -786,7 +786,7 @@ export default function TimerRunScreen() {
   const showNormalStop = isActive && !showEndWorkBtn && !showEndBlockBtn;
 
   const qrData = JSON.stringify({
-    app: 'BattleWOD',
+    app: 'TheHub',
     type: displayLabel,
     time: mainTime,
     ...(videoTitle ? { title: videoTitle } : {}),
@@ -859,7 +859,7 @@ export default function TimerRunScreen() {
         >
           <ViewShot ref={cardRef} options={{ format: 'png', quality: 1 }} style={styles.sessionCard}>
             <View style={styles.sessionCardInner}>
-              <Text style={styles.sessionApp}>⚡ BATTLEWOD</Text>
+              <Text style={styles.sessionApp}>⚡ THEHUB</Text>
               <View style={styles.sessionBadge}>
                 <Text style={styles.sessionBadgeText}>{displayLabel}</Text>
               </View>
@@ -1117,7 +1117,7 @@ export default function TimerRunScreen() {
                   Alert.alert('Lien manquant', 'Colle d\'abord le lien YouTube de ta vidéo.');
                   return;
                 }
-                const prompt = `Analyse cette vidéo CrossFit BattleWOD :\n\n🔗 Lien : ${ytLink.trim()}\n⏱ Temps : ${mainTime}\n🏋️ Type : ${displayLabel}\n\nAnalyse les points suivants :\n1. Technique des mouvements (qualité, erreurs)\n2. Gestion de l'effort et du rythme\n3. Points forts observés\n4. Axes d'amélioration prioritaires\n5. Conseils pour progresser`;
+                const prompt = `Analyse cette vidéo CrossFit TheHub :\n\n🔗 Lien : ${ytLink.trim()}\n⏱ Temps : ${mainTime}\n🏋️ Type : ${displayLabel}\n\nAnalyse les points suivants :\n1. Technique des mouvements (qualité, erreurs)\n2. Gestion de l'effort et du rythme\n3. Points forts observés\n4. Axes d'amélioration prioritaires\n5. Conseils pour progresser`;
                 Clipboard.setString(prompt);
                 Alert.alert('✅ Prompt copié !', 'Colle-le dans ChatGPT ou Claude pour analyser ta performance.');
               }}

@@ -159,7 +159,7 @@ export default function MatchScoreScreen({ navigation, route }: Props) {
         </View>
 
         <View style={S.honestBox}>
-          <Text style={S.honestTitle}>⚖️ Code d'honneur BattleWOD</Text>
+          <Text style={S.honestTitle}>⚖️ Code d'honneur TheHub</Text>
           <Text style={S.honestText}>
             En soumettant ce score, je certifie avoir respecté tous les standards du WOD.
             Un faux score entraîne une disqualification et perte d'ELO.

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "BattleWOD",
-    "slug": "BattleWOD",
+    "name": "TheHub",
+    "slug": "TheHub",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,11 +13,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.battlewod.app",
+      "bundleIdentifier": "com.thehub.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "BattleWOD utilise la caméra pour enregistrer tes performances.",
-        "NSMicrophoneUsageDescription": "BattleWOD utilise le micro pour les vidéos de performance.",
-        "NSPhotoLibraryUsageDescription": "BattleWOD accède à ta galerie pour soumettre tes vidéos."
+        "NSCameraUsageDescription": "TheHub utilise la caméra pour enregistrer tes performances.",
+        "NSMicrophoneUsageDescription": "TheHub utilise le micro pour les vidéos de performance.",
+        "NSPhotoLibraryUsageDescription": "TheHub accède à ta galerie pour soumettre tes vidéos."
       }
     },
     "android": {
@@ -38,7 +38,7 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
-      "package": "com.anonymous.BattleWOD"
+      "package": "com.thehub.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",

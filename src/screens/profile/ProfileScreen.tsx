@@ -249,12 +249,12 @@ export default function ProfileScreen() {
   }
 
   async function handleCopyReferral() {
-    await Share.share({ message: referralCode, title: 'Code de parrainage BattleWOD' });
+    await Share.share({ message: referralCode, title: 'Code de parrainage TheHub' });
   }
 
   async function handleShareReferral() {
     await Share.share({
-      message: `Rejoins-moi sur BattleWOD ! Utilise mon code de parrainage : ${referralCode} 🏋️`,
+      message: `Rejoins-moi sur TheHub ! Utilise mon code de parrainage : ${referralCode} 🏋️`,
     });
   }
 
@@ -319,7 +319,7 @@ export default function ProfileScreen() {
   async function handleShareBoxCode() {
     if (!currentBox?.invite_code) return;
     await Share.share({
-      message: `Rejoins ma box « ${currentBox.name} » sur BattleWOD !\nCode d'invitation : ${currentBox.invite_code} 🏋️`,
+      message: `Rejoins ma box « ${currentBox.name} » sur TheHub !\nCode d'invitation : ${currentBox.invite_code} 🏋️`,
     });
   }
 

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { User, Box } from '../types';
 import { Session } from '@supabase/supabase-js';
 
-const BOX_SKIPPED_KEY = '@battlewod:boxSkipped';
+const BOX_SKIPPED_KEY = '@thehub:boxSkipped';
 
 interface AuthContextType {
   session: Session | null;

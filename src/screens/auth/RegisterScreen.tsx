@@ -68,7 +68,7 @@ export default function RegisterScreen({ navigation }: Props) {
             <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.logoBox}>
               <Zap color="#fff" size={32} />
             </LinearGradient>
-            <Text style={S.appName}>BattleWOD</Text>
+            <Text style={S.appName}>TheHub</Text>
           </View>
 
           <View style={S.form}>
@@ -181,7 +181,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     width: 64, height: 64, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center', marginBottom: 12,
   },
-  appName: { fontSize: 28, fontWeight: '900', color: theme.text, letterSpacing: 2 },
+  appName: { fontSize: 34, fontFamily: 'Barlow_900Black', color: theme.text, letterSpacing: 3 },
   form: {
     backgroundColor: theme.card, borderRadius: 20,
     padding: 24, borderWidth: 1, borderColor: theme.cardBorder,

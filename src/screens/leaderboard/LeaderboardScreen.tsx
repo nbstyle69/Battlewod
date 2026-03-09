@@ -86,7 +86,7 @@ export default function LeaderboardScreen() {
           <ChevronLeft color={theme.textSecondary} size={24} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Classement</Text>
-        <Text style={S.headerSub}>Qui domine BattleWOD ?</Text>
+        <Text style={S.headerSub}>Qui domine TheHub ?</Text>
 
         <View style={S.podium}>
           {[top3[1], top3[0], top3[2]].map((p, idx) => {

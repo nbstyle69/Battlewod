@@ -57,7 +57,7 @@ export default function BODashboardScreen({ navigation }: any) {
 
   async function copyCode() {
     if (!currentBox) return;
-    await Share.share({ message: `Rejoins ma box sur BattleWOD ! Code : ${currentBox.invite_code}` });
+    await Share.share({ message: `Rejoins ma box sur TheHub ! Code : ${currentBox.invite_code}` });
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
   }
