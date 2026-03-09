@@ -306,6 +306,23 @@ export default function ProfileScreen() {
 
   const levelColor = LevelColors[user?.level ?? 'scaled'];
 
+  const roleLabel = user?.role === 'box_owner'  ? 'Gérant de box'
+                  : user?.role === 'admin'       ? 'Administrateur'
+                  : user?.role === 'super_admin' ? 'Super Admin'
+                  : 'Athlète';
+
+  const roleColor = user?.role === 'box_owner'  ? '#C9A227'
+                  : user?.role === 'admin'       ? '#8B5CF6'
+                  : user?.role === 'super_admin' ? '#EF4444'
+                  : theme.accent;
+
+  async function handleShareBoxCode() {
+    if (!currentBox?.invite_code) return;
+    await Share.share({
+      message: `Rejoins ma box « ${currentBox.name} » sur BattleWOD !\nCode d'invitation : ${currentBox.invite_code} 🏋️`,
+    });
+  }
+
   // ── Auto PR badge logic
   const hasPR = Object.values(prValues).some(v => parseFloat(v) > 0);
   const prImproved3 = Object.values(prValues).filter(v => parseFloat(v) >= 100).length >= 3;
@@ -546,6 +563,23 @@ export default function ProfileScreen() {
                   <InfoRow label="Email" value={user?.email ?? ''} S={S} />
                   <InfoRow label="Bio" value={user?.bio || 'Non renseignée'} S={S} />
                   <InfoRow label="Photo" value={user?.avatar_url ? 'Définie' : 'Non définie'} S={S} />
+                  {/* Rôle */}
+                  <View style={S.infoRow}>
+                    <Text style={S.infoRowLabel}>Rôle</Text>
+                    <View style={[S.roleBadge, { backgroundColor: `${roleColor}18`, borderColor: `${roleColor}40` }]}>
+                      <Text style={[S.roleBadgeText, { color: roleColor }]}>{roleLabel}</Text>
+                    </View>
+                  </View>
+                  {/* Box invite code (owner only) */}
+                  {user?.role === 'box_owner' && currentBox?.invite_code && (
+                    <View style={S.infoRow}>
+                      <Text style={S.infoRowLabel}>Code box</Text>
+                      <TouchableOpacity style={S.inviteCodeRow} onPress={handleShareBoxCode} activeOpacity={0.7}>
+                        <Text style={S.inviteCodeText}>{currentBox.invite_code}</Text>
+                        <Share2 size={14} color={theme.accent} style={{ marginLeft: 6 }} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               ) : (
                 <View style={S.editForm}>
@@ -944,4 +978,8 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   referralBtnShare: { backgroundColor: theme.accent, borderColor: theme.accent },
   referralBtnText: { fontSize: 13, fontWeight: '800', color: theme.accent },
+  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  roleBadgeText: { fontSize: 12, fontWeight: '800' as const },
+  inviteCodeRow: { flexDirection: 'row' as const, alignItems: 'center' as const },
+  inviteCodeText: { fontSize: 14, fontWeight: '800' as const, letterSpacing: 2, color: theme.accent },
 }); }
