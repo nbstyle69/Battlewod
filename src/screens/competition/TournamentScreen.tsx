@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronLeft, Users, Calendar, Zap, CheckCircle,
-  Lock, Clock, Timer, UserX, Shield, Star,
+  Lock, Clock, Timer, UserX, Shield, Star, XCircle, RotateCcw,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -44,31 +44,43 @@ export default function TournamentScreen() {
   const { theme } = useTheme();
   const S = createStyles(theme);
 
-  const [activeTab,    setActiveTab]    = useState<'infos' | 'wods' | 'scores' | 'participants'>('infos');
+  const [activeTab,    setActiveTab]    = useState<'infos' | 'wods' | 'scores' | 'participants' | 'validate'>('infos');
   const [tournament,   setTournament]   = useState<any>(null);
-  const [wods,         setWods]         = useState<TournamentWOD[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
   const [myScores,     setMyScores]     = useState<TournamentScore[]>([]);
+  const [allScores,    setAllScores]    = useState<TournamentScore[]>([]);
+  const [wods,         setWods]         = useState<TournamentWOD[]>([]);
+  const [processing,   setProcessing]   = useState<string | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
   const [registering,  setRegistering]  = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
 
   const load = useCallback(async () => {
-    const [{ data: t }, { data: tw }, { data: tp }, { data: ms }] = await Promise.all([
+    const isAdminUser = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'box_owner';
+    const [{ data: t }, { data: tw }, { data: tp }, { data: ms }, { data: as_ }] = await Promise.all([
       supabase.from('tournaments').select('*').eq('id', tournamentId).single(),
       supabase.from('tournament_wods').select('*').eq('tournament_id', tournamentId).order('order_index'),
       supabase.from('tournament_participants')
         .select('athlete_id, score, created_at, profile:profiles(id, username, elo, level, box_members(box:boxes(name)))')
         .eq('tournament_id', tournamentId)
-        .order('created_at', { ascending: true }),
+        .order('score', { ascending: false }),
       user ? supabase.from('tournament_scores')
         .select('*').eq('tournament_id', tournamentId).eq('athlete_id', user.id) : { data: [] },
+      isAdminUser ? supabase.from('tournament_scores')
+        .select('*, profile:profiles(username, level, elo), tw:tournament_wods(title, type)')
+        .eq('tournament_id', tournamentId)
+        .order('submitted_at', { ascending: false }) : { data: [] },
     ]);
     setTournament(t);
     setWods((tw ?? []) as TournamentWOD[]);
     setParticipants(tp ?? []);
     setMyScores((ms ?? []) as TournamentScore[]);
+    if (isAdminUser) setAllScores(((as_ ?? []) as any[]).map((s: any) => ({
+      ...s,
+      profile: Array.isArray(s.profile) ? s.profile[0] : s.profile,
+      tw:      Array.isArray(s.tw)      ? s.tw[0]      : s.tw,
+    })));
     if (user) setIsRegistered((tp ?? []).some((p: any) => p.athlete_id === user.id));
     setLoading(false);
     setRefreshing(false);
@@ -92,6 +104,48 @@ export default function TournamentScreen() {
         ? prev
         : [...prev, { athlete_id: user.id, score: 0, created_at: new Date().toISOString() }]
     );
+  }
+
+  async function recalcLeaderboard(tournamentWods: TournamentWOD[], validatedScores: TournamentScore[]) {
+    const pointsMap: Record<string, number> = {};
+    tournamentWods.forEach(wod => {
+      const wodScores = validatedScores.filter(s => s.tournament_wod_id === wod.id);
+      const sorted = [...wodScores].sort((a, b) => parseFloat(String(b.score_value)) - parseFloat(String(a.score_value)));
+      sorted.forEach((s, i) => {
+        const pts = Math.max(1, 100 - i * 3);
+        pointsMap[s.athlete_id] = (pointsMap[s.athlete_id] ?? 0) + pts;
+      });
+    });
+    for (const [athleteId, pts] of Object.entries(pointsMap)) {
+      await supabase.from('tournament_participants')
+        .update({ score: pts })
+        .eq('tournament_id', tournamentId)
+        .eq('athlete_id', athleteId);
+    }
+  }
+
+  async function handleValidateScore(scoreId: string) {
+    setProcessing(scoreId);
+    const { error } = await supabase.from('tournament_scores')
+      .update({ status: 'validated', validated_at: new Date().toISOString() })
+      .eq('id', scoreId);
+    if (error) { Alert.alert('Erreur', error.message); setProcessing(null); return; }
+    const updated = allScores.map(s => s.id === scoreId ? { ...s, status: 'validated' as const } : s);
+    setAllScores(updated);
+    const validated = updated.filter(s => s.status === 'validated');
+    await recalcLeaderboard(wods, validated);
+    setProcessing(null);
+    load();
+  }
+
+  async function handleRejectScore(scoreId: string) {
+    setProcessing(scoreId);
+    const { error } = await supabase.from('tournament_scores')
+      .update({ status: 'rejected' })
+      .eq('id', scoreId);
+    if (error) { Alert.alert('Erreur', error.message); setProcessing(null); return; }
+    setAllScores(prev => prev.map(s => s.id === scoreId ? { ...s, status: 'rejected' as const } : s));
+    setProcessing(null);
   }
 
   async function handleKick(athleteId: string, username: string) {
@@ -207,17 +261,21 @@ export default function TournamentScreen() {
       {/* ── Tabs ── */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         style={S.tabsScroll} contentContainerStyle={S.tabsContent}>
-        {(['infos', 'wods', 'participants', 'scores'] as const).map(tab => (
-          <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}
-            style={[S.tab, activeTab === tab && S.tabActive]}>
-            <Text style={[S.tabText, activeTab === tab && S.tabTextActive]}>
-              {tab === 'infos' ? 'Infos'
-                : tab === 'wods' ? `WODs (${wods.length})`
-                : tab === 'participants' ? `Participants (${participants.length})`
-                : 'Classement'}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {(['infos', 'wods', 'participants', 'scores', ...(isAdmin ? ['validate'] : [])] as const).map((tab: any) => {
+            const pendingCount = allScores.filter(s => s.status === 'pending').length;
+            return (
+              <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}
+                style={[S.tab, activeTab === tab && S.tabActive]}>
+                <Text style={[S.tabText, activeTab === tab && S.tabTextActive]}>
+                  {tab === 'infos'       ? 'Infos'
+                    : tab === 'wods'       ? `WODs (${wods.length})`
+                    : tab === 'participants'? `Participants (${participants.length})`
+                    : tab === 'validate'   ? `⚖️ Valider${pendingCount > 0 ? ` (${pendingCount})` : ''}`
+                    : 'Classement'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
       </ScrollView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}
@@ -471,6 +529,92 @@ export default function TournamentScreen() {
           </>
         )}
 
+        {/* ══ VALIDER (admin only) ══ */}
+        {activeTab === 'validate' && isAdmin && (
+          <>
+            {/* Recalc button */}
+            <TouchableOpacity
+              style={S.recalcBtn}
+              onPress={async () => {
+                const validated = allScores.filter(s => s.status === 'validated');
+                await recalcLeaderboard(wods, validated);
+                await load();
+                Alert.alert('✅', 'Classement recalculé.');
+              }}
+              activeOpacity={0.8}>
+              <RotateCcw color={theme.accent} size={13} />
+              <Text style={S.recalcBtnText}>Recalculer le classement</Text>
+            </TouchableOpacity>
+
+            {allScores.length === 0 ? (
+              <View style={S.emptyState}>
+                <Text style={S.emptyEmoji}>📋</Text>
+                <Text style={S.emptyTitle}>Aucun score soumis</Text>
+                <Text style={S.emptyText}>Les scores des athlètes apparaîtront ici.</Text>
+              </View>
+            ) : allScores.map(score => {
+              const statusColor = score.status === 'validated' ? theme.success
+                : score.status === 'rejected' ? theme.error : theme.warning;
+              const statusLabel = score.status === 'validated' ? '✅ Validé'
+                : score.status === 'rejected' ? '❌ Rejeté' : '⏳ En attente';
+              const isProcessing = processing === score.id;
+              return (
+                <View key={score.id} style={S.scoreCard}>
+                  <View style={S.scoreCardHeader}>
+                    <View style={S.scoreAvatarWrap}>
+                      <Text style={S.scoreAvatarText}>
+                        {((score as any).profile?.username ?? '?')[0].toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={S.scoreUsername}>{(score as any).profile?.username ?? '?'}</Text>
+                      <Text style={S.scoreWodTitle}>{(score as any).tw?.title ?? ''}</Text>
+                    </View>
+                    <View style={[S.scoreStatusPill, { backgroundColor: `${statusColor}20` }]}>
+                      <Text style={[S.scoreStatusText, { color: statusColor }]}>{statusLabel}</Text>
+                    </View>
+                  </View>
+
+                  <View style={S.scoreValueRow}>
+                    <Zap color={theme.gold} size={14} />
+                    <Text style={S.scoreValue}>{score.score_value}</Text>
+                    {score.tiebreak_value != null && (
+                      <Text style={S.scoreTiebreak}>TB: {score.tiebreak_value}</Text>
+                    )}
+                  </View>
+
+                  {score.notes ? (
+                    <Text style={S.scoreNotes}>{score.notes}</Text>
+                  ) : null}
+
+                  {score.status === 'pending' && (
+                    <View style={S.scoreActions}>
+                      <TouchableOpacity
+                        style={[S.scoreBtn, S.scoreBtnReject]}
+                        onPress={() => handleRejectScore(score.id)}
+                        disabled={isProcessing}
+                        activeOpacity={0.8}>
+                        {isProcessing
+                          ? <ActivityIndicator size="small" color={theme.error} />
+                          : <><XCircle color={theme.error} size={14} /><Text style={[S.scoreBtnText, { color: theme.error }]}>Rejeter</Text></>}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[S.scoreBtn, S.scoreBtnValidate]}
+                        onPress={() => handleValidateScore(score.id)}
+                        disabled={isProcessing}
+                        activeOpacity={0.8}>
+                        {isProcessing
+                          ? <ActivityIndicator size="small" color={theme.success} />
+                          : <><CheckCircle color={theme.success} size={14} /><Text style={[S.scoreBtnText, { color: theme.success }]}>Valider</Text></>}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -572,4 +716,23 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   partMetaDot:  { fontSize: 12, color: theme.textMuted },
   partDate:     { fontSize: 11, color: theme.textMuted, marginTop: 1 },
   kickBtn:      { width: 36, height: 36, borderRadius: 10, backgroundColor: `${theme.error}12`, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: `${theme.error}30` },
+  recalcBtn:     { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, backgroundColor: `${theme.accent}12`, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${theme.accent}25` },
+  recalcBtnText: { fontSize: 13, fontWeight: '700' as const, color: theme.accent },
+  scoreCard:       { backgroundColor: theme.card, borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: theme.cardBorder, gap: 10 },
+  scoreCardHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
+  scoreAvatarWrap: { width: 38, height: 38, borderRadius: 19, backgroundColor: `${theme.accent}20`, justifyContent: 'center' as const, alignItems: 'center' as const },
+  scoreAvatarText: { fontSize: 15, fontWeight: '800' as const, color: theme.accent },
+  scoreUsername:   { fontSize: 14, fontWeight: '800' as const, color: theme.text },
+  scoreWodTitle:   { fontSize: 11, color: theme.textMuted, marginTop: 2 },
+  scoreStatusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  scoreStatusText: { fontSize: 11, fontWeight: '700' as const },
+  scoreValueRow:   { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, backgroundColor: theme.surface, borderRadius: 10, padding: 10 },
+  scoreValue:      { fontSize: 16, fontWeight: '900' as const, color: theme.text, flex: 1 },
+  scoreTiebreak:   { fontSize: 12, color: theme.textMuted },
+  scoreNotes:      { fontSize: 12, color: theme.textSecondary, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontStyle: 'italic' as const },
+  scoreActions:    { flexDirection: 'row' as const, gap: 8 },
+  scoreBtn:        { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6, borderRadius: 12, paddingVertical: 11, borderWidth: 1 },
+  scoreBtnReject:  { backgroundColor: `${theme.error}10`, borderColor: `${theme.error}30` },
+  scoreBtnValidate:{ backgroundColor: `${theme.success}10`, borderColor: `${theme.success}30` },
+  scoreBtnText:    { fontSize: 13, fontWeight: '700' as const },
 }); }

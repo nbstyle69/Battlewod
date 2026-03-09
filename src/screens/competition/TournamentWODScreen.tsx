@@ -48,11 +48,18 @@ export default function TournamentWODScreen() {
   const [submitting,    setSubmitting]    = useState(false);
   const [showYtHelp,    setShowYtHelp]    = useState(false);
 
-  const deadlineMsRef = useRef<number>(0);
-  const [remainingMs, setRemainingMs] = useState(wod.deadline_hours * 3600 * 1000);
+  const deadlineHours = (wod.deadline_hours && wod.deadline_hours > 0) ? wod.deadline_hours : 24;
+  const deadlineMsRef = useRef<number>(Date.now() + deadlineHours * 3600 * 1000);
+  const [remainingMs, setRemainingMs] = useState(deadlineHours * 3600 * 1000);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    deadlineMsRef.current = Date.now() + deadlineHours * 3600 * 1000;
+    intervalRef.current = setInterval(() => {
+      const rem = deadlineMsRef.current - Date.now();
+      setRemainingMs(rem);
+      if (rem <= 0 && intervalRef.current) clearInterval(intervalRef.current);
+    }, 1000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
