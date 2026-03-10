@@ -8,7 +8,7 @@ import {
   ChevronLeft, Users, Calendar, Zap, CheckCircle,
   Lock, Clock, Timer, UserX, Shield, Star, XCircle, RotateCcw,
 } from 'lucide-react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -62,34 +62,50 @@ export default function TournamentScreen() {
       supabase.from('tournaments').select('*').eq('id', tournamentId).single(),
       supabase.from('tournament_wods').select('*').eq('tournament_id', tournamentId).order('order_index'),
       supabase.from('tournament_participants')
-        .select('athlete_id, score, created_at, profile:profiles!athlete_id(id, username, elo, level, box_members(box:boxes(name)))')
+        .select('athlete_id, score, created_at')
         .eq('tournament_id', tournamentId)
         .order('score', { ascending: false }),
       user ? supabase.from('tournament_scores')
         .select('*').eq('tournament_id', tournamentId).eq('athlete_id', user.id) : { data: [] },
       isAdminUser ? supabase.from('tournament_scores')
-        .select('*, profile:profiles!athlete_id(username, level, elo), tw:tournament_wods(title, type)')
+        .select('*, tw:tournament_wods(title, type)')
         .eq('tournament_id', tournamentId)
         .order('submitted_at', { ascending: false }) : { data: [] },
     ]);
     setTournament(t);
     setWods((tw ?? []) as TournamentWOD[]);
-    setParticipants((tp ?? []).map((p: any) => ({
-      ...p,
-      profile: Array.isArray(p.profile) ? p.profile[0] : p.profile,
-    })));
+
+    // ── Separate profile fetch to bypass FK ambiguity ──────────────────────
+    const participantList = tp ?? [];
+    const allScoreList    = as_ ?? [];
+    const athleteIds = [...new Set([
+      ...participantList.map((p: any) => p.athlete_id),
+      ...allScoreList.map((s: any)   => s.athlete_id),
+    ])];
+    let profileMap: Record<string, any> = {};
+    if (athleteIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, username, elo, level, box_members(box:boxes(name))')
+        .in('id', athleteIds);
+      (profs ?? []).forEach((p: any) => { profileMap[p.id] = p; });
+    }
+
+    setParticipants(participantList.map((p: any) => ({ ...p, profile: profileMap[p.athlete_id] ?? null })));
     setMyScores((ms ?? []) as TournamentScore[]);
-    if (isAdminUser) setAllScores(((as_ ?? []) as any[]).map((s: any) => ({
+    if (isAdminUser) setAllScores(allScoreList.map((s: any) => ({
       ...s,
-      profile: Array.isArray(s.profile) ? s.profile[0] : s.profile,
-      tw:      Array.isArray(s.tw)      ? s.tw[0]      : s.tw,
+      profile: profileMap[s.athlete_id] ?? null,
+      tw: Array.isArray(s.tw) ? s.tw[0] : s.tw,
     })));
-    if (user) setIsRegistered((tp ?? []).some((p: any) => p.athlete_id === user.id));
+    if (user) setIsRegistered(participantList.some((p: any) => p.athlete_id === user.id));
     setLoading(false);
     setRefreshing(false);
   }, [tournamentId, user]);
 
   useEffect(() => { load(); }, [load]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   async function handleRegister() {
     if (!user || isRegistered) return;

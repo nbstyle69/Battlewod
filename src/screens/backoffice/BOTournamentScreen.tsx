@@ -78,26 +78,40 @@ export default function BOTournamentScreen() {
     if (!selectedId) return;
     const [{ data: sc }, { data: tw }, { data: tp }] = await Promise.all([
       supabase.from('tournament_scores')
-        .select('*, profile:profiles!athlete_id(username, level, elo), tw:tournament_wods(title, type, movements), t:tournaments(name)')
+        .select('*, tw:tournament_wods(title, type, movements), t:tournaments(name)')
         .eq('tournament_id', selectedId)
         .order('submitted_at', { ascending: false }),
       supabase.from('tournament_wods').select('*').eq('tournament_id', selectedId).order('order_index'),
       supabase.from('tournament_participants')
-        .select('athlete_id, score, created_at, profile:profiles!athlete_id(id, username, elo, level, box_members(box:boxes(name)))')
+        .select('athlete_id, score, created_at')
         .eq('tournament_id', selectedId)
         .order('created_at', { ascending: true }),
     ]);
-    setScores(((sc ?? []) as any[]).map((s: any) => ({
+
+    // ── Separate profile fetch ─────────────────────────────────────────────────
+    const scoreList = sc ?? [];
+    const partList  = tp ?? [];
+    const ids = [...new Set([
+      ...scoreList.map((s: any) => s.athlete_id),
+      ...partList.map((p: any)  => p.athlete_id),
+    ])];
+    let profileMap: Record<string, any> = {};
+    if (ids.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, username, elo, level, box_members(box:boxes(name))')
+        .in('id', ids);
+      (profs ?? []).forEach((p: any) => { profileMap[p.id] = p; });
+    }
+
+    setScores(scoreList.map((s: any) => ({
       ...s,
-      profile: Array.isArray(s.profile) ? s.profile[0] : s.profile,
-      tw:      Array.isArray(s.tw)      ? s.tw[0]      : s.tw,
+      profile: profileMap[s.athlete_id] ?? null,
+      tw: Array.isArray(s.tw) ? s.tw[0] : s.tw,
     })) as TournamentScore[]);
     setWods(tw ?? []);
-    setParticipants((tp ?? []).map((p: any) => ({
-      ...p,
-      profile: Array.isArray(p.profile) ? p.profile[0] : p.profile,
-    })));
-    setRankTo(String((tp ?? []).length));
+    setParticipants(partList.map((p: any) => ({ ...p, profile: profileMap[p.athlete_id] ?? null })));
+    setRankTo(String(partList.length));
     setRefreshing(false);
   }, [selectedId]);
 
@@ -279,16 +293,21 @@ Réponds en français, sois concis et factuel.`;
         text: 'Clôturer', style: 'destructive', onPress: async () => {
           setClosingTourn(true);
           const { data: tp } = await supabase.from('tournament_participants')
-            .select('athlete_id, score, profile:profiles!athlete_id(id, username, elo)')
+            .select('athlete_id, score')
             .eq('tournament_id', selectedId).order('score', { ascending: false });
           if (!tp || tp.length === 0) { setClosingTourn(false); return; }
+          const tpIds = tp.map((p: any) => p.athlete_id);
+          const { data: tpProfs } = await supabase.from('profiles').select('id, username, elo').in('id', tpIds);
+          const tpProfileMap: Record<string, any> = {};
+          (tpProfs ?? []).forEach((p: any) => { tpProfileMap[p.id] = p; });
+          const tpWithProfile = tp.map((p: any) => ({ ...p, profile: tpProfileMap[p.athlete_id] ?? null }));
 
-          const getProfile = (p: any) => Array.isArray(p.profile) ? p.profile[0] : p.profile;
-          const avgElo = Math.round(tp.reduce((sum: number, p: any) => sum + (getProfile(p)?.elo ?? 1000), 0) / tp.length);
+          const getProfile = (p: any) => p.profile;
+          const avgElo = Math.round(tpWithProfile.reduce((sum: number, p: any) => sum + (getProfile(p)?.elo ?? 1000), 0) / tpWithProfile.length);
           const eloChanges: { name: string; rank: number; change: number }[] = [];
 
-          for (let i = 0; i < tp.length; i++) {
-            const p = tp[i];
+          for (let i = 0; i < tpWithProfile.length; i++) {
+            const p = tpWithProfile[i];
             const prof = getProfile(p);
             const athleteElo = prof?.elo ?? 1000;
             const rank = i + 1;
