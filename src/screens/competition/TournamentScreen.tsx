@@ -7,7 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronLeft, Users, Calendar, Zap, CheckCircle,
-  Lock, Clock, Timer, UserX, Shield, Star, XCircle, RotateCcw,
+  Lock, Clock, Timer, UserX, Shield, Star, XCircle, RotateCcw, MessageSquare,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -455,6 +455,12 @@ export default function TournamentScreen() {
                           {myScore.status === 'pending' ? '⏳ En attente de validation'
                             : myScore.status === 'validated' ? '✅ Validé' : '❌ Rejeté'}
                         </Text>
+                        {(myScore as any).admin_message ? (
+                          <View style={S.adminMsgBox}>
+                            <MessageSquare color={theme.accent} size={12} />
+                            <Text style={S.adminMsgText}>{(myScore as any).admin_message}</Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
                   )}
@@ -743,6 +749,8 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   myScoreBadge:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: `${theme.success}10`, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: `${theme.success}25` },
   myScoreValue:  { fontSize: 14, fontWeight: '800', color: theme.success },
   myScoreStatus: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+  adminMsgBox:   { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 6, backgroundColor: `${theme.accent}10`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6 },
+  adminMsgText:  { fontSize: 11, color: theme.textSecondary, flex: 1, lineHeight: 16 },
   wodActionBtn:      { marginTop: 4 },
   wodActionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14 },
   wodActionBtnText:  { color: '#fff', fontSize: 14, fontWeight: '900' },
