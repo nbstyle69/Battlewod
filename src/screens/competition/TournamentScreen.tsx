@@ -98,7 +98,16 @@ export default function TournamentScreen() {
       profile: profileMap[s.athlete_id] ?? null,
       tw: Array.isArray(s.tw) ? s.tw[0] : s.tw,
     })));
-    if (user) setIsRegistered(participantList.some((p: any) => p.athlete_id === user.id));
+    if (user) {
+      // Dedicated check — uses athlete_id = auth.uid() so works even if full SELECT RLS blocks
+      const { data: myReg } = await supabase
+        .from('tournament_participants')
+        .select('athlete_id')
+        .eq('tournament_id', tournamentId)
+        .eq('athlete_id', user.id)
+        .maybeSingle();
+      setIsRegistered(!!myReg);
+    }
     setLoading(false);
     setRefreshing(false);
   }, [tournamentId, user]);
