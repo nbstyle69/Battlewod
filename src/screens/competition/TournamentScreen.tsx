@@ -62,10 +62,7 @@ export default function TournamentScreen() {
     const [{ data: t }, { data: tw }, { data: tp }, { data: ms }, { data: as_ }, { data: myReg }] = await Promise.all([
       supabase.from('tournaments').select('*').eq('id', tournamentId).single(),
       supabase.from('tournament_wods').select('*').eq('tournament_id', tournamentId).order('order_index'),
-      supabase.from('tournament_participants')
-        .select('athlete_id, score, created_at')
-        .eq('tournament_id', tournamentId)
-        .order('score', { ascending: false }),
+      supabase.rpc('get_tournament_participants', { p_tournament_id: tournamentId }),
       user ? supabase.from('tournament_scores')
         .select('*').eq('tournament_id', tournamentId).eq('athlete_id', user.id) : { data: [] },
       isAdminUser ? supabase.from('tournament_scores')
