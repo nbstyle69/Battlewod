@@ -70,7 +70,7 @@ export default function TournamentScreen() {
         .eq('tournament_id', tournamentId)
         .order('submitted_at', { ascending: false }) : { data: [] },
       user ? supabase.from('tournament_participants')
-        .select('athlete_id, score, created_at')
+        .select('athlete_id, score')
         .eq('tournament_id', tournamentId)
         .eq('athlete_id', user.id)
         .maybeSingle() : { data: null },
@@ -112,7 +112,6 @@ export default function TournamentScreen() {
         {
           athlete_id:  user.id,
           score:       myReg?.score ?? 0,
-          created_at:  myReg?.created_at ?? new Date().toISOString(),
           profile:     profileMap[user.id] ?? { id: user.id, username: user.username, elo: user.elo, level: user.level },
         },
       ];
@@ -150,7 +149,6 @@ export default function TournamentScreen() {
           : [...prev, {
               athlete_id: user.id,
               score: 0,
-              created_at: new Date().toISOString(),
               profile: {
                 id: user.id,
                 username: user.username,
