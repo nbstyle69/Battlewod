@@ -10,6 +10,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { CompetitionStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'CompetitionList'>;
 
@@ -40,6 +41,7 @@ interface Tournament {
 export default function CompetitionScreen() {
   const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
+  const { currentBox } = useAuth();
   const S = createStyles(theme);
   const [activeTab,    setActiveTab]    = useState(0);
   const [tournaments,  setTournaments]  = useState<Tournament[]>([]);
@@ -49,9 +51,11 @@ export default function CompetitionScreen() {
 
   const loadTournaments = useCallback(async () => {
     setTLoading(true);
+    if (!currentBox) { setTLoading(false); setTRefreshing(false); return; }
     const { data } = await supabase
       .from('tournaments')
       .select('id, name, level, status, max_participants, prize, start_date')
+      .eq('box_id', currentBox.id)
       .in('status', ['open', 'active'])
       .order('created_at', { ascending: false });
     const list = (data ?? []) as Tournament[];
@@ -70,9 +74,9 @@ export default function CompetitionScreen() {
     }
     setTLoading(false);
     setTRefreshing(false);
-  }, []);
+  }, [currentBox]);
 
-  useEffect(() => { loadTournaments(); }, [loadTournaments]);
+  useEffect(() => { loadTournaments(); }, [loadTournaments, currentBox]);
 
   return (
     <View style={S.container}>

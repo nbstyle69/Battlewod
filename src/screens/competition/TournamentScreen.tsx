@@ -62,13 +62,13 @@ export default function TournamentScreen() {
       supabase.from('tournaments').select('*').eq('id', tournamentId).single(),
       supabase.from('tournament_wods').select('*').eq('tournament_id', tournamentId).order('order_index'),
       supabase.from('tournament_participants')
-        .select('athlete_id, score, created_at, profile:profiles(id, username, elo, level, box_members(box:boxes(name)))')
+        .select('athlete_id, score, created_at, profile:profiles!athlete_id(id, username, elo, level, box_members(box:boxes(name)))')
         .eq('tournament_id', tournamentId)
         .order('score', { ascending: false }),
       user ? supabase.from('tournament_scores')
         .select('*').eq('tournament_id', tournamentId).eq('athlete_id', user.id) : { data: [] },
       isAdminUser ? supabase.from('tournament_scores')
-        .select('*, profile:profiles(username, level, elo), tw:tournament_wods(title, type)')
+        .select('*, profile:profiles!athlete_id(username, level, elo), tw:tournament_wods(title, type)')
         .eq('tournament_id', tournamentId)
         .order('submitted_at', { ascending: false }) : { data: [] },
     ]);
@@ -102,11 +102,7 @@ export default function TournamentScreen() {
     setRegistering(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
     setIsRegistered(true);
-    setParticipants(prev =>
-      prev.some(p => p.athlete_id === user.id)
-        ? prev
-        : [...prev, { athlete_id: user.id, score: 0, created_at: new Date().toISOString() }]
-    );
+    load();
   }
 
   async function recalcLeaderboard(tournamentWods: TournamentWOD[], validatedScores: TournamentScore[]) {

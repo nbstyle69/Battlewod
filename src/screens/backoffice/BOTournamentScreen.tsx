@@ -78,12 +78,12 @@ export default function BOTournamentScreen() {
     if (!selectedId) return;
     const [{ data: sc }, { data: tw }, { data: tp }] = await Promise.all([
       supabase.from('tournament_scores')
-        .select('*, profile:profiles(username, level, elo), tw:tournament_wods(title, type, movements), t:tournaments(name)')
+        .select('*, profile:profiles!athlete_id(username, level, elo), tw:tournament_wods(title, type, movements), t:tournaments(name)')
         .eq('tournament_id', selectedId)
         .order('submitted_at', { ascending: false }),
       supabase.from('tournament_wods').select('*').eq('tournament_id', selectedId).order('order_index'),
       supabase.from('tournament_participants')
-        .select('athlete_id, score, created_at, profile:profiles(id, username, elo, level, box_members(box:boxes(name)))')
+        .select('athlete_id, score, created_at, profile:profiles!athlete_id(id, username, elo, level, box_members(box:boxes(name)))')
         .eq('tournament_id', selectedId)
         .order('created_at', { ascending: true }),
     ]);
@@ -279,7 +279,7 @@ Réponds en français, sois concis et factuel.`;
         text: 'Clôturer', style: 'destructive', onPress: async () => {
           setClosingTourn(true);
           const { data: tp } = await supabase.from('tournament_participants')
-            .select('athlete_id, score, profile:profiles(id, username, elo)')
+            .select('athlete_id, score, profile:profiles!athlete_id(id, username, elo)')
             .eq('tournament_id', selectedId).order('score', { ascending: false });
           if (!tp || tp.length === 0) { setClosingTourn(false); return; }
 

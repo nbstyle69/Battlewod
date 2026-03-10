@@ -107,13 +107,18 @@ export default function TournamentWODScreen() {
   }
 
   function launchTimer() {
-    const rawType = (wod.timer_type ?? wod.type ?? '').toLowerCase();
+    // Use wod.type as primary (amrap, for-time, emom, tabata, strength, custom)
+    // wod.timer_type is a different field ('countdown','stopwatch','emom','tabata','none')
+    const wodType = (wod.type ?? '').toLowerCase().replace(/\s+/g, '-');
     const timerType =
-      rawType === 'amrap'    || rawType === 'amrap'     ? 'amrap'    :
-      rawType === 'for-time' || rawType === 'for time'  ? 'for-time' :
-      rawType === 'emom'                                ? 'emom'     :
-      rawType === 'tabata'                              ? 'tabata'   :
-      rawType === 'ywyr'                                ? 'ywyr'     :
+      wodType === 'amrap'                               ? 'amrap'    :
+      wodType === 'for-time' || wodType === 'for time'  ? 'for-time' :
+      wodType === 'emom'                                ? 'emom'     :
+      wodType === 'tabata'                              ? 'tabata'   :
+      wodType === 'ywyr'                                ? 'ywyr'     :
+      // fall back to timer_type only for emom/tabata overrides
+      wod.timer_type === 'emom'   ? 'emom'   :
+      wod.timer_type === 'tabata' ? 'tabata' :
       'for-time';
 
     const durSeconds = (wod.time_cap_seconds ?? 0) > 0
