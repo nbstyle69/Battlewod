@@ -58,7 +58,7 @@ export default function TournamentScreen() {
 
   const load = useCallback(async () => {
     const isAdminUser = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'box_owner';
-    const [{ data: t }, { data: tw }, { data: tp }, { data: ms }, { data: as_ }] = await Promise.all([
+    const [{ data: t }, { data: tw }, { data: tp }, { data: ms }, { data: as_ }, { data: myReg }] = await Promise.all([
       supabase.from('tournaments').select('*').eq('id', tournamentId).single(),
       supabase.from('tournament_wods').select('*').eq('tournament_id', tournamentId).order('order_index'),
       supabase.from('tournament_participants')
@@ -71,43 +71,56 @@ export default function TournamentScreen() {
         .select('*, tw:tournament_wods(title, type)')
         .eq('tournament_id', tournamentId)
         .order('submitted_at', { ascending: false }) : { data: [] },
+      user ? supabase.from('tournament_participants')
+        .select('athlete_id, score, created_at')
+        .eq('tournament_id', tournamentId)
+        .eq('athlete_id', user.id)
+        .maybeSingle() : { data: null },
     ]);
     setTournament(t);
     setWods((tw ?? []) as TournamentWOD[]);
 
+    const registered = !!myReg;
+    setIsRegistered(registered);
+
     // ── Separate profile fetch to bypass FK ambiguity ──────────────────────
     const participantList = tp ?? [];
     const allScoreList    = as_ ?? [];
-    const athleteIds = [...new Set([
+    const allAthleteIds   = [...new Set([
       ...participantList.map((p: any) => p.athlete_id),
       ...allScoreList.map((s: any)   => s.athlete_id),
+      ...(user && registered ? [user.id] : []),
     ])];
     let profileMap: Record<string, any> = {};
-    if (athleteIds.length > 0) {
+    if (allAthleteIds.length > 0) {
       const { data: profs } = await supabase
         .from('profiles')
         .select('id, username, elo, level, box_members(box:boxes(name))')
-        .in('id', athleteIds);
+        .in('id', allAthleteIds);
       (profs ?? []).forEach((p: any) => { profileMap[p.id] = p; });
     }
 
-    setParticipants(participantList.map((p: any) => ({ ...p, profile: profileMap[p.athlete_id] ?? null })));
+    // Build participants list — inject current user if registered but RLS blocks full SELECT
+    let mappedParticipants = participantList.map((p: any) => ({ ...p, profile: profileMap[p.athlete_id] ?? null }));
+    if (user && registered && !mappedParticipants.some((p: any) => p.athlete_id === user.id)) {
+      mappedParticipants = [
+        ...mappedParticipants,
+        {
+          athlete_id:  user.id,
+          score:       myReg?.score ?? 0,
+          created_at:  myReg?.created_at ?? new Date().toISOString(),
+          profile:     profileMap[user.id] ?? { id: user.id, username: user.username, elo: user.elo, level: user.level },
+        },
+      ];
+    }
+    setParticipants(mappedParticipants);
+
     setMyScores((ms ?? []) as TournamentScore[]);
     if (isAdminUser) setAllScores(allScoreList.map((s: any) => ({
       ...s,
       profile: profileMap[s.athlete_id] ?? null,
       tw: Array.isArray(s.tw) ? s.tw[0] : s.tw,
     })));
-    if (user) {
-      // Dedicated check — uses athlete_id = auth.uid() so works even if full SELECT RLS blocks
-      const { data: myReg } = await supabase
-        .from('tournament_participants')
-        .select('athlete_id')
-        .eq('tournament_id', tournamentId)
-        .eq('athlete_id', user.id)
-        .maybeSingle();
-      setIsRegistered(!!myReg);
-    }
     setLoading(false);
     setRefreshing(false);
   }, [tournamentId, user]);
