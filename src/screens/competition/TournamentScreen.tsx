@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl,
@@ -80,8 +81,14 @@ export default function TournamentScreen() {
     setTournament(t);
     setWods((tw ?? []) as TournamentWOD[]);
 
-    const registered = !!myReg;
+    // Merge server result with local cache (handles RLS SELECT blocks)
+    const cacheKey = `@thehub:registered:${tournamentId}`;
+    const cached   = await AsyncStorage.getItem(cacheKey);
+    const registered = !!myReg || cached === 'true';
     setIsRegistered(registered);
+    // Keep cache in sync with server
+    if (myReg)              await AsyncStorage.setItem(cacheKey, 'true');
+    else if (!cached)       await AsyncStorage.removeItem(cacheKey);
 
     // ── Separate profile fetch to bypass FK ambiguity ──────────────────────
     const participantList = tp ?? [];
@@ -137,7 +144,8 @@ export default function TournamentScreen() {
         Alert.alert('Erreur inscription', error.message);
         return;
       }
-      // Update local state directly — do NOT call load() which would reset isRegistered
+      // Persist registration locally so cold-restart survives RLS
+      await AsyncStorage.setItem(`@thehub:registered:${tournamentId}`, 'true');
       setIsRegistered(true);
       setParticipants(prev =>
         prev.some(p => p.athlete_id === user.id)
@@ -237,6 +245,7 @@ export default function TournamentScreen() {
             .eq('tournament_id', tournamentId)
             .eq('athlete_id', user.id);
           if (error) { Alert.alert('Erreur', error.message); return; }
+          await AsyncStorage.removeItem(`@thehub:registered:${tournamentId}`);
           setIsRegistered(false);
           load();
         }},
