@@ -111,17 +111,27 @@ export default function TournamentScreen() {
     try {
       const { error } = await supabase.from('tournament_participants')
         .insert({ tournament_id: tournamentId, athlete_id: user.id, score: 0 });
-      if (error) {
-        if (error.code === '23505') {
-          setIsRegistered(true);
-        } else {
-          Alert.alert('Erreur inscription', error.message);
-          return;
-        }
-      } else {
-        setIsRegistered(true);
+      if (error && error.code !== '23505') {
+        Alert.alert('Erreur inscription', error.message);
+        return;
       }
-      load();
+      // Update local state directly — do NOT call load() which would reset isRegistered
+      setIsRegistered(true);
+      setParticipants(prev =>
+        prev.some(p => p.athlete_id === user.id)
+          ? prev
+          : [...prev, {
+              athlete_id: user.id,
+              score: 0,
+              created_at: new Date().toISOString(),
+              profile: {
+                id: user.id,
+                username: user.username,
+                elo: user.elo,
+                level: user.level,
+              },
+            }]
+      );
     } catch (e: any) {
       Alert.alert('Erreur', e?.message ?? 'Inscription impossible');
     } finally {
