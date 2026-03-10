@@ -103,22 +103,30 @@ export default function TournamentScreen() {
     setRefreshing(false);
   }, [tournamentId, user]);
 
-  useEffect(() => { load(); }, [load]);
-
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   async function handleRegister() {
     if (!user || isRegistered) return;
     setRegistering(true);
-    const { error } = await supabase.from('tournament_participants')
-      .upsert(
-        { tournament_id: tournamentId, athlete_id: user.id, score: 0 },
-        { onConflict: 'tournament_id,athlete_id', ignoreDuplicates: true },
-      );
-    setRegistering(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
-    setIsRegistered(true);
-    load();
+    try {
+      const { error } = await supabase.from('tournament_participants')
+        .insert({ tournament_id: tournamentId, athlete_id: user.id, score: 0 });
+      if (error) {
+        if (error.code === '23505') {
+          setIsRegistered(true);
+        } else {
+          Alert.alert('Erreur inscription', error.message);
+          return;
+        }
+      } else {
+        setIsRegistered(true);
+      }
+      load();
+    } catch (e: any) {
+      Alert.alert('Erreur', e?.message ?? 'Inscription impossible');
+    } finally {
+      setRegistering(false);
+    }
   }
 
   async function recalcLeaderboard(tournamentWods: TournamentWOD[], validatedScores: TournamentScore[]) {
