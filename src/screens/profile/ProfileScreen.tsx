@@ -4,7 +4,7 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
   Image, Share, Switch,
 } from 'react-native';
-import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2 } from 'lucide-react-native';
+import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -686,6 +686,21 @@ export default function ProfileScreen() {
                 />
               </View>
             </View>
+
+            {/* ── Notifications ─────────────────────────── */}
+            <TouchableOpacity
+              style={S.compteCard}
+              onPress={() => navigation.navigate('NotificationSettings')}
+              activeOpacity={0.8}
+            >
+              <View style={S.themeRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Bell color={theme.accent} size={18} />
+                  <Text style={S.themeLabel}>Notifications</Text>
+                </View>
+                <ChevronRight color={theme.textMuted} size={16} />
+              </View>
+            </TouchableOpacity>
 
             {/* ── Referral code ────────────────────────── */}
             <View style={S.compteCard}>

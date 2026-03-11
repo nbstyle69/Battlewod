@@ -46,6 +46,7 @@ import CompetitionDetailScreen from '../screens/competition/CompetitionDetailScr
 import PublicProfileScreen from '../screens/profile/PublicProfileScreen';
 import FriendsScreen from '../screens/home/FriendsScreen';
 import WodHistoryScreen from '../screens/wod/WodHistoryScreen';
+import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -118,6 +119,7 @@ export type HomeStackParamList = {
   HomeList: undefined;
   WODGenerator: undefined;
   WodHistory: undefined;
+  NotificationSettings: undefined;
   OneRMCalculator: undefined;
   Timer: undefined;
   Leaderboard: undefined;
@@ -295,6 +297,7 @@ function HomeNavigator() {
       <HomeStack.Screen name="Leaderboard" component={LeaderboardScreen} />
       <HomeStack.Screen name="Friends"     component={FriendsScreen} />
       <HomeStack.Screen name="WodHistory"   component={WodHistoryScreen} />
+      <HomeStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <HomeStack.Screen name="Profile" component={user?.role === 'admin' ? AdminScreen : ProfileScreen} />
       <HomeStack.Screen name="CompetitionDetail" component={CompetitionDetailScreen} />
       <HomeStack.Screen name="PublicProfile" component={PublicProfileScreen} />

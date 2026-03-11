@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { User, Box } from '../types';
 import { Session } from '@supabase/supabase-js';
+import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, getNotificationPrefs } from '../services/notifications';
 
 const BOX_SKIPPED_KEY = '@thehub:boxSkipped';
 
@@ -87,6 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data) {
       setUser(data as User);
       await fetchBox(userId, data.role);
+      // Register push token silently
+      registerForPushNotifications().then(token => {
+        if (token) savePushToken(userId, token);
+      }).catch(() => {});
+      // Schedule daily reminder if enabled
+      getNotificationPrefs(userId).then(prefs => {
+        if (prefs.daily_reminder) scheduleDailyReminder(prefs.reminder_hour);
+      }).catch(() => {});
     }
     setLoading(false);
   }
@@ -210,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
+    if (user) removePushToken(user.id).catch(() => {});
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
