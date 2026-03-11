@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
-import { Swords, Trophy, Users, Clock, Zap, ChevronRight, Plus, MapPin } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Swords, Trophy, Users, Clock, Zap, ChevronRight, Plus, MapPin, Flame } from 'lucide-react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
@@ -23,10 +23,20 @@ const MOCK_MATCHES = [
 ];
 
 
-const MOCK_MINI = [
-  { id: '1', name: 'Daily Battle #47', participants: 4, max: 5, level: 'rx', timeLeft: '2h 30min' },
-  { id: '2', name: 'Flash Fight AM', participants: 2, max: 5, level: 'inter', timeLeft: '5h 00min' },
-];
+interface MiniTournament {
+  id: string;
+  wod_name: string;
+  wod_type: string;
+  level: string;
+  score_mode: string;
+  max_players: number;
+  status: string;
+  elo_reward: number;
+  ends_at: string;
+  participant_count: number;
+  has_joined: boolean;
+  creator_name: string;
+}
 
 interface Tournament {
   id: string;
@@ -48,6 +58,9 @@ export default function CompetitionScreen() {
   const [tLoading,     setTLoading]     = useState(false);
   const [tRefreshing,  setTRefreshing]  = useState(false);
   const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
+  const [miniTournaments, setMiniTournaments] = useState<MiniTournament[]>([]);
+  const [miniLoading, setMiniLoading] = useState(false);
+  const { user } = useAuth();
 
   const loadTournaments = useCallback(async () => {
     setTLoading(true);
@@ -76,7 +89,63 @@ export default function CompetitionScreen() {
     setTRefreshing(false);
   }, [currentBox]);
 
+  const loadMiniTournaments = useCallback(async () => {
+    if (!user) return;
+    setMiniLoading(true);
+    const { data } = await supabase
+      .from('daily_tournaments')
+      .select(`
+        *,
+        participants:daily_tournament_participants(user_id),
+        creator:profiles!creator_id(username)
+      `)
+      .in('status', ['open', 'active'])
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    const mapped: MiniTournament[] = (data ?? []).map((t: any) => ({
+      id: t.id,
+      wod_name: t.wod_name,
+      wod_type: t.wod_type,
+      level: t.level,
+      score_mode: t.score_mode,
+      max_players: t.max_players,
+      status: t.status,
+      elo_reward: t.elo_reward,
+      ends_at: t.ends_at,
+      participant_count: t.participants?.length ?? 0,
+      has_joined: (t.participants ?? []).some((p: any) => p.user_id === user.id),
+      creator_name: (Array.isArray(t.creator) ? t.creator[0] : t.creator)?.username ?? '—',
+    }));
+    setMiniTournaments(mapped);
+    setMiniLoading(false);
+  }, [user]);
+
   useEffect(() => { loadTournaments(); }, [loadTournaments, currentBox]);
+
+  useFocusEffect(useCallback(() => { loadMiniTournaments(); }, [loadMiniTournaments]));
+
+  async function handleJoinMini(tournamentId: string) {
+    if (!user) return;
+    const { error } = await supabase.from('daily_tournament_participants').insert({
+      tournament_id: tournamentId,
+      user_id: user.id,
+    });
+    if (error) {
+      if (error.code === '23505') Alert.alert('Déjà inscrit', 'Tu participes déjà.');
+      else Alert.alert('Erreur', error.message);
+      return;
+    }
+    loadMiniTournaments();
+  }
+
+  function timeLeft(endsAt: string): string {
+    const diff = new Date(endsAt).getTime() - Date.now();
+    if (diff <= 0) return 'Terminé';
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    return `${h}h${String(m).padStart(2, '0')}`;
+  }
 
   return (
     <View style={S.container}>
@@ -160,50 +229,96 @@ export default function CompetitionScreen() {
           <>
             <View style={S.miniInfo}>
               <Zap color={theme.gold} size={16} />
-              <Text style={S.miniInfoText}>5 athlètes max • 1 mini-tournoi par jour • Système ELO</Text>
+              <Text style={S.miniInfoText}>5 athlètes max • Mini-tournoi flash • Système ELO</Text>
             </View>
 
-            <TouchableOpacity activeOpacity={0.8} style={[S.createButton, S.createGradient]}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[S.createButton, S.createGradient]}
+              onPress={() => navigation.navigate('DailyTournaments')}
+            >
                 <Plus color="#fff" size={20} />
                 <Text style={S.createText}>Créer un Daily Battle</Text>
             </TouchableOpacity>
 
-            <Text style={S.sectionTitle}>Ouverts aujourd'hui</Text>
-            {MOCK_MINI.map(m => (
-              <TouchableOpacity key={m.id} style={S.miniCard} activeOpacity={0.8}>
-                <View style={S.miniHeader}>
-                  <Text style={S.miniName}>{m.name}</Text>
-                  <View style={[S.levelPill, { backgroundColor: `${LevelColors[m.level]}20` }]}>
-                    <Text style={[S.levelPillText, { color: LevelColors[m.level] }]}>
-                      {m.level.toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-                <View style={S.miniFooter}>
-                  <View style={S.miniParticipants}>
-                    {Array.from({ length: m.max }).map((_, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          S.participantDot,
-                          { backgroundColor: i < m.participants ? theme.accent : theme.surface },
-                        ]}
-                      />
-                    ))}
-                    <Text style={S.miniParticipantsText}>{m.participants}/{m.max}</Text>
-                  </View>
-                  <View style={S.miniTime}>
-                    <Clock color={theme.textMuted} size={13} />
-                    <Text style={S.miniTimeText}>{m.timeLeft}</Text>
-                  </View>
-                </View>
-                {m.participants < m.max && (
-                  <TouchableOpacity activeOpacity={0.8} style={S.joinButton}>
-                    <Text style={S.joinButtonText}>REJOINDRE</Text>
+            <Text style={S.sectionTitle}>Ouverts maintenant</Text>
+            {miniLoading ? (
+              <ActivityIndicator color={theme.accent} style={{ marginTop: 32 }} />
+            ) : miniTournaments.length === 0 ? (
+              <View style={S.emptyBox}>
+                <Text style={S.emptyEmoji}>⚡</Text>
+                <Text style={S.emptyText}>Aucun mini-tournoi en cours.{"\n"}Crée le premier !</Text>
+              </View>
+            ) : (
+              miniTournaments.map(m => {
+                const levelColor = LevelColors[m.level] ?? theme.textMuted;
+                const isFull = m.participant_count >= m.max_players;
+                const remaining = timeLeft(m.ends_at);
+                return (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={S.miniCard}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.navigate('DailyTournamentDetail', { tournamentId: m.id })}
+                  >
+                    <View style={S.miniHeader}>
+                      <Text style={S.miniName}>{m.wod_name}</Text>
+                      <View style={[S.levelPill, { backgroundColor: `${levelColor}20` }]}>
+                        <Text style={[S.levelPillText, { color: levelColor }]}>
+                          {m.level.toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6 }}>par {m.creator_name} • {m.wod_type}</Text>
+                    <View style={S.miniFooter}>
+                      <View style={S.miniParticipants}>
+                        {Array.from({ length: m.max_players }).map((_, i) => (
+                          <View
+                            key={i}
+                            style={[
+                              S.participantDot,
+                              { backgroundColor: i < m.participant_count ? theme.accent : theme.surface },
+                            ]}
+                          />
+                        ))}
+                        <Text style={S.miniParticipantsText}>{m.participant_count}/{m.max_players}</Text>
+                      </View>
+                      <View style={S.miniTime}>
+                        <Flame color={remaining === 'Terminé' ? theme.error : theme.accent} size={13} />
+                        <Text style={[S.miniTimeText, remaining === 'Terminé' && { color: theme.error }]}>{remaining}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <Trophy color={theme.gold} size={12} />
+                        <Text style={{ fontSize: 10, fontWeight: '800', color: theme.gold }}>+{m.elo_reward}</Text>
+                      </View>
+                    </View>
+                    {!m.has_joined && !isFull ? (
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={S.joinButton}
+                        onPress={(e) => { e.stopPropagation(); handleJoinMini(m.id); }}
+                      >
+                        <Text style={S.joinButtonText}>REJOINDRE</Text>
+                      </TouchableOpacity>
+                    ) : m.has_joined ? (
+                      <View style={[S.joinButton, { backgroundColor: `${theme.accent}15` }]}>
+                        <Text style={[S.joinButtonText, { color: theme.accent }]}>INSCRIT ✓</Text>
+                      </View>
+                    ) : null}
                   </TouchableOpacity>
-                )}
+                );
+              })
+            )}
+
+            {miniTournaments.length > 0 && (
+              <TouchableOpacity
+                style={{ alignItems: 'center', paddingVertical: 12 }}
+                onPress={() => navigation.navigate('DailyTournaments')}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.accent }}>Voir tous les mini-tournois →</Text>
               </TouchableOpacity>
-            ))}
+            )}
           </>
         )}
         {activeTab === 2 && (

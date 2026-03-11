@@ -12,9 +12,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
-import { HomeStackParamList } from '../../navigation';
 
-type Nav = NativeStackNavigationProp<HomeStackParamList>;
+type Nav = NativeStackNavigationProp<any>;
 
 interface DailyTournament {
   id: string;

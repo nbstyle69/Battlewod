@@ -11,10 +11,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
-import { HomeStackParamList } from '../../navigation';
 
-type Nav = NativeStackNavigationProp<HomeStackParamList>;
-type Route = RouteProp<HomeStackParamList, 'DailyTournamentDetail'>;
+type Nav = NativeStackNavigationProp<any>;
+type Route = RouteProp<{ DailyTournamentDetail: { tournamentId: string } }, 'DailyTournamentDetail'>;
 
 interface Participant {
   user_id: string;

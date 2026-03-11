@@ -163,6 +163,8 @@ export type WODStackParamList = {
 export type CompetitionStackParamList = {
   CompetitionList: undefined;
   PhysicalCompetition: undefined;
+  DailyTournaments: undefined;
+  DailyTournamentDetail: { tournamentId: string };
   TimerRun: {
     timerType: TimerType;
     countdown: number;
@@ -353,6 +355,8 @@ function CompetitionNavigator() {
       <CompStack.Screen name="Tournament" component={TournamentScreen} />
       <CompStack.Screen name="TournamentWOD" component={TournamentWODScreen} />
       <CompStack.Screen name="VideoPlayback" component={VideoPlaybackScreen} />
+      <CompStack.Screen name="DailyTournaments" component={DailyTournamentsScreen} />
+      <CompStack.Screen name="DailyTournamentDetail" component={DailyTournamentDetailScreen} />
     </CompStack.Navigator>
   );
 }
