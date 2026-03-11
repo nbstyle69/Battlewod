@@ -286,23 +286,27 @@ export default function MessagesScreen() {
     ? messages
     : messages.filter(m => m.group_id === activeTab);
 
-  // Group messages by date for dividers
-  const grouped: (MsgRow | { type: 'date'; label: string; key: string })[] = [];
+  // Build grouped list with date dividers + track previous sender for grouping
+  const grouped: (MsgRow & { _showSender: boolean } | { type: 'date'; label: string; key: string })[] = [];
   let lastDate = '';
+  let lastSenderId = '';
   visibleMessages.forEach(msg => {
     const dateLabel = formatDate(msg.created_at);
     if (dateLabel !== lastDate) {
       grouped.push({ type: 'date', label: dateLabel, key: `d-${msg.created_at}` });
       lastDate = dateLabel;
+      lastSenderId = '';
     }
-    grouped.push(msg);
+    const showSender = msg.sender_id !== lastSenderId;
+    lastSenderId = msg.sender_id;
+    grouped.push({ ...msg, _showSender: showSender });
   });
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={S.container}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
     >
       {/* Header */}
       <View style={S.header}>
@@ -365,18 +369,19 @@ export default function MessagesScreen() {
               </View>
             );
           }
-          const msg = item as MsgRow;
+          const msg = item as MsgRow & { _showSender: boolean };
           const isMe = msg.sender_id === user?.id;
           const initial = (msg.sender?.username?.[0] ?? '?').toUpperCase();
+          const showSender = msg._showSender;
           return (
-            <View style={[S.msgRow, isMe && S.msgRowMe]}>
+            <View style={[S.msgRow, isMe && S.msgRowMe, !showSender && S.msgRowGrouped]}>
               {!isMe && (
-                <View style={S.avatar}>
-                  <Text style={S.avatarText}>{initial}</Text>
-                </View>
+                showSender
+                  ? <View style={S.avatar}><Text style={S.avatarText}>{initial}</Text></View>
+                  : <View style={S.avatarSpacer} />
               )}
               <View style={[S.bubble, isMe ? S.bubbleMe : S.bubbleThem]}>
-                {!isMe && (
+                {!isMe && showSender && (
                   <Text style={S.senderName}>{msg.sender?.username ?? 'Inconnu'}</Text>
                 )}
                 {msg.is_announcement && (
@@ -429,21 +434,23 @@ export default function MessagesScreen() {
 function createStyles(theme: AppTheme) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
   header: {
-    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 14,
+    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
   },
   headerTitle: { fontSize: 22, fontWeight: '900', color: theme.text },
-  headerSub:   { fontSize: 12, color: theme.textMuted, marginTop: 1 },
-  list: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
-  dateDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 8 },
-  dateLine:    { flex: 1, height: 1, backgroundColor: theme.border },
-  dateLabel:   { fontSize: 11, color: theme.textMuted, fontWeight: '600' },
-  msgRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10 },
-  msgRowMe: { flexDirection: 'row-reverse' },
-  avatar:     { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
-  avatarText: { fontSize: 12, fontWeight: '900', color: theme.text },
+  headerSub:   { fontSize: 12, color: theme.textMuted, marginTop: 2 },
+  list: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6 },
+  dateDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 14, gap: 10 },
+  dateLine:    { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.border },
+  dateLabel:   { fontSize: 11, color: theme.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  msgRow:        { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 2, marginTop: 8 },
+  msgRowMe:      { flexDirection: 'row-reverse' },
+  msgRowGrouped: { marginTop: 2 },
+  avatar:        { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' },
+  avatarSpacer:  { width: 28 },
+  avatarText:    { fontSize: 11, fontWeight: '900', color: theme.text },
   bubble: {
-    maxWidth: '75%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, gap: 3,
+    maxWidth: '78%', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8,
   },
   bubbleThem: {
     backgroundColor: theme.card,
@@ -454,39 +461,39 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: theme.accent,
     borderBottomRightRadius: 4,
   },
-  senderName:       { fontSize: 11, fontWeight: '800', color: theme.accent, marginBottom: 1 },
-  announcementTag:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
+  senderName:       { fontSize: 11, fontWeight: '800', color: theme.accent, marginBottom: 2 },
+  announcementTag:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
   announcementText: { fontSize: 9, fontWeight: '800', color: theme.warning },
-  bubbleText:       { fontSize: 14, color: theme.text, lineHeight: 20 },
+  bubbleText:       { fontSize: 15, color: theme.text, lineHeight: 21 },
   bubbleTextMe:     { color: '#fff' },
-  timeText:         { fontSize: 10, color: theme.textMuted, alignSelf: 'flex-end' },
-  timeTextMe:       { color: 'rgba(255,255,255,0.6)' },
+  timeText:         { fontSize: 10, color: theme.textMuted, alignSelf: 'flex-end', marginTop: 2 },
+  timeTextMe:       { color: 'rgba(255,255,255,0.55)' },
   inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    paddingHorizontal: 14, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 8,
     backgroundColor: theme.card, borderTopWidth: 1, borderTopColor: theme.border,
   },
   input: {
     flex: 1, backgroundColor: theme.surface, borderRadius: 22,
     borderWidth: 1, borderColor: theme.border,
-    paddingHorizontal: 16, paddingVertical: 11,
+    paddingHorizontal: 16, paddingVertical: 10,
     fontSize: 15, color: theme.text, maxHeight: 100,
   },
-  sendBtn:         { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center' },
+  sendBtn:         { width: 42, height: 42, borderRadius: 21, backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { opacity: 0.4 },
   empty:     { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, paddingTop: 60, gap: 12 },
   emptyEmoji: { fontSize: 40 },
   emptyText: { fontSize: 14, color: theme.textMuted, textAlign: 'center', lineHeight: 22 },
   tabsContainer: { backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
-  tabsContent:   { paddingHorizontal: 14, paddingVertical: 10, gap: 8, flexDirection: 'row', alignItems: 'center' },
+  tabsContent:   { paddingHorizontal: 12, paddingVertical: 10, gap: 8, flexDirection: 'row', alignItems: 'center' },
   tab: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 16, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1, borderColor: theme.border,
+    borderRadius: 20, borderWidth: 1.5, borderColor: theme.border,
     backgroundColor: theme.surface,
   },
   tabActive:     { backgroundColor: theme.accent, borderColor: theme.accent },
-  tabDot:        { width: 8, height: 8, borderRadius: 4 },
-  tabText:       { fontSize: 13, fontWeight: '700', color: theme.textMuted },
-  tabTextActive: { color: '#fff' },
+  tabDot:        { width: 7, height: 7, borderRadius: 4 },
+  tabText:       { fontSize: 13, fontWeight: '700', color: theme.textSecondary ?? theme.textMuted },
+  tabTextActive: { color: '#fff', fontWeight: '800' },
 }); }
