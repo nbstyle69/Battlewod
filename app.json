@@ -48,6 +48,12 @@
     "plugins": [
       "expo-font",
       "expo-video"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "54f4c573-40f9-4b3a-a2dd-d2e93500482b"
+      }
+    },
+    "owner": "nbstyle"
   }
 }
