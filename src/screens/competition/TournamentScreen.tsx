@@ -54,12 +54,14 @@ export default function TournamentScreen() {
   const [processing,   setProcessing]   = useState<string | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
-  const [registering,  setRegistering]  = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false);
+  const [registering,       setRegistering]       = useState(false);
+  const [isRegistered,      setIsRegistered]      = useState(false);
+  const [wodValidatedScores, setWodValidatedScores] = useState<any[]>([]);
+  const [rankTab,            setRankTab]            = useState<string>('general');
 
   const load = useCallback(async () => {
     const isAdminUser = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'box_owner';
-    const [{ data: t }, { data: tw }, { data: tp }, { data: ms }, { data: as_ }, { data: myReg }] = await Promise.all([
+    const [{ data: t }, { data: tw }, { data: tp }, { data: ms }, { data: as_ }, { data: vs }, { data: myReg }] = await Promise.all([
       supabase.from('tournaments').select('*').eq('id', tournamentId).single(),
       supabase.from('tournament_wods').select('*').eq('tournament_id', tournamentId).order('order_index'),
       supabase.rpc('get_tournament_participants', { p_tournament_id: tournamentId }),
@@ -69,6 +71,7 @@ export default function TournamentScreen() {
         .select('*, tw:tournament_wods(title, type)')
         .eq('tournament_id', tournamentId)
         .order('submitted_at', { ascending: false }) : { data: [] },
+      supabase.rpc('get_tournament_validated_scores', { p_tournament_id: tournamentId }),
       user ? supabase.from('tournament_participants')
         .select('athlete_id, score')
         .eq('tournament_id', tournamentId)
@@ -119,6 +122,7 @@ export default function TournamentScreen() {
     setParticipants(mappedParticipants);
 
     setMyScores((ms ?? []) as TournamentScore[]);
+    setWodValidatedScores(vs ?? []);
     if (isAdminUser) setAllScores(allScoreList.map((s: any) => ({
       ...s,
       profile: profileMap[s.athlete_id] ?? null,
@@ -560,37 +564,98 @@ export default function TournamentScreen() {
         {/* ══ CLASSEMENT ══ */}
         {activeTab === 'scores' && (
           <>
-            {participants.length === 0 ? (
-              <View style={S.emptyState}>
-                <Text style={S.emptyEmoji}>🏆</Text>
-                <Text style={S.emptyTitle}>Classement vide</Text>
-                <Text style={S.emptyText}>Les scores apparaîtront ici dès les premières validations.</Text>
-              </View>
-            ) : participants.map((p: any, i: number) => {
-              const isMe = user?.id === p.athlete_id;
+            {/* Sub-tabs: Général + WOD 1, WOD 2... */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}>
+              {(['general', ...wods.map((_: any, i: number) => `wod_${i}`)] as string[]).map(tab => (
+                <TouchableOpacity key={tab} onPress={() => setRankTab(tab)}
+                  style={[S.rankSubTab, rankTab === tab && S.rankSubTabActive]}>
+                  <Text style={[S.rankSubTabText, rankTab === tab && S.rankSubTabTextActive]}>
+                    {tab === 'general' ? '🏆 Général'
+                      : `WOD ${parseInt(tab.split('_')[1]) + 1} — ${wods[parseInt(tab.split('_')[1])]?.title ?? ''}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Général */}
+            {rankTab === 'general' && (
+              participants.length === 0 ? (
+                <View style={S.emptyState}>
+                  <Text style={S.emptyEmoji}>🏆</Text>
+                  <Text style={S.emptyTitle}>Classement vide</Text>
+                  <Text style={S.emptyText}>Les scores apparaîtront ici dès les premières validations.</Text>
+                </View>
+              ) : participants
+                  .slice()
+                  .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
+                  .map((p: any, i: number) => {
+                const isMe = user?.id === p.athlete_id;
+                return (
+                  <View key={p.athlete_id} style={[S.rankRow, isMe && S.rankRowMe]}>
+                    <View style={S.rankBadge}>
+                      {i === 0 ? <Text style={S.rankEmoji}>🥇</Text>
+                        : i === 1 ? <Text style={S.rankEmoji}>🥈</Text>
+                        : i === 2 ? <Text style={S.rankEmoji}>🥉</Text>
+                        : <Text style={S.rankNumber}>#{i + 1}</Text>}
+                    </View>
+                    <View style={S.rankAvatar}>
+                      <Text style={S.rankAvatarText}>{(p.profile?.username ?? '?')[0].toUpperCase()}</Text>
+                    </View>
+                    <View style={S.rankInfo}>
+                      <Text style={[S.rankName, isMe && { color: theme.accent }]}>
+                        {p.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
+                      </Text>
+                      <Text style={S.rankElo}>ELO {p.profile?.elo ?? 1000}</Text>
+                    </View>
+                    <Text style={S.rankScore}>{p.score ?? 0} pts</Text>
+                  </View>
+                );
+              })
+            )}
+
+            {/* Par WOD */}
+            {wods.map((wod: any, idx: number) => rankTab === `wod_${idx}` && (() => {
+              const wodScores = wodValidatedScores
+                .filter((s: any) => s.tournament_wod_id === wod.id)
+                .slice()
+                .sort((a: any, b: any) => parseFloat(b.score_value) - parseFloat(a.score_value));
               return (
-                <View key={p.athlete_id} style={[S.rankRow, isMe && S.rankRowMe]}>
-                  <View style={S.rankBadge}>
-                    {i === 0 ? <Text style={S.rankEmoji}>🥇</Text>
-                      : i === 1 ? <Text style={S.rankEmoji}>🥈</Text>
-                      : i === 2 ? <Text style={S.rankEmoji}>🥉</Text>
-                      : <Text style={S.rankNumber}>#{i + 1}</Text>}
+                <View key={wod.id}>
+                  <View style={S.wodRankHeader}>
+                    <Text style={S.wodRankHeaderText}>WOD {idx + 1} — {wod.title}</Text>
                   </View>
-                  <View style={S.rankAvatar}>
-                    <Text style={S.rankAvatarText}>
-                      {(p.profile?.username ?? '?')[0].toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={S.rankInfo}>
-                    <Text style={[S.rankName, isMe && { color: theme.accent }]}>
-                      {p.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
-                    </Text>
-                    <Text style={S.rankElo}>ELO {p.profile?.elo ?? 1000}</Text>
-                  </View>
-                  <Text style={S.rankScore}>{p.score ?? 0} pts</Text>
+                  {wodScores.length === 0 ? (
+                    <View style={S.emptyState}>
+                      <Text style={S.emptyEmoji}>📋</Text>
+                      <Text style={S.emptyTitle}>Aucun score validé</Text>
+                    </View>
+                  ) : wodScores.map((s: any, i: number) => {
+                    const profile = participants.find((p: any) => p.athlete_id === s.athlete_id)?.profile;
+                    const isMe = user?.id === s.athlete_id;
+                    return (
+                      <View key={s.athlete_id} style={[S.rankRow, isMe && S.rankRowMe]}>
+                        <View style={S.rankBadge}>
+                          {i === 0 ? <Text style={S.rankEmoji}>🥇</Text>
+                            : i === 1 ? <Text style={S.rankEmoji}>🥈</Text>
+                            : i === 2 ? <Text style={S.rankEmoji}>🥉</Text>
+                            : <Text style={S.rankNumber}>#{i + 1}</Text>}
+                        </View>
+                        <View style={S.rankAvatar}>
+                          <Text style={S.rankAvatarText}>{(profile?.username ?? '?')[0].toUpperCase()}</Text>
+                        </View>
+                        <View style={S.rankInfo}>
+                          <Text style={[S.rankName, isMe && { color: theme.accent }]}>
+                            {profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
+                          </Text>
+                        </View>
+                        <Text style={S.rankScore}>{s.score_value}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
               );
-            })}
+            })())}
           </>
         )}
 
@@ -756,6 +821,12 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   wodActionBtnText:  { color: '#fff', fontSize: 14, fontWeight: '900' },
   wodLockedBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, padding: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
   wodLockedText: { fontSize: 12, color: theme.textMuted, fontWeight: '600' },
+  rankSubTab:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: theme.border },
+  rankSubTabActive:     { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
+  rankSubTabText:       { fontSize: 12, fontWeight: '700', color: theme.textMuted },
+  rankSubTabTextActive: { color: theme.accent },
+  wodRankHeader:        { backgroundColor: theme.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8 },
+  wodRankHeaderText:    { fontSize: 13, fontWeight: '800', color: theme.text },
   rankRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: theme.card, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: theme.cardBorder },
   rankRowMe:    { borderColor: theme.accent, backgroundColor: `${theme.accent}10` },
   rankBadge:    { width: 36, alignItems: 'center' },
