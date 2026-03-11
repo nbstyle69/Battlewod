@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
 } from 'react-native';
-import { Zap, Swords, Trophy, TrendingUp, ChevronRight, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History, Dumbbell, Award } from 'lucide-react-native';
-import KettlebellIcon from '../../components/KettlebellIcon';
+import { Zap, Trophy, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
@@ -22,11 +21,6 @@ interface RecentScore {
   status: string;
 }
 
-const QUICK_ACTIONS_BASE = [
-  { icon: Trophy,     label: 'Tournoi',        colorKey: 'gold' as const,    desc: 'Rejoins la compét',  fixedColor: undefined },
-  { icon: Zap,        label: 'WOD du jour',    colorKey: 'success' as const, desc: 'Entraîne-toi',       fixedColor: undefined },
-  { icon: TrendingUp, label: 'Mon niveau',     colorKey: null,               desc: 'Voir progression',   fixedColor: LevelColors.gx },
-];
 
 export default function HomeScreen() {
   const { user, currentBox } = useAuth();
@@ -233,139 +227,112 @@ export default function HomeScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
+  const levelColor = LevelColors[level] ?? '#111';
+
   return (
-    <ScrollView style={S.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={S.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={S.header}>
-
-        {/* Logo TheHub */}
-        <View style={S.logoRow}>
-          <KettlebellIcon size={30} color={theme.accent} />
-          <View style={S.logoTextWrap}>
-            <Text style={S.logoTextBattle}>THE</Text>
-            <Text style={S.logoTextWod}>HUB</Text>
-          </View>
-        </View>
-
-        <View style={S.headerRow}>
-          <View style={S.headerLeft}>
+        <View style={S.headerTop}>
+          <View>
+            <Text style={S.greeting}>Bonjour,</Text>
             <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
-            <View style={S.levelPill}>
-              <View style={[S.levelDot, { backgroundColor: LevelColors[level] }]} />
-              <Text style={[S.levelText, { color: LevelColors[level] }]}>{level.toUpperCase()}</Text>
-            </View>
           </View>
-          <View style={S.headerRight}>
-            <View style={S.eloBox}>
-              <Text style={S.eloLabel}>ELO</Text>
-              <Text style={S.eloValue}>{user?.elo ?? 1000}</Text>
-              <Text style={S.eloSub}>points</Text>
-            </View>
-            <View style={S.headerBtns}>
-              <TouchableOpacity
-                style={S.profileBtn}
-                onPress={() => navigation.navigate('Friends')}
-                activeOpacity={0.8}
-              >
-                <Users size={19} color={theme.textSecondary} />
-                {pendingFriends > 0 && (
-                  <View style={S.badge}>
-                    <Text style={S.badgeText}>{pendingFriends > 9 ? '9+' : pendingFriends}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={S.profileBtn}
-                onPress={() => navigation.navigate('Profile')}
-                activeOpacity={0.8}
-              >
-                <User size={19} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
+          <View style={S.headerActions}>
+            <TouchableOpacity style={S.iconBtn} onPress={() => navigation.navigate('Friends')} activeOpacity={0.7}>
+              <Users size={20} color="#111" />
+              {pendingFriends > 0 && (
+                <View style={S.notifDot}>
+                  <Text style={S.notifDotTxt}>{pendingFriends > 9 ? '9+' : pendingFriends}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={S.iconBtn} onPress={() => navigation.navigate('Profile')} activeOpacity={0.7}>
+              <User size={20} color="#111" />
+            </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Hero: ELO + Level + Rank */}
+        <View style={S.heroRow}>
+          <View style={S.heroElo}>
+            <Text style={S.heroEloNum}>{user?.elo ?? 1000}</Text>
+            <Text style={S.heroEloLabel}>ELO</Text>
+          </View>
+          <View style={S.heroDivider} />
+          <View style={S.heroStat}>
+            <Text style={S.heroStatNum}>{rank !== null ? `#${rank}` : '—'}</Text>
+            <Text style={S.heroStatLabel}>Rang</Text>
+          </View>
+          <View style={S.heroDivider} />
+          <View style={S.heroStat}>
+            <Text style={S.heroStatNum}>{streak}</Text>
+            <Text style={S.heroStatLabel}>Streak</Text>
+          </View>
+          <View style={S.heroDivider} />
+          <View style={S.heroStat}>
+            <Text style={S.heroStatNum}>{user?.wins ?? 0}</Text>
+            <Text style={S.heroStatLabel}>Victoires</Text>
+          </View>
+        </View>
+
+        {/* Level badge */}
+        <View style={S.levelRow}>
+          <View style={[S.levelDot, { backgroundColor: levelColor }]} />
+          <Text style={[S.levelTxt, { color: levelColor }]}>{level.toUpperCase()}</Text>
+          <Text style={S.matchesTxt}>{user?.total_matches ?? 0} matchs</Text>
         </View>
       </View>
 
-      {/* ── Stats ──────────────────────────────────────────────────────── */}
-      <View style={S.statsRow}>
-        {[
-          { icon: Flame,      color: theme.accent, value: streak, label: 'Série' },
-          { icon: Trophy,     color: theme.gold,   value: rank !== null ? `#${rank}` : '—', label: 'Rang' },
-          { icon: Swords,     color: theme.success, value: user?.wins ?? 0,   label: 'Victoires' },
-          { icon: TrendingUp, color: '#9C27B0',     value: user?.total_matches ?? 0, label: 'Matchs' },
-        ].map(({ icon: Icon, color, value, label }) => (
-          <View key={label} style={S.statCard}>
-            <Icon color={color} size={18} />
-            <Text style={S.statValue}>{value}</Text>
-            <Text style={S.statLabel}>{label}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* ── Ma Progression ──────────────────────────────────────────────── */}
+      {/* ── Activité semaine ──────────────────────────────────────────── */}
       {(totalWods > 0 || genStreak > 0) && (
         <View style={S.section}>
           <View style={S.sectionHeader}>
-            <Text style={S.sectionTitle}>Ma Progression</Text>
-            <TouchableOpacity style={S.seeAll} onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.7}>
-              <Text style={S.seeAllText}>Historique</Text>
-              <History color={theme.accent} size={14} />
+            <Text style={S.sectionTitle}>Cette semaine</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.7}>
+              <Text style={S.linkText}>Historique</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Week activity bars */}
-          <View style={S.weekCard}>
-            <Text style={S.weekLabel}>Activité cette semaine</Text>
-            <View style={S.weekBars}>
-              {['L','M','M','J','V','S','D'].map((day, i) => {
-                const max = Math.max(...weekActivity, 1);
-                const h = Math.max(4, (weekActivity[i] / max) * 40);
-                const isToday = i === 6;
-                return (
-                  <View key={i} style={S.weekBarCol}>
-                    <View style={[S.weekBar, { height: h, backgroundColor: weekActivity[i] > 0 ? (isToday ? theme.accent : `${theme.accent}80`) : theme.border }]} />
-                    <Text style={[S.weekDay, isToday && { color: theme.accent, fontWeight: '900' }]}>{day}</Text>
-                    {weekActivity[i] > 0 && <Text style={S.weekCount}>{weekActivity[i]}</Text>}
-                  </View>
-                );
-              })}
-            </View>
+          <View style={S.weekRow}>
+            {['L','M','M','J','V','S','D'].map((day, i) => {
+              const max = Math.max(...weekActivity, 1);
+              const h = Math.max(3, (weekActivity[i] / max) * 36);
+              const isToday = i === 6;
+              const active = weekActivity[i] > 0;
+              return (
+                <View key={i} style={S.weekCol}>
+                  <View style={[S.weekBar, { height: h, backgroundColor: active ? '#111' : '#E5E7EB' }, isToday && active && { backgroundColor: '#000' }]} />
+                  <Text style={[S.weekDayTxt, isToday && { fontWeight: '900', color: '#111' }]}>{day}</Text>
+                </View>
+              );
+            })}
           </View>
 
-          {/* Progression stats cards */}
-          <View style={S.progRow}>
-            <View style={S.progCard}>
-              <Dumbbell color={theme.accent} size={16} />
-              <Text style={S.progNum}>{totalWods}</Text>
-              <Text style={S.progLabel}>WODs</Text>
-            </View>
-            <View style={S.progCard}>
-              <Award color={theme.gold} size={16} />
-              <Text style={S.progNum}>{totalScoresGen}</Text>
-              <Text style={S.progLabel}>Scores</Text>
-            </View>
-            <View style={S.progCard}>
-              <Flame color="#EF4444" size={16} />
-              <Text style={[S.progNum, genStreak >= 3 && { color: '#EF4444' }]}>{genStreak}</Text>
-              <Text style={S.progLabel}>Streak</Text>
-            </View>
-            <View style={S.progCard}>
-              <Sparkles color="#8B5CF6" size={16} />
-              <Text style={S.progNum}>{favCount}</Text>
-              <Text style={S.progLabel}>Favoris</Text>
-            </View>
+          {/* Compact prog stats */}
+          <View style={S.progStrip}>
+            {[
+              { val: totalWods, lbl: 'WODs' },
+              { val: totalScoresGen, lbl: 'Scores' },
+              { val: genStreak, lbl: 'Streak' },
+              { val: favCount, lbl: 'Favoris' },
+            ].map(s => (
+              <View key={s.lbl} style={S.progItem}>
+                <Text style={S.progItemNum}>{s.val}</Text>
+                <Text style={S.progItemLbl}>{s.lbl}</Text>
+              </View>
+            ))}
           </View>
 
-          {/* Best scores / PRs */}
+          {/* PRs */}
           {bestScores.length > 0 && (
-            <View style={S.prSection}>
-              <Text style={S.prTitle}>🏆 Mes records</Text>
+            <View style={S.prBlock}>
+              <Text style={S.prBlockTitle}>Records personnels</Text>
               {bestScores.map((pr, i) => (
-                <View key={i} style={S.prRow}>
-                  <Text style={S.prEmoji}>{pr.type}</Text>
-                  <Text style={S.prName} numberOfLines={1}>{pr.name}</Text>
-                  <Text style={S.prValue}>{pr.value}</Text>
+                <View key={i} style={S.prLine}>
+                  <Text style={S.prLineIcon}>{pr.type}</Text>
+                  <Text style={S.prLineName} numberOfLines={1}>{pr.name}</Text>
+                  <Text style={S.prLineVal}>{pr.value}</Text>
                 </View>
               ))}
             </View>
@@ -376,95 +343,70 @@ export default function HomeScreen() {
       {/* ── Outils ─────────────────────────────────────────────────────── */}
       <View style={S.section}>
         <Text style={S.sectionTitle}>Outils</Text>
-        <View style={S.actionsGrid}>
-          {TOOLS.map((tool) => (
-            <TouchableOpacity key={tool.label} style={S.actionCard} onPress={() => navigation.navigate(tool.screen as any)} activeOpacity={0.75}>
-              <View style={[S.actionIconBox, { backgroundColor: `${tool.color}18` }]}>
-                <tool.icon color={tool.color} size={20} />
-              </View>
-              <Text style={S.actionLabel}>{tool.label}</Text>
-              <Text style={S.actionDesc}>{tool.desc}</Text>
+        <View style={S.toolGrid}>
+          {TOOLS.map(t => (
+            <TouchableOpacity key={t.label} style={S.toolCard} onPress={() => navigation.navigate(t.screen as any)} activeOpacity={0.6}>
+              <t.icon color="#111" size={22} />
+              <Text style={S.toolLabel}>{t.label}</Text>
             </TouchableOpacity>
           ))}
-        </View>
-      </View>
-
-      {/* ── Actions rapides ──────────────────────────────────────────────── */}
-      <View style={S.section}>
-        <View style={S.actionsGrid}>
-          {QUICK_ACTIONS_BASE.map((action) => {
-            const color = action.fixedColor ?? (action.colorKey ? theme[action.colorKey] : theme.accent);
-            return (
-              <TouchableOpacity key={action.label} style={S.actionCard} activeOpacity={0.75}>
-                <View style={[S.actionIconBox, { backgroundColor: `${color}18` }]}>
-                  <action.icon color={color} size={20} />
-                </View>
-                <Text style={S.actionLabel}>{action.label}</Text>
-                <Text style={S.actionDesc}>{action.desc}</Text>
-              </TouchableOpacity>
-            );
-          })}
         </View>
       </View>
 
       {/* ── Compétitions ──────────────────────────────────────────────── */}
-      <View style={S.section}>
-        <View style={S.sectionHeader}>
-          <Text style={S.sectionTitle}>Compétitions</Text>
-          <TouchableOpacity style={S.seeAll} activeOpacity={0.7}>
-            <Text style={S.seeAllText}>Voir tout</Text>
-            <ChevronRight color={theme.accent} size={14} />
-          </TouchableOpacity>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={S.compHScroll} contentContainerStyle={S.compHScrollContent}>
-          {competitions.map((comp: CompetitionSummary) => (
-            <TouchableOpacity
-              key={comp.id}
-              style={S.compCard}
-              onPress={() => navigation.navigate('CompetitionDetail', { competition: comp })}
-              activeOpacity={0.82}
-            >
-              <View style={S.compCardTop}>
-                <View style={[S.compStatusDot, { backgroundColor: comp.status === 'open' ? theme.success : comp.status === 'active' ? theme.warning : theme.textMuted }]} />
-                <Text style={S.compStatusLabel}>{comp.status === 'open' ? 'Ouvert' : comp.status === 'active' ? 'En cours' : 'Terminé'}</Text>
-              </View>
-              <Text style={S.compName} numberOfLines={2}>{comp.name}</Text>
-              <Text style={S.compPrize}>{comp.prize}</Text>
-              <View style={S.compFooter}>
-                <Text style={S.compParticipants}>{comp.participants}/{comp.maxParticipants} 👥</Text>
-                <Text style={S.compDate}>{comp.startDate}</Text>
-              </View>
+      {competitions.length > 0 && (
+        <View style={S.section}>
+          <View style={S.sectionHeader}>
+            <Text style={S.sectionTitle}>Compétitions</Text>
+            <TouchableOpacity activeOpacity={0.7}>
+              <Text style={S.linkText}>Voir tout</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+            {competitions.map((comp: CompetitionSummary) => (
+              <TouchableOpacity
+                key={comp.id}
+                style={S.compCard}
+                onPress={() => navigation.navigate('CompetitionDetail', { competition: comp })}
+                activeOpacity={0.7}
+              >
+                <View style={S.compBadgeRow}>
+                  <View style={[S.compDot, { backgroundColor: comp.status === 'open' ? '#111' : comp.status === 'active' ? '#999' : '#ddd' }]} />
+                  <Text style={S.compStatus}>{comp.status === 'open' ? 'Ouvert' : comp.status === 'active' ? 'En cours' : 'Terminé'}</Text>
+                </View>
+                <Text style={S.compName} numberOfLines={2}>{comp.name}</Text>
+                <Text style={S.compMeta}>{comp.participants}/{comp.maxParticipants} participants</Text>
+                <Text style={S.compDate}>{comp.startDate}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* ── Derniers résultats ─────────────────────────────────────────── */}
       <View style={S.section}>
-        <Text style={S.sectionTitle}>Derniers résultats</Text>
+        <Text style={S.sectionTitle}>Résultats récents</Text>
         {recentScores.length === 0 ? (
-          <View style={[S.resultRow, { justifyContent: 'center' }]}>
-            <Text style={{ color: theme.textMuted, fontSize: 13 }}>Aucun score soumis pour l'instant.</Text>
-          </View>
+          <Text style={S.emptyText}>Aucun score soumis pour l'instant.</Text>
         ) : (
           recentScores.map(r => (
             <View key={r.id} style={S.resultRow}>
-              <View style={S.avatarPlaceholder}>
-                <Text style={S.avatarText}>{r.wod_title[0]}</Text>
+              <View style={S.resultAvatar}>
+                <Text style={S.resultAvatarTxt}>{r.wod_title[0]}</Text>
               </View>
-              <View style={S.resultMid}>
-                <Text style={S.resultOpp}>{r.wod_title}</Text>
-                <Text style={S.resultWod}>
+              <View style={{ flex: 1 }}>
+                <Text style={S.resultTitle}>{r.wod_title}</Text>
+                <Text style={S.resultDate}>
                   {new Date(r.submitted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </Text>
               </View>
-              <View style={S.resultRight}>
-                <Text style={[S.resultBadge, {
-                  color: r.status === 'approved' ? theme.success : r.status === 'rejected' ? theme.error : theme.textMuted,
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[S.resultStatus, {
+                  color: r.status === 'approved' ? '#111' : r.status === 'rejected' ? '#DC2626' : '#9CA3AF',
                 }]}>
-                  {r.status === 'approved' ? 'VALIDÉ' : r.status === 'rejected' ? 'REJETÉ' : 'EN ATTENTE'}
+                  {r.status === 'approved' ? 'Validé' : r.status === 'rejected' ? 'Rejeté' : 'En attente'}
                 </Text>
-                <Text style={S.resultWod}>{r.score_value}</Text>
+                <Text style={S.resultScore}>{r.score_value}</Text>
               </View>
             </View>
           ))
@@ -476,185 +418,122 @@ export default function HomeScreen() {
 }
 
 import { AppTheme } from '../../context/ThemeContext';
-function createStyles(theme: AppTheme) {
+function createStyles(_theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: '#fff' },
 
+    // ── Header ──
     header: {
-      paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20,
-      backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
+      paddingTop: 58, paddingHorizontal: 20, paddingBottom: 24,
+      backgroundColor: '#fff',
+      borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
     },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    headerLeft: { flex: 1, gap: 4 },
-    headerRight: { alignItems: 'flex-end', gap: 8 },
-    headerBtns: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-    profileBtn: {
-      width: 40, height: 40, borderRadius: 20,
-      backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
+    greeting: { fontSize: 14, fontWeight: '500', color: '#9CA3AF', letterSpacing: 0.2 },
+    username: { fontSize: 28, fontWeight: '900', color: '#111', letterSpacing: -0.8, marginTop: 2 },
+    headerActions: { flexDirection: 'row', gap: 6, paddingTop: 4 },
+    iconBtn: {
+      width: 42, height: 42, borderRadius: 21,
+      backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6',
       justifyContent: 'center', alignItems: 'center',
     },
-    badge: {
-      position: 'absolute', top: -4, right: -4,
-      backgroundColor: '#EF4444', borderRadius: 8,
+    notifDot: {
+      position: 'absolute', top: -2, right: -2,
+      backgroundColor: '#111', borderRadius: 8,
       minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center',
-      paddingHorizontal: 3, borderWidth: 1.5, borderColor: theme.card,
+      paddingHorizontal: 3, borderWidth: 2, borderColor: '#fff',
     },
-    badgeText: { fontSize: 9, fontWeight: '900', color: '#fff' },
-    logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-    logoTextWrap: { flexDirection: 'column', justifyContent: 'center' },
-    logoTextBattle: { fontSize: 10, fontFamily: 'Barlow_800ExtraBold', color: theme.textMuted, letterSpacing: 3, lineHeight: 11 },
-    logoTextWod: { fontSize: 20, fontFamily: 'Barlow_900Black', color: theme.accent, letterSpacing: 2, lineHeight: 21 },
-    username: { fontSize: 26, fontWeight: '900', color: theme.text, letterSpacing: -0.5 },
-    levelPill: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
-    levelDot: { width: 7, height: 7, borderRadius: 4 },
-    levelText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
-    eloBox: {
-      backgroundColor: theme.surface, borderRadius: 14,
-      paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center',
-      borderWidth: 1, borderColor: theme.border, minWidth: 72,
-    },
-    eloLabel: { fontSize: 9, color: theme.textMuted, fontWeight: '800', letterSpacing: 1.5 },
-    eloValue: { fontSize: 24, fontWeight: '900', color: theme.text, lineHeight: 28 },
-    eloSub: { fontSize: 9, color: theme.textMuted, fontWeight: '600' },
+    notifDotTxt: { fontSize: 8, fontWeight: '900', color: '#fff' },
 
-    statsRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
-    statCard: {
-      flex: 1, backgroundColor: theme.card, borderRadius: 12,
-      paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center', gap: 3,
-      borderWidth: 1, borderColor: theme.border,
-      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 2,
-    },
-    statValue: { fontSize: 15, fontWeight: '800', color: theme.text },
-    statLabel: { fontSize: 9, color: theme.textMuted, fontWeight: '600', letterSpacing: 0.3 },
-
-    section: { paddingHorizontal: 16, marginTop: 20 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    sectionTitle: { fontSize: 17, fontWeight: '900', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
-    seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-    seeAllText: { fontSize: 12, color: theme.accent, fontWeight: '700' },
-
-    timerHero: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: theme.card, borderRadius: 16, padding: 16,
-      borderWidth: 1, borderColor: theme.border, marginBottom: 12,
-      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2,
-    },
-    timerHeroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-    timerIconBox: {
-      width: 44, height: 44, borderRadius: 12,
-      justifyContent: 'center', alignItems: 'center',
-    },
-    timerHeroTitle: { fontSize: 14, fontWeight: '800', color: theme.text, marginBottom: 2 },
-    timerHeroSub: { fontSize: 10, color: theme.textMuted, lineHeight: 15 },
-
-    timerHeroEmerald: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: theme.accentDark, borderRadius: 16, padding: 16, marginBottom: 12,
-      shadowColor: theme.accentShadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 20, elevation: 4,
-    },
-    timerIconBoxEmerald: {
-      width: 44, height: 44, borderRadius: 12,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center', alignItems: 'center',
-    },
-    timerHeroTitleWhite: { fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 2 },
-    timerHeroSubWhite: { fontSize: 10, color: 'rgba(255,255,255,0.75)', lineHeight: 15 },
-
-    actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    actionCard: {
-      width: '47.5%', borderRadius: 14, borderWidth: 1,
-      borderColor: theme.border, backgroundColor: theme.card, padding: 14, gap: 6,
-      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2,
-    },
-    actionIconBox: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-    actionLabel: { fontSize: 13, fontWeight: '800', color: theme.text, marginTop: 2 },
-    actionDesc: { fontSize: 11, color: theme.textMuted },
-
-    oneRMHero: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: theme.accent, borderRadius: 16, padding: 16,
-      shadowColor: theme.accentShadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 20, elevation: 4,
-    },
-    oneRMIconBox: {
-      width: 44, height: 44, borderRadius: 12,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center', alignItems: 'center', marginRight: 12,
-    },
-    oneRMTitle: { fontSize: 16, fontWeight: '900', color: '#fff', marginBottom: 2 },
-    oneRMSub: { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
-
-    wodGenHero: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: theme.mode === 'dark' ? '#1e293b' : '#1A1A2E', borderRadius: 16, padding: 16,
-    },
-    wodGenIconBox: {
-      width: 44, height: 44, borderRadius: 12,
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      justifyContent: 'center', alignItems: 'center', marginRight: 12,
-    },
-    wodGenTitle: { fontSize: 16, fontWeight: '900', color: '#fff', marginBottom: 2 },
-    wodGenSub: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-
-    compHScroll: { marginHorizontal: -16 },
-    compHScrollContent: { paddingHorizontal: 16, gap: 12 },
-    compCard: {
-      width: 160, backgroundColor: theme.card, borderRadius: 16,
-      borderWidth: 1, borderColor: theme.border, padding: 14, gap: 6,
-      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2,
-    },
-    compCardTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    compStatusDot: { width: 7, height: 7, borderRadius: 4 },
-    compStatusLabel: { fontSize: 10, fontWeight: '700', color: theme.textMuted },
-    compName: { fontSize: 13, fontWeight: '900', color: theme.text, lineHeight: 17 },
-    compPrize: { fontSize: 12, color: theme.gold, fontWeight: '700' },
-    compFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-    compParticipants: { fontSize: 10, color: theme.textMuted },
-    compDate: { fontSize: 10, color: theme.textMuted },
-
-    resultRow: {
+    // ── Hero stats ──
+    heroRow: {
       flexDirection: 'row', alignItems: 'center',
-      backgroundColor: theme.card, borderRadius: 12, padding: 12,
-      marginBottom: 8, borderWidth: 1, borderColor: theme.border, gap: 12,
-      shadowColor: theme.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2,
+      backgroundColor: '#FAFAFA', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 4,
+      marginBottom: 14,
     },
-    avatarPlaceholder: {
-      width: 40, height: 40, borderRadius: 20,
-      backgroundColor: theme.accentShadow, justifyContent: 'center', alignItems: 'center',
-    },
-    avatarText: { fontSize: 15, fontWeight: '900', color: '#fff' },
-    resultMid: { flex: 1 },
-    resultOpp: { fontSize: 14, fontWeight: '700', color: theme.text },
-    resultWod: { fontSize: 11, color: theme.textMuted, marginTop: 1 },
-    resultRight: { alignItems: 'flex-end', gap: 1 },
-    resultBadge: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
-    eloChange: { fontSize: 12, fontWeight: '700' },
+    heroElo: { flex: 1.2, alignItems: 'center' },
+    heroEloNum: { fontSize: 32, fontWeight: '900', color: '#111', letterSpacing: -1 },
+    heroEloLabel: { fontSize: 10, fontWeight: '700', color: '#9CA3AF', letterSpacing: 2, marginTop: 2 },
+    heroDivider: { width: 1, height: 32, backgroundColor: '#E5E7EB' },
+    heroStat: { flex: 1, alignItems: 'center' },
+    heroStatNum: { fontSize: 18, fontWeight: '800', color: '#111' },
+    heroStatLabel: { fontSize: 9, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.3, marginTop: 2 },
 
-    // ── Ma Progression ──
-    weekCard: {
-      backgroundColor: theme.card, borderRadius: 14, padding: 14,
-      borderWidth: 1, borderColor: theme.border, marginBottom: 12,
+    // ── Level ──
+    levelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    levelDot: { width: 8, height: 8, borderRadius: 4 },
+    levelTxt: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+    matchesTxt: { fontSize: 11, color: '#D1D5DB', fontWeight: '600', marginLeft: 'auto' },
+
+    // ── Sections ──
+    section: { paddingHorizontal: 20, marginTop: 28 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+    sectionTitle: { fontSize: 16, fontWeight: '900', color: '#111', letterSpacing: -0.3, marginBottom: 14 },
+    linkText: { fontSize: 12, fontWeight: '600', color: '#9CA3AF' },
+    emptyText: { fontSize: 13, color: '#D1D5DB', paddingVertical: 12 },
+
+    // ── Week activity ──
+    weekRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
+      height: 56, marginBottom: 20,
     },
-    weekLabel: { fontSize: 12, fontWeight: '800', color: theme.textMuted, marginBottom: 10, letterSpacing: 0.3 },
-    weekBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 60 },
-    weekBarCol: { alignItems: 'center', flex: 1, gap: 4 },
-    weekBar: { width: 20, borderRadius: 6, minHeight: 4 },
-    weekDay: { fontSize: 10, fontWeight: '600', color: theme.textMuted },
-    weekCount: { fontSize: 9, fontWeight: '800', color: theme.accent, marginTop: -2 },
-    progRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-    progCard: {
-      flex: 1, backgroundColor: theme.card, borderRadius: 12, paddingVertical: 10,
-      alignItems: 'center', gap: 3, borderWidth: 1, borderColor: theme.border,
+    weekCol: { alignItems: 'center', flex: 1, gap: 6 },
+    weekBar: { width: 24, borderRadius: 6, minHeight: 3 },
+    weekDayTxt: { fontSize: 10, fontWeight: '500', color: '#D1D5DB' },
+
+    // ── Progression strip ──
+    progStrip: {
+      flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#F3F4F6',
+      paddingTop: 16, marginBottom: 16,
     },
-    progNum: { fontSize: 16, fontWeight: '900', color: theme.text },
-    progLabel: { fontSize: 9, fontWeight: '600', color: theme.textMuted, letterSpacing: 0.3 },
-    prSection: {
-      backgroundColor: theme.card, borderRadius: 14, padding: 14,
-      borderWidth: 1, borderColor: theme.border, gap: 8,
+    progItem: { flex: 1, alignItems: 'center' },
+    progItemNum: { fontSize: 18, fontWeight: '900', color: '#111' },
+    progItemLbl: { fontSize: 9, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.3, marginTop: 3 },
+
+    // ── PRs ──
+    prBlock: {
+      borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 16, gap: 10,
     },
-    prTitle: { fontSize: 13, fontWeight: '900', color: theme.text },
-    prRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    prEmoji: { fontSize: 16, width: 24, textAlign: 'center' },
-    prName: { flex: 1, fontSize: 13, fontWeight: '700', color: theme.text },
-    prValue: { fontSize: 14, fontWeight: '900', color: theme.accent },
+    prBlockTitle: { fontSize: 13, fontWeight: '800', color: '#111', marginBottom: 2 },
+    prLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    prLineIcon: { fontSize: 14, width: 20, textAlign: 'center' },
+    prLineName: { flex: 1, fontSize: 13, fontWeight: '600', color: '#374151' },
+    prLineVal: { fontSize: 14, fontWeight: '900', color: '#111' },
+
+    // ── Tool grid ──
+    toolGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    toolCard: {
+      width: '31%', aspectRatio: 1, borderRadius: 16,
+      backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#F3F4F6',
+      justifyContent: 'center', alignItems: 'center', gap: 8,
+    },
+    toolLabel: { fontSize: 10, fontWeight: '700', color: '#374151', textAlign: 'center', paddingHorizontal: 4 },
+
+    // ── Competition cards ──
+    compCard: {
+      width: 155, backgroundColor: '#FAFAFA', borderRadius: 14,
+      borderWidth: 1, borderColor: '#F3F4F6', padding: 14, gap: 6,
+    },
+    compBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    compDot: { width: 6, height: 6, borderRadius: 3 },
+    compStatus: { fontSize: 9, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 },
+    compName: { fontSize: 13, fontWeight: '800', color: '#111', lineHeight: 17 },
+    compMeta: { fontSize: 10, color: '#9CA3AF' },
+    compDate: { fontSize: 10, color: '#D1D5DB' },
+
+    // ── Results ──
+    resultRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    },
+    resultAvatar: {
+      width: 38, height: 38, borderRadius: 19,
+      backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center',
+    },
+    resultAvatarTxt: { fontSize: 14, fontWeight: '800', color: '#374151' },
+    resultTitle: { fontSize: 13, fontWeight: '700', color: '#111' },
+    resultDate: { fontSize: 11, color: '#D1D5DB', marginTop: 1 },
+    resultStatus: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
+    resultScore: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
   });
 }
