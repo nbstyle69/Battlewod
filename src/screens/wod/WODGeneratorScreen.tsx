@@ -14,8 +14,10 @@ const WOD_TYPES: WODType[] = ['AMRAP', 'For Time', 'EMOM', 'Tabata', 'Max Reps']
 
 const EQUIPMENT_OPTIONS = [
   'Barre + Disques', 'Haltères', 'Kettlebell', 'Box', 'Corde à sauter',
-  'Barre de traction', 'Anneaux', 'Rameur', 'Vélo Assault', 'Aucun matériel',
+  'Barre de traction', 'Anneaux', 'Erg', 'Worm', 'Benchmark', 'Aucun matériel',
 ];
+
+const TEAM_SIZES = [1, 2, 3, 4, 6];
 
 const HYROX_ORANGE = '#F97316';
 
@@ -228,6 +230,7 @@ const MVTS: Mvt[] = [
   // ── Bodyweight ──
   { name: 'Burpees',              eq: [],                    reps: [6,8,10,12,15,18] },
   { name: 'Air Squats',           eq: [],                    reps: [12,15,20,25,30,35] },
+  { name: 'Down Up',              eq: [],                    reps: [6,8,10,12,15,18] },
   { name: 'Push-ups',             eq: [],                    reps: [8,10,15,18,20,25] },
   { name: 'Sit-ups',              eq: [],                    reps: [12,15,20,25,30,35] },
   { name: 'Mountain Climbers',    eq: [],                    reps: [12,16,20,24,30,30] },
@@ -235,50 +238,90 @@ const MVTS: Mvt[] = [
   { name: 'V-ups',                eq: [],                    reps: [8,10,12,15,18,20] },
   { name: 'Jumping Squats',       eq: [],                    reps: [8,10,12,15,18,20] },
   { name: 'Broad Jumps',          eq: [],                    reps: [5,6,8,10,10,12] },
-  { name: 'Handstand Push-ups',   eq: [],                    reps: [0,3,5,8,10,12] },
+  { name: 'Handstand Push-ups',   eq: [],                    reps: [0,0,0,5,8,12] },
   { name: 'Pistol Squats',        eq: [],                    reps: [0,0,6,8,10,12] },
   { name: 'Hollow Rocks',         eq: [],                    reps: [10,12,15,20,25,30] },
   { name: 'Up-Downs',             eq: [],                    reps: [6,8,10,12,15,15] },
   { name: 'Course',               eq: [],                    reps: [200,200,400,400,400,800], unit: 'm' },
-  { name: 'Burpee Over Bar',      eq: [],                    reps: [5,6,8,10,12,15] },
   { name: 'Bear Crawl',           eq: [],                    reps: [10,10,15,15,20,20], unit: 'm' },
   { name: 'Wall Walks',           eq: [],                    reps: [0,2,3,4,5,6] },
+  { name: 'Shuttle Run',          eq: [],                    reps: [2,2,4,4,6,6], unit: '×7.62m' },
+  // ── Bodyweight avec matériel ──
+  { name: 'Burpee Over the Bar',  eq: ['Barre + Disques'],   reps: [5,6,8,10,12,15] },
+  { name: 'Bar Facing Burpee',    eq: ['Barre + Disques'],   reps: [5,6,8,10,12,15] },
+  { name: 'Burpee Over the DB',   eq: ['Haltères'],          reps: [5,6,8,10,12,15] },
   // ── Barbell ──
   { name: 'Thrusters',            eq: ['Barre + Disques'],   reps: [8,10,12,12,15,15],  load: ['30','35','43','50','60','70'] },
+  { name: 'Clusters',             eq: ['Barre + Disques'],   reps: [3,5,6,6,8,8],       load: ['30','35','43','50','60','70'] },
   { name: 'Deadlifts',            eq: ['Barre + Disques'],   reps: [8,10,12,12,15,15],  load: ['50','60','70','90','100','120'] },
-  { name: 'Power Cleans',         eq: ['Barre + Disques'],   reps: [5,6,8,8,10,10],     load: ['35','40','50','60','70','80'] },
+  { name: 'Power Clean',          eq: ['Barre + Disques'],   reps: [5,6,8,8,10,10],     load: ['35','40','50','60','70','80'] },
   { name: 'Hang Power Clean',     eq: ['Barre + Disques'],   reps: [5,6,8,8,10,10],     load: ['30','35','43','50','60','70'] },
+  { name: 'Clean',                eq: ['Barre + Disques'],   reps: [5,6,8,8,10,10],     load: ['35','40','50','60','70','80'] },
+  { name: 'Squat Clean',          eq: ['Barre + Disques'],   reps: [3,5,6,8,8,10],      load: ['35','40','50','60','70','80'] },
+  { name: 'Hang Clean',           eq: ['Barre + Disques'],   reps: [5,6,8,8,10,10],     load: ['30','35','43','50','60','70'] },
+  { name: 'Hang Squat Clean',     eq: ['Barre + Disques'],   reps: [0,4,5,6,8,8],       load: ['','35','43','50','60','70'] },
   { name: 'Front Squats',         eq: ['Barre + Disques'],   reps: [6,8,10,10,12,12],   load: ['35','40','50','60','70','80'] },
   { name: 'Back Squats',          eq: ['Barre + Disques'],   reps: [6,8,10,10,12,12],   load: ['40','50','60','70','85','100'] },
-  { name: 'Push Press',           eq: ['Barre + Disques'],   reps: [6,8,10,10,12,12],   load: ['25','30','40','50','55','60'] },
-  { name: 'Clean & Jerk',         eq: ['Barre + Disques'],   reps: [3,5,6,8,8,10],      load: ['35','40','50','60','70','85'] },
-  { name: 'Snatch',               eq: ['Barre + Disques'],   reps: [0,3,5,6,8,8],       load: ['','30','40','50','60','70'] },
-  { name: 'Sumo Deadlift HP',     eq: ['Barre + Disques'],   reps: [6,8,10,12,12,15],   load: ['25','30','35','40','50','55'] },
   { name: 'Overhead Squat',       eq: ['Barre + Disques'],   reps: [0,5,6,8,8,10],      load: ['','25','35','43','50','60'] },
-  { name: 'Clusters',             eq: ['Barre + Disques'],   reps: [3,5,6,6,8,8],       load: ['30','35','43','50','60','70'] },
-  { name: 'Hang Squat Clean',     eq: ['Barre + Disques'],   reps: [0,4,5,6,8,8],       load: ['','35','43','50','60','70'] },
+  { name: 'Clean & Jerk',         eq: ['Barre + Disques'],   reps: [3,5,6,8,8,10],      load: ['35','40','50','60','70','85'] },
+  { name: 'Hang Clean & Jerk',    eq: ['Barre + Disques'],   reps: [3,5,6,6,8,8],       load: ['30','35','43','50','60','70'] },
+  { name: 'Hang Squat Clean & Jerk', eq: ['Barre + Disques'], reps: [0,3,5,6,6,8],      load: ['','35','43','50','60','70'] },
+  { name: 'Snatch',               eq: ['Barre + Disques'],   reps: [0,3,5,6,8,8],       load: ['','30','40','50','60','70'] },
+  { name: 'Squat Snatch',         eq: ['Barre + Disques'],   reps: [0,0,3,5,6,8],       load: ['','','40','50','60','70'] },
+  { name: 'Hang Snatch',          eq: ['Barre + Disques'],   reps: [0,3,5,6,8,8],       load: ['','25','35','43','50','60'] },
+  { name: 'Power Snatch',         eq: ['Barre + Disques'],   reps: [0,3,5,6,8,8],       load: ['','30','40','50','60','70'] },
+  { name: 'Shoulder to Overhead',  eq: ['Barre + Disques'],  reps: [6,8,10,10,12,12],   load: ['25','30','40','50','55','60'] },
+  { name: 'Strict Press',         eq: ['Barre + Disques'],   reps: [6,8,10,10,12,12],   load: ['20','25','30','40','45','50'] },
+  { name: 'Push Press',           eq: ['Barre + Disques'],   reps: [6,8,10,10,12,12],   load: ['25','30','40','50','55','60'] },
+  { name: 'Push Jerk',            eq: ['Barre + Disques'],   reps: [5,6,8,8,10,10],     load: ['30','35','43','50','60','70'] },
+  { name: 'Sumo Deadlift HP',     eq: ['Barre + Disques'],   reps: [6,8,10,12,12,15],   load: ['25','30','35','40','50','55'] },
+  { name: 'High Sumo Deadlift',   eq: ['Barre + Disques'],   reps: [6,8,10,12,12,15],   load: ['30','35','40','50','55','60'] },
   // ── Haltères ──
   { name: 'DB Snatch',            eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10','12.5','15','20','22.5','25'] },
+  { name: 'DB Hang Snatch',       eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10','12.5','15','20','22.5','25'] },
+  { name: 'DB Squat Snatch',      eq: ['Haltères'],          reps: [0,5,8,10,12,12],    load: ['','10','12.5','15','20','22.5'] },
   { name: 'DB Thrusters',         eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10','12.5','15','20','22.5','25'] },
   { name: 'DB Clean & Jerk',      eq: ['Haltères'],          reps: [5,6,8,10,10,12],    load: ['10','12.5','15','20','22.5','25'] },
+  { name: 'DB Hang Clean & Jerk', eq: ['Haltères'],          reps: [5,6,8,10,10,12],    load: ['10','12.5','15','20','22.5','25'] },
   { name: 'DB Lunges',            eq: ['Haltères'],          reps: [8,10,12,16,16,20],  load: ['10','12.5','15','17.5','20','22.5'] },
   { name: 'Devil Press',          eq: ['Haltères'],          reps: [4,5,6,8,10,10],     load: ['10','12.5','15','20','22.5','25'] },
-  { name: 'Man Makers',           eq: ['Haltères'],          reps: [3,4,5,6,8,8],       load: ['7.5','10','12.5','15','17.5','20'] },
   { name: 'DB Push Press',        eq: ['Haltères'],          reps: [6,8,10,12,12,15],   load: ['10','12.5','15','17.5','20','22.5'] },
+  { name: 'DB Walking Lunge',     eq: ['Haltères'],          reps: [8,10,12,16,16,20],  load: ['10','12.5','15','17.5','20','22.5'] },
+  { name: 'DB OH Walking Lunge',  eq: ['Haltères'],          reps: [6,8,10,12,14,16],   load: ['10','12.5','15','17.5','20','22.5'] },
+  { name: 'DB Farmer Carry',      eq: ['Haltères'],          reps: [25,25,50,50,50,75], load: ['15','17.5','20','22.5','25','30'], unit: 'm' },
   // ── Kettlebell ──
   { name: 'KB Swings',            eq: ['Kettlebell'],        reps: [10,12,15,20,20,25], load: ['12','16','20','24','28','32'] },
   { name: 'Goblet Squats',        eq: ['Kettlebell'],        reps: [8,10,12,15,15,20],  load: ['12','16','20','24','28','32'] },
   { name: 'KB Snatch',            eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
+  { name: 'KB Clean',             eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
+  { name: 'KB Clean & Jerk',      eq: ['Kettlebell'],        reps: [3,5,6,8,8,10],      load: ['12','16','20','24','28','32'] },
+  { name: 'KB Shoulder to OH',    eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
   { name: 'KB Clean & Press',     eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
+  { name: 'Double KB Snatch',     eq: ['Kettlebell'],        reps: [0,4,6,8,8,10],      load: ['','12','16','20','24','28'] },
+  { name: 'Double KB Clean',      eq: ['Kettlebell'],        reps: [0,4,6,8,8,10],      load: ['','12','16','20','24','28'] },
+  { name: 'Double KB Clean & Jerk', eq: ['Kettlebell'],      reps: [0,3,5,6,8,8],       load: ['','12','16','20','24','28'] },
+  { name: 'KB Overhead Squat',    eq: ['Kettlebell'],        reps: [0,5,6,8,8,10],      load: ['','12','16','20','24','28'] },
+  { name: 'Double KB OH Squat',   eq: ['Kettlebell'],        reps: [0,0,5,6,8,8],       load: ['','','12','16','20','24'] },
   { name: 'Turkish Get-up',       eq: ['Kettlebell'],        reps: [2,2,3,4,4,5],       load: ['8','12','16','20','24','28'] },
   { name: 'KB Thruster',          eq: ['Kettlebell'],        reps: [6,8,10,12,12,15],   load: ['12','16','20','24','28','32'] },
+  { name: 'KB Farmer Carry',      eq: ['Kettlebell'],        reps: [25,25,50,50,50,75], load: ['16','20','24','28','32','36'], unit: 'm' },
+  { name: 'KB Walking Lunge',     eq: ['Kettlebell'],        reps: [8,10,12,16,16,20],  load: ['12','16','20','24','28','32'] },
+  { name: 'KB OH Walking Lunge',  eq: ['Kettlebell'],        reps: [6,8,10,12,14,16],   load: ['12','16','20','24','28','32'] },
   // ── Box ──
-  { name: 'Box Jumps',            eq: ['Box'],               reps: [8,10,12,15,18,20] },
+  { name: 'Box Jump',             eq: ['Box'],               reps: [8,10,12,15,18,20] },
+  { name: 'Box Jump Over',        eq: ['Box'],               reps: [6,8,10,12,15,18] },
   { name: 'Box Step-ups',         eq: ['Box'],               reps: [10,12,16,20,20,24] },
-  { name: 'Box Step-overs',       eq: ['Box'],               reps: [8,10,12,15,18,20] },
+  { name: 'Box Jump Step-overs',  eq: ['Box'],               reps: [6,8,10,12,15,18] },
+  { name: 'Burpee Box Jump',      eq: ['Box'],               reps: [4,5,6,8,10,12] },
+  { name: 'Burpee Box Jump Over', eq: ['Box'],               reps: [4,5,6,8,10,12] },
+  { name: 'Med-Ball Box Step-Overs', eq: ['Box'],            reps: [6,8,10,12,15,18] },
+  { name: 'DB Step Up',           eq: ['Haltères','Box'],    reps: [8,10,12,16,16,20],  load: ['10','12.5','15','17.5','20','22.5'] },
+  { name: 'Double DB Step Up',    eq: ['Haltères','Box'],    reps: [6,8,10,12,14,16],   load: ['10','12.5','15','17.5','20','22.5'] },
   // ── Corde à sauter ──
   { name: 'Single Unders',        eq: ['Corde à sauter'],    reps: [30,40,50,50,60,75] },
   { name: 'Double Unders',        eq: ['Corde à sauter'],    reps: [0,10,20,30,40,50] },
+  { name: 'Cross Over',           eq: ['Corde à sauter'],    reps: [0,0,10,15,20,25] },
+  { name: 'Double Cross Over',    eq: ['Corde à sauter'],    reps: [0,0,0,5,10,15] },
   // ── Barre de traction ──
   { name: 'Pull-ups',             eq: ['Barre de traction'], reps: [3,5,8,10,12,15] },
   { name: 'Chest-to-bar',         eq: ['Barre de traction'], reps: [0,0,5,8,10,12] },
@@ -286,14 +329,21 @@ const MVTS: Mvt[] = [
   { name: 'Knees-to-elbows',      eq: ['Barre de traction'], reps: [5,8,10,12,15,15] },
   { name: 'Bar Muscle-ups',       eq: ['Barre de traction'], reps: [0,0,0,3,5,7] },
   { name: 'Kipping Pull-ups',     eq: ['Barre de traction'], reps: [0,5,10,12,15,18] },
+  { name: 'Pull-Over',            eq: ['Barre de traction'], reps: [0,3,5,8,10,12] },
   // ── Anneaux ──
-  { name: 'Ring Dips',             eq: ['Anneaux'],           reps: [0,3,5,8,10,12] },
-  { name: 'Ring Rows',             eq: ['Anneaux'],           reps: [8,10,12,15,15,18] },
-  { name: 'Ring Muscle-ups',       eq: ['Anneaux'],           reps: [0,0,0,2,4,5] },
-  // ── Rameur ──
-  { name: 'Row',                   eq: ['Rameur'],            reps: [10,12,15,18,20,25], unit: 'cal' },
-  // ── Vélo Assault ──
-  { name: 'Assault Bike',          eq: ['Vélo Assault'],      reps: [8,10,12,15,18,20], unit: 'cal' },
+  { name: 'Ring Dips',            eq: ['Anneaux'],           reps: [0,3,5,8,10,12] },
+  { name: 'Ring Rows',            eq: ['Anneaux'],           reps: [8,10,12,15,15,18] },
+  { name: 'Ring Muscle-ups',      eq: ['Anneaux'],           reps: [0,0,0,2,4,5] },
+  { name: 'Toes to Rings',        eq: ['Anneaux'],           reps: [0,5,8,10,12,15] },
+  // ── Erg ──
+  { name: 'Assault Bike',         eq: ['Erg'],               reps: [8,10,12,15,18,20], unit: 'cal' },
+  { name: 'Echo Bike',            eq: ['Erg'],               reps: [8,10,12,15,18,20], unit: 'cal' },
+  { name: 'Ski Erg',              eq: ['Erg'],               reps: [8,10,12,15,18,20], unit: 'cal' },
+  { name: 'Row',                  eq: ['Erg'],               reps: [10,12,15,18,20,25], unit: 'cal' },
+  // ── Worm ──
+  { name: 'Worm Clean & Jerk',    eq: ['Worm'],              reps: [3,4,5,6,8,8],      load: ['35','35','75','75','110','110'] },
+  { name: 'Worm Squat',           eq: ['Worm'],              reps: [4,5,6,8,8,10],     load: ['35','35','75','75','110','110'] },
+  { name: 'Worm Lunge',           eq: ['Worm'],              reps: [6,8,10,12,12,15],  load: ['35','35','75','75','110','110'] },
 ];
 
 // ── Name & tip pools ──────────────────────────────────────────────────
@@ -368,14 +418,62 @@ const WOD_TIPS: Record<string, string[]> = {
   ],
 };
 
+// ── Benchmark WODs (Hero + Girl + Open) ───────────────────────────────
+interface BenchmarkWOD { title: string; cat: string; moves: string[]; scoring: string; tip: string }
+const BENCHMARKS: BenchmarkWOD[] = [
+  // ── Girl WODs ──
+  { title:'Fran', cat:'Girl', moves:['21-15-9 :','Thrusters (43 kg)','Pull-ups'], scoring:'For Time', tip:'Fractionne les séries si besoin : 12+9 / 8+7 / 5+4.' },
+  { title:'Grace', cat:'Girl', moves:['30 Clean & Jerk (60 kg)'], scoring:'For Time', tip:'Singles ou touch-and-go ? Trouve ton rythme et tiens-le.' },
+  { title:'Helen', cat:'Girl', moves:['3 Rounds For Time :','400m Course','21 KB Swings (24 kg)','12 Pull-ups'], scoring:'For Time', tip:'La course te prépare, les KB te fatiguent, les pull-ups te finissent.' },
+  { title:'Diane', cat:'Girl', moves:['21-15-9 :','Deadlifts (100 kg)','Handstand Push-ups'], scoring:'For Time', tip:'Les HSPU sont le bottleneck. Gère ta fatigue d\'épaule.' },
+  { title:'Elizabeth', cat:'Girl', moves:['21-15-9 :','Cleans (60 kg)','Ring Dips'], scoring:'For Time', tip:'Les cleans lourds fatiguent les bras pour les dips. Pense à fractionner.' },
+  { title:'Amanda', cat:'Girl', moves:['9-7-5 :','Ring Muscle-ups','Squat Snatches (60 kg)'], scoring:'For Time', tip:'Chaque rep compte. Qualité de mouvement avant vitesse.' },
+  { title:'Annie', cat:'Girl', moves:['50-40-30-20-10 :','Double Unders','Sit-ups'], scoring:'For Time', tip:'Les DU sont la clé. Si tu casses, calme-toi et repars.' },
+  { title:'Barbara', cat:'Girl', moves:['5 Rounds (3 min repos entre) :','20 Pull-ups','30 Push-ups','40 Sit-ups','50 Air Squats'], scoring:'For Time', tip:'Chaque round doit être constant. Ne pars pas trop vite au round 1.' },
+  { title:'Chelsea', cat:'Girl', moves:['E1MOM pendant 30 min :','5 Pull-ups','10 Push-ups','15 Air Squats'], scoring:'EMOM 30 min', tip:'Si tu ne finis pas dans la minute, baisse les reps de 1.' },
+  { title:'Cindy', cat:'Girl', moves:['AMRAP 20 min :','5 Pull-ups','10 Push-ups','15 Air Squats'], scoring:'Max rounds en 20 min', tip:'Rythme constant. Objectif : 20+ rounds pour RX.' },
+  { title:'DT', cat:'Girl', moves:['5 Rounds For Time :','12 Deadlifts (70 kg)','9 Hang Cleans (70 kg)','6 Push Jerks (70 kg)'], scoring:'For Time', tip:'Ne lâche pas la barre. Touch-and-go si possible.' },
+  { title:'Isabel', cat:'Girl', moves:['30 Snatches (60 kg)'], scoring:'For Time', tip:'Singles rapides ou séries de 3. Pas de repos de plus de 5s.' },
+  { title:'Jackie', cat:'Girl', moves:['For Time :','1000m Row','50 Thrusters (20 kg)','30 Pull-ups'], scoring:'For Time', tip:'Le row est ta mise en route. Explose sur les thrusters.' },
+  { title:'Karen', cat:'Girl', moves:['150 Wall Balls (9 kg)'], scoring:'For Time', tip:'Séries de 25 minimum. Ne pose pas le ballon plus de 3s.' },
+  { title:'Kelly', cat:'Girl', moves:['5 Rounds For Time :','400m Course','30 Box Jumps','30 Wall Balls (9 kg)'], scoring:'For Time', tip:'Long WOD. Gère ton allure dès le départ.' },
+  { title:'Mary', cat:'Girl', moves:['AMRAP 20 min :','5 Handstand Push-ups','10 Pistol Squats','15 Pull-ups'], scoring:'Max rounds en 20 min', tip:'Mouvement de gym par excellence. La technique prime.' },
+  { title:'Nancy', cat:'Girl', moves:['5 Rounds For Time :','400m Course','15 Overhead Squats (43 kg)'], scoring:'For Time', tip:'Les OHS après la course sont brutaux. Stabilise ta respiration.' },
+  // ── Hero WODs ──
+  { title:'Murph', cat:'Hero', moves:['For Time (avec gilet 9 kg) :','1 Mile Course','100 Pull-ups','200 Push-ups','300 Air Squats','1 Mile Course'], scoring:'For Time', tip:'Partition : 20 rounds de 5 pull-ups, 10 push-ups, 15 squats.' },
+  { title:'Nate', cat:'Hero', moves:['AMRAP 20 min :','2 Muscle-ups','4 Handstand Push-ups','8 KB Swings (24 kg)'], scoring:'Max rounds en 20 min', tip:'WOD technique. Les muscle-ups sont le limitant.' },
+  { title:'Randy', cat:'Hero', moves:['75 Power Snatches (34 kg)'], scoring:'For Time', tip:'Touch-and-go par séries de 10-15. Ne lâche pas la barre.' },
+  { title:'JT', cat:'Hero', moves:['21-15-9 :','Handstand Push-ups','Ring Dips','Push-ups'], scoring:'For Time', tip:'Tout en poussée. Gère tes épaules et triceps.' },
+  { title:'Badger', cat:'Hero', moves:['3 Rounds For Time :','30 Squat Cleans (43 kg)','30 Pull-ups','800m Course'], scoring:'For Time', tip:'Long et lourd. Fractionne les cleans en 5×6.' },
+  { title:'Lumberjack 20', cat:'Hero', moves:['For Time :','20 Deadlifts (60 kg)','400m Course','20 KB Swings (24 kg)','400m Course','20 Overhead Squats (43 kg)','400m Course','20 Burpees','400m Course','20 Pull-ups (C2B)','400m Course','20 Box Jumps','400m Course','20 DB Squat Cleans (20 kg)','400m Course'], scoring:'For Time', tip:'Chaque mouvement est frais. La course est ta récupération.' },
+  { title:'Loredo', cat:'Hero', moves:['6 Rounds For Time :','24 Air Squats','24 Push-ups','24 Walking Lunges','400m Course'], scoring:'For Time', tip:'Bodyweight pur. Rythme régulier sur les 6 rounds.' },
+  { title:'Ryan', cat:'Hero', moves:['5 Rounds For Time :','7 Muscle-ups','21 Burpees'], scoring:'For Time', tip:'Les muscle-ups sont la clé. Séries de 3-4 max.' },
+  // ── Open WODs ──
+  { title:'Open 11.1', cat:'Open', moves:['AMRAP 10 min :','30 Double Unders','15 Power Snatches (34 kg)'], scoring:'Max rounds en 10 min', tip:'Les DU doivent être unbroken. Snatches en touch-and-go.' },
+  { title:'Open 12.1', cat:'Open', moves:['AMRAP 7 min :','Burpees'], scoring:'Max reps en 7 min', tip:'Objectif : 100+ burpees. Rythme constant, pas de pause.' },
+  { title:'Open 14.5 / 16.5', cat:'Open', moves:['21-18-15-12-9-6-3 :','Thrusters (43 kg)','Burpees'], scoring:'For Time', tip:'Classique. Fractionne les thrusters, enchaîne les burpees.' },
+  { title:'Open 15.5', cat:'Open', moves:['27-21-15-9 :','Row (Cal)','Thrusters (43 kg)'], scoring:'For Time', tip:'Le rameur monte vite en cal. Gère ton allure.' },
+  { title:'Open 17.1', cat:'Open', moves:['For Time :','10-15 DB Snatches (22.5 kg)','15 Burpee Box Jump-Overs','20-15 DB Snatches','15 Burpee Box Jump-Overs','30 DB Snatches','15 Burpee Box Jump-Overs','40 DB Snatches','15 Burpee Box Jump-Overs','50 DB Snatches','15 Burpee Box Jump-Overs'], scoring:'For Time', tip:'Gère les BBJO. Les DB Snatches en unbroken si possible.' },
+  { title:'Open 17.5', cat:'Open', moves:['10 Rounds For Time :','9 Thrusters (43 kg)','35 Double Unders'], scoring:'For Time', tip:'Thrusters en unbroken ou 5+4. DU rapides.' },
+  { title:'Open 18.1', cat:'Open', moves:['AMRAP 20 min :','8 Toes-to-bar','10 DB Hang Clean & Jerk (22.5 kg)','14 Cal Row'], scoring:'Max rounds en 20 min', tip:'Long AMRAP. Rythme et transitions.' },
+  { title:'Open 18.5 / 19.5', cat:'Open', moves:['For Time :','33-27-21-15-9','Thrusters (43 kg)','Chest-to-bar Pull-ups'], scoring:'For Time (cap 20 min)', tip:'Volume massif. Les C2B sont le limitant.' },
+  { title:'Open 20.1', cat:'Open', moves:['10 Rounds For Time :','8 Ground to Overhead (61 kg)','10 Bar Facing Burpees'], scoring:'For Time (cap 15 min)', tip:'G2O en singles propres. Burpees rapides.' },
+  { title:'Open 21.1', cat:'Open', moves:['For Time (cap 15 min) :','1 Wall Walk + 10 DU','3 Wall Walks + 30 DU','6 Wall Walks + 60 DU','9 Wall Walks + 90 DU','15 Wall Walks + 150 DU','21 Wall Walks + 210 DU'], scoring:'For Time', tip:'Progression brutale. Les DU doivent rester unbroken.' },
+  { title:'Open 22.1', cat:'Open', moves:['AMRAP 15 min :','3 Wall Walks','12 DB Snatches (22.5 kg)','15 Box Jump-Overs'], scoring:'Max rounds en 15 min', tip:'Wall walks = technique. DB snatches alternés.' },
+  { title:'Open 23.1', cat:'Open', moves:['AMRAP 14 min :','60 Cal Row','50 Toes-to-bar','40 Wall Balls (9 kg)','30 Cleans (60 kg)','20 Muscle-ups'], scoring:'Max reps en 14 min', tip:'Commence fort sur le row. Les MU sont le bonus.' },
+  { title:'Open 24.1', cat:'Open', moves:['AMRAP 15 min (poids croissant) :','21/15 Cal Row','15 Deadlifts','9 Sumo Deadlift HP','6 Cleans'], scoring:'Max rounds en 15 min', tip:'Le poids augmente à chaque round. Gère ta fatigue.' },
+  { title:'Open 24.2', cat:'Open', moves:['AMRAP 20 min :','300m Shuttle Run','10 Clean & Jerk (60 kg)','30 Toes-to-bar'], scoring:'Max rounds en 20 min', tip:'La course est longue. Les C&J doivent être efficaces.' },
+];
+
 // ── Helpers ────────────────────────────────────────────────────────────
 function fmtMvt(m: Mvt, li: number): string {
   const r = m.reps[li];
   const u = m.unit ?? '';
   const ld = m.load?.[li];
-  if (u === 'm')   return `${r}m ${m.name}`;
-  if (u === 'cal') return `${r} Cal ${m.name}`;
-  if (ld)          return `${r} ${m.name} (${ld} kg)`;
+  if (u === 'm')        return `${r}m ${m.name}`;
+  if (u === 'cal')      return `${r} Cal ${m.name}`;
+  if (u === '×7.62m')   return `${r}×7.62m ${m.name}`;
+  if (ld)               return `${r} ${m.name} (${ld} kg)`;
   return `${r} ${m.name}`;
 }
 
@@ -385,9 +483,25 @@ function fmtMvtLabel(m: Mvt, li: number): string {
   return m.name;
 }
 
-function generateWOD(level: AthleteLevel, duration: number, type: WODType, equipment: string[]): GeneratedWOD {
+function generateWOD(level: AthleteLevel, duration: number, type: WODType, equipment: string[], teamSize: number = 1): GeneratedWOD {
+  // ── Benchmark mode ──
+  if (equipment.includes('Benchmark')) {
+    const bm = srand(BENCHMARKS);
+    const teamLabel = teamSize > 1 ? `\n⚡ En équipe de ${teamSize} — répartissez le travail` : '';
+    return {
+      title: `${bm.title} (${bm.cat})`,
+      type: 'For Time' as WODType,
+      duration: 0,
+      level,
+      movements: teamSize > 1 ? [...bm.moves, `── Équipe de ${teamSize} : split le travail ──`] : bm.moves,
+      scoring: bm.scoring + teamLabel,
+      tip: bm.tip,
+    };
+  }
+
   const li = _LI[level];
   const noEquip = equipment.includes('Aucun matériel') || equipment.length === 0;
+  const realEquip = equipment.filter(e => e !== 'Aucun matériel' && e !== 'Benchmark');
 
   // Filter movements available for this level + equipment
   const pool = MVTS.filter(m => {
@@ -396,7 +510,29 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
     return m.eq.every(e => equipment.includes(e));
   });
 
-  const pick = (n: number) => spick(pool, Math.min(n, pool.length));
+  // Force-pick: guarantee at least one movement per selected equipment category
+  const forced: Mvt[] = [];
+  if (!noEquip) {
+    for (const eq of realEquip) {
+      const eqPool = pool.filter(m => m.eq.includes(eq) && !forced.includes(m));
+      if (eqPool.length > 0) forced.push(srand(eqPool));
+    }
+  }
+
+  // Smart pick: forced + random fill from remaining pool (no duplicates)
+  const pickWithForced = (n: number): Mvt[] => {
+    const needed = Math.max(0, n - forced.length);
+    const remaining = pool.filter(m => !forced.includes(m));
+    const extra = spick(remaining, Math.min(needed, remaining.length));
+    const result = [...forced, ...extra];
+    // Shuffle so forced aren't always first
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result.slice(0, n);
+  };
+
   const title = srand(WOD_NAMES[type] ?? WOD_NAMES['AMRAP']);
   const tip   = srand(WOD_TIPS[type]  ?? WOD_TIPS['AMRAP']);
 
@@ -406,7 +542,7 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
   switch (type) {
     case 'AMRAP': {
       const count = duration <= 5 ? 3 : duration <= 10 ? srand([3,4]) : duration <= 15 ? srand([4,5]) : srand([4,5,6]);
-      movements = pick(count).map(m => fmtMvt(m, li));
+      movements = pickWithForced(count).map(m => fmtMvt(m, li));
       scoring = `Max rounds en ${duration} min`;
       break;
     }
@@ -414,24 +550,25 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
       const variant = srand(['descending','rft','chipper'] as const);
       if (variant === 'descending') {
         const scheme = srand(['21-15-9','15-12-9','12-9-6','10-8-6-4-2','15-10-5']);
-        const mvts = pick(srand([2,3]));
+        const mvts = pickWithForced(srand([2,3]));
         movements = [`${scheme} :`].concat(mvts.map(m => fmtMvtLabel(m, li)));
         scoring = `${scheme} — Temps (cap ${duration} min)`;
       } else if (variant === 'rft') {
         const rounds = srand([3,4,5]);
-        const mvts = pick(srand([3,4]));
+        const mvts = pickWithForced(srand([3,4]));
         movements = [`${rounds} Rounds For Time :`].concat(mvts.map(m => fmtMvt(m, li)));
         scoring = `${rounds} RFT — Temps (cap ${duration} min)`;
       } else {
-        const mvts = pick(srand([5,6,7]));
+        const mvts = pickWithForced(srand([5,6,7]));
         movements = mvts.map(m => {
           const mult = srand([2,3,4]);
           const r = m.reps[li] * mult;
           const u = m.unit ?? '';
           const ld = m.load?.[li];
-          if (u === 'm')   return `${r}m ${m.name}`;
-          if (u === 'cal') return `${r} Cal ${m.name}`;
-          if (ld)          return `${r} ${m.name} (${ld} kg)`;
+          if (u === 'm')        return `${r}m ${m.name}`;
+          if (u === 'cal')      return `${r} Cal ${m.name}`;
+          if (u === '×7.62m')   return `${r}×7.62m ${m.name}`;
+          if (ld)               return `${r} ${m.name} (${ld} kg)`;
           return `${r} ${m.name}`;
         });
         scoring = `Chipper — Temps (cap ${duration} min)`;
@@ -440,21 +577,21 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
     }
     case 'EMOM': {
       const mins = duration <= 5 ? 2 : duration <= 10 ? srand([2,3]) : duration <= 15 ? srand([3,4]) : srand([4,5]);
-      const mvts = pick(mins);
+      const mvts = pickWithForced(mins);
       movements = mvts.map((m, i) => `Min ${i + 1} : ${fmtMvt(m, li)}`);
       scoring = `E${mins}MOM pendant ${duration} min — score = rounds complétés`;
       break;
     }
     case 'Tabata': {
       const count = srand([3,4,5]);
-      const mvts = pick(count);
+      const mvts = pickWithForced(count);
       movements = mvts.map(m => `20s ${m.name} / 10s Repos × 8`);
       scoring = 'Score = total de reps sur tous les rounds';
       break;
     }
     case 'Max Reps': {
       const count = srand([1,2]);
-      const mvts = pick(count);
+      const mvts = pickWithForced(count);
       movements = mvts.map(m => {
         const ld = m.load?.[li];
         const suffix = ld ? ` (${ld} kg)` : '';
@@ -463,6 +600,17 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
       scoring = 'Score = total de reps';
       break;
     }
+  }
+
+  // ── Team format ──
+  if (teamSize > 1) {
+    const teamModes = [
+      `En équipe de ${teamSize} — You Go I Go (alternance)`,
+      `En équipe de ${teamSize} — Split le travail équitablement`,
+      `En équipe de ${teamSize} — Synchronisé (tous en même temps)`,
+      `En équipe de ${teamSize} — Relais (1 travaille, ${teamSize - 1} au repos)`,
+    ];
+    movements = [`── ${srand(teamModes)} ──`, ...movements];
   }
 
   return { title, type, duration, level, movements, scoring, tip };
@@ -478,6 +626,7 @@ export default function WODGeneratorScreen() {
   const [duration,     setDuration]     = useState(5);
   const [wodType,      setWODType]      = useState<WODType>('AMRAP');
   const [equipment,    setEquipment]    = useState<string[]>(['Barre + Disques', 'Corde à sauter']);
+  const [teamSize,     setTeamSize]     = useState(1);
   const [generatedWOD, setGeneratedWOD] = useState<GeneratedWOD | null>(null);
   const [hyroxLevel,   setHyroxLevel]   = useState('Open');
   const [hyroxFormat,  setHyroxFormat]  = useState('Solo');
@@ -509,7 +658,7 @@ export default function WODGeneratorScreen() {
       setGeneratedHyrox(wod);
       setGeneratedWOD(null);
     } else {
-      const wod = generateWOD(level, duration, wodType, equipment);
+      const wod = generateWOD(level, duration, wodType, equipment, teamSize);
       setGeneratedWOD(wod);
       setGeneratedHyrox(null);
     }
@@ -545,7 +694,7 @@ export default function WODGeneratorScreen() {
             activeOpacity={0.8}
           >
             <Text style={S.sportEmoji}>⚡</Text>
-            <Text style={[S.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>Hybrid{"\n"}(Hyrox)</Text>
+            <Text style={[S.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>Hybrid</Text>
             {sport === 'hybrid' && <View style={[S.sportDot, { backgroundColor: HYROX_ORANGE }]} />}
           </TouchableOpacity>
         </View>
@@ -611,6 +760,23 @@ export default function WODGeneratorScreen() {
               >
                 <Text style={[S.equipText, equipment.includes(item) && { color: theme.accent }]}>
                   {item}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={S.section}>
+          <Text style={S.sectionTitle}>Format</Text>
+          <View style={S.chipRow}>
+            {TEAM_SIZES.map(s => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => setTeamSize(s)}
+                style={[S.chip, teamSize === s && S.chipSelected]}
+              >
+                <Text style={[S.chipText, teamSize === s && { color: theme.accent }]}>
+                  {s === 1 ? 'Solo' : `Équipe ${s}`}
                 </Text>
               </TouchableOpacity>
             ))}
