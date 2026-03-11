@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView } from 'react-native';
-import { Sparkles, RefreshCw, Zap, Clock, Users, User, ArrowLeft } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { Sparkles, RefreshCw, Zap, Clock, Users, User, ArrowLeft, Bookmark, Heart, Check, X, History } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, LevelColors } from '../theme/colors';
 import { HomeStackParamList } from '../navigation';
 import { AthleteLevel } from '../types';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 const HYROX_ORANGE = '#F97316';
 type Sport = 'functional' | 'hybrid';
@@ -591,6 +593,89 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const [hyroxWod,    setHyroxWod]    = useState<HyroxWOD | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+
+  // Save & Score state
+  const [savedWodId,   setSavedWodId]   = useState<string | null>(null);
+  const [isFavorite,   setIsFavorite]   = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [scoreModal,   setScoreModal]   = useState(false);
+  const [scoreType,    setScoreType]    = useState<'time' | 'reps' | 'rounds' | 'weight'>('time');
+  const [scoreInput,   setScoreInput]   = useState('');
+  const [scoreRx,      setScoreRx]      = useState(true);
+  const [scoreNotes,   setScoreNotes]   = useState('');
+  const [submitting,   setSubmitting]   = useState(false);
+
+  async function saveWod(currentWod: GeneratedWOD | null, currentHyrox: HyroxWOD | null) {
+    if (!user || (!currentWod && !currentHyrox)) return;
+    setSaving(true);
+    const isFn = !!currentWod;
+    const payload = {
+      user_id: user.id,
+      sport: isFn ? 'functional' : 'hybrid',
+      wod_name: isFn ? currentWod!.name : currentHyrox!.name,
+      wod_type: isFn ? currentWod!.type : currentHyrox!.type,
+      duration: isFn ? currentWod!.duration : currentHyrox!.duration,
+      level: isFn ? currentWod!.level : currentHyrox!.level,
+      format: isFn ? format : hyroxFormat,
+      movements: isFn ? currentWod!.movements : currentHyrox!.stations.join('\n'),
+      scoring: isFn ? currentWod!.scoring : currentHyrox!.scoring,
+      coach_tip: isFn ? currentWod!.coach : currentHyrox!.coach,
+      team_note: isFn ? currentWod!.teamNote : null,
+      equipment: isFn ? equipment : hyroxEquip,
+      is_benchmark: isFn && equipment.includes('bm'),
+    };
+    const { data, error } = await supabase.from('generated_wods').insert(payload).select('id').single();
+    setSaving(false);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    setSavedWodId(data.id);
+    Alert.alert('✅ WOD sauvegardé', 'Retrouve-le dans ton historique.');
+  }
+
+  async function toggleFavorite() {
+    if (!savedWodId) return;
+    const newVal = !isFavorite;
+    setIsFavorite(newVal);
+    await supabase.from('generated_wods').update({ is_favorite: newVal }).eq('id', savedWodId);
+  }
+
+  async function submitScore() {
+    if (!savedWodId || !user) return;
+    let value = 0;
+    if (scoreType === 'time') {
+      const parts = scoreInput.split(':');
+      if (parts.length === 2) value = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+      else value = parseInt(scoreInput);
+    } else {
+      value = parseFloat(scoreInput);
+    }
+    if (isNaN(value) || value <= 0) { Alert.alert('Score invalide'); return; }
+    setSubmitting(true);
+    const { error } = await supabase.from('generated_wod_scores').insert({
+      wod_id: savedWodId,
+      user_id: user.id,
+      score_type: scoreType,
+      score_value: value,
+      rx: scoreRx,
+      notes: scoreNotes.trim() || null,
+    });
+    setSubmitting(false);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    setScoreModal(false);
+    setScoreInput('');
+    setScoreNotes('');
+    Alert.alert('✅ Score enregistré !', 'Tu peux suivre ta progression dans l\'historique.');
+  }
+
+  function openScoreModal(currentWod: GeneratedWOD | null) {
+    if (!currentWod) { setScoreType('time'); }
+    else if (currentWod.type === 'For Time') { setScoreType('time'); }
+    else if (currentWod.type === 'AMRAP') { setScoreType('reps'); }
+    else if (currentWod.type === 'EMOM') { setScoreType('rounds'); }
+    else if (currentWod.type === 'Max Reps') { setScoreType('reps'); }
+    else { setScoreType('time'); }
+    setScoreModal(true);
+  }
 
   const accent = sport === 'hybrid' ? HYROX_ORANGE : Colors.primary;
 
@@ -610,6 +695,8 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
 
   async function handleGenerate() {
     setLoading(true);
+    setSavedWodId(null);
+    setIsFavorite(false);
     await new Promise(r => setTimeout(r, 600));
     if (sport === 'hybrid') {
       setHyroxWod(generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip));
@@ -631,7 +718,9 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           <Sparkles color={Colors.primary} size={16} />
           <Text style={s.headerTitleTxt}>Générateur de WOD</Text>
         </View>
-        <View style={s.backBtn} />
+        <TouchableOpacity onPress={() => navigation.navigate('WodHistory')} style={s.backBtn} activeOpacity={0.7}>
+          <History color={Colors.primary} size={20} />
+        </TouchableOpacity>
       </View>
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={s.wrapper}>
@@ -822,6 +911,26 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             <Text style={[s.coachLabel, { color: HYROX_ORANGE }]}>💡 Coach</Text>
             <Text style={s.coachTxt}>{hyroxWod.coach}</Text>
           </View>
+          {/* Save / Fav / Score actions */}
+          <View style={s.actionRow}>
+            {!savedWodId ? (
+              <TouchableOpacity style={[s.actionBtn, { borderColor: HYROX_ORANGE }]} onPress={() => saveWod(null, hyroxWod)} disabled={saving} activeOpacity={0.7}>
+                {saving ? <ActivityIndicator size="small" color={HYROX_ORANGE} /> : <><Bookmark color={HYROX_ORANGE} size={14} /><Text style={[s.actionBtnTxt, { color: HYROX_ORANGE }]}>Sauvegarder</Text></>}
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity style={[s.actionBtn, { borderColor: HYROX_ORANGE, backgroundColor: `${HYROX_ORANGE}15` }]} onPress={toggleFavorite} activeOpacity={0.7}>
+                  <Heart color={HYROX_ORANGE} size={14} fill={isFavorite ? HYROX_ORANGE : 'transparent'} />
+                  <Text style={[s.actionBtnTxt, { color: HYROX_ORANGE }]}>{isFavorite ? 'Favori' : 'Favori'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.actionBtn, { borderColor: HYROX_ORANGE }]} onPress={() => openScoreModal(null)} activeOpacity={0.7}>
+                  <Check color={HYROX_ORANGE} size={14} />
+                  <Text style={[s.actionBtnTxt, { color: HYROX_ORANGE }]}>Entrer score</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
           <TouchableOpacity style={[s.startBtn, { backgroundColor: HYROX_ORANGE }]} activeOpacity={0.85}
             onPress={() => navigation.navigate('Timer')}>
             <Zap color="#fff" size={16} />
@@ -876,6 +985,26 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             </View>
           ) : null}
 
+          {/* Save / Fav / Score actions */}
+          <View style={s.actionRow}>
+            {!savedWodId ? (
+              <TouchableOpacity style={s.actionBtn} onPress={() => saveWod(wod, null)} disabled={saving} activeOpacity={0.7}>
+                {saving ? <ActivityIndicator size="small" color={Colors.primary} /> : <><Bookmark color={Colors.primary} size={14} /><Text style={s.actionBtnTxt}>Sauvegarder</Text></>}
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity style={[s.actionBtn, savedWodId && { backgroundColor: `${Colors.primary}10` }]} onPress={toggleFavorite} activeOpacity={0.7}>
+                  <Heart color={Colors.primary} size={14} fill={isFavorite ? Colors.primary : 'transparent'} />
+                  <Text style={s.actionBtnTxt}>Favori</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.actionBtn} onPress={() => openScoreModal(wod)} activeOpacity={0.7}>
+                  <Check color={Colors.primary} size={14} />
+                  <Text style={s.actionBtnTxt}>Entrer score</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
           <TouchableOpacity style={s.startBtn} activeOpacity={0.85}
             onPress={() => navigation.navigate('Timer')}>
             <Zap color="#fff" size={16} />
@@ -883,6 +1012,76 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           </TouchableOpacity>
         </View>
       )}
+
+      {/* ── Score Modal ── */}
+      <Modal visible={scoreModal} animationType="slide" presentationStyle="pageSheet" transparent onRequestClose={() => setScoreModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
+          <View style={s.modalSheet}>
+            <View style={s.modalHandle} />
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Entrer mon score</Text>
+              <TouchableOpacity onPress={() => setScoreModal(false)}>
+                <X color={Colors.textMuted} size={22} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={s.modalLabel}>TYPE DE SCORE</Text>
+            <View style={s.modalTypeRow}>
+              {(['time', 'reps', 'rounds', 'weight'] as const).map(t => (
+                <TouchableOpacity key={t} onPress={() => setScoreType(t)} activeOpacity={0.7}
+                  style={[s.modalTypeChip, scoreType === t && s.modalTypeChipSel]}>
+                  <Text style={[s.modalTypeChipTxt, scoreType === t && s.modalTypeChipTxtSel]}>
+                    {t === 'time' ? 'Temps' : t === 'reps' ? 'Reps' : t === 'rounds' ? 'Rounds' : 'Poids'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={s.modalLabel}>
+              {scoreType === 'time' ? 'TEMPS (MM:SS)' : scoreType === 'weight' ? 'POIDS (kg)' : scoreType === 'reps' ? 'NOMBRE DE REPS' : 'NOMBRE DE ROUNDS'}
+            </Text>
+            <TextInput
+              style={s.modalInput}
+              placeholder={scoreType === 'time' ? '14:32' : '150'}
+              placeholderTextColor={Colors.textMuted}
+              value={scoreInput}
+              onChangeText={setScoreInput}
+              keyboardType={scoreType === 'time' ? 'default' : 'numeric'}
+              autoFocus
+            />
+
+            <Text style={s.modalLabel}>NIVEAU</Text>
+            <View style={s.modalTypeRow}>
+              <TouchableOpacity style={[s.modalTypeChip, scoreRx && s.modalTypeChipSel]} onPress={() => setScoreRx(true)}>
+                <Text style={[s.modalTypeChipTxt, scoreRx && s.modalTypeChipTxtSel]}>RX</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.modalTypeChip, !scoreRx && { backgroundColor: `${Colors.gold}20`, borderColor: Colors.gold }]} onPress={() => setScoreRx(false)}>
+                <Text style={[s.modalTypeChipTxt, !scoreRx && { color: Colors.gold, fontWeight: '900' }]}>Scaled</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={s.modalLabel}>NOTES (optionnel)</Text>
+            <TextInput
+              style={[s.modalInput, { minHeight: 60, textAlignVertical: 'top' }]}
+              placeholder="Mouvements adaptés, sensations…"
+              placeholderTextColor={Colors.textMuted}
+              value={scoreNotes}
+              onChangeText={setScoreNotes}
+              multiline
+            />
+
+            <TouchableOpacity
+              style={[s.startBtn, (!scoreInput.trim() || submitting) && { opacity: 0.5 }]}
+              onPress={submitScore}
+              disabled={!scoreInput.trim() || submitting}
+              activeOpacity={0.85}
+            >
+              {submitting ? <ActivityIndicator color="#fff" /> : <><Check color="#fff" size={16} /><Text style={s.startBtnTxt}>Valider le score</Text></>}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       </View>
       </ScrollView>
     </SafeAreaView>
@@ -967,4 +1166,36 @@ const s = StyleSheet.create({
     backgroundColor: Colors.primary, borderRadius: 12, padding: 14,
   },
   startBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  // Action row (save / fav / score)
+  actionRow: { flexDirection: 'row', gap: 8 },
+  actionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderRadius: 10, borderWidth: 1.5, borderColor: Colors.primary, paddingVertical: 10,
+  },
+  actionBtnTxt: { fontSize: 12, fontWeight: '800', color: Colors.primary },
+  // Score modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalSheet: {
+    backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 20, paddingBottom: 40, gap: 12,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border,
+    alignSelf: 'center', marginBottom: 4,
+  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '900', color: Colors.text },
+  modalLabel: { fontSize: 11, fontWeight: '800', color: Colors.textMuted, letterSpacing: 0.5, marginTop: 4 },
+  modalTypeRow: { flexDirection: 'row', gap: 8 },
+  modalTypeChip: {
+    flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+  },
+  modalTypeChipSel: { backgroundColor: `${Colors.primary}15`, borderColor: Colors.primary },
+  modalTypeChipTxt: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
+  modalTypeChipTxtSel: { color: Colors.primary, fontWeight: '900' },
+  modalInput: {
+    backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
+    padding: 12, fontSize: 16, fontWeight: '700', color: Colors.text,
+  },
 });
