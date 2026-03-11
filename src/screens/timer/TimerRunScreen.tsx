@@ -32,34 +32,39 @@ function formatTime(totalSec: number): string {
 
 type WavSeg = { hz?: number; ms: number; silent?: boolean; fadeInMs?: number; fadeOutMs?: number };
 
-// ─── WAV PCM 8-bit mono generator ────────────────────────────────────────────
+// ─── WAV PCM 16-bit mono 44100 Hz generator ─────────────────────────────────
 function buildMultiWAV(segs: WavSeg[]): string {
-  const sr = 22050;
-  const totalN = segs.reduce((a, seg) => a + Math.floor(sr * seg.ms / 1000), 0);
-  const buf = new Uint8Array(44 + totalN);
-  const dv = new DataView(buf.buffer);
-  const ws = (o: number, v: string) => { for (let i = 0; i < v.length; i++) buf[o + i] = v.charCodeAt(i); };
-  ws(0, 'RIFF'); dv.setUint32(4, 36 + totalN, true); ws(8, 'WAVE');
+  const sr = 44100;
+  const blockAlign = 2; // 16-bit mono
+  let totalSamples = 0;
+  for (const seg of segs) totalSamples += Math.floor(sr * seg.ms / 1000);
+  const dataBytes = totalSamples * blockAlign;
+  const ab = new ArrayBuffer(44 + dataBytes);
+  const dv = new DataView(ab);
+  const u8 = new Uint8Array(ab);
+  const ws = (o: number, v: string) => { for (let i = 0; i < v.length; i++) u8[o + i] = v.charCodeAt(i); };
+  ws(0, 'RIFF'); dv.setUint32(4, 36 + dataBytes, true); ws(8, 'WAVE');
   ws(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
-  dv.setUint16(22, 1, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr, true);
-  dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
-  ws(36, 'data'); dv.setUint32(40, totalN, true);
+  dv.setUint16(22, 1, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr * blockAlign, true);
+  dv.setUint16(32, blockAlign, true); dv.setUint16(34, 16, true);
+  ws(36, 'data'); dv.setUint32(40, dataBytes, true);
   let off = 44;
   for (const seg of segs) {
     const n       = Math.floor(sr * seg.ms / 1000);
     const fadeIn  = Math.max(1, Math.floor(sr * (seg.fadeInMs  ?? 5)  / 1000));
     const fadeOut = Math.max(1, Math.floor(sr * (seg.fadeOutMs ?? 8)  / 1000));
     for (let i = 0; i < n; i++) {
-      if (seg.silent || !seg.hz) { buf[off++] = 128; }
-      else {
-        let amp = 0.92;
-        if (i < fadeIn)        amp *= i / fadeIn;
+      let sample = 0;
+      if (!seg.silent && seg.hz) {
+        let amp = 0.85;
+        if (i < fadeIn)          amp *= i / fadeIn;
         else if (i > n - fadeOut) amp *= (n - i) / fadeOut;
-        buf[off++] = Math.round(128 + 127 * amp * Math.sin(2 * Math.PI * seg.hz * i / sr));
+        sample = Math.round(32767 * amp * Math.sin(2 * Math.PI * seg.hz * i / sr));
       }
+      dv.setInt16(off, sample, true); off += 2;
     }
   }
-  let b = ''; for (let i = 0; i < buf.length; i++) b += String.fromCharCode(buf[i]);
+  let b = ''; for (let i = 0; i < u8.length; i++) b += String.fromCharCode(u8[i]);
   return btoa(b);
 }
 
@@ -327,6 +332,10 @@ export default function TimerRunScreen() {
   const cameraRef         = useRef<CameraView>(null);
   const recordingActiveRef = useRef(false);
   const soundReadyRef     = useRef(false);
+  const tickPoolRef       = useRef<AudioPlayer[]>([]);
+  const tickIdxRef        = useRef(0);
+  const sndGoRef          = useRef<AudioPlayer | null>(null);
+  const sndDoneRef        = useRef<AudioPlayer | null>(null);
 
   const [displayOpts, setDisplayOptsRaw] = useState<TimerDisplayOpts>(DEFAULT_DISPLAY);
   const [showSettings, setShowSettings]  = useState(false);
@@ -376,10 +385,21 @@ export default function TimerRunScreen() {
           { silent: true, ms: 80 },
           { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
         ]), { encoding: FileSystem.EncodingType.Base64 });
+      // Pool de 3 players tick pré-chargés — gardés en vie toute la session
+      // (évite la désactivation de session audio iOS + latence Android)
+      for (let i = 0; i < 3; i++)
+        tickPoolRef.current.push(createAudioPlayer({ uri: cDir + 'bwod_tick.wav' }));
+      sndGoRef.current   = createAudioPlayer({ uri: cDir + 'bwod_go.wav' });
+      sndDoneRef.current = createAudioPlayer({ uri: cDir + 'bwod_done.wav' });
       soundReadyRef.current = true;
     }
     setup();
-    return () => {};
+    return () => {
+      tickPoolRef.current.forEach(p => { try { p.remove(); } catch {} });
+      tickPoolRef.current = [];
+      try { sndGoRef.current?.remove(); } catch {}
+      try { sndDoneRef.current?.remove(); } catch {}
+    };
   }, []);
 
   useEffect(() => {
@@ -397,14 +417,17 @@ export default function TimerRunScreen() {
   }
 
   function playBeep(type: 'tick' | 'go' | 'done') {
+    if (!displayOptsRef.current.bipsEnabled || !soundReadyRef.current) return;
     try {
-      if (!displayOptsRef.current.bipsEnabled || !soundReadyRef.current) return;
-      const cDir = FileSystem.cacheDirectory ?? '';
-      const path = cDir + (type === 'tick' ? 'bwod_tick.wav' : type === 'go' ? 'bwod_go.wav' : 'bwod_done.wav');
-      const p = createAudioPlayer({ uri: path });
-      p.play();
-      const ttl = type === 'done' ? 1500 : type === 'go' ? 700 : 350;
-      setTimeout(() => { try { p.remove(); } catch {} }, ttl);
+      if (type === 'tick') {
+        const p = tickPoolRef.current[tickIdxRef.current % 3];
+        tickIdxRef.current++;
+        p.seekTo(0); p.play();
+      } else if (type === 'go') {
+        sndGoRef.current?.seekTo(0); sndGoRef.current?.play();
+      } else {
+        sndDoneRef.current?.seekTo(0); sndDoneRef.current?.play();
+      }
     } catch {}
   }
 
