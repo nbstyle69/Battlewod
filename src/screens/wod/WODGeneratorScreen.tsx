@@ -220,78 +220,252 @@ interface GeneratedWOD {
   tip: string;
 }
 
+// ── Movement database ─────────────────────────────────────────────────
+const _LI: Record<AthleteLevel, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, gx: 4, pro: 5 };
+interface Mvt { name: string; eq: string[]; reps: number[]; load?: string[]; unit?: string }
+
+const MVTS: Mvt[] = [
+  // ── Bodyweight ──
+  { name: 'Burpees',              eq: [],                    reps: [6,8,10,12,15,18] },
+  { name: 'Air Squats',           eq: [],                    reps: [12,15,20,25,30,35] },
+  { name: 'Push-ups',             eq: [],                    reps: [8,10,15,18,20,25] },
+  { name: 'Sit-ups',              eq: [],                    reps: [12,15,20,25,30,35] },
+  { name: 'Mountain Climbers',    eq: [],                    reps: [12,16,20,24,30,30] },
+  { name: 'Lunges',               eq: [],                    reps: [10,12,16,20,24,24] },
+  { name: 'V-ups',                eq: [],                    reps: [8,10,12,15,18,20] },
+  { name: 'Jumping Squats',       eq: [],                    reps: [8,10,12,15,18,20] },
+  { name: 'Broad Jumps',          eq: [],                    reps: [5,6,8,10,10,12] },
+  { name: 'Handstand Push-ups',   eq: [],                    reps: [0,3,5,8,10,12] },
+  { name: 'Pistol Squats',        eq: [],                    reps: [0,0,6,8,10,12] },
+  { name: 'Hollow Rocks',         eq: [],                    reps: [10,12,15,20,25,30] },
+  { name: 'Up-Downs',             eq: [],                    reps: [6,8,10,12,15,15] },
+  { name: 'Course',               eq: [],                    reps: [200,200,400,400,400,800], unit: 'm' },
+  { name: 'Burpee Over Bar',      eq: [],                    reps: [5,6,8,10,12,15] },
+  { name: 'Bear Crawl',           eq: [],                    reps: [10,10,15,15,20,20], unit: 'm' },
+  { name: 'Wall Walks',           eq: [],                    reps: [0,2,3,4,5,6] },
+  // ── Barbell ──
+  { name: 'Thrusters',            eq: ['Barre + Disques'],   reps: [8,10,12,12,15,15],  load: ['30','35','43','50','60','70'] },
+  { name: 'Deadlifts',            eq: ['Barre + Disques'],   reps: [8,10,12,12,15,15],  load: ['50','60','70','90','100','120'] },
+  { name: 'Power Cleans',         eq: ['Barre + Disques'],   reps: [5,6,8,8,10,10],     load: ['35','40','50','60','70','80'] },
+  { name: 'Hang Power Clean',     eq: ['Barre + Disques'],   reps: [5,6,8,8,10,10],     load: ['30','35','43','50','60','70'] },
+  { name: 'Front Squats',         eq: ['Barre + Disques'],   reps: [6,8,10,10,12,12],   load: ['35','40','50','60','70','80'] },
+  { name: 'Back Squats',          eq: ['Barre + Disques'],   reps: [6,8,10,10,12,12],   load: ['40','50','60','70','85','100'] },
+  { name: 'Push Press',           eq: ['Barre + Disques'],   reps: [6,8,10,10,12,12],   load: ['25','30','40','50','55','60'] },
+  { name: 'Clean & Jerk',         eq: ['Barre + Disques'],   reps: [3,5,6,8,8,10],      load: ['35','40','50','60','70','85'] },
+  { name: 'Snatch',               eq: ['Barre + Disques'],   reps: [0,3,5,6,8,8],       load: ['','30','40','50','60','70'] },
+  { name: 'Sumo Deadlift HP',     eq: ['Barre + Disques'],   reps: [6,8,10,12,12,15],   load: ['25','30','35','40','50','55'] },
+  { name: 'Overhead Squat',       eq: ['Barre + Disques'],   reps: [0,5,6,8,8,10],      load: ['','25','35','43','50','60'] },
+  { name: 'Clusters',             eq: ['Barre + Disques'],   reps: [3,5,6,6,8,8],       load: ['30','35','43','50','60','70'] },
+  { name: 'Hang Squat Clean',     eq: ['Barre + Disques'],   reps: [0,4,5,6,8,8],       load: ['','35','43','50','60','70'] },
+  // ── Haltères ──
+  { name: 'DB Snatch',            eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10','12.5','15','20','22.5','25'] },
+  { name: 'DB Thrusters',         eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10','12.5','15','20','22.5','25'] },
+  { name: 'DB Clean & Jerk',      eq: ['Haltères'],          reps: [5,6,8,10,10,12],    load: ['10','12.5','15','20','22.5','25'] },
+  { name: 'DB Lunges',            eq: ['Haltères'],          reps: [8,10,12,16,16,20],  load: ['10','12.5','15','17.5','20','22.5'] },
+  { name: 'Devil Press',          eq: ['Haltères'],          reps: [4,5,6,8,10,10],     load: ['10','12.5','15','20','22.5','25'] },
+  { name: 'Man Makers',           eq: ['Haltères'],          reps: [3,4,5,6,8,8],       load: ['7.5','10','12.5','15','17.5','20'] },
+  { name: 'DB Push Press',        eq: ['Haltères'],          reps: [6,8,10,12,12,15],   load: ['10','12.5','15','17.5','20','22.5'] },
+  // ── Kettlebell ──
+  { name: 'KB Swings',            eq: ['Kettlebell'],        reps: [10,12,15,20,20,25], load: ['12','16','20','24','28','32'] },
+  { name: 'Goblet Squats',        eq: ['Kettlebell'],        reps: [8,10,12,15,15,20],  load: ['12','16','20','24','28','32'] },
+  { name: 'KB Snatch',            eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
+  { name: 'KB Clean & Press',     eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
+  { name: 'Turkish Get-up',       eq: ['Kettlebell'],        reps: [2,2,3,4,4,5],       load: ['8','12','16','20','24','28'] },
+  { name: 'KB Thruster',          eq: ['Kettlebell'],        reps: [6,8,10,12,12,15],   load: ['12','16','20','24','28','32'] },
+  // ── Box ──
+  { name: 'Box Jumps',            eq: ['Box'],               reps: [8,10,12,15,18,20] },
+  { name: 'Box Step-ups',         eq: ['Box'],               reps: [10,12,16,20,20,24] },
+  { name: 'Box Step-overs',       eq: ['Box'],               reps: [8,10,12,15,18,20] },
+  // ── Corde à sauter ──
+  { name: 'Single Unders',        eq: ['Corde à sauter'],    reps: [30,40,50,50,60,75] },
+  { name: 'Double Unders',        eq: ['Corde à sauter'],    reps: [0,10,20,30,40,50] },
+  // ── Barre de traction ──
+  { name: 'Pull-ups',             eq: ['Barre de traction'], reps: [3,5,8,10,12,15] },
+  { name: 'Chest-to-bar',         eq: ['Barre de traction'], reps: [0,0,5,8,10,12] },
+  { name: 'Toes-to-bar',          eq: ['Barre de traction'], reps: [0,5,8,10,12,15] },
+  { name: 'Knees-to-elbows',      eq: ['Barre de traction'], reps: [5,8,10,12,15,15] },
+  { name: 'Bar Muscle-ups',       eq: ['Barre de traction'], reps: [0,0,0,3,5,7] },
+  { name: 'Kipping Pull-ups',     eq: ['Barre de traction'], reps: [0,5,10,12,15,18] },
+  // ── Anneaux ──
+  { name: 'Ring Dips',             eq: ['Anneaux'],           reps: [0,3,5,8,10,12] },
+  { name: 'Ring Rows',             eq: ['Anneaux'],           reps: [8,10,12,15,15,18] },
+  { name: 'Ring Muscle-ups',       eq: ['Anneaux'],           reps: [0,0,0,2,4,5] },
+  // ── Rameur ──
+  { name: 'Row',                   eq: ['Rameur'],            reps: [10,12,15,18,20,25], unit: 'cal' },
+  // ── Vélo Assault ──
+  { name: 'Assault Bike',          eq: ['Vélo Assault'],      reps: [8,10,12,15,18,20], unit: 'cal' },
+];
+
+// ── Name & tip pools ──────────────────────────────────────────────────
+const WOD_NAMES: Record<string, string[]> = {
+  'AMRAP':    ['Iron Storm','Battle Circuit','Body Blaster','Grind Time','Engine Builder','Round Hunter','The Furnace','Assault Mode','Beast Mode','Rep City','The Forge','Full Throttle','Sweat Factory','Combat Engine','Endurance Machine'],
+  'For Time': ['Speed Demon','Grace Remix','Lightning Strike','Race Day','The Sprint','Time Crusher','Flash Point','Velocity','Quick & Dirty','The Eliminator','Fast Lane','Time Bomb','The Gauntlet','Blitz','Clock Breaker'],
+  'EMOM':     ['Minute Warrior','Clock Work','Tick Tock','The Metronome','Precision','Tempo Work','Clock Killer','Beat the Clock','Rhythm Machine','Minute Mastery','Interval Forge','Time Under Tension','On the Minute','Minute Grind','Tempo Storm'],
+  'Tabata':   ['Tabata Fury','Burn Notice','Maximum Output','Short Fuse','Tabata Storm','Explosive Intervals','Quick Burn','Afterburner','Inferno','Flash Burn','Tabata Thunder','Rapid Fire','Heat Wave','Meltdown','Ignition'],
+  'Max Reps': ['Peak Performance','Limit Breaker','All Out','Max Effort','No Ceiling','Beyond Limits','Full Send','The Wall','Capacity Test','Raw Power','Final Push','Red Zone','Absolute Max','Breaking Point','Last Man Standing'],
+};
+
+const WOD_TIPS: Record<string, string[]> = {
+  'AMRAP': [
+    'Garde un rythme constant. Évite de partir trop vite sur le 1er round.',
+    'Divise le WOD en séries gérables. Petites séries sans pause > gros sets avec longues pauses.',
+    'Regarde l\'horloge à chaque round. Si tu ralentis, simplifie les mouvements.',
+    'Les transitions entre mouvements sont clés — pas de temps mort.',
+    'Objectif : même rythme du round 1 au dernier. Régularité > vitesse.',
+    'Respire dans les mouvements cycliques. Expire à l\'effort.',
+    'Si tu casses, baisse les reps mais ne t\'arrête jamais.',
+    'Note ton score à chaque round pour tracker ta progression.',
+    'Commence par le mouvement le plus technique quand tu es frais.',
+    'Fixe-toi un objectif de rounds minimum avant de commencer.',
+  ],
+  'For Time': [
+    'Gère ton souffle sur les barres. Les transitions rapides font la différence.',
+    'Pars à 85%. Si tu te sens bien à mi-parcours, accélère.',
+    'Les rep schemes décroissants sont mentaux — chaque série est plus courte.',
+    'Fractionne les gros sets : 21 = 12+9 ou 7+7+7.',
+    'Visualise la fin. La dernière série est toujours la plus importante.',
+    'Hydrate-toi avant. Ce type de WOD est le plus cardio.',
+    'Pose la barre le moins possible. Chaque pause coûte 5-10 secondes.',
+    'Chrono visible. Savoir où tu en es mentalement aide à pousser.',
+    'Le For Time récompense la stratégie autant que la force.',
+    'Transitions rapides = secondes gagnées. Enchaîne sans hésiter.',
+  ],
+  'EMOM': [
+    'L\'objectif est de finir chaque minute avec du temps de repos.',
+    'Si tu ne finis pas dans la minute, baisse les reps de 2.',
+    'Cible 40-45s de travail par minute pour garder du repos.',
+    'L\'EMOM est parfait pour travailler la technique sous fatigue légère.',
+    'Reste régulier. Même reps, même tempo, chaque minute.',
+    'Utilise les 10-15s de repos pour te repositionner et respirer.',
+    'Alterne les groupes musculaires si possible pour mieux récupérer.',
+    'C\'est un format progressif — augmente les reps semaine après semaine.',
+    'Si c\'est trop facile, ajoute 2 reps. Trop dur, retire 2.',
+    'L\'EMOM te force à respecter le clock. Pas d\'excuse pour traîner.',
+  ],
+  'Tabata': [
+    'Chaque round de 20s doit être à 100%. Le repos de 10s est sacré.',
+    'Ne ralentis pas les derniers rounds. C\'est là que le Tabata fait effet.',
+    'Le Tabata est le roi du HIIT. Pousse comme un sprint de 4 minutes.',
+    'Compte tes reps à chaque round. Le score = la somme totale.',
+    'Les 2 derniers rounds sont les plus importants. C\'est là que tu progresses.',
+    'Respire pendant les 10s de repos — inspire par le nez, expire par la bouche.',
+    'Prépare ton espace. Pas de temps pour ajuster le matériel.',
+    'Technique avant vitesse. Même sous fatigue, garde la forme.',
+    'Le Tabata est court mais intense. Échauffement obligatoire.',
+    'Score minimum = reps du round le plus faible × 8.',
+  ],
+  'Max Reps': [
+    'Teste tes vraies limites. Pousse jusqu\'au bout.',
+    'Séries cassées autorisées. L\'objectif est le total, pas le non-stop.',
+    'Fractionne : 5-5-5-5 est mieux que 15 puis rien.',
+    'Garde 2-3 reps en réserve sur les premières séries.',
+    'Le mental fait 50% du travail sur un Max Reps.',
+    'Respire entre chaque rep si nécessaire. Chaque rep compte.',
+    'Stratégie : gros set initial, puis séries dégressives régulières.',
+    'Note ton score pour pouvoir le battre la prochaine fois.',
+    'Si tu utilises une barre, ne la lâche pas plus de 5 secondes.',
+    'Dernière minute = tout donner. Pas de regrets.',
+  ],
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function fmtMvt(m: Mvt, li: number): string {
+  const r = m.reps[li];
+  const u = m.unit ?? '';
+  const ld = m.load?.[li];
+  if (u === 'm')   return `${r}m ${m.name}`;
+  if (u === 'cal') return `${r} Cal ${m.name}`;
+  if (ld)          return `${r} ${m.name} (${ld} kg)`;
+  return `${r} ${m.name}`;
+}
+
+function fmtMvtLabel(m: Mvt, li: number): string {
+  const ld = m.load?.[li];
+  if (ld) return `${m.name} (${ld} kg)`;
+  return m.name;
+}
+
 function generateWOD(level: AthleteLevel, duration: number, type: WODType, equipment: string[]): GeneratedWOD {
-  const hasBarbell = equipment.includes('Barre + Disques');
-  const hasJumpRope = equipment.includes('Corde à sauter');
-  const hasBox = equipment.includes('Box');
+  const li = _LI[level];
   const noEquip = equipment.includes('Aucun matériel') || equipment.length === 0;
 
-  const wodsByType: Record<string, GeneratedWOD> = {
-    'AMRAP': {
-      title: noEquip ? 'Body Blaster' : hasBarbell ? 'Iron Storm' : 'Battle Circuit',
-      type: 'AMRAP',
-      duration,
-      level,
-      movements: noEquip
-        ? ['10 Burpees', '15 Air Squats', '20 Mountain Climbers', '10 Push-ups']
-        : hasBarbell
-        ? [`10 Hang Power Clean (${level === 'rx' ? '60' : level === 'scaled' ? '30' : '70'}kg)`, '15 Box Jumps', '20 Double Unders']
-        : ['12 Kettlebell Swings', '10 Box Jumps', '15 Push-ups'],
-      scoring: `Max rounds en ${duration} minutes`,
-      tip: 'Garde un rythme constant. Évite de partir trop vite sur le 1er round.',
-    },
-    'For Time': {
-      title: hasBarbell ? 'Grace Remix' : 'Speed Demon',
-      type: 'For Time',
-      duration,
-      level,
-      movements: hasBarbell
-        ? [`21-15-9 Thrusters (${level === 'scaled' ? '35' : '43'}kg)`, '21-15-9 Pull-ups']
-        : ['50 Burpees', '400m Course', '50 Air Squats'],
-      scoring: `Temps le plus court possible (cap ${duration} min)`,
-      tip: 'Gère ton souffle sur les barres. Les transitions rapides font la différence.',
-    },
-    'EMOM': {
-      title: 'Minute Warrior',
-      type: 'EMOM',
-      duration,
-      level,
-      movements: [
-        `Min 1 : 10 ${hasBarbell ? 'Deadlifts' : 'Burpees'}`,
-        `Min 2 : 15 ${hasBox ? 'Box Jumps' : 'Squats'}`,
-        `Min 3 : 20 ${hasJumpRope ? 'Double Unders' : 'Mountain Climbers'}`,
-      ],
-      scoring: 'Complète chaque minute. Score = rounds terminés.',
-      tip: "L'objectif est de finir chaque minute avec du temps de repos.",
-    },
-    'Tabata': {
-      title: 'Tabata Fury',
-      type: 'Tabata',
-      duration: 4,
-      level,
-      movements: [
-        '20s Burpees / 10s Repos × 8',
-        '20s Air Squats / 10s Repos × 8',
-        '20s Push-ups / 10s Repos × 8',
-      ],
-      scoring: 'Score = total de reps',
-      tip: "Chaque round de 20s doit être à 100%. Le repos de 10s est sacré.",
-    },
-    'Max Reps': {
-      title: 'Peak Performance',
-      type: 'Max Reps',
-      duration,
-      level,
-      movements: [
-        `Max Pull-ups en ${duration} min (sans lâcher)`,
-        hasBarbell ? `Max Clean & Jerk (${level === 'rx' ? '70' : '50'}kg)` : 'Max Burpees',
-      ],
-      scoring: 'Score = total de reps',
-      tip: 'Teste tes vraies limites. Pousse jusqu\'au bout.',
-    },
-  };
+  // Filter movements available for this level + equipment
+  const pool = MVTS.filter(m => {
+    if (m.reps[li] === 0) return false;
+    if (noEquip) return m.eq.length === 0;
+    return m.eq.every(e => equipment.includes(e));
+  });
 
-  return wodsByType[type] ?? wodsByType['AMRAP'];
+  const pick = (n: number) => spick(pool, Math.min(n, pool.length));
+  const title = srand(WOD_NAMES[type] ?? WOD_NAMES['AMRAP']);
+  const tip   = srand(WOD_TIPS[type]  ?? WOD_TIPS['AMRAP']);
+
+  let movements: string[] = [];
+  let scoring = '';
+
+  switch (type) {
+    case 'AMRAP': {
+      const count = duration <= 5 ? 3 : duration <= 10 ? srand([3,4]) : duration <= 15 ? srand([4,5]) : srand([4,5,6]);
+      movements = pick(count).map(m => fmtMvt(m, li));
+      scoring = `Max rounds en ${duration} min`;
+      break;
+    }
+    case 'For Time': {
+      const variant = srand(['descending','rft','chipper'] as const);
+      if (variant === 'descending') {
+        const scheme = srand(['21-15-9','15-12-9','12-9-6','10-8-6-4-2','15-10-5']);
+        const mvts = pick(srand([2,3]));
+        movements = [`${scheme} :`].concat(mvts.map(m => fmtMvtLabel(m, li)));
+        scoring = `${scheme} — Temps (cap ${duration} min)`;
+      } else if (variant === 'rft') {
+        const rounds = srand([3,4,5]);
+        const mvts = pick(srand([3,4]));
+        movements = [`${rounds} Rounds For Time :`].concat(mvts.map(m => fmtMvt(m, li)));
+        scoring = `${rounds} RFT — Temps (cap ${duration} min)`;
+      } else {
+        const mvts = pick(srand([5,6,7]));
+        movements = mvts.map(m => {
+          const mult = srand([2,3,4]);
+          const r = m.reps[li] * mult;
+          const u = m.unit ?? '';
+          const ld = m.load?.[li];
+          if (u === 'm')   return `${r}m ${m.name}`;
+          if (u === 'cal') return `${r} Cal ${m.name}`;
+          if (ld)          return `${r} ${m.name} (${ld} kg)`;
+          return `${r} ${m.name}`;
+        });
+        scoring = `Chipper — Temps (cap ${duration} min)`;
+      }
+      break;
+    }
+    case 'EMOM': {
+      const mins = duration <= 5 ? 2 : duration <= 10 ? srand([2,3]) : duration <= 15 ? srand([3,4]) : srand([4,5]);
+      const mvts = pick(mins);
+      movements = mvts.map((m, i) => `Min ${i + 1} : ${fmtMvt(m, li)}`);
+      scoring = `E${mins}MOM pendant ${duration} min — score = rounds complétés`;
+      break;
+    }
+    case 'Tabata': {
+      const count = srand([3,4,5]);
+      const mvts = pick(count);
+      movements = mvts.map(m => `20s ${m.name} / 10s Repos × 8`);
+      scoring = 'Score = total de reps sur tous les rounds';
+      break;
+    }
+    case 'Max Reps': {
+      const count = srand([1,2]);
+      const mvts = pick(count);
+      movements = mvts.map(m => {
+        const ld = m.load?.[li];
+        const suffix = ld ? ` (${ld} kg)` : '';
+        return `Max ${m.name}${suffix} en ${count === 1 ? duration : Math.floor(duration / count)} min`;
+      });
+      scoring = 'Score = total de reps';
+      break;
+    }
+  }
+
+  return { title, type, duration, level, movements, scoring, tip };
 }
 
 export default function WODGeneratorScreen() {
