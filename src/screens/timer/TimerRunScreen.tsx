@@ -10,8 +10,7 @@ import ViewShot from 'react-native-view-shot';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
-import type { AudioPlayer } from 'expo-audio';
+import { Audio } from 'expo-av';
 import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings, Youtube, Copy, ExternalLink } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -74,9 +73,8 @@ async function playTone(hz: number, ms: number, fadeOutMs = 20): Promise<void> {
     const wav  = buildMultiWAV([{ hz, ms, fadeInMs: 5, fadeOutMs }]);
     const path = (FileSystem.cacheDirectory ?? '') + `bwod_tone_${hz}_${ms}.wav`;
     await FileSystem.writeAsStringAsync(path, wav, { encoding: FileSystem.EncodingType.Base64 });
-    const player = createAudioPlayer({ uri: path });
-    player.play();
-    setTimeout(() => player.remove(), ms + 300);
+    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+    setTimeout(() => { sound.unloadAsync().catch(() => {}); }, ms + 500);
   } catch {}
 }
 
@@ -88,13 +86,6 @@ function playArmingSequence(): void {
   setTimeout(() => playTone(1000, 550, 40), 3000);
 }
 
-async function createBeepMulti(segs: WavSeg[], name: string): Promise<AudioPlayer | null> {
-  try {
-    const path = (FileSystem.cacheDirectory ?? '') + name;
-    await FileSystem.writeAsStringAsync(path, buildMultiWAV(segs), { encoding: FileSystem.EncodingType.Base64 });
-    return createAudioPlayer({ uri: path });
-  } catch { return null; }
-}
 
 // ─── Timer display options ─────────────────────────────────────────────────────
 type ClockStyle = 'arc' | 'bar' | 'digits';
@@ -332,10 +323,10 @@ export default function TimerRunScreen() {
   const cameraRef         = useRef<CameraView>(null);
   const recordingActiveRef = useRef(false);
   const soundReadyRef     = useRef(false);
-  const tickPoolRef       = useRef<AudioPlayer[]>([]);
-  const tickIdxRef        = useRef(0);
-  const sndGoRef          = useRef<AudioPlayer | null>(null);
-  const sndDoneRef        = useRef<AudioPlayer | null>(null);
+  const sndTickRef        = useRef<Audio.Sound[]>([]);
+  const sndTickIdxRef     = useRef(0);
+  const sndGoRef          = useRef<Audio.Sound | null>(null);
+  const sndDoneRef        = useRef<Audio.Sound | null>(null);
 
   const [displayOpts, setDisplayOptsRaw] = useState<TimerDisplayOpts>(DEFAULT_DISPLAY);
   const [showSettings, setShowSettings]  = useState(false);
@@ -366,7 +357,13 @@ export default function TimerRunScreen() {
       if (seqBlocksRef.current.length > 0) initSeqBlockByIdx(0);
     }
     async function setup() {
-      try { await setAudioModeAsync({ playsInSilentMode: true }); } catch {}
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+        });
+      } catch {}
       if (withCamera) {
         if (!camPermission?.granted) requestCamPermission();
         if (!micPermission?.granted) requestMicPermission();
@@ -385,20 +382,23 @@ export default function TimerRunScreen() {
           { silent: true, ms: 80 },
           { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
         ]), { encoding: FileSystem.EncodingType.Base64 });
-      // Pool de 3 players tick pré-chargés — gardés en vie toute la session
-      // (évite la désactivation de session audio iOS + latence Android)
-      for (let i = 0; i < 3; i++)
-        tickPoolRef.current.push(createAudioPlayer({ uri: cDir + 'bwod_tick.wav' }));
-      sndGoRef.current   = createAudioPlayer({ uri: cDir + 'bwod_go.wav' });
-      sndDoneRef.current = createAudioPlayer({ uri: cDir + 'bwod_done.wav' });
+      // Pool de 3 Audio.Sound tick pré-chargés (expo-av)
+      for (let i = 0; i < 3; i++) {
+        const { sound } = await Audio.Sound.createAsync({ uri: cDir + 'bwod_tick.wav' });
+        sndTickRef.current.push(sound);
+      }
+      const { sound: goSnd } = await Audio.Sound.createAsync({ uri: cDir + 'bwod_go.wav' });
+      sndGoRef.current = goSnd;
+      const { sound: doneSnd } = await Audio.Sound.createAsync({ uri: cDir + 'bwod_done.wav' });
+      sndDoneRef.current = doneSnd;
       soundReadyRef.current = true;
     }
     setup();
     return () => {
-      tickPoolRef.current.forEach(p => { try { p.remove(); } catch {} });
-      tickPoolRef.current = [];
-      try { sndGoRef.current?.remove(); } catch {}
-      try { sndDoneRef.current?.remove(); } catch {}
+      sndTickRef.current.forEach(s => { s.unloadAsync().catch(() => {}); });
+      sndTickRef.current = [];
+      sndGoRef.current?.unloadAsync().catch(() => {});
+      sndDoneRef.current?.unloadAsync().catch(() => {});
     };
   }, []);
 
@@ -420,13 +420,13 @@ export default function TimerRunScreen() {
     if (!displayOptsRef.current.bipsEnabled || !soundReadyRef.current) return;
     try {
       if (type === 'tick') {
-        const p = tickPoolRef.current[tickIdxRef.current % 3];
-        tickIdxRef.current++;
-        p.seekTo(0); p.play();
+        const s = sndTickRef.current[sndTickIdxRef.current % 3];
+        sndTickIdxRef.current++;
+        s?.replayAsync();
       } else if (type === 'go') {
-        sndGoRef.current?.seekTo(0); sndGoRef.current?.play();
+        sndGoRef.current?.replayAsync();
       } else {
-        sndDoneRef.current?.seekTo(0); sndDoneRef.current?.play();
+        sndDoneRef.current?.replayAsync();
       }
     } catch {}
   }
