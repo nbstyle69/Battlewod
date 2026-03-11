@@ -326,7 +326,7 @@ export default function TimerRunScreen() {
   const intervalRef       = useRef<ReturnType<typeof setInterval> | null>(null);
   const cameraRef         = useRef<CameraView>(null);
   const recordingActiveRef = useRef(false);
-  const soundsRef         = useRef<{ tick: AudioPlayer | null; go: AudioPlayer | null; done: AudioPlayer | null }>({ tick: null, go: null, done: null });
+  const soundReadyRef     = useRef(false);
 
   const [displayOpts, setDisplayOptsRaw] = useState<TimerDisplayOpts>(DEFAULT_DISPLAY);
   const [showSettings, setShowSettings]  = useState(false);
@@ -363,22 +363,23 @@ export default function TimerRunScreen() {
         if (!micPermission?.granted) requestMicPermission();
         if (!mediaPermission?.granted) requestMediaPermission();
       }
-      soundsRef.current.tick = await createBeepMulti([
-        { hz: 860, ms: 150, fadeInMs: 5, fadeOutMs: 20 },
-      ], 'bwod_tick.wav');
-
-      soundsRef.current.go = await createBeepMulti([
-        { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
-      ], 'bwod_go.wav');
-
-      soundsRef.current.done = await createBeepMulti([
-        { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
-        { silent: true, ms: 80 },
-        { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
-      ], 'bwod_done.wav');
+      const cDir = FileSystem.cacheDirectory ?? '';
+      await FileSystem.writeAsStringAsync(cDir + 'bwod_tick.wav',
+        buildMultiWAV([{ hz: 860, ms: 150, fadeInMs: 5, fadeOutMs: 20 }]),
+        { encoding: FileSystem.EncodingType.Base64 });
+      await FileSystem.writeAsStringAsync(cDir + 'bwod_go.wav',
+        buildMultiWAV([{ hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 }]),
+        { encoding: FileSystem.EncodingType.Base64 });
+      await FileSystem.writeAsStringAsync(cDir + 'bwod_done.wav',
+        buildMultiWAV([
+          { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
+          { silent: true, ms: 80 },
+          { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
+        ]), { encoding: FileSystem.EncodingType.Base64 });
+      soundReadyRef.current = true;
     }
     setup();
-    return () => { soundsRef.current.tick?.remove(); soundsRef.current.go?.remove(); soundsRef.current.done?.remove(); };
+    return () => {};
   }, []);
 
   useEffect(() => {
@@ -395,8 +396,16 @@ export default function TimerRunScreen() {
     });
   }
 
-  async function playBeep(type: 'tick' | 'go' | 'done') {
-    try { if (!displayOptsRef.current.bipsEnabled) return; const snd = soundsRef.current[type]; if (snd) { snd.seekTo(0); snd.play(); } } catch {}
+  function playBeep(type: 'tick' | 'go' | 'done') {
+    try {
+      if (!displayOptsRef.current.bipsEnabled || !soundReadyRef.current) return;
+      const cDir = FileSystem.cacheDirectory ?? '';
+      const path = cDir + (type === 'tick' ? 'bwod_tick.wav' : type === 'go' ? 'bwod_go.wav' : 'bwod_done.wav');
+      const p = createAudioPlayer({ uri: path });
+      p.play();
+      const ttl = type === 'done' ? 1500 : type === 'go' ? 700 : 350;
+      setTimeout(() => { try { p.remove(); } catch {} }, ttl);
+    } catch {}
   }
 
   function stopAndSave() {
