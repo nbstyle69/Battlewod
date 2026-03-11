@@ -20,7 +20,7 @@ const LEVELS: { key: LK; label: string }[] = [
   { key: 'gx', label: 'Elite' }, { key: 'pro', label: 'Pro' },
 ];
 const LI: Record<LK, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, gx: 4, pro: 5 };
-const FORMATS = ['Solo', 'Équipe'];
+const FORMATS = ['Solo', 'Équipe 2', 'Équipe 3', 'Équipe 4', 'Équipe 6'];
 
 const HYROX_LEVELS = ['Open', 'Pro', 'Elite'];
 const HYROX_FORMATS = ['Solo', 'Doubles', 'Relais', 'Mixed Relais'];
@@ -209,7 +209,7 @@ const EQ_LIST = [
   { key: 'jr', label: 'Corde' }, { key: 'pb', label: 'Barre traction' },
   { key: 'ri', label: 'Anneaux' }, { key: 'erg', label: 'Erg' },
   { key: 'mb', label: 'Med Ball' }, { key: 'wm', label: 'Worm' },
-  { key: 'bw', label: 'Sans matériel' },
+  { key: 'bm', label: 'Benchmark' }, { key: 'bw', label: 'Sans matériel' },
 ];
 
 interface GeneratedWOD {
@@ -222,52 +222,96 @@ const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
   bb: [
     { mv: 'Clean & Jerks', scale: ['30/20','43/30','60/43','70/48','80/55','102/70'] },
     { mv: 'Power Cleans', scale: ['40/28','50/35','60/43','70/48','80/55','90/63'] },
+    { mv: 'Cleans', scale: ['35/25','45/32','60/43','70/48','80/55','90/63'] },
+    { mv: 'Squat Cleans', scale: ['35/25','45/32','60/43','70/48','80/55','90/63'] },
+    { mv: 'Hang Cleans', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
+    { mv: 'Hang Squat Cleans', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
+    { mv: 'Hang Power Cleans', scale: ['35/25','45/32','60/43','70/48','80/55','90/63'] },
+    { mv: 'Hang Clean & Jerks', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
+    { mv: 'Hang Squat Clean & Jerks', scale: ['','30/20','43/30','50/35','60/42','70/48'] },
     { mv: 'Thrusters', scale: ['30/20','40/28','43/30','50/35','60/42','70/48'] },
+    { mv: 'Clusters', scale: ['30/20','35/25','43/30','50/35','60/42','70/48'] },
     { mv: 'Deadlifts', scale: ['70/50','100/70','120/80','140/95','160/110','180/120'] },
     { mv: 'Snatches', scale: ['20/15','35/25','50/35','60/42','70/50','85/60'] },
+    { mv: 'Power Snatches', scale: ['20/15','35/25','50/35','60/42','70/50','85/60'] },
+    { mv: 'Squat Snatches', scale: ['','25/18','40/28','50/35','60/42','70/48'] },
+    { mv: 'Hang Snatches', scale: ['','25/18','35/25','43/30','50/35','60/42'] },
     { mv: 'Front Squats', scale: ['40/28','55/38','70/48','85/58','100/68','120/80'] },
+    { mv: 'Back Squats', scale: ['50/35','60/42','70/48','85/58','100/68','120/80'] },
+    { mv: 'OHS', scale: ['20/15','35/25','50/35','60/42','70/48','80/55'] },
     { mv: 'Push Press', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
     { mv: 'Push Jerks', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
-    { mv: 'Hang Power Cleans', scale: ['35/25','45/32','60/43','70/48','80/55','90/63'] },
-    { mv: 'OHS', scale: ['20/15','35/25','50/35','60/42','70/48','80/55'] },
+    { mv: 'Strict Press', scale: ['20/15','30/20','40/28','50/35','55/38','60/42'] },
+    { mv: 'Shoulder to OH', scale: ['25/18','35/25','45/32','55/38','65/45','75/50'] },
+    { mv: 'Sumo Deadlift HP', scale: ['25/18','30/20','35/25','40/28','50/35','55/38'] },
+    { mv: 'Burpee Over Bar', scale: ['—','—','—','—','—','—'] },
+    { mv: 'Bar Facing Burpees', scale: ['—','—','—','—','—','—'] },
   ],
   db: [
     { mv: 'DB Thrusters', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
     { mv: 'DB Snatches alt.', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
+    { mv: 'DB Hang Snatches', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
+    { mv: 'DB Squat Snatches', scale: ['','10/7','12/8','15/10','20/14','22/15'] },
     { mv: "Devil's Press", scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Clean & Press', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
+    { mv: 'DB Clean & Jerks', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
+    { mv: 'DB Hang Clean & Jerks', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
     { mv: 'DB Deadlifts', scale: ['15/10','20/14','25/17','30/20','35/22','40/27'] },
-    { mv: 'DB Lunges (kg/main)', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Rows (kg/main)', scale: ['12/8','17/12','22/15','25/17','28/20','32/22'] },
+    { mv: 'DB Lunges', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
+    { mv: 'DB Walking Lunges', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
+    { mv: 'DB OH Walking Lunges', scale: ['10/7','12/8','15/10','17/12','20/14','22/15'] },
+    { mv: 'DB Push Press', scale: ['10/7','12/8','15/10','17/12','20/14','22/15'] },
+    { mv: 'DB Farmer Carry (m)', scale: ['25','25','50','50','50','75'] },
+    { mv: 'Burpee Over DB', scale: ['—','—','—','—','—','—'] },
+    { mv: 'DB Step-ups', scale: ['10/7','12/8','15/10','17/12','20/14','22/15'] },
   ],
   kb: [
     { mv: 'KB Swings', scale: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
     { mv: 'Goblet Squats', scale: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
     { mv: 'KB Cleans alt.', scale: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
     { mv: 'KB Snatches alt.', scale: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
+    { mv: 'KB Clean & Jerks', scale: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+    { mv: 'KB Shoulder to OH', scale: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+    { mv: 'KB Clean & Press', scale: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+    { mv: 'Double KB Snatches', scale: ['','12/8','16/12','20/16','24/16','28/20'] },
+    { mv: 'Double KB Cleans', scale: ['','12/8','16/12','20/16','24/16','28/20'] },
+    { mv: 'Double KB Clean & Jerks', scale: ['','12/8','16/12','20/16','24/16','28/20'] },
+    { mv: 'KB OH Squats', scale: ['','12/8','16/12','20/16','24/16','28/20'] },
+    { mv: 'Double KB OH Squats', scale: ['','','12/8','16/12','20/16','24/16'] },
     { mv: 'Turkish Get-ups alt.', scale: ['10/8','14/10','16/12','20/14','24/16','28/20'] },
-    { mv: 'KB Press alt.', scale: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+    { mv: 'KB Thrusters', scale: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+    { mv: 'KB Farmer Carry (m)', scale: ['25','25','50','50','50','75'] },
+    { mv: 'KB Walking Lunges', scale: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+    { mv: 'KB OH Walking Lunges', scale: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
   ],
   bx: [
     { mv: 'Box Jumps', scale: ['50cm','50cm','61cm','61cm','76cm','76cm'] },
+    { mv: 'Box Jump Overs', scale: ['50cm','50cm','61cm','61cm','76cm','76cm'] },
     { mv: 'Box Step-ups', scale: ['50cm','50cm','61cm','61cm','76cm','76cm'] },
-    { mv: 'Depth Jumps', scale: ['40cm','50cm','50cm','61cm','61cm','76cm'] },
+    { mv: 'Box Jump Step-overs', scale: ['50cm','50cm','61cm','61cm','76cm','76cm'] },
+    { mv: 'Burpee Box Jumps', scale: ['50cm','50cm','61cm','61cm','76cm','76cm'] },
+    { mv: 'Burpee Box Jump Overs', scale: ['50cm','50cm','61cm','61cm','76cm','76cm'] },
   ],
   jr: [
     { mv: 'Double Unders', scale: ['×3 SU','×2 SU','DU','DU','DU (TU modif)','Triple Unders'] },
     { mv: 'Single Unders', scale: ['SU','SU','SU','DU','DU','DU'] },
+    { mv: 'Cross Overs', scale: ['—','—','CO','CO','CO','CO'] },
+    { mv: 'Double Cross Overs', scale: ['—','—','—','DCO','DCO','DCO'] },
   ],
   pb: [
     { mv: 'Pull-ups', scale: ['Ring Rows','Australian PU','Pull-ups','C2B','C2B stricts','Bar MU'] },
     { mv: 'Toes to Bar', scale: ['K2E','K2C','T2B','T2B','T2B','T2B'] },
+    { mv: 'Knees to Elbows', scale: ['K2E','K2E','K2E','T2B','T2B','T2B'] },
     { mv: 'HSPU', scale: ['Pike PU','HSPU modif','HSPU modif','HSPU','HSPU stricts','HSPU stricts'] },
     { mv: 'Kipping Pull-ups', scale: ['Ring Rows','Australian PU','Kipping PU','C2B','C2B','BMU'] },
+    { mv: 'Bar Muscle-ups', scale: ['—','—','—','BMU modif','BMU','BMU'] },
+    { mv: 'Pull-Overs', scale: ['—','Pull-Over modif','Pull-Overs','Pull-Overs','Pull-Overs','Pull-Overs'] },
   ],
   ri: [
     { mv: 'Ring Dips', scale: ['Ring Dip modif','Ring Dip modif','Ring Dips','Ring Dips','Ring Dips stricts','Ring Dips stricts'] },
     { mv: 'Muscle-ups', scale: ['Ring Rows+Dips','Ring Rows+Dips','MU modif','MU modif','Muscle-ups','Muscle-ups'] },
     { mv: 'Ring Push-ups', scale: ['Ring PU genoux','Ring PU','Ring PU','Ring PU élargis','Ring PU + pause','Archer Ring PU'] },
     { mv: 'Ring Rows', scale: ['Incliné 45°','Horizontal','Horizontal','Pieds surélevés','Pieds surélevés+pause','Archer Ring Row'] },
+    { mv: 'Toes to Rings', scale: ['—','K2R','T2R','T2R','T2R','T2R'] },
   ],
   erg: [
     { mv: 'Cal Rameur', scale: ['10','12','15','18','20','25'] },
@@ -280,15 +324,66 @@ const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
     { mv: 'MB Slams kg', scale: ['6','8','9','10','12','14'] },
     { mv: 'MB Cleans kg', scale: ['6/4','7/5','9/6','10/7','12/9','14/10'] },
   ],
+  wm: [
+    { mv: 'Worm Clean & Jerks', scale: ['35','35','75','75','110','110'] },
+    { mv: 'Worm Squats', scale: ['35','35','75','75','110','110'] },
+    { mv: 'Worm Lunges', scale: ['35','35','75','75','110','110'] },
+  ],
   bw: [
     { mv: 'Burpees', scale: ['step-out','classiques','classiques','saut haut','saut + clap','explosifs'] },
+    { mv: 'Down Ups', scale: ['×1','×1','×1','×1','×1','×1'] },
     { mv: 'Air Squats', scale: ['×1','×1','×1','×1.2','×1.5','×2'] },
     { mv: 'Push-ups', scale: ['genoux','classiques','classiques','wide+narrow','diamond','archer'] },
     { mv: 'Sit-ups', scale: ['×1','×1','×1','V-ups','V-ups','Hollow rocks'] },
     { mv: 'Lunges alt.', scale: ['×1','×1','×1','walking','jumping','jumping'] },
     { mv: 'Mountain Climbers', scale: ['lents','lents','normaux','normaux','rapides','rapides'] },
+    { mv: 'Pistol Squats', scale: ['—','—','assistés','Pistols','Pistols','Pistols'] },
+    { mv: 'Handstand Push-ups', scale: ['—','—','—','HSPU modif','HSPU','HSPU stricts'] },
+    { mv: 'Wall Walks', scale: ['—','partiels','Wall Walks','Wall Walks','Wall Walks','Wall Walks'] },
+    { mv: 'Broad Jumps', scale: ['×1','×1','×1','×1','×1','×1'] },
+    { mv: 'Hollow Rocks', scale: ['×1','×1','×1','×1','×1','×1'] },
+    { mv: 'Bear Crawl (m)', scale: ['10','10','15','15','20','20'] },
+    { mv: 'Shuttle Run (×7.62m)', scale: ['2','2','4','4','6','6'] },
+    { mv: 'V-ups', scale: ['×1','×1','×1','×1','×1','×1'] },
   ],
 };
+
+// ── Benchmark WODs (Hero + Girl + Open) ───────────────────────────────
+interface BenchmarkWOD { title: string; cat: string; moves: string[]; scoring: string; tip: string }
+const BENCHMARKS: BenchmarkWOD[] = [
+  { title:'Fran', cat:'Girl', moves:['21-15-9 :','Thrusters (43 kg)','Pull-ups'], scoring:'For Time', tip:'Fractionne les séries si besoin : 12+9 / 8+7 / 5+4.' },
+  { title:'Grace', cat:'Girl', moves:['30 Clean & Jerk (60 kg)'], scoring:'For Time', tip:'Singles ou touch-and-go ? Trouve ton rythme et tiens-le.' },
+  { title:'Helen', cat:'Girl', moves:['3 Rounds For Time :','400m Course','21 KB Swings (24 kg)','12 Pull-ups'], scoring:'For Time', tip:'La course te prépare, les KB te fatiguent, les pull-ups te finissent.' },
+  { title:'Diane', cat:'Girl', moves:['21-15-9 :','Deadlifts (100 kg)','Handstand Push-ups'], scoring:'For Time', tip:'Les HSPU sont le bottleneck. Gère ta fatigue d\'épaule.' },
+  { title:'Elizabeth', cat:'Girl', moves:['21-15-9 :','Cleans (60 kg)','Ring Dips'], scoring:'For Time', tip:'Les cleans lourds fatiguent les bras pour les dips.' },
+  { title:'Amanda', cat:'Girl', moves:['9-7-5 :','Ring Muscle-ups','Squat Snatches (60 kg)'], scoring:'For Time', tip:'Chaque rep compte. Qualité avant vitesse.' },
+  { title:'Annie', cat:'Girl', moves:['50-40-30-20-10 :','Double Unders','Sit-ups'], scoring:'For Time', tip:'Les DU sont la clé. Si tu casses, calme-toi et repars.' },
+  { title:'Barbara', cat:'Girl', moves:['5 Rounds (3 min repos) :','20 Pull-ups','30 Push-ups','40 Sit-ups','50 Air Squats'], scoring:'For Time', tip:'Chaque round doit être constant.' },
+  { title:'Cindy', cat:'Girl', moves:['AMRAP 20 min :','5 Pull-ups','10 Push-ups','15 Air Squats'], scoring:'Max rounds', tip:'Rythme constant. Objectif : 20+ rounds pour RX.' },
+  { title:'DT', cat:'Girl', moves:['5 Rounds For Time :','12 Deadlifts (70 kg)','9 Hang Cleans (70 kg)','6 Push Jerks (70 kg)'], scoring:'For Time', tip:'Ne lâche pas la barre. Touch-and-go si possible.' },
+  { title:'Isabel', cat:'Girl', moves:['30 Snatches (60 kg)'], scoring:'For Time', tip:'Singles rapides ou séries de 3. Pas de repos > 5s.' },
+  { title:'Jackie', cat:'Girl', moves:['For Time :','1000m Row','50 Thrusters (20 kg)','30 Pull-ups'], scoring:'For Time', tip:'Le row est ta mise en route. Explose sur les thrusters.' },
+  { title:'Karen', cat:'Girl', moves:['150 Wall Balls (9 kg)'], scoring:'For Time', tip:'Séries de 25 minimum. Ne pose pas le ballon plus de 3s.' },
+  { title:'Kelly', cat:'Girl', moves:['5 Rounds For Time :','400m Course','30 Box Jumps','30 Wall Balls (9 kg)'], scoring:'For Time', tip:'Long WOD. Gère ton allure dès le départ.' },
+  { title:'Mary', cat:'Girl', moves:['AMRAP 20 min :','5 HSPU','10 Pistol Squats','15 Pull-ups'], scoring:'Max rounds', tip:'La technique prime.' },
+  { title:'Nancy', cat:'Girl', moves:['5 Rounds For Time :','400m Course','15 OHS (43 kg)'], scoring:'For Time', tip:'Les OHS après la course sont brutaux.' },
+  { title:'Murph', cat:'Hero', moves:['For Time (gilet 9 kg) :','1 Mile Course','100 Pull-ups','200 Push-ups','300 Air Squats','1 Mile Course'], scoring:'For Time', tip:'Partition : 20×(5 PU + 10 PU + 15 SQ).' },
+  { title:'Nate', cat:'Hero', moves:['AMRAP 20 min :','2 Muscle-ups','4 HSPU','8 KB Swings (24 kg)'], scoring:'Max rounds', tip:'WOD technique. Les MU sont le limitant.' },
+  { title:'Randy', cat:'Hero', moves:['75 Power Snatches (34 kg)'], scoring:'For Time', tip:'Touch-and-go par séries de 10-15.' },
+  { title:'JT', cat:'Hero', moves:['21-15-9 :','HSPU','Ring Dips','Push-ups'], scoring:'For Time', tip:'Tout en poussée. Gère tes épaules.' },
+  { title:'Badger', cat:'Hero', moves:['3 Rounds For Time :','30 Squat Cleans (43 kg)','30 Pull-ups','800m Course'], scoring:'For Time', tip:'Long et lourd. Fractionne les cleans en 5×6.' },
+  { title:'Loredo', cat:'Hero', moves:['6 Rounds For Time :','24 Air Squats','24 Push-ups','24 Walking Lunges','400m Course'], scoring:'For Time', tip:'Bodyweight pur. Rythme régulier.' },
+  { title:'Ryan', cat:'Hero', moves:['5 Rounds For Time :','7 Muscle-ups','21 Burpees'], scoring:'For Time', tip:'Les MU sont la clé. Séries de 3-4 max.' },
+  { title:'Open 14.5', cat:'Open', moves:['21-18-15-12-9-6-3 :','Thrusters (43 kg)','Burpees'], scoring:'For Time', tip:'Classique. Fractionne les thrusters.' },
+  { title:'Open 15.5', cat:'Open', moves:['27-21-15-9 :','Row (Cal)','Thrusters (43 kg)'], scoring:'For Time', tip:'Le rameur monte vite en cal.' },
+  { title:'Open 17.5', cat:'Open', moves:['10 Rounds For Time :','9 Thrusters (43 kg)','35 Double Unders'], scoring:'For Time', tip:'Thrusters en unbroken ou 5+4.' },
+  { title:'Open 18.1', cat:'Open', moves:['AMRAP 20 min :','8 T2B','10 DB Hang C&J (22.5 kg)','14 Cal Row'], scoring:'Max rounds', tip:'Long AMRAP. Rythme et transitions.' },
+  { title:'Open 20.1', cat:'Open', moves:['10 Rounds For Time :','8 Ground to OH (61 kg)','10 Bar Facing Burpees'], scoring:'For Time (cap 15 min)', tip:'G2O en singles propres.' },
+  { title:'Open 22.1', cat:'Open', moves:['AMRAP 15 min :','3 Wall Walks','12 DB Snatches (22.5 kg)','15 Box Jump-Overs'], scoring:'Max rounds', tip:'Wall Walks = technique. DB snatches alternés.' },
+  { title:'Open 23.1', cat:'Open', moves:['AMRAP 14 min :','60 Cal Row','50 T2B','40 Wall Balls (9 kg)','30 Cleans (60 kg)','20 Muscle-ups'], scoring:'Max reps', tip:'Commence fort sur le row. Les MU sont le bonus.' },
+  { title:'Open 24.1', cat:'Open', moves:['AMRAP 15 min (poids croissant) :','21/15 Cal Row','15 Deadlifts','9 SDHP','6 Cleans'], scoring:'Max rounds', tip:'Le poids augmente à chaque round.' },
+  { title:'Open 24.2', cat:'Open', moves:['AMRAP 20 min :','300m Shuttle Run','10 Clean & Jerk (60 kg)','30 T2B'], scoring:'Max rounds', tip:'La course est longue. Les C&J doivent être efficaces.' },
+];
 
 // WOD name pools
 const NAMES_FT = ['Iron Fist','Steel Storm','War Machine','Fire Breather','The Crusher','Ground Zero','Battle Cry','Death March','Full Send','Red Line','Forge','Inferno','Relentless','Last Stand','No Mercy'];
@@ -307,12 +402,36 @@ function pick<T>(arr: T[], n: number): T[] {
   return result;
 }
 
-function getMoves(eqKeys: string[]): Array<{ mv: string; scale: string[] }> {
+function getMoves(eqKeys: string[], li: number): Array<{ mv: string; scale: string[] }> {
   const active = eqKeys.includes('bw') || eqKeys.length === 0 ? ['bw', ...eqKeys] : eqKeys;
   const pool: Array<{ mv: string; scale: string[] }> = [];
   active.forEach(k => { if (MOVES[k]) pool.push(...MOVES[k]); });
   if (pool.length === 0) pool.push(...MOVES['bw']);
-  return pool;
+  // Filter out moves unavailable at this level (empty or '—' scale)
+  return pool.filter(m => m.scale[li] !== '' && m.scale[li] !== '—');
+}
+
+function getMovesForced(eqKeys: string[], li: number, count: number): Array<{ mv: string; scale: string[] }> {
+  const realKeys = eqKeys.filter(k => k !== 'bw' && k !== 'bm');
+  const pool = getMoves(eqKeys, li);
+  // Force at least one movement per selected equipment category
+  const forced: Array<{ mv: string; scale: string[] }> = [];
+  for (const k of realKeys) {
+    if (!MOVES[k]) continue;
+    const available = MOVES[k].filter(m => m.scale[li] !== '' && m.scale[li] !== '—' && !forced.includes(m));
+    if (available.length > 0) forced.push(rand(available));
+  }
+  // Fill remaining slots from general pool
+  const needed = Math.max(0, count - forced.length);
+  const remaining = pool.filter(m => !forced.includes(m));
+  const extra = pick(remaining, Math.min(needed, remaining.length));
+  const result = [...forced, ...extra];
+  // Shuffle
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result.slice(0, count);
 }
 
 function fmtName(mv: { mv: string; scale: string[] }, li: number): string {
@@ -368,41 +487,53 @@ function fmt(mv: { mv: string; scale: string[] }, reps: number, li: number): str
 
 function generateWOD(level: LK, format: string, duration: number, type: WODType, eqKeys: string[]): GeneratedWOD {
   const li = LI[level];
-  const pool = getMoves(eqKeys);
-  const isTeam = format === 'Équipe';
+  const isTeam = format !== 'Solo';
+  const teamN = isTeam ? parseInt(format.replace(/\D/g, '')) || 2 : 1;
+
+  // ── Benchmark mode ──
+  if (eqKeys.includes('bm')) {
+    const bm = rand(BENCHMARKS);
+    return {
+      name: bm.title, type: 'For Time' as WODType, duration: 0, level,
+      movements: bm.moves.join('\n'),
+      scoring: `${bm.scoring} — ${bm.cat} WOD`,
+      coach: bm.tip,
+      teamNote: isTeam ? `Équipe de ${teamN} : alternance par round ou YGIG.` : undefined,
+    };
+  }
 
   let name = '', movements = '', scoring = '', coach = '', teamNote = '';
 
   if (type === 'For Time') {
     name = rand(NAMES_FT);
     const rounds = duration <= 5 ? 1 : duration <= 10 ? 3 : duration <= 15 ? 4 : duration <= 20 ? 5 : 7;
-    const mvs = pick(pool, rounds <= 1 ? 2 : 3);
+    const mvs = getMovesForced(eqKeys, li, rounds <= 1 ? 2 : 3);
     const baseReps = [21, 15, 9];
     if (rounds === 1) {
       movements = mvs.map((m, i) => `${fmt(m, scaleReps(baseReps[i] ?? 15, li), li)}`).join('\n');
-      scoring = `${mvs[0].mv === 'C&J' ? '30-15-9' : '21-15-9'} — Temps le plus court (cap ${duration} min)`;
+      scoring = `21-15-9 — Temps le plus court (cap ${duration} min)`;
     } else {
       movements = `${rounds} rounds :\n` + mvs.map(m => `  ${fmt(m, scaleReps(15, li), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min)`;
     }
     coach = 'Gère ton effort : les 2 premiers rounds doivent sembler faciles.';
-    teamNote = isTeam ? 'Alternance par round. Un travaille, un récupère.' : '';
+    teamNote = isTeam ? `Équipe de ${teamN} : alternance par round.` : '';
   }
 
   else if (type === 'AMRAP') {
     name = rand(NAMES_AM);
-    const mvs = pick(pool, 3);
+    const mvs = getMovesForced(eqKeys, li, 3);
     const baseReps = [10, 15, 20];
     movements = `AMRAP ${duration} min :\n` + mvs.map((m, i) => `  ${fmt(m, scaleReps(baseReps[i], li), li)}`).join('\n');
     scoring = `Max rounds + reps en ${duration} min`;
     coach = 'Trouve UN rythme et tiens-le. Évite le sprint initial.';
-    teamNote = isTeam ? 'Score = rounds d\'équipe. Alternance complète par round.' : '';
+    teamNote = isTeam ? `Équipe de ${teamN} : score commun. Alternance complète par round.` : '';
   }
 
   else if (type === 'EMOM') {
     name = rand(NAMES_EM);
     const mins = Math.min(duration, 6);
-    const mvs = pick(pool, Math.min(mins, 3));
+    const mvs = getMovesForced(eqKeys, li, Math.min(mins, 3));
     const lines: string[] = [];
     for (let i = 0; i < mins; i++) {
       const m = mvs[i % mvs.length];
@@ -412,27 +543,28 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
     movements = `EMOM ${duration} min :\n` + lines.join('\n');
     scoring = `Score = rounds complétés`;
     coach = 'Finis chaque minute avec au moins 15s de repos.';
-    teamNote = isTeam ? 'A fait les minutes impaires, B les paires.' : '';
+    teamNote = isTeam ? `Équipe de ${teamN} : A fait min impaires, B min paires${teamN > 2 ? ', C min 3,6,9...' : ''}.` : '';
   }
 
   else if (type === 'Tabata') {
     name = rand(NAMES_TB);
     const count = Math.max(1, Math.floor(duration / 4));
-    const mvs = pick(pool, count);
+    const mvs = getMovesForced(eqKeys, li, count);
     movements = `Tabata ${duration} min (${count} mouv.):\n` + mvs.map(m => `  8×20s ${fmtName(m, li)} / 10s repos`).join('\n');
     scoring = 'Score = min de reps sur un round (par mouvement)';
     coach = 'Maintiens le même nombre de reps à chaque round des 8.';
-    teamNote = isTeam ? 'Score collectif = somme des reps de tous les athlètes.' : '';
+    teamNote = isTeam ? `Équipe de ${teamN} : score collectif = somme des reps.` : '';
   }
 
   else {
     name = rand(NAMES_MR);
+    const pool = getMoves(eqKeys, li);
     const m = rand(pool);
     const maxReps = scaleReps(10, li);
     movements = `Max reps en ${duration} min :\n  ${fmtName(m, li)}`;
     scoring = `Score = total de reps (${maxReps} reps/set conseillé, repos 15s max)`;
     coach = 'Sets réguliers. Repos jamais > 20s. Pousse jusqu\'au bout.';
-    teamNote = isTeam ? 'Score = somme des reps de l\'équipe. Alternance toutes les 30s.' : '';
+    teamNote = isTeam ? `Équipe de ${teamN} : score = somme des reps. Alternance toutes les 30s.` : '';
   }
 
   return { name, type, duration, level, movements, scoring, coach, teamNote: isTeam ? teamNote : undefined };
@@ -464,9 +596,11 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
 
   function toggleEq(k: string) {
     if (k === 'bw') { setEquipment(['bw']); return; }
+    if (k === 'bm') { setEquipment(['bm']); return; }
     setEquipment(prev => {
-      const without = prev.filter(e => e !== 'bw');
-      return without.includes(k) ? without.filter(e => e !== k) || ['bw'] : [...without, k];
+      const without = prev.filter(e => e !== 'bw' && e !== 'bm');
+      const next = without.includes(k) ? without.filter(e => e !== k) : [...without, k];
+      return next.length === 0 ? ['bw'] : next;
     });
   }
 
@@ -517,7 +651,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           onPress={() => setSport('hybrid')} activeOpacity={0.8}
         >
           <Text style={s.sportEmoji}>⚡</Text>
-          <Text style={[s.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>{"Hybrid\n(Hyrox)"}</Text>
+          <Text style={[s.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>Hybrid</Text>
           {sport === 'hybrid' && <View style={[s.sportDot, { backgroundColor: HYROX_ORANGE }]} />}
         </TouchableOpacity>
       </View>
@@ -536,7 +670,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
 
       {/* Format */}
       <Text style={s.optLabel}>FORMAT</Text>
-      <View style={s.chipRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
         {FORMATS.map(f => (
           <TouchableOpacity key={f} onPress={() => setFormat(f)} activeOpacity={0.7}
             style={[s.chip, format === f && s.chipSel]}>
@@ -544,7 +678,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             <Text style={[s.chipTxt, format === f && s.chipTxtSel]}>{f}</Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {/* Duration */}
       <Text style={s.optLabel}>DURÉE</Text>
