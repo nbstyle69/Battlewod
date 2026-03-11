@@ -82,13 +82,13 @@ export default function TournamentScreen() {
     setWods((tw ?? []) as TournamentWOD[]);
 
     // Merge server result with local cache (handles RLS SELECT blocks)
-    const cacheKey = `@thehub:registered:${tournamentId}`;
+    const cacheKey = `@thehub:registered:${user?.id}:${tournamentId}`;
     const cached   = await AsyncStorage.getItem(cacheKey);
     const registered = !!myReg || cached === 'true';
     setIsRegistered(registered);
     // Keep cache in sync with server
-    if (myReg)              await AsyncStorage.setItem(cacheKey, 'true');
-    else if (!cached)       await AsyncStorage.removeItem(cacheKey);
+    if (myReg)   await AsyncStorage.setItem(cacheKey, 'true');
+    else if (!myReg && !registered) await AsyncStorage.removeItem(cacheKey);
 
     // ── Separate profile fetch to bypass FK ambiguity ──────────────────────
     const participantList = tp ?? [];
@@ -145,7 +145,7 @@ export default function TournamentScreen() {
         return;
       }
       // Persist registration locally so cold-restart survives RLS
-      await AsyncStorage.setItem(`@thehub:registered:${tournamentId}`, 'true');
+      await AsyncStorage.setItem(`@thehub:registered:${user.id}:${tournamentId}`, 'true');
       setIsRegistered(true);
       setParticipants(prev =>
         prev.some(p => p.athlete_id === user.id)
@@ -244,7 +244,7 @@ export default function TournamentScreen() {
             .eq('tournament_id', tournamentId)
             .eq('athlete_id', user.id);
           if (error) { Alert.alert('Erreur', error.message); return; }
-          await AsyncStorage.removeItem(`@thehub:registered:${tournamentId}`);
+          await AsyncStorage.removeItem(`@thehub:registered:${user.id}:${tournamentId}`);
           setIsRegistered(false);
           load();
         }},
