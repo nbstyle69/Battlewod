@@ -360,7 +360,7 @@ export default function ProfileScreen() {
             </View>
           </View>
           <TouchableOpacity onPress={handleSignOut} style={S.logoutBtn}>
-            <LogOut color={theme.textMuted} size={20} />
+            <LogOut color="#9CA3AF" size={20} />
           </TouchableOpacity>
         </View>
 
@@ -413,7 +413,7 @@ export default function ProfileScreen() {
                 ...(currentBox ? [{ label: 'WODs effectués', value: wodCount, icon: Zap }] : []),
               ].map((s) => (
                 <View key={s.label} style={S.gridCard}>
-                  <s.icon color={theme.accent} size={18} />
+                  <s.icon color="#111" size={18} />
                   <Text style={S.gridValue}>{s.value}</Text>
                   <Text style={S.gridLabel}>{s.label}</Text>
                 </View>
@@ -437,7 +437,7 @@ export default function ProfileScreen() {
                     <Text style={S.prCategoryLabel}>{cat.label}</Text>
                     <Text style={S.prCategoryCount}>{cat.items.length} records</Text>
                     <ChevronRight
-                      color={theme.textMuted} size={16}
+                      color="#D1D5DB" size={16}
                       style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
                     />
                   </TouchableOpacity>
@@ -462,13 +462,13 @@ export default function ProfileScreen() {
                             />
                             <Text style={S.prUnit}>{pr.unit}</Text>
                             <TouchableOpacity onPress={() => { setEditingPR(null); savePRs(prValues); }} style={S.prEditConfirm}>
-                              <Check color={theme.success} size={16} />
+                              <Check color="#111" size={16} />
                             </TouchableOpacity>
                           </View>
                         ) : (
                           <TouchableOpacity onPress={() => setEditingPR(key)} style={S.prValueBtn}>
                             <Text style={S.prValue}>{prValues[key]} <Text style={S.prUnit}>{pr.unit}</Text></Text>
-                            <Edit3 color={theme.textMuted} size={12} />
+                            <Edit3 color="#D1D5DB" size={12} />
                           </TouchableOpacity>
                         )}
                       </View>
@@ -484,7 +484,7 @@ export default function ProfileScreen() {
           <>
             <View style={S.badgeSummary}>
               <Text style={S.badgeSummaryText}>
-                <Text style={{ fontWeight: '900', color: theme.accent }}>{earnedCount}</Text>
+                <Text style={{ fontWeight: '900', color: '#111' }}>{earnedCount}</Text>
                 {' '}badges obtenus sur{' '}
                 <Text style={{ fontWeight: '900' }}>{totalBadges}</Text>
               </Text>
@@ -496,7 +496,7 @@ export default function ProfileScreen() {
                   {cat.badges.map((badge) => (
                     <View key={badge.id} style={[S.badgeCard, !badge.earned && S.badgeCardLocked]}>
                       <Text style={S.badgeIcon}>{badge.earned ? badge.icon : '🔒'}</Text>
-                      <Text style={[S.badgeName, !badge.earned && { color: theme.textMuted }]}>
+                      <Text style={[S.badgeName, !badge.earned && { color: '#9CA3AF' }]}>
                         {badge.name}
                       </Text>
                       <Text style={S.badgeDesc}>{badge.desc}</Text>
@@ -517,7 +517,7 @@ export default function ProfileScreen() {
               {currentBox ? (
                 <>
                   <View style={S.boxRow}>
-                    <Building2 color={theme.accent} size={20} />
+                    <Building2 color="#111" size={20} />
                     <View style={{ flex: 1 }}>
                       <Text style={S.boxName}>{currentBox.name}</Text>
                       {currentBox.description ? <Text style={S.boxDesc}>{currentBox.description}</Text> : null}
@@ -545,13 +545,13 @@ export default function ProfileScreen() {
                 <Text style={S.compteCardTitle}>Mes informations</Text>
                 {!editing ? (
                   <TouchableOpacity onPress={() => setEditing(true)} style={S.editIconBtn}>
-                    <Edit3 color={theme.accent} size={16} />
+                    <Edit3 color="#111" size={16} />
                     <Text style={S.editIconText}>Modifier</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity onPress={() => setEditing(false)} style={S.editIconBtn}>
-                    <X color={theme.textMuted} size={16} />
-                    <Text style={[S.editIconText, { color: theme.textMuted }]}>Annuler</Text>
+                    <X color="#9CA3AF" size={16} />
+                    <Text style={[S.editIconText, { color: '#9CA3AF' }]}>Annuler</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -566,8 +566,8 @@ export default function ProfileScreen() {
                   {/* Rôle */}
                   <View style={S.infoRow}>
                     <Text style={S.infoRowLabel}>Rôle</Text>
-                    <View style={[S.roleBadge, { backgroundColor: `${roleColor}18`, borderColor: `${roleColor}40` }]}>
-                      <Text style={[S.roleBadgeText, { color: roleColor }]}>{roleLabel}</Text>
+                    <View style={[S.roleBadge, { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' }]}>
+                      <Text style={[S.roleBadgeText, { color: '#374151' }]}>{roleLabel}</Text>
                     </View>
                   </View>
                   {/* Box invite code (owner only) */}
@@ -576,7 +576,7 @@ export default function ProfileScreen() {
                       <Text style={S.infoRowLabel}>Code box</Text>
                       <TouchableOpacity style={S.inviteCodeRow} onPress={handleShareBoxCode} activeOpacity={0.7}>
                         <Text style={S.inviteCodeText}>{currentBox.invite_code}</Text>
-                        <Share2 size={14} color={theme.accent} style={{ marginLeft: 6 }} />
+                        <Share2 size={14} color="#111" style={{ marginLeft: 6 }} />
                       </TouchableOpacity>
                     </View>
                   )}
@@ -594,31 +594,31 @@ export default function ProfileScreen() {
                     )}
                     <View style={S.photoPickerBtns}>
                       <TouchableOpacity style={S.photoBtn} onPress={handlePickPhoto} disabled={pickingPhoto} activeOpacity={0.8}>
-                        {pickingPhoto ? <ActivityIndicator color={theme.accent} size="small" /> : <><Camera color={theme.accent} size={14} /><Text style={S.photoBtnText}>Galerie</Text></>}
+                        {pickingPhoto ? <ActivityIndicator color="#111" size="small" /> : <><Camera color="#374151" size={14} /><Text style={S.photoBtnText}>Galerie</Text></>}
                       </TouchableOpacity>
                       <TouchableOpacity style={S.photoBtn} onPress={handleTakePhoto} disabled={pickingPhoto} activeOpacity={0.8}>
-                        <Camera color={theme.textMuted} size={14} />
-                        <Text style={[S.photoBtnText, { color: theme.textMuted }]}>Caméra</Text>
+                        <Camera color="#9CA3AF" size={14} />
+                        <Text style={[S.photoBtnText, { color: '#9CA3AF' }]}>Caméra</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
 
                   <Text style={S.editLabel}>Pseudo</Text>
-                  <TextInput style={S.editInput} value={editUsername} onChangeText={setEditUsername} autoCapitalize="none" placeholder="Pseudo" placeholderTextColor={theme.textMuted} />
+                  <TextInput style={S.editInput} value={editUsername} onChangeText={setEditUsername} autoCapitalize="none" placeholder="Pseudo" placeholderTextColor={'#D1D5DB'} />
 
                   <View style={S.editRow}>
                     <View style={S.editField}>
                       <Text style={S.editLabel}>Prénom</Text>
-                      <TextInput style={S.editInput} value={firstName} onChangeText={setFirstName} placeholder="Prénom" placeholderTextColor={theme.textMuted} />
+                      <TextInput style={S.editInput} value={firstName} onChangeText={setFirstName} placeholder="Prénom" placeholderTextColor={'#D1D5DB'} />
                     </View>
                     <View style={S.editField}>
                       <Text style={S.editLabel}>Nom</Text>
-                      <TextInput style={S.editInput} value={lastName} onChangeText={setLastName} placeholder="Nom" placeholderTextColor={theme.textMuted} />
+                      <TextInput style={S.editInput} value={lastName} onChangeText={setLastName} placeholder="Nom" placeholderTextColor={'#D1D5DB'} />
                     </View>
                   </View>
 
                   <Text style={S.editLabel}>Email</Text>
-                  <TextInput style={S.editInput} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Email" placeholderTextColor={theme.textMuted} />
+                  <TextInput style={S.editInput} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Email" placeholderTextColor={'#D1D5DB'} />
 
                   <Text style={S.editLabel}>Bio (avec #hashtags)</Text>
                   <TextInput
@@ -628,7 +628,7 @@ export default function ProfileScreen() {
                     multiline
                     numberOfLines={3}
                     placeholder="Parle de toi... #crossfit #rx #motivation"
-                    placeholderTextColor={theme.textMuted}
+                    placeholderTextColor={'#D1D5DB'}
                   />
 
                   <TouchableOpacity style={S.saveBtn} onPress={handleSaveProfile} disabled={saving} activeOpacity={0.85}>
@@ -664,7 +664,7 @@ export default function ProfileScreen() {
                           <Text style={S.friendName}>{f.username}</Text>
                           <Text style={[S.friendLevel, { color: fc }]}>{f.level?.toUpperCase()}</Text>
                         </View>
-                        <ChevronRight color={theme.textMuted} size={16} />
+                        <ChevronRight color="#D1D5DB" size={16} />
                       </TouchableOpacity>
                     );
                   })}
@@ -680,9 +680,9 @@ export default function ProfileScreen() {
                 <Switch
                   value={mode === 'dark'}
                   onValueChange={toggleTheme}
-                  trackColor={{ false: theme.surfaceAlt, true: theme.accentDark }}
-                  thumbColor={mode === 'dark' ? theme.accentLight : '#fff'}
-                  ios_backgroundColor={theme.surfaceAlt}
+                  trackColor={{ false: '#E5E7EB', true: '#111' }}
+                  thumbColor={mode === 'dark' ? '#fff' : '#fff'}
+                  ios_backgroundColor={'#E5E7EB'}
                 />
               </View>
             </View>
@@ -695,10 +695,10 @@ export default function ProfileScreen() {
             >
               <View style={S.themeRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Bell color={theme.accent} size={18} />
+                  <Bell color="#111" size={18} />
                   <Text style={S.themeLabel}>Notifications</Text>
                 </View>
-                <ChevronRight color={theme.textMuted} size={16} />
+                <ChevronRight color="#D1D5DB" size={16} />
               </View>
             </TouchableOpacity>
 
@@ -713,11 +713,11 @@ export default function ProfileScreen() {
                   <Text style={S.referralCode}>{referralCode}</Text>
                 </View>
               ) : (
-                <ActivityIndicator color={theme.accent} size="small" style={{ marginVertical: 8 }} />
+                <ActivityIndicator color="#111" size="small" style={{ marginVertical: 8 }} />
               )}
               <View style={S.referralBtns}>
                 <TouchableOpacity style={S.referralBtn} onPress={handleCopyReferral} disabled={!referralCode} activeOpacity={0.8}>
-                  <Copy color={theme.accent} size={15} />
+                  <Copy color="#374151" size={15} />
                   <Text style={S.referralBtnText}>Copier</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[S.referralBtn, S.referralBtnShare]} onPress={handleShareReferral} disabled={!referralCode} activeOpacity={0.8}>
@@ -744,7 +744,7 @@ export default function ProfileScreen() {
               value={joinCode}
               onChangeText={t => setJoinCode(t.toUpperCase())}
               placeholder="Ex : ABC123"
-              placeholderTextColor={theme.textMuted}
+              placeholderTextColor={'#D1D5DB'}
               maxLength={6}
               autoCapitalize="characters"
               autoFocus
@@ -776,23 +776,23 @@ function InfoRow({ label, value, S }: { label: string; value: string; S: ReturnT
   );
 }
 
-function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+function createStyles(_theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
   header: {
-    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    backgroundColor: theme.card,
-    borderBottomWidth: 1, borderBottomColor: theme.border,
+    paddingTop: 58, paddingHorizontal: 20, paddingBottom: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
   avatar: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center',
     borderWidth: 2,
   },
-  avatarText: { fontSize: 24, fontWeight: '900', color: theme.text },
+  avatarText: { fontSize: 22, fontWeight: '900', color: '#111' },
   userInfo: { flex: 1 },
-  username: { fontSize: 18, fontWeight: '900', color: theme.text },
-  email: { fontSize: 11, color: theme.textMuted, marginBottom: 6 },
+  username: { fontSize: 20, fontWeight: '900', color: '#111', letterSpacing: -0.5 },
+  email: { fontSize: 11, color: '#9CA3AF', marginBottom: 6 },
   levelBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
@@ -801,200 +801,200 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   levelDot: { width: 5, height: 5, borderRadius: 3 },
   levelText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   logoutBtn: { padding: 8 },
-  statsRow: { flexDirection: 'row', marginBottom: 14 },
+  statsRow: { flexDirection: 'row', marginBottom: 16 },
   statPill: { flex: 1, alignItems: 'center', paddingVertical: 4 },
-  statPillBorder: { borderRightWidth: 1, borderRightColor: theme.border },
-  statPillValue: { fontSize: 18, fontWeight: '900', color: theme.text },
-  statPillLabel: { fontSize: 9, color: theme.textMuted, fontWeight: '600', marginTop: 1 },
+  statPillBorder: { borderRightWidth: 1, borderRightColor: '#E5E7EB' },
+  statPillValue: { fontSize: 20, fontWeight: '900', color: '#111' },
+  statPillLabel: { fontSize: 9, color: '#9CA3AF', fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
   progressSection: {},
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  progressLabel: { fontSize: 11, color: theme.textMuted, fontWeight: '600' },
-  progressPct: { fontSize: 11, fontWeight: '700', color: theme.accent },
-  progressTrack: { height: 4, backgroundColor: theme.surfaceAlt, borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
-  progressFill: { height: '100%', backgroundColor: theme.accent, borderRadius: 2 },
-  progressNote: { fontSize: 10, color: theme.textMuted },
+  progressLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
+  progressPct: { fontSize: 11, fontWeight: '700', color: '#111' },
+  progressTrack: { height: 3, backgroundColor: '#F3F4F6', borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
+  progressFill: { height: '100%', backgroundColor: '#111', borderRadius: 2 },
+  progressNote: { fontSize: 10, color: '#D1D5DB' },
   tabs: {
-    flexDirection: 'row', backgroundColor: theme.card,
-    borderBottomWidth: 1, borderBottomColor: theme.border,
+    flexDirection: 'row', backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: theme.accent },
-  tabText: { fontSize: 13, fontWeight: '600', color: theme.textMuted },
-  tabTextActive: { color: theme.accent, fontWeight: '800' },
-  content: { padding: 16 },
+  tabActive: { borderBottomColor: '#111' },
+  tabText: { fontSize: 13, fontWeight: '600', color: '#D1D5DB' },
+  tabTextActive: { color: '#111', fontWeight: '800' },
+  content: { padding: 20 },
   gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   gridCard: {
-    width: '47%', backgroundColor: theme.card, borderRadius: 12,
+    width: '47%', backgroundColor: '#FAFAFA', borderRadius: 14,
     padding: 16, alignItems: 'center', gap: 6,
-    borderWidth: 1, borderColor: theme.border,
+    borderWidth: 1, borderColor: '#F3F4F6',
   },
-  gridValue: { fontSize: 22, fontWeight: '900', color: theme.text },
-  gridLabel: { fontSize: 10, color: theme.textMuted, fontWeight: '600', textAlign: 'center' },
+  gridValue: { fontSize: 22, fontWeight: '900', color: '#111' },
+  gridLabel: { fontSize: 10, color: '#9CA3AF', fontWeight: '600', textAlign: 'center' },
   prCategory: {
-    backgroundColor: theme.card, borderRadius: 12,
-    borderWidth: 1, borderColor: theme.border, marginBottom: 10, overflow: 'hidden',
+    backgroundColor: '#fff', borderRadius: 14,
+    borderWidth: 1, borderColor: '#F3F4F6', marginBottom: 10, overflow: 'hidden',
   },
   prCategoryHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14,
   },
-  prCategoryIcon: { fontSize: 20 },
-  prCategoryLabel: { flex: 1, fontSize: 14, fontWeight: '800', color: theme.text },
-  prCategoryCount: { fontSize: 11, color: theme.textMuted },
+  prCategoryIcon: { fontSize: 18 },
+  prCategoryLabel: { flex: 1, fontSize: 14, fontWeight: '800', color: '#111' },
+  prCategoryCount: { fontSize: 11, color: '#D1D5DB' },
   prRow: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: theme.border,
+    borderTopWidth: 1, borderTopColor: '#F3F4F6',
   },
-  prMovement: { flex: 1, fontSize: 13, fontWeight: '600', color: theme.text },
-  prDate: { fontSize: 10, color: theme.textMuted, marginRight: 12 },
-  prValue: { fontSize: 15, fontWeight: '900', color: theme.text },
-  prUnit: { fontSize: 11, color: theme.textMuted, fontWeight: '400' },
+  prMovement: { flex: 1, fontSize: 13, fontWeight: '600', color: '#374151' },
+  prDate: { fontSize: 10, color: '#D1D5DB', marginRight: 12 },
+  prValue: { fontSize: 15, fontWeight: '900', color: '#111' },
+  prUnit: { fontSize: 11, color: '#9CA3AF', fontWeight: '400' },
   badgeSummary: { marginBottom: 16 },
-  badgeSummaryText: { fontSize: 13, color: theme.textSecondary },
-  badgeCategoryBlock: { marginBottom: 20 },
-  badgeCategoryTitle: { fontSize: 13, fontWeight: '800', color: theme.textSecondary, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-  badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  badgeSummaryText: { fontSize: 13, color: '#374151' },
+  badgeCategoryBlock: { marginBottom: 24 },
+  badgeCategoryTitle: { fontSize: 11, fontWeight: '800', color: '#9CA3AF', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badgeCard: {
-    width: '47%', backgroundColor: theme.card, borderRadius: 12,
+    width: '47%', backgroundColor: '#FAFAFA', borderRadius: 14,
     padding: 14, alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: theme.border,
+    borderWidth: 1, borderColor: '#F3F4F6',
   },
-  badgeCardLocked: { opacity: 0.35 },
-  badgeIcon: { fontSize: 28, marginBottom: 4 },
-  badgeName: { fontSize: 12, fontWeight: '800', color: theme.text, textAlign: 'center' },
-  badgeDesc: { fontSize: 10, color: theme.textMuted, textAlign: 'center', lineHeight: 14 },
-  earnedBar: { height: 2, width: 24, backgroundColor: theme.success, borderRadius: 1, marginTop: 4 },
+  badgeCardLocked: { opacity: 0.3 },
+  badgeIcon: { fontSize: 26, marginBottom: 4 },
+  badgeName: { fontSize: 12, fontWeight: '800', color: '#111', textAlign: 'center' },
+  badgeDesc: { fontSize: 10, color: '#9CA3AF', textAlign: 'center', lineHeight: 14 },
+  earnedBar: { height: 2, width: 24, backgroundColor: '#111', borderRadius: 1, marginTop: 4 },
 
-  compteSection: { gap: 14, paddingBottom: 8 },
+  compteSection: { gap: 16, paddingBottom: 8 },
   compteCard: {
-    backgroundColor: theme.card, borderRadius: 14,
-    borderWidth: 1, borderColor: theme.border, padding: 16, gap: 12,
+    backgroundColor: '#FAFAFA', borderRadius: 16,
+    borderWidth: 1, borderColor: '#F3F4F6', padding: 16, gap: 14,
   },
   compteCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  compteCardTitle: { fontSize: 13, fontWeight: '800', color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  compteCardTitle: { fontSize: 11, fontWeight: '800', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1 },
   editIconBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editIconText: { fontSize: 12, fontWeight: '700', color: theme.accent },
+  editIconText: { fontSize: 12, fontWeight: '700', color: '#111' },
   themeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  themeLabel: { fontSize: 15, fontWeight: '600', color: theme.text },
+  themeLabel: { fontSize: 14, fontWeight: '600', color: '#111' },
 
   boxRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  boxName: { fontSize: 15, fontWeight: '800', color: theme.text },
-  boxDesc: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
+  boxName: { fontSize: 15, fontWeight: '800', color: '#111' },
+  boxDesc: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   activeTag: {
-    backgroundColor: `${theme.success}18`, borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: `${theme.success}40`,
+    backgroundColor: '#F3F4F6', borderRadius: 6,
+    paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#E5E7EB',
   },
-  activeTagText: { fontSize: 10, fontWeight: '800', color: theme.success },
-  noBoxText: { fontSize: 13, color: theme.textMuted },
+  activeTagText: { fontSize: 10, fontWeight: '800', color: '#111' },
+  noBoxText: { fontSize: 13, color: '#9CA3AF' },
   joinBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: theme.accent, borderRadius: 12, padding: 14,
+    gap: 8, backgroundColor: '#111', borderRadius: 12, padding: 14,
   },
   joinBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   leaveBtn: {
-    borderWidth: 1.5, borderColor: theme.error, borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#D1D5DB', borderRadius: 12,
     padding: 12, alignItems: 'center',
   },
-  leaveBtnText: { color: theme.error, fontSize: 13, fontWeight: '800' },
+  leaveBtnText: { color: '#374151', fontSize: 13, fontWeight: '700' },
 
   infoRows: { gap: 0 },
   infoRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border,
+    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
-  infoRowLabel: { fontSize: 13, color: theme.textMuted, fontWeight: '600' },
-  infoRowValue: { fontSize: 13, fontWeight: '700', color: theme.text, maxWidth: '60%' },
+  infoRowLabel: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
+  infoRowValue: { fontSize: 13, fontWeight: '700', color: '#111', maxWidth: '60%' },
 
-  editForm: { gap: 10 },
+  editForm: { gap: 12 },
   editRow: { flexDirection: 'row', gap: 10 },
   editField: { flex: 1, gap: 4 },
-  editLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  editLabel: { fontSize: 11, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.4 },
   editInput: {
-    backgroundColor: theme.surface, borderRadius: 10, borderWidth: 1,
-    borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, color: theme.text,
+    backgroundColor: '#fff', borderRadius: 10, borderWidth: 1,
+    borderColor: '#E5E7EB', paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: '#111',
   },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: theme.accent, borderRadius: 12, padding: 14, marginTop: 4,
+    gap: 8, backgroundColor: '#111', borderRadius: 12, padding: 14, marginTop: 4,
   },
   saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
 
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalSheet: {
-    backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, gap: 14, paddingBottom: 40,
   },
-  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 4 },
-  modalTitle: { fontSize: 20, fontWeight: '900', color: theme.text, textAlign: 'center' },
-  modalSub: { fontSize: 13, color: theme.textMuted, textAlign: 'center' },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 4 },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: '#111', textAlign: 'center' },
+  modalSub: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
   codeInput: {
-    backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1.5,
-    borderColor: theme.border, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 22, fontWeight: '900', color: theme.text, textAlign: 'center', letterSpacing: 6,
+    backgroundColor: '#FAFAFA', borderRadius: 14, borderWidth: 1.5,
+    borderColor: '#E5E7EB', paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 22, fontWeight: '900', color: '#111', textAlign: 'center', letterSpacing: 6,
   },
   modalCancel: { alignItems: 'center', paddingVertical: 8 },
-  modalCancelText: { fontSize: 13, color: theme.textMuted, fontWeight: '600' },
+  modalCancelText: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
 
   photoPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  photoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: theme.accent },
+  photoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: '#E5E7EB' },
   photoPlaceholder: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: `${theme.accent}20`, justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: theme.border,
+    backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: '#E5E7EB',
   },
-  photoPlaceholderText: { fontSize: 24, fontWeight: '900', color: theme.accent },
+  photoPlaceholderText: { fontSize: 24, fontWeight: '900', color: '#374151' },
   photoPickerBtns: { flex: 1, gap: 8 },
   photoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: `${theme.accent}14`, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12,
-    borderWidth: 1, borderColor: theme.border,
+    backgroundColor: '#F3F4F6', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
-  photoBtnText: { fontSize: 12, fontWeight: '700', color: theme.accent },
+  photoBtnText: { fontSize: 12, fontWeight: '700', color: '#374151' },
 
   bioInput: { minHeight: 70, textAlignVertical: 'top' },
 
-  friendsEmpty: { fontSize: 12, color: theme.textMuted, lineHeight: 17 },
+  friendsEmpty: { fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
   friendsList: { gap: 8 },
   friendRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: theme.surface, borderRadius: 12,
-    padding: 10, borderWidth: 1, borderColor: theme.border,
+    backgroundColor: '#fff', borderRadius: 12,
+    padding: 10, borderWidth: 1, borderColor: '#F3F4F6',
   },
   friendAvatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 2 },
   friendAvatarLetter: { fontSize: 16, fontWeight: '900' },
-  friendName: { fontSize: 14, fontWeight: '700', color: theme.text },
+  friendName: { fontSize: 14, fontWeight: '700', color: '#111' },
   friendLevel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5, marginTop: 1 },
 
   prValueBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   prEditRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   prEditInput: {
-    backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1,
-    borderColor: theme.accent, paddingHorizontal: 8, paddingVertical: 4,
-    fontSize: 16, fontWeight: '800', color: theme.text, width: 70, textAlign: 'right',
+    backgroundColor: '#fff', borderRadius: 8, borderWidth: 1,
+    borderColor: '#111', paddingHorizontal: 8, paddingVertical: 4,
+    fontSize: 16, fontWeight: '800', color: '#111', width: 70, textAlign: 'right',
   },
   prEditConfirm: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: `${theme.success}18`, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center',
   },
 
-  referralDesc: { fontSize: 12, color: theme.textMuted, lineHeight: 17 },
+  referralDesc: { fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
   referralBox: {
-    backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1.5,
-    borderColor: theme.border, paddingVertical: 14, alignItems: 'center',
+    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5,
+    borderColor: '#E5E7EB', paddingVertical: 14, alignItems: 'center',
     borderStyle: 'dashed',
   },
-  referralCode: { fontSize: 26, fontWeight: '900', color: theme.text, letterSpacing: 6 },
+  referralCode: { fontSize: 26, fontWeight: '900', color: '#111', letterSpacing: 6 },
   referralBtns: { flexDirection: 'row', gap: 10 },
   referralBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, borderRadius: 12, paddingVertical: 11,
-    backgroundColor: `${theme.accent}14`, borderWidth: 1, borderColor: theme.border,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
   },
-  referralBtnShare: { backgroundColor: theme.accent, borderColor: theme.accent },
-  referralBtnText: { fontSize: 13, fontWeight: '800', color: theme.accent },
+  referralBtnShare: { backgroundColor: '#111', borderColor: '#111' },
+  referralBtnText: { fontSize: 13, fontWeight: '800', color: '#374151' },
   roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
   roleBadgeText: { fontSize: 12, fontWeight: '800' as const },
   inviteCodeRow: { flexDirection: 'row' as const, alignItems: 'center' as const },
-  inviteCodeText: { fontSize: 14, fontWeight: '800' as const, letterSpacing: 2, color: theme.accent },
+  inviteCodeText: { fontSize: 14, fontWeight: '800' as const, letterSpacing: 2, color: '#111' },
 }); }
