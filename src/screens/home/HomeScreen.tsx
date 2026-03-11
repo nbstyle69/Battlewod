@@ -40,6 +40,7 @@ export default function HomeScreen() {
     { icon: Timer,     label: 'Minuteur vidéo',  desc: 'For Time · AMRAP · EMOM…',    color: theme.accent,  screen: 'Timer'           },
     { icon: Sparkles,  label: 'Générateur WOD',  desc: 'For Time · AMRAP · Tabata',   color: '#6366F1',     screen: 'WODGenerator'    },
     { icon: Target,    label: 'Calculateur 1RM', desc: '50% → 130% · Zones',          color: '#10B981',     screen: 'OneRMCalculator' },
+    { icon: Zap,       label: 'Mini-Tournois',   desc: 'Flash · 5 max · ELO',         color: '#EF4444',     screen: 'DailyTournaments'},
   ];
 
   const [competitions,   setCompetitions]   = useState<CompetitionSummary[]>([]);
