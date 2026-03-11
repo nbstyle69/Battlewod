@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
 } from 'react-native';
-import { Zap, Swords, Trophy, TrendingUp, ChevronRight, Flame, Timer, BarChart2, Sparkles, Target, User, Users } from 'lucide-react-native';
+import { Zap, Swords, Trophy, TrendingUp, ChevronRight, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History, Dumbbell, Award } from 'lucide-react-native';
 import KettlebellIcon from '../../components/KettlebellIcon';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -47,6 +47,14 @@ export default function HomeScreen() {
   const [rank,           setRank]           = useState<number | null>(null);
   const [streak,         setStreak]         = useState(0);
   const [pendingFriends, setPendingFriends] = useState(0);
+
+  // Progression stats
+  const [totalWods,       setTotalWods]       = useState(0);
+  const [totalScoresGen,  setTotalScoresGen]  = useState(0);
+  const [genStreak,       setGenStreak]       = useState(0);
+  const [weekActivity,    setWeekActivity]    = useState<number[]>([0,0,0,0,0,0,0]);
+  const [favCount,        setFavCount]        = useState(0);
+  const [bestScores,      setBestScores]      = useState<{name:string; value:string; type:string}[]>([]);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -110,6 +118,77 @@ export default function HomeScreen() {
       .eq('addressee_id', user.id)
       .eq('status', 'pending');
     setPendingFriends(friendCount ?? 0);
+
+    // ── Progression stats (generated_wods) ──
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    const sevenDaysStr = sevenDaysAgo.toISOString();
+
+    const [{ count: genWodCount }, { count: genScoreCount }, { count: genFavCount }, { data: genWeek }, { data: genAll }] = await Promise.all([
+      supabase.from('generated_wods').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('generated_wod_scores').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('generated_wods').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_favorite', true),
+      supabase.from('generated_wods').select('created_at').eq('user_id', user.id).gte('created_at', sevenDaysStr),
+      supabase.from('generated_wods').select('created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
+    ]);
+    setTotalWods(genWodCount ?? 0);
+    setTotalScoresGen(genScoreCount ?? 0);
+    setFavCount(genFavCount ?? 0);
+
+    // Week activity (7 bars)
+    const weekArr = [0,0,0,0,0,0,0];
+    const now = new Date();
+    (genWeek ?? []).forEach((w: any) => {
+      const d = new Date(w.created_at);
+      const diff = Math.floor((now.getTime() - d.getTime()) / 86400000);
+      if (diff >= 0 && diff < 7) weekArr[6 - diff]++;
+    });
+    setWeekActivity(weekArr);
+
+    // Gen streak
+    if (genAll && genAll.length > 0) {
+      const days = [...new Set((genAll as any[]).map((w: any) => w.created_at.slice(0, 10)))];
+      let gs = 0;
+      const td = new Date();
+      for (let i = 0; i < days.length; i++) {
+        const check = new Date(td);
+        check.setDate(td.getDate() - i);
+        if (days.includes(check.toISOString().slice(0, 10))) gs++;
+        else break;
+      }
+      setGenStreak(gs);
+    }
+
+    // Best scores per WOD type
+    const { data: bestData } = await supabase
+      .from('generated_wod_scores')
+      .select('score_type, score_value, wod:generated_wods(wod_name, wod_type)')
+      .eq('user_id', user.id)
+      .order('score_value', { ascending: true })
+      .limit(50);
+    if (bestData && bestData.length > 0) {
+      const byType: Record<string, {name:string; value:number; type:string}> = {};
+      (bestData as any[]).forEach(s => {
+        const wodType = s.wod?.wod_type ?? 'unknown';
+        const key = wodType;
+        if (!byType[key]) {
+          byType[key] = { name: s.wod?.wod_name ?? '—', value: s.score_value, type: s.score_type };
+        } else {
+          if (s.score_type === 'time' && s.score_value < byType[key].value) {
+            byType[key] = { name: s.wod?.wod_name ?? '—', value: s.score_value, type: s.score_type };
+          } else if (s.score_type !== 'time' && s.score_value > byType[key].value) {
+            byType[key] = { name: s.wod?.wod_name ?? '—', value: s.score_value, type: s.score_type };
+          }
+        }
+      });
+      setBestScores(Object.entries(byType).map(([, v]) => ({
+        name: v.name,
+        value: v.type === 'time'
+          ? `${String(Math.floor(v.value / 60)).padStart(2, '0')}:${String(Math.round(v.value % 60)).padStart(2, '0')}`
+          : `${v.value}`,
+        type: v.type === 'time' ? '⏱' : v.type === 'reps' ? '🔄' : v.type === 'weight' ? '🏋️' : '🔁',
+      })).slice(0, 4));
+    }
 
     // Recent scores
     const { data: scores } = await supabase
@@ -222,6 +301,76 @@ export default function HomeScreen() {
           </View>
         ))}
       </View>
+
+      {/* ── Ma Progression ──────────────────────────────────────────────── */}
+      {(totalWods > 0 || genStreak > 0) && (
+        <View style={S.section}>
+          <View style={S.sectionHeader}>
+            <Text style={S.sectionTitle}>Ma Progression</Text>
+            <TouchableOpacity style={S.seeAll} onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.7}>
+              <Text style={S.seeAllText}>Historique</Text>
+              <History color={theme.accent} size={14} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Week activity bars */}
+          <View style={S.weekCard}>
+            <Text style={S.weekLabel}>Activité cette semaine</Text>
+            <View style={S.weekBars}>
+              {['L','M','M','J','V','S','D'].map((day, i) => {
+                const max = Math.max(...weekActivity, 1);
+                const h = Math.max(4, (weekActivity[i] / max) * 40);
+                const isToday = i === 6;
+                return (
+                  <View key={i} style={S.weekBarCol}>
+                    <View style={[S.weekBar, { height: h, backgroundColor: weekActivity[i] > 0 ? (isToday ? theme.accent : `${theme.accent}80`) : theme.border }]} />
+                    <Text style={[S.weekDay, isToday && { color: theme.accent, fontWeight: '900' }]}>{day}</Text>
+                    {weekActivity[i] > 0 && <Text style={S.weekCount}>{weekActivity[i]}</Text>}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Progression stats cards */}
+          <View style={S.progRow}>
+            <View style={S.progCard}>
+              <Dumbbell color={theme.accent} size={16} />
+              <Text style={S.progNum}>{totalWods}</Text>
+              <Text style={S.progLabel}>WODs</Text>
+            </View>
+            <View style={S.progCard}>
+              <Award color={theme.gold} size={16} />
+              <Text style={S.progNum}>{totalScoresGen}</Text>
+              <Text style={S.progLabel}>Scores</Text>
+            </View>
+            <View style={S.progCard}>
+              <Flame color="#EF4444" size={16} />
+              <Text style={[S.progNum, genStreak >= 3 && { color: '#EF4444' }]}>{genStreak}</Text>
+              <Text style={S.progLabel}>Streak</Text>
+            </View>
+            <View style={S.progCard}>
+              <Sparkles color="#8B5CF6" size={16} />
+              <Text style={S.progNum}>{favCount}</Text>
+              <Text style={S.progLabel}>Favoris</Text>
+            </View>
+          </View>
+
+          {/* Best scores / PRs */}
+          {bestScores.length > 0 && (
+            <View style={S.prSection}>
+              <Text style={S.prTitle}>🏆 Mes records</Text>
+              {bestScores.map((pr, i) => (
+                <View key={i} style={S.prRow}>
+                  <Text style={S.prEmoji}>{pr.type}</Text>
+                  <Text style={S.prName} numberOfLines={1}>{pr.name}</Text>
+                  <Text style={S.prValue}>{pr.value}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       {/* ── Outils ─────────────────────────────────────────────────────── */}
       <View style={S.section}>
@@ -478,5 +627,33 @@ function createStyles(theme: AppTheme) {
     resultRight: { alignItems: 'flex-end', gap: 1 },
     resultBadge: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
     eloChange: { fontSize: 12, fontWeight: '700' },
+
+    // ── Ma Progression ──
+    weekCard: {
+      backgroundColor: theme.card, borderRadius: 14, padding: 14,
+      borderWidth: 1, borderColor: theme.border, marginBottom: 12,
+    },
+    weekLabel: { fontSize: 12, fontWeight: '800', color: theme.textMuted, marginBottom: 10, letterSpacing: 0.3 },
+    weekBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 60 },
+    weekBarCol: { alignItems: 'center', flex: 1, gap: 4 },
+    weekBar: { width: 20, borderRadius: 6, minHeight: 4 },
+    weekDay: { fontSize: 10, fontWeight: '600', color: theme.textMuted },
+    weekCount: { fontSize: 9, fontWeight: '800', color: theme.accent, marginTop: -2 },
+    progRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    progCard: {
+      flex: 1, backgroundColor: theme.card, borderRadius: 12, paddingVertical: 10,
+      alignItems: 'center', gap: 3, borderWidth: 1, borderColor: theme.border,
+    },
+    progNum: { fontSize: 16, fontWeight: '900', color: theme.text },
+    progLabel: { fontSize: 9, fontWeight: '600', color: theme.textMuted, letterSpacing: 0.3 },
+    prSection: {
+      backgroundColor: theme.card, borderRadius: 14, padding: 14,
+      borderWidth: 1, borderColor: theme.border, gap: 8,
+    },
+    prTitle: { fontSize: 13, fontWeight: '900', color: theme.text },
+    prRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    prEmoji: { fontSize: 16, width: 24, textAlign: 'center' },
+    prName: { flex: 1, fontSize: 13, fontWeight: '700', color: theme.text },
+    prValue: { fontSize: 14, fontWeight: '900', color: theme.accent },
   });
 }
