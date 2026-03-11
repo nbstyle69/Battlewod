@@ -104,8 +104,38 @@ export default function MessagesScreen() {
       sender:          { username: currentBox.name },
     }));
 
-    // 4. Merge + tri chronologique
-    const all = [...chatRows, ...adminRows].sort(
+    // 4. Group chat messages (bidirectional — from group_messages table)
+    let groupChatRows: MsgRow[] = [];
+    if (groupIds.length > 0) {
+      const { data: gcData } = await supabase
+        .from('group_messages')
+        .select('id, group_id, sender_id, content, created_at')
+        .in('group_id', groupIds)
+        .order('created_at', { ascending: true })
+        .limit(100);
+      const gcMsgs = gcData ?? [];
+      const senderIds = [...new Set(gcMsgs.map((m: any) => m.sender_id))];
+      let profMap: Record<string, { username: string; avatar_url?: string }> = {};
+      if (senderIds.length > 0) {
+        const { data: profs } = await supabase.from('profiles').select('id, username, avatar_url').in('id', senderIds);
+        (profs ?? []).forEach((p: any) => { profMap[p.id] = { username: p.username, avatar_url: p.avatar_url }; });
+      }
+      groupChatRows = gcMsgs.map((m: any) => ({
+        id:              `gc-${m.id}`,
+        box_id:          currentBox.id,
+        sender_id:       m.sender_id,
+        group_id:        m.group_id,
+        content:         m.content,
+        message_type:    'general' as MessageType,
+        is_announcement: false,
+        created_at:      m.created_at,
+        read_by:         [],
+        sender:          profMap[m.sender_id] ?? { username: 'Inconnu' },
+      }));
+    }
+
+    // 5. Merge + tri chronologique
+    const all = [...chatRows, ...adminRows, ...groupChatRows].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
 
@@ -118,7 +148,7 @@ export default function MessagesScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // Supabase Realtime subscription
+  // Supabase Realtime — general messages
   useEffect(() => {
     if (!currentBox) return;
     const channel = supabase
@@ -134,7 +164,6 @@ export default function MessagesScreen() {
         async (payload) => {
           const newMsg = payload.new as MsgRow;
           if (newMsg.message_type !== 'general') return;
-          // Fetch sender profile
           const { data: profile } = await supabase
             .from('profiles')
             .select('username, avatar_url')
@@ -151,6 +180,44 @@ export default function MessagesScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [currentBox]);
 
+  // Supabase Realtime — group chat messages
+  useEffect(() => {
+    if (!currentBox || groups.length === 0) return;
+    const channels = groups.map(g =>
+      supabase
+        .channel(`group-chat-${g.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'group_messages',
+          filter: `group_id=eq.${g.id}`,
+        }, async (payload) => {
+          const raw = payload.new as any;
+          const { data: profile } = await supabase
+            .from('profiles').select('username, avatar_url').eq('id', raw.sender_id).single();
+          const msgRow: MsgRow = {
+            id: `gc-${raw.id}`,
+            box_id: currentBox.id,
+            sender_id: raw.sender_id,
+            group_id: raw.group_id,
+            content: raw.content,
+            message_type: 'general',
+            is_announcement: false,
+            created_at: raw.created_at,
+            read_by: [],
+            sender: profile ?? { username: 'Inconnu' },
+          };
+          setMessages(prev => {
+            if (prev.some(m => m.id === msgRow.id)) return prev;
+            return [...prev, msgRow];
+          });
+          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+        })
+        .subscribe()
+    );
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
+  }, [currentBox, groups]);
+
   useEffect(() => {
     if (!loading && messages.length > 0) {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 200);
@@ -162,13 +229,23 @@ export default function MessagesScreen() {
     const text = input.trim();
     setInput('');
     setSending(true);
-    await supabase.from('messages').insert({
-      box_id: currentBox.id,
-      sender_id: user.id,
-      content: text,
-      message_type: 'general',
-      is_announcement: false,
-    });
+    if (activeTab) {
+      // Send to group chat
+      await supabase.from('group_messages').insert({
+        group_id: activeTab,
+        sender_id: user.id,
+        content: text,
+      });
+    } else {
+      // Send to general box chat
+      await supabase.from('messages').insert({
+        box_id: currentBox.id,
+        sender_id: user.id,
+        content: text,
+        message_type: 'general',
+        is_announcement: false,
+      });
+    }
     setSending(false);
   }
 
@@ -207,10 +284,7 @@ export default function MessagesScreen() {
   // Filter messages by active tab
   const visibleMessages = activeTab === null
     ? messages
-    : messages.filter(m => m.is_announcement
-        ? m.group_id === activeTab
-        : true // chat messages always shown in all tabs
-      );
+    : messages.filter(m => m.group_id === activeTab);
 
   // Group messages by date for dividers
   const grouped: (MsgRow | { type: 'date'; label: string; key: string })[] = [];
