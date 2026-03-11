@@ -105,9 +105,9 @@ export default function HomeScreen() {
 
     // Pending friend requests
     const { count: friendCount } = await supabase
-      .from('friend_requests')
+      .from('friendships')
       .select('id', { count: 'exact', head: true })
-      .eq('receiver_id', user.id)
+      .eq('addressee_id', user.id)
       .eq('status', 'pending');
     setPendingFriends(friendCount ?? 0);
 
@@ -129,6 +129,29 @@ export default function HomeScreen() {
   }, [user, currentBox]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Realtime: refresh badge when a new friend request targets this user
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`friend-notif-${user.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'friendships',
+        filter: `addressee_id=eq.${user.id}`,
+      }, () => {
+        // Re-count pending requests
+        supabase
+          .from('friendships')
+          .select('id', { count: 'exact', head: true })
+          .eq('addressee_id', user.id)
+          .eq('status', 'pending')
+          .then(({ count }) => setPendingFriends(count ?? 0));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   return (
     <ScrollView style={S.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>

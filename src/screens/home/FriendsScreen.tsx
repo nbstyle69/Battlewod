@@ -15,12 +15,12 @@ type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
 interface FriendRequest {
   id: string;
-  sender_id: string;
-  receiver_id: string;
+  requester_id: string;
+  addressee_id: string;
   status: 'pending' | 'accepted' | 'declined';
   created_at: string;
-  sender?: { id: string; username: string; level: string; elo: number };
-  receiver?: { id: string; username: string; level: string; elo: number };
+  requester?: { id: string; username: string; level: string; elo: number };
+  addressee?: { id: string; username: string; level: string; elo: number };
 }
 
 interface Friend {
@@ -55,29 +55,29 @@ export default function FriendsScreen() {
     if (!user) return;
 
     const { data: received } = await supabase
-      .from('friend_requests')
-      .select('*, sender:profiles!friend_requests_sender_id_fkey(id, username, level, elo)')
-      .eq('receiver_id', user.id)
+      .from('friendships')
+      .select('*, requester:profiles!friendships_requester_id_fkey(id, username, level, elo)')
+      .eq('addressee_id', user.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
     setPendingReceived((received ?? []) as FriendRequest[]);
 
     const { data: sent } = await supabase
-      .from('friend_requests')
-      .select('*, receiver:profiles!friend_requests_receiver_id_fkey(id, username, level, elo)')
-      .eq('sender_id', user.id)
+      .from('friendships')
+      .select('*, addressee:profiles!friendships_addressee_id_fkey(id, username, level, elo)')
+      .eq('requester_id', user.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
     setPendingSent((sent ?? []) as FriendRequest[]);
 
     const { data: accepted } = await supabase
-      .from('friend_requests')
-      .select('sender_id, receiver_id, sender:profiles!friend_requests_sender_id_fkey(id, username, level, elo), receiver:profiles!friend_requests_receiver_id_fkey(id, username, level, elo)')
+      .from('friendships')
+      .select('requester_id, addressee_id, requester:profiles!friendships_requester_id_fkey(id, username, level, elo), addressee:profiles!friendships_addressee_id_fkey(id, username, level, elo)')
       .eq('status', 'accepted')
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
 
     const friendList: Friend[] = (accepted ?? []).map((r: any) => {
-      const other = r.sender_id === user.id ? r.receiver : r.sender;
+      const other = r.requester_id === user.id ? r.addressee : r.requester;
       return other as Friend;
     }).filter(Boolean);
     setFriends(friendList);
@@ -103,9 +103,9 @@ export default function FriendsScreen() {
 
   async function sendFriendRequest(targetId: string) {
     if (!user) return;
-    const { error } = await supabase.from('friend_requests').insert({
-      sender_id: user.id,
-      receiver_id: targetId,
+    const { error } = await supabase.from('friendships').insert({
+      requester_id: user.id,
+      addressee_id: targetId,
       status: 'pending',
     });
     if (error) {
@@ -118,17 +118,17 @@ export default function FriendsScreen() {
   }
 
   async function handleAccept(requestId: string) {
-    await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', requestId);
+    await supabase.from('friendships').update({ status: 'accepted' }).eq('id', requestId);
     load();
   }
 
   async function handleDecline(requestId: string) {
-    await supabase.from('friend_requests').update({ status: 'declined' }).eq('id', requestId);
+    await supabase.from('friendships').update({ status: 'declined' }).eq('id', requestId);
     load();
   }
 
   async function handleCancelRequest(requestId: string) {
-    await supabase.from('friend_requests').delete().eq('id', requestId);
+    await supabase.from('friendships').delete().eq('id', requestId);
     load();
   }
 
@@ -137,7 +137,7 @@ export default function FriendsScreen() {
   }
 
   function hasPendingRequest(targetId: string): boolean {
-    return pendingSent.some(r => (r.receiver as any)?.id === targetId);
+    return pendingSent.some(r => (r.addressee as any)?.id === targetId);
   }
 
   const pendingCount = pendingReceived.length;
@@ -227,7 +227,7 @@ export default function FriendsScreen() {
                 <>
                   <Text style={S.subTitle}>Reçues</Text>
                   {pendingReceived.map(req => {
-                    const sender = req.sender as any;
+                    const sender = req.requester as any;
                     return (
                       <View key={req.id} style={S.requestRow}>
                         <View style={S.avatar}>
@@ -259,7 +259,7 @@ export default function FriendsScreen() {
                 <>
                   <Text style={[S.subTitle, { marginTop: 20 }]}>Envoyées</Text>
                   {pendingSent.map(req => {
-                    const receiver = req.receiver as any;
+                    const receiver = req.addressee as any;
                     return (
                       <View key={req.id} style={S.requestRow}>
                         <View style={S.avatar}>
