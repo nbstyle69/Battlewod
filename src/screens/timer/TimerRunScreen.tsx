@@ -507,6 +507,9 @@ export default function TimerRunScreen() {
             if (maxTime > 0 && timerValRef.current >= maxTime) {
               playBeep('done');
               stopAndSave();
+            } else if (maxTime > 0) {
+              const remaining = maxTime - timerValRef.current;
+              if (remaining === 3 || remaining === 2 || remaining === 1) playBeep('tick');
             }
             break;
 
@@ -516,6 +519,8 @@ export default function TimerRunScreen() {
             if (roundTimeLeftRef.current <= 0) {
               playBeep('done');
               stopAndSave();
+            } else if (roundTimeLeftRef.current <= 3) {
+              playBeep('tick');
             }
             break;
 
@@ -534,6 +539,8 @@ export default function TimerRunScreen() {
                 setRoundTimeLeft(interval * 60);
                 playBeep('tick');
               }
+            } else if (roundTimeLeftRef.current <= 3) {
+              playBeep('tick');
             }
             break;
 
@@ -601,6 +608,7 @@ export default function TimerRunScreen() {
               case 'amrap':
                 roundTimeLeftRef.current -= 1; setRoundTimeLeft(roundTimeLeftRef.current);
                 if (roundTimeLeftRef.current <= 0) seqBlockDone();
+                else if (roundTimeLeftRef.current <= 3) playBeep('tick');
                 break;
               case 'for-time':
                 timerValRef.current += 1; setTimerVal(timerValRef.current);
@@ -612,7 +620,7 @@ export default function TimerRunScreen() {
                   const nxt = currentRoundRef.current + 1;
                   if (nxt > blk.emomRounds) seqBlockDone();
                   else { currentRoundRef.current = nxt; setCurrentRound(nxt); roundTimeLeftRef.current = blk.emomInterval * 60; setRoundTimeLeft(blk.emomInterval * 60); playBeep('tick'); }
-                }
+                } else if (roundTimeLeftRef.current <= 3) { playBeep('tick'); }
                 break;
               case 'tabata':
                 roundTimeLeftRef.current -= 1; setRoundTimeLeft(roundTimeLeftRef.current);
@@ -929,8 +937,8 @@ export default function TimerRunScreen() {
       ) : (
         /* ── RUNNING / COUNTDOWN ─────────────────────────── */
         <>
-          {/* DÉCOMPTE — absolu, zIndex 99, jamais dans le flux */}
-          {phase === 'countdown' && countdownVal > 0 && (
+          {/* DÉCOMPTE — non-caméra uniquement (caméra = top-level) */}
+          {!withCamera && phase === 'countdown' && countdownVal > 0 && (
             <View style={styles.countdownOverlay} pointerEvents="none">
               <Text style={styles.countdownBig}>{countdownVal}</Text>
             </View>
@@ -1073,6 +1081,14 @@ export default function TimerRunScreen() {
         }
         <View style={[StyleSheet.absoluteFill, styles.cameraDim]} />
         {renderContent()}
+        {/* Overlay décompte — top-level pour éviter z-index/elevation Android */}
+        {phase === 'countdown' && countdownVal > 0 && (
+          <View style={[StyleSheet.absoluteFill, styles.camCdOverlay]} pointerEvents="none">
+            <View style={styles.camCdCircle}>
+              <Text style={styles.camCdNum}>{countdownVal}</Text>
+            </View>
+          </View>
+        )}
         {renderYTModal()}
       </View>
     );
@@ -1177,8 +1193,22 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'center', alignItems: 'center', zIndex: 99,
   },
+  camCdOverlay: {
+    justifyContent: 'center', alignItems: 'center',
+  },
+  camCdCircle: {
+    width: SW * 0.55, height: SW * 0.55, borderRadius: SW * 0.275,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)',
+  },
+  camCdNum: {
+    fontSize: SW * 0.28, fontWeight: '900', color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 20,
+  },
   timerDisplay: { fontSize: SW * 0.22, fontWeight: '200', color: '#FFFFFF', letterSpacing: -2 },
-  countdownBig: { fontSize: SW * 0.40, fontWeight: '100', color: '#FFFFFF' },
+  countdownBig: { fontSize: SW * 0.40, fontWeight: '900', color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12 },
   goText: { fontSize: SW * 0.22, fontWeight: '900', color: '#FFFFFF', letterSpacing: 6 },
   doneLabel: { fontSize: 18, fontWeight: '900', color: 'rgba(255,255,255,0.45)', letterSpacing: 4 },
   savedBanner: {
