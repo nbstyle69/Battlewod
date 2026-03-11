@@ -11,17 +11,16 @@ type Route = RouteProp<HomeStackParamList, 'VideoPlayback'>;
 type Nav   = NativeStackNavigationProp<HomeStackParamList, 'VideoPlayback'>;
 
 function formatChronoTime(totalMs: number): string {
-  const hundredths = String(Math.floor((totalMs % 1000) / 10)).padStart(2, '0');
   const totalSec = Math.floor(totalMs / 1000);
   if (totalSec >= 3600) {
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${hundredths}`;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${hundredths}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
 function formatRecordedAt(iso: string): string {
@@ -81,11 +80,13 @@ export default function VideoPlaybackScreen() {
   const countdownValue   = countdownVisible ? Math.ceil((timerStartOffset - currentMs) / 1000) : 0;
 
   // ── Chrono sync ────────────────────────────────────────────────────────────
-  const chronoVisible = timerStartOffset > 0 && currentMs >= timerStartOffset;
-  const isFrozen      = timerStopOffset  > 0 && currentMs >= timerStopOffset;
-  const elapsedMs     = isFrozen
-    ? timerStopOffset - timerStartOffset
-    : Math.max(0, currentMs - timerStartOffset);
+  // Si timerStartOffset=0 (non capturé) → on affiche depuis le début comme fallback
+  const effectiveStart = timerStartOffset > 0 ? timerStartOffset : 0;
+  const chronoVisible  = currentMs > 0;
+  const isFrozen       = timerStopOffset > 0 && currentMs >= timerStopOffset;
+  const elapsedMs      = isFrozen
+    ? timerStopOffset - effectiveStart
+    : Math.max(0, currentMs - effectiveStart);
   const chronoDisplay = formatChronoTime(elapsedMs);
 
   return (
