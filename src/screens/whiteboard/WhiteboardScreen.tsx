@@ -23,6 +23,18 @@ interface BoxMember {
   avatar_url?: string | null;
 }
 
+/** Map WOD format → allowed score types + default */
+function allowedScoreTypes(wodType?: string | null): { types: ScoreType[]; default: ScoreType } {
+  switch (wodType) {
+    case 'for-time': return { types: ['time'],            default: 'time'   };
+    case 'amrap':    return { types: ['reps'],            default: 'reps'   };
+    case 'emom':     return { types: ['reps', 'rounds'],  default: 'rounds' };
+    case 'tabata':   return { types: ['reps'],            default: 'reps'   };
+    case 'strength': return { types: ['weight'],          default: 'weight' };
+    default:         return { types: ['time', 'reps', 'weight', 'rounds'], default: 'reps' };
+  }
+}
+
 function formatScore(score: WODScore): string {
   if (score.score_type === 'time') {
     const total = Math.round(score.score_value);
@@ -130,7 +142,7 @@ export default function WhiteboardScreen() {
       const list = (scoreData ?? []) as WODScore[];
       setScores(list);
       setMyScore(list.find(sc => sc.member_id === user?.id) ?? null);
-      if (wod.wod_type) setScoreType(wod.wod_type === 'for-time' ? 'time' : 'reps');
+      setScoreType(allowedScoreTypes(wod.wod_type).default);
     }
     setLoading(false);
     setRefreshing(false);
@@ -449,21 +461,40 @@ export default function WhiteboardScreen() {
                 <Text style={S.modalWodName}>{todayWOD.title}</Text>
               )}
 
-              {/* Score type */}
-              <Text style={S.modalLabel}>TYPE DE SCORE</Text>
-              <View style={S.typeRow}>
-                {(['time', 'reps', 'weight', 'rounds'] as ScoreType[]).map(t => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[S.typeChip, scoreType === t && S.typeChipActive]}
-                    onPress={() => setScoreType(t)}
-                  >
-                    <Text style={[S.typeChipText, scoreType === t && S.typeChipTextActive]}>
-                      {t.toUpperCase()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              {/* Score type — locked to WOD format when unambiguous */}
+              {(() => {
+                const allowed = allowedScoreTypes(todayWOD?.wod_type);
+                if (allowed.types.length === 1) {
+                  return (
+                    <>
+                      <Text style={S.modalLabel}>TYPE DE SCORE</Text>
+                      <View style={S.typeRow}>
+                        <View style={[S.typeChip, S.typeChipActive]}>
+                          <Text style={[S.typeChipText, S.typeChipTextActive]}>{allowed.types[0].toUpperCase()}</Text>
+                        </View>
+                      </View>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <Text style={S.modalLabel}>TYPE DE SCORE</Text>
+                    <View style={S.typeRow}>
+                      {allowed.types.map(t => (
+                        <TouchableOpacity
+                          key={t}
+                          style={[S.typeChip, scoreType === t && S.typeChipActive]}
+                          onPress={() => setScoreType(t)}
+                        >
+                          <Text style={[S.typeChipText, scoreType === t && S.typeChipTextActive]}>
+                            {t.toUpperCase()}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                );
+              })()}
 
               {/* Score input */}
               <Text style={S.modalLabel}>
