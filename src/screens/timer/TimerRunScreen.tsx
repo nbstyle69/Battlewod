@@ -940,7 +940,12 @@ export default function TimerRunScreen() {
           {/* DÉCOMPTE — non-caméra uniquement (caméra = top-level) */}
           {!withCamera && phase === 'countdown' && countdownVal > 0 && (
             <View style={styles.countdownOverlay} pointerEvents="none">
-              <Text style={styles.countdownBig}>{countdownVal}</Text>
+              <Text style={[styles.countdownBig, {
+                color: accentColor,
+                textShadowColor: accentColor,
+                textShadowOffset: { width: 0, height: 0 },
+                textShadowRadius: 18,
+              }]}>{countdownVal}</Text>
             </View>
           )}
 
@@ -1084,8 +1089,13 @@ export default function TimerRunScreen() {
         {/* Overlay décompte — top-level pour éviter z-index/elevation Android */}
         {phase === 'countdown' && countdownVal > 0 && (
           <View style={[StyleSheet.absoluteFill, styles.camCdOverlay]} pointerEvents="none">
-            <View style={styles.camCdCircle}>
-              <Text style={styles.camCdNum}>{countdownVal}</Text>
+            <View style={[styles.camCdCircle, { borderColor: `${accentColor}50` }]}>
+              <Text style={[styles.camCdNum, {
+                color: accentColor,
+                textShadowColor: accentColor,
+                textShadowOffset: { width: 0, height: 0 },
+                textShadowRadius: 18,
+              }]}>{countdownVal}</Text>
             </View>
           </View>
         )}
@@ -1203,12 +1213,10 @@ const styles = StyleSheet.create({
     borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)',
   },
   camCdNum: {
-    fontSize: SW * 0.28, fontWeight: '900', color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 20,
+    fontSize: SW * 0.28, fontWeight: '200', letterSpacing: -4,
   },
   timerDisplay: { fontSize: SW * 0.22, fontWeight: '200', color: '#FFFFFF', letterSpacing: -2 },
-  countdownBig: { fontSize: SW * 0.40, fontWeight: '900', color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12 },
+  countdownBig: { fontSize: SW * 0.42, fontWeight: '200', letterSpacing: -4 },
   goText: { fontSize: SW * 0.22, fontWeight: '900', color: '#FFFFFF', letterSpacing: 6 },
   doneLabel: { fontSize: 18, fontWeight: '900', color: 'rgba(255,255,255,0.45)', letterSpacing: 4 },
   savedBanner: {
