@@ -457,6 +457,7 @@ function fmtName(mv: { mv: string; scale: string[] }, li: number): string {
   if (mv.mv === 'Mountain Climbers') return 'Mountain Climbers';
   if (mv.mv === 'Double Unders') return s.startsWith('×') ? 'Single Unders' : (s === 'DU' || s.startsWith('DU') ? 'Double Unders' : s);
   if (mv.mv === 'Single Unders') return 'Single Unders';
+  if (/^×\d/.test(s)) return mv.mv;
   if (!/^\d/.test(s)) return s;
   if (s.endsWith('cm')) return `${mv.mv} (${s})`;
   const mvName = mv.mv.replace(/ kg$/, '').replace(/ \(kg\)$/, '');
@@ -487,6 +488,8 @@ function fmt(mv: { mv: string; scale: string[] }, reps: number, li: number): str
     return `${reps} ${s}`;
   }
   if (mv.mv === 'Single Unders') return `${reps} Single Unders`;
+  // ×N multiplier: use movement name, apply multiplier to reps
+  if (/^×\d/.test(s)) { const f = parseFloat(s.slice(1)); return `${isNaN(f) ? reps : Math.round(reps * f)} ${mv.mv}`; }
   // Scale values that are pure movement names (pb, ri) — detected if scale doesn't start with digit
   if (!/^\d/.test(s)) return `${reps} ${s}`;
   // Scale values ending with 'cm' (box heights)
