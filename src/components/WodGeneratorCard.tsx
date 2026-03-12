@@ -125,22 +125,30 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   let scoring  = '';
 
   if (type === 'Race Simulation') {
-    const variant = duration >= 50 ? 0 : Math.floor(Math.random() * 5);
-    if (variant === 0) {
-      stations = [r1k, E.ski1k, r1k, E.slp, r1k, E.slpu, r1k, E.sbl, r1k, E.wb];
-    } else if (variant === 1) {
-      stations = [r1k, E.row1k, r1k, E.slp, r1k, E.fc, r1k, E.sbl, r1k, E.wb];
-    } else if (variant === 2) {
-      const s4 = pick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 4);
-      stations = [r1k, s4[0], r1k, s4[1], r1k, s4[2], r1k, s4[3]];
-    } else if (variant === 3) {
-      const s3 = pick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 3);
-      stations = [r800, s3[0], r800, s3[1], r800, s3[2]];
+    // Scale stations to match selected duration
+    const allStations = [E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj, E.db];
+    if (duration <= 20) {
+      // Short: 2-3 stations with 400-800m runs
+      const count = 2 + Math.floor(Math.random() * 2); // 2 or 3
+      const s = pick(allStations, count);
+      const run = rand([r400, r800]);
+      stations = s.flatMap(st => [run, st]);
+    } else if (duration <= 30) {
+      // Medium: 3-4 stations with 800m runs
+      const count = 3 + Math.floor(Math.random() * 2); // 3 or 4
+      const s = pick(allStations, count);
+      stations = s.flatMap(st => [r800, st]);
+    } else if (duration <= 45) {
+      // Long: 4-5 stations with mixed runs
+      const count = 4 + Math.floor(Math.random() * 2); // 4 or 5
+      const s = pick(allStations, count);
+      stations = s.flatMap(st => [rand([r800, r1k]), st]);
     } else {
-      const s4 = pick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 4);
-      stations = [r400, s4[0], r800, s4[1], r1k, s4[2], r800, s4[3]];
+      // Full race: 5 stations with 1km runs
+      const s = pick(allStations, 5);
+      stations = s.flatMap(st => [r1k, st]);
     }
-    scoring = `Temps total — objectif ${level === 'Elite' ? '< 55 min' : level === 'Pro' ? '< 70 min' : '< 85 min'}`;
+    scoring = `Temps total — objectif < ${duration} min`;
   }
 
   else if (type === 'Station Training') {
@@ -296,8 +304,8 @@ const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
   jr: [
     { mv: 'Double Unders', scale: ['×3 SU','×2 SU','DU','DU','DU (TU modif)','Triple Unders'] },
     { mv: 'Single Unders', scale: ['SU','SU','SU','DU','DU','DU'] },
-    { mv: 'Cross Overs', scale: ['—','—','CO','CO','CO','CO'] },
-    { mv: 'Double Cross Overs', scale: ['—','—','—','DCO','DCO','DCO'] },
+    { mv: 'Cross Overs', scale: ['—','—','Cross Overs','Cross Overs','Cross Overs','Cross Overs'] },
+    { mv: 'Double Cross Overs', scale: ['—','—','—','Double Cross Overs','Double Cross Overs','Double Cross Overs'] },
   ],
   pb: [
     { mv: 'Pull-ups', scale: ['Ring Rows','Australian PU','Pull-ups','C2B','C2B stricts','Bar MU'] },
@@ -508,17 +516,48 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
 
   if (type === 'For Time') {
     name = rand(NAMES_FT);
-    const rounds = duration <= 5 ? 1 : duration <= 10 ? 3 : duration <= 15 ? 4 : duration <= 20 ? 5 : 7;
-    const mvs = getMovesForced(eqKeys, li, rounds <= 1 ? 2 : 3);
-    const baseReps = [21, 15, 9];
-    if (rounds === 1) {
-      movements = mvs.map((m, i) => `${fmt(m, scaleReps(baseReps[i] ?? 15, li), li)}`).join('\n');
-      scoring = `21-15-9 — Temps le plus court (cap ${duration} min)`;
-    } else {
+    // 3 formats: rounds, sprint chipper, descending rep scheme
+    const style = Math.random();
+
+    if (style < 0.35) {
+      // ── Classic rounds ──
+      const rounds = duration <= 5 ? 2 : duration <= 10 ? 3 : duration <= 15 ? 4 : duration <= 20 ? 5 : 7;
+      const mvs = getMovesForced(eqKeys, li, 3);
       movements = `${rounds} rounds :\n` + mvs.map(m => `  ${fmt(m, scaleReps(15, li), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min)`;
+      coach = 'Gère ton effort : les 2 premiers rounds doivent sembler faciles.';
+    } else if (style < 0.7) {
+      // ── Sprint chipper (single pass, no rounds) ──
+      const mvCount = duration <= 5 ? 3 : duration <= 10 ? 4 : duration <= 15 ? 5 : duration <= 20 ? 6 : 7;
+      const mvs = getMovesForced(eqKeys, li, mvCount);
+      // Rep ranges calibrated to duration: short = lower reps, long = higher reps
+      const repRanges: Record<number, number[]> = {
+        3: [15, 20, 10],
+        4: [20, 30, 15, 10],
+        5: [20, 30, 15, 25, 10],
+        6: [15, 25, 20, 30, 12, 10],
+        7: [20, 30, 15, 25, 20, 12, 10],
+      };
+      const reps = repRanges[mvCount] ?? repRanges[5]!;
+      movements = mvs.map((m, i) => `${fmt(m, scaleReps(reps[i], li), li)}`).join('\n');
+      scoring = `Sprint — Temps le plus court (cap ${duration} min)`;
+      coach = 'Pas de round, pas de repos. Enchaîne les mouvements sans t\'arrêter.';
+    } else {
+      // ── Descending rep scheme (21-15-9, 30-20-10, etc.) ──
+      const schemes: Record<string, { label: string; reps: number[] }[]> = {
+        short:  [{ label: '21-15-9', reps: [21, 15, 9] }, { label: '15-12-9', reps: [15, 12, 9] }],
+        medium: [{ label: '21-15-9', reps: [21, 15, 9] }, { label: '30-20-10', reps: [30, 20, 10] }],
+        long:   [{ label: '30-20-10', reps: [30, 20, 10] }, { label: '50-40-30-20-10', reps: [50, 40, 30, 20, 10] }],
+      };
+      const bucket = duration <= 10 ? 'short' : duration <= 20 ? 'medium' : 'long';
+      const scheme = rand(schemes[bucket]);
+      const mvs = getMovesForced(eqKeys, li, 2);
+      const lines: string[] = [`${scheme.label} :`];
+      mvs.forEach(m => lines.push(`  ${fmtName(m, li)}`));
+      movements = lines.join('\n');
+      scoring = `${scheme.label} — Temps le plus court (cap ${duration} min)`;
+      coach = 'Fractionne les grosses séries si besoin. Ne lâche pas le rythme.';
     }
-    coach = 'Gère ton effort : les 2 premiers rounds doivent sembler faciles.';
     teamNote = isTeam ? `Équipe de ${teamN} : alternance par round.` : '';
   }
 
