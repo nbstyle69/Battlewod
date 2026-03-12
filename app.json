@@ -13,7 +13,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.battlewod.thehub",
+      "bundleIdentifier": "com.test.thehub",
       "config": {
         "usesNonExemptEncryption": false
       },
