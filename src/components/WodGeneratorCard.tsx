@@ -725,6 +725,18 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={s.wrapper}>
 
+      {/* Quick access: Historique & Favoris */}
+      <View style={s.quickAccessRow}>
+        <TouchableOpacity style={s.quickAccessBtn} onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}>
+          <History color="#111" size={16} />
+          <Text style={s.quickAccessTxt}>Historique</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.quickAccessBtn} onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}>
+          <Heart color="#EF4444" size={16} />
+          <Text style={s.quickAccessTxt}>Favoris</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Sport selector */}
       <View style={s.sportRow}>
         <TouchableOpacity
@@ -1123,6 +1135,13 @@ const s = StyleSheet.create({
   eqChipSel: { backgroundColor: `${Colors.primary}15`, borderColor: Colors.primary },
   eqTxt: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
   eqTxtSel: { color: Colors.primary, fontWeight: '900' },
+  quickAccessRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  quickAccessBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#F3F4F6', borderRadius: 12, paddingVertical: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  quickAccessTxt: { fontSize: 13, fontWeight: '800', color: '#111' },
   sportRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   sportCard: {
     flex: 1, borderRadius: 14, padding: 14, alignItems: 'center', gap: 3,

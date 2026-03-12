@@ -41,8 +41,7 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
-      "package": "com.thehub.app",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.thehub.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -51,14 +50,7 @@
     },
     "plugins": [
       "expo-font",
-      "expo-video",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#10B981"
-        }
-      ]
+      "expo-video"
     ],
     "extra": {
       "eas": {

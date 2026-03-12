@@ -158,6 +158,7 @@ export type HomeStackParamList = {
 export type WODStackParamList = {
   WODList: undefined;
   WODGenerator: undefined;
+  WodHistory: undefined;
 };
 
 export type CompetitionStackParamList = {
@@ -318,6 +319,7 @@ function WODNavigator() {
     <WODStack.Navigator screenOptions={{ headerShown: false }}>
       <WODStack.Screen name="WODList" component={WODScreen} />
       <WODStack.Screen name="WODGenerator" component={WODGeneratorScreen} />
+      <WODStack.Screen name="WodHistory"   component={WodHistoryScreen} />
     </WODStack.Navigator>
   );
 }

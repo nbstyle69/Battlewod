@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, ActivityIndicator,
 } from 'react-native';
-import { Sparkles, ChevronLeft, Clock, Zap, RefreshCw } from 'lucide-react-native';
+import { Sparkles, ChevronLeft, Clock, Zap, RefreshCw, History, Heart } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { WODStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WODType } from '../../types';
@@ -617,7 +619,7 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
 }
 
 export default function WODGeneratorScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<WODStackParamList>>();
   const { theme } = useTheme();
   const S = createStyles(theme);
 
@@ -676,6 +678,24 @@ export default function WODGeneratorScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
+
+        {/* Quick access: Historique & Favoris */}
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+          <TouchableOpacity
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F3F4F6', borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: '#E5E7EB' }}
+            onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
+          >
+            <History color="#111" size={16} />
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#111' }}>Historique</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F3F4F6', borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: '#E5E7EB' }}
+            onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
+          >
+            <Heart color="#EF4444" size={16} />
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#111' }}>Favoris</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Sport selector */}
         <View style={S.sportRow}>
