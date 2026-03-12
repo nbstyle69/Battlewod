@@ -40,6 +40,7 @@ export interface BoxWOD {
   time_cap_seconds?: number;
   rounds?: number;
   notes?: string;
+  block_name?: string;
   is_published: boolean;
   created_at: string;
   scores?: WODScore[];

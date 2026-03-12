@@ -59,6 +59,7 @@ export default function BOWODsScreen({ navigation }: any) {
   const [timeCap,     setTimeCap]     = useState('');
   const [rounds,      setRounds]      = useState('');
   const [notes,       setNotes]       = useState('');
+  const [blockName,   setBlockName]   = useState('');
   const [published,   setPublished]   = useState(true);
   const [submitting,  setSubmitting]  = useState(false);
 
@@ -86,7 +87,7 @@ export default function BOWODsScreen({ navigation }: any) {
     setEditWOD(null);
     setTitle(''); setDescription(''); setWodType('amrap');
     setDate(selectedDate); setTimeCap(''); setRounds('');
-    setNotes(''); setPublished(true);
+    setNotes(''); setBlockName(''); setPublished(true);
     setModalOpen(true);
   }
 
@@ -99,6 +100,7 @@ export default function BOWODsScreen({ navigation }: any) {
     setTimeCap(wod.time_cap_seconds ? String(Math.floor(wod.time_cap_seconds / 60)) : '');
     setRounds(wod.rounds ? String(wod.rounds) : '');
     setNotes(wod.notes ?? '');
+    setBlockName(wod.block_name ?? '');
     setPublished(wod.is_published);
     setModalOpen(true);
   }
@@ -116,6 +118,7 @@ export default function BOWODsScreen({ navigation }: any) {
       time_cap_seconds: timeCap ? parseInt(timeCap) * 60 : null,
       rounds: rounds ? parseInt(rounds) : null,
       notes: notes.trim() || null,
+      block_name: blockName.trim() || null,
       is_published: published,
     };
     const { error } = editWOD
@@ -246,8 +249,16 @@ export default function BOWODsScreen({ navigation }: any) {
             </View>
             <ScrollView contentContainerStyle={S.modalBody} keyboardShouldPersistTaps="handled">
 
-              <Text style={S.mLabel}>DATE *</Text>
-              <TextInput style={S.mInput} value={date} onChangeText={setDate} placeholder="2025-01-15" placeholderTextColor={theme.textMuted} />
+              <View style={S.mRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={S.mLabel}>DATE *</Text>
+                  <TextInput style={S.mInput} value={date} onChangeText={setDate} placeholder="2025-01-15" placeholderTextColor={theme.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={S.mLabel}>BLOCK</Text>
+                  <TextInput style={S.mInput} value={blockName} onChangeText={setBlockName} placeholder="A, B, Metcon…" placeholderTextColor={theme.textMuted} />
+                </View>
+              </View>
 
               <Text style={S.mLabel}>TITRE *</Text>
               <TextInput style={S.mInput} value={title} onChangeText={setTitle} placeholder="Fran, Cindy, Helen…" placeholderTextColor={theme.textMuted} />

@@ -4,14 +4,19 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { Plus, Clock, RotateCcw, MessageSquare, ChevronRight, Hash, Users, X, MessageCircle } from 'lucide-react-native';
+import { Clock, ChevronRight, Hash, Users, X, MessageCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { BoxWOD, WODScore, ScoreType } from '../../types';
+import { BoxWOD } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
+
+const TYPE_COLORS: Record<string, string> = {
+  'for-time': '#EF4444', amrap: '#3B82F6', emom: '#8B5CF6',
+  tabata: '#F59E0B', strength: '#16A34A', custom: '#6B7280',
+};
 
 type Nav = NativeStackNavigationProp<WhiteboardStackParamList>;
 
@@ -23,40 +28,13 @@ interface BoxMember {
   avatar_url?: string | null;
 }
 
-/** Map WOD format → allowed score types + default */
-function allowedScoreTypes(wodType?: string | null): { types: ScoreType[]; default: ScoreType } {
-  switch (wodType) {
-    case 'for-time': return { types: ['time'],            default: 'time'   };
-    case 'amrap':    return { types: ['reps'],            default: 'reps'   };
-    case 'emom':     return { types: ['reps', 'rounds'],  default: 'rounds' };
-    case 'tabata':   return { types: ['reps'],            default: 'reps'   };
-    case 'strength': return { types: ['weight'],          default: 'weight' };
-    default:         return { types: ['time', 'reps', 'weight', 'rounds'], default: 'reps' };
-  }
-}
-
-function formatScore(score: WODScore): string {
-  if (score.score_type === 'time') {
-    const total = Math.round(score.score_value);
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  const units: Record<ScoreType, string> = { time: 's', reps: ' reps', weight: ' kg', rounds: ' rounds' };
-  return `${score.score_value}${units[score.score_type] ?? ''}`;
-}
-
 const TYPE_STYLES = StyleSheet.create({
   typeBadge: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
   typeBadgeText: { fontSize: 11, fontWeight: '800' as const, letterSpacing: 0.5 },
 });
 
 function WodTypeBadge({ type }: { type?: string }) {
-  const colors: Record<string, string> = {
-    'for-time': '#EF4444', amrap: '#3B82F6', emom: '#8B5CF6',
-    tabata: '#F59E0B', strength: '#16A34A', custom: '#6B7280',
-  };
-  const color = colors[type ?? 'custom'] ?? '#6B7280';
+  const color = TYPE_COLORS[type ?? 'custom'] ?? '#6B7280';
   return (
     <View style={[TYPE_STYLES.typeBadge, { backgroundColor: `${color}18` }]}>
       <Text style={[TYPE_STYLES.typeBadgeText, { color }]}>{(type ?? 'custom').toUpperCase()}</Text>
@@ -70,23 +48,13 @@ export default function WhiteboardScreen() {
   const navigation = useNavigation<Nav>();
   const S = createStyles(theme);
 
-  const [todayWOD,      setTodayWOD]      = useState<BoxWOD | null>(null);
-  const [scores,        setScores]        = useState<WODScore[]>([]);
-  const [myScore,       setMyScore]       = useState<WODScore | null>(null);
-  const [recentWODs,    setRecentWODs]    = useState<BoxWOD[]>([]);
+  const [todayWODs,     setTodayWODs]     = useState<BoxWOD[]>([]);
+  const [recentGroups,  setRecentGroups]  = useState<{ date: string; wods: BoxWOD[] }[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [refreshing,    setRefreshing]    = useState(false);
-  const [modalOpen,     setModalOpen]     = useState(false);
   const [membersModal,  setMembersModal]  = useState(false);
   const [members,       setMembers]       = useState<BoxMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
-
-  // Score form state
-  const [scoreType,  setScoreType]  = useState<ScoreType>('time');
-  const [scoreInput, setScoreInput] = useState('');
-  const [isRx,       setIsRx]       = useState(true);
-  const [notes,      setNotes]      = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   // Join box state
   const [joinModal, setJoinModal] = useState(false);
@@ -110,14 +78,14 @@ export default function WhiteboardScreen() {
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
 
-    const [{ data: wods }, { data: recentData }] = await Promise.all([
+    const [{ data: todayData }, { data: recentData }] = await Promise.all([
       supabase
         .from('box_wods')
         .select('*')
         .eq('box_id', currentBox.id)
         .eq('scheduled_date', today)
         .eq('is_published', true)
-        .limit(1),
+        .order('block_name'),
       supabase
         .from('box_wods')
         .select('*')
@@ -125,28 +93,27 @@ export default function WhiteboardScreen() {
         .eq('is_published', true)
         .lt('scheduled_date', today)
         .order('scheduled_date', { ascending: false })
-        .limit(5),
+        .limit(20),
     ]);
 
-    const wod = wods?.[0] ?? null;
-    setTodayWOD(wod);
-    setRecentWODs((recentData ?? []) as BoxWOD[]);
+    setTodayWODs((todayData ?? []) as BoxWOD[]);
 
-    if (wod) {
-      const { data: scoreData } = await supabase
-        .from('wod_scores')
-        .select('*, profile:profiles(id, username, avatar_url, level)')
-        .eq('wod_id', wod.id)
-        .order('score_value', { ascending: wod.wod_type === 'for-time' });
-
-      const list = (scoreData ?? []) as WODScore[];
-      setScores(list);
-      setMyScore(list.find(sc => sc.member_id === user?.id) ?? null);
-      setScoreType(allowedScoreTypes(wod.wod_type).default);
+    // Group recent WODs by date
+    const grouped: Record<string, BoxWOD[]> = {};
+    for (const w of (recentData ?? []) as BoxWOD[]) {
+      const d = w.scheduled_date;
+      if (!grouped[d]) grouped[d] = [];
+      grouped[d].push(w);
     }
+    const groups = Object.entries(grouped)
+      .map(([date, wods]) => ({ date, wods }))
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 7);
+    setRecentGroups(groups);
+
     setLoading(false);
     setRefreshing(false);
-  }, [currentBox, today, user?.id]);
+  }, [currentBox, today]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -160,37 +127,6 @@ export default function WhiteboardScreen() {
     setJoinCode('');
   }
 
-  async function submitScore() {
-    if (!todayWOD || !user || !currentBox) return;
-    let value = 0;
-    if (scoreType === 'time') {
-      const parts = scoreInput.split(':');
-      if (parts.length === 2) value = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-      else value = parseInt(scoreInput);
-    } else {
-      value = parseFloat(scoreInput);
-    }
-    if (isNaN(value) || value <= 0) { Alert.alert('Score invalide'); return; }
-
-    setSubmitting(true);
-    const { error } = await supabase.from('wod_scores').upsert({
-      wod_id: todayWOD.id,
-      member_id: user.id,
-      box_id: currentBox.id,
-      score_type: scoreType,
-      score_value: value,
-      rx: isRx,
-      scaled: !isRx,
-      notes: notes.trim() || null,
-    }, { onConflict: 'wod_id,member_id' });
-    setSubmitting(false);
-
-    if (error) { Alert.alert('Erreur', error.message); return; }
-    setModalOpen(false);
-    setScoreInput('');
-    setNotes('');
-    load();
-  }
 
   if (!currentBox) {
     return (
@@ -287,48 +223,45 @@ export default function WhiteboardScreen() {
       >
         {/* WOD du jour */}
         <View style={S.section}>
-          <Text style={S.sectionTitle}>WOD du jour</Text>
-          {todayWOD ? (
-            <View style={S.wodCard}>
-              <View style={S.wodCardTop}>
-                <WodTypeBadge type={todayWOD.wod_type} />
-                {todayWOD.time_cap_seconds && (
-                  <View style={S.timeCap}>
-                    <Clock color={theme.textMuted} size={12} />
-                    <Text style={S.timeCapText}>
-                      Cap {Math.floor(todayWOD.time_cap_seconds / 60)} min
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text style={S.wodTitle}>{todayWOD.title}</Text>
-              {todayWOD.description && (
-                <Text style={S.wodDesc}>{todayWOD.description}</Text>
-              )}
-              {todayWOD.notes && (
-                <View style={S.notesBox}>
-                  <Text style={S.notesText}>{todayWOD.notes}</Text>
-                </View>
-              )}
-
-              {myScore ? (
-                <View style={S.myScoreRow}>
-                  <View style={S.myScoreBadge}>
-                    <Text style={S.myScoreLabel}>Mon score</Text>
-                    <Text style={S.myScoreValue}>{formatScore(myScore)}</Text>
-                    <Text style={S.myScoreRx}>{myScore.rx ? 'RX' : 'Scaled'}</Text>
-                  </View>
-                  <TouchableOpacity style={S.editScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.7}>
-                    <RotateCcw color={theme.accent} size={14} />
-                    <Text style={S.editScoreBtnText}>Modifier</Text>
+          <Text style={S.sectionTitle}>Séance du jour</Text>
+          {todayWODs.length > 0 ? (
+            <View style={S.dayGroup}>
+              {todayWODs.map(wod => {
+                const tc = TYPE_COLORS[wod.wod_type ?? 'custom'] ?? '#6B7280';
+                return (
+                  <TouchableOpacity
+                    key={wod.id}
+                    style={S.wodCard}
+                    onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={S.wodCardTop}>
+                      <WodTypeBadge type={wod.wod_type} />
+                      {wod.block_name && (
+                        <View style={S.blockBadge}>
+                          <Text style={S.blockBadgeText}>Block {wod.block_name}</Text>
+                        </View>
+                      )}
+                      {wod.time_cap_seconds != null && (
+                        <View style={S.timeCap}>
+                          <Clock color={theme.textMuted} size={12} />
+                          <Text style={S.timeCapText}>
+                            Cap {Math.floor(wod.time_cap_seconds / 60)} min
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={S.wodTitle}>{wod.title}</Text>
+                    {wod.description && (
+                      <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text>
+                    )}
+                    <View style={S.wodCardAction}>
+                      <Text style={S.wodCardActionText}>Voir détails & score</Text>
+                      <ChevronRight color={theme.accent} size={14} />
+                    </View>
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity style={S.enterScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.85}>
-                  <Plus color="#fff" size={18} />
-                  <Text style={S.enterScoreBtnText}>Entrer mon score</Text>
-                </TouchableOpacity>
-              )}
+                );
+              })}
             </View>
           ) : (
             <View style={S.noWodCard}>
@@ -338,66 +271,35 @@ export default function WhiteboardScreen() {
           )}
         </View>
 
-        {/* Classement */}
-        {todayWOD && scores.length > 0 && (
+        {/* Historique groupé par date */}
+        {recentGroups.length > 0 && (
           <View style={S.section}>
-            <Text style={S.sectionTitle}>Classement · {scores.length} score{scores.length > 1 ? 's' : ''}</Text>
-            <View style={S.leaderboard}>
-              {scores.map((sc, i) => {
-                const isMe = sc.member_id === user?.id;
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
-                return (
+            <Text style={S.sectionTitle}>Historique</Text>
+            {recentGroups.map(group => (
+              <View key={group.date} style={S.historyGroup}>
+                <Text style={S.historyGroupDate}>
+                  {new Date(group.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </Text>
+                {group.wods.map(wod => (
                   <TouchableOpacity
-                    key={sc.id}
-                    style={[S.leaderRow, isMe && S.leaderRowMe]}
-                    onPress={() => {
-                      const profileId = (sc.profile as any)?.id;
-                      if (profileId) navigation.navigate('PublicProfile', { userId: profileId });
-                    }}
-                    activeOpacity={0.75}
+                    key={wod.id}
+                    style={S.historyRow}
+                    onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
+                    activeOpacity={0.7}
                   >
-                    <Text style={S.leaderRank}>{medal ?? `${i + 1}`}</Text>
-                    <View style={S.leaderAvatar}>
-                      <Text style={S.leaderAvatarText}>
-                        {((sc.profile as any)?.username?.[0] ?? '?').toUpperCase()}
-                      </Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={S.historyTop}>
+                        <WodTypeBadge type={wod.wod_type} />
+                        {wod.block_name && (
+                          <Text style={S.historyBlock}>Block {wod.block_name}</Text>
+                        )}
+                      </View>
+                      <Text style={S.historyTitle}>{wod.title}</Text>
                     </View>
-                    <View style={S.leaderMid}>
-                      <Text style={S.leaderName}>
-                        {(sc.profile as any)?.username ?? 'Athlète'}{isMe ? ' (moi)' : ''}
-                      </Text>
-                      <Text style={S.leaderRxTag}>{sc.rx ? 'RX' : 'Scaled'}</Text>
-                    </View>
-                    <View style={S.leaderRight}>
-                      <Text style={[S.leaderScore, i === 0 && S.leaderScoreGold]}>{formatScore(sc)}</Text>
-                    </View>
-                    <TouchableOpacity style={S.commentBtn} activeOpacity={0.7}>
-                      <MessageSquare color={theme.textMuted} size={14} />
-                    </TouchableOpacity>
+                    <ChevronRight color={theme.textMuted} size={16} />
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Historique */}
-        {recentWODs.length > 0 && (
-          <View style={S.section}>
-            <Text style={S.sectionTitle}>WODs récents</Text>
-            {recentWODs.map(wod => (
-              <TouchableOpacity key={wod.id} style={S.historyRow} activeOpacity={0.7}>
-                <View style={{ flex: 1 }}>
-                  <View style={S.historyTop}>
-                    <WodTypeBadge type={wod.wod_type} />
-                    <Text style={S.historyDate}>
-                      {new Date(wod.scheduled_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                    </Text>
-                  </View>
-                  <Text style={S.historyTitle}>{wod.title}</Text>
-                </View>
-                <ChevronRight color={theme.textMuted} size={16} />
-              </TouchableOpacity>
+                ))}
+              </View>
             ))}
           </View>
         )}
@@ -443,108 +345,6 @@ export default function WhiteboardScreen() {
             />
           )}
         </View>
-      </Modal>
-
-      {/* Score Modal */}
-      <Modal visible={modalOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModalOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <View style={S.modalContainer}>
-            <View style={S.modalHeader}>
-              <Text style={S.modalTitle}>Entrer mon score</Text>
-              <TouchableOpacity onPress={() => setModalOpen(false)} style={S.modalClose}>
-                <Text style={S.modalCloseText}>Annuler</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={S.modalBody} keyboardShouldPersistTaps="handled">
-              {todayWOD && (
-                <Text style={S.modalWodName}>{todayWOD.title}</Text>
-              )}
-
-              {/* Score type — locked to WOD format when unambiguous */}
-              {(() => {
-                const allowed = allowedScoreTypes(todayWOD?.wod_type);
-                if (allowed.types.length === 1) {
-                  return (
-                    <>
-                      <Text style={S.modalLabel}>TYPE DE SCORE</Text>
-                      <View style={S.typeRow}>
-                        <View style={[S.typeChip, S.typeChipActive]}>
-                          <Text style={[S.typeChipText, S.typeChipTextActive]}>{allowed.types[0].toUpperCase()}</Text>
-                        </View>
-                      </View>
-                    </>
-                  );
-                }
-                return (
-                  <>
-                    <Text style={S.modalLabel}>TYPE DE SCORE</Text>
-                    <View style={S.typeRow}>
-                      {allowed.types.map(t => (
-                        <TouchableOpacity
-                          key={t}
-                          style={[S.typeChip, scoreType === t && S.typeChipActive]}
-                          onPress={() => setScoreType(t)}
-                        >
-                          <Text style={[S.typeChipText, scoreType === t && S.typeChipTextActive]}>
-                            {t.toUpperCase()}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </>
-                );
-              })()}
-
-              {/* Score input */}
-              <Text style={S.modalLabel}>
-                {scoreType === 'time' ? 'TEMPS (MM:SS)' : scoreType === 'weight' ? 'POIDS (kg)' : scoreType === 'reps' ? 'REPS' : 'ROUNDS'}
-              </Text>
-              <TextInput
-                style={S.scoreInput}
-                placeholder={scoreType === 'time' ? '14:32' : '150'}
-                placeholderTextColor={theme.textMuted}
-                value={scoreInput}
-                onChangeText={setScoreInput}
-                keyboardType={scoreType === 'time' ? 'default' : 'numeric'}
-                autoFocus
-              />
-
-              {/* RX / Scaled */}
-              <Text style={S.modalLabel}>NIVEAU</Text>
-              <View style={S.rxRow}>
-                <TouchableOpacity style={[S.rxChip, isRx && S.rxChipActive]} onPress={() => setIsRx(true)}>
-                  <Text style={[S.rxChipText, isRx && S.rxChipTextActive]}>RX</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[S.rxChip, !isRx && S.rxChipActiveScaled]} onPress={() => setIsRx(false)}>
-                  <Text style={[S.rxChipText, !isRx && S.rxChipTextActive]}>Scaled</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Notes */}
-              <Text style={S.modalLabel}>NOTES (optionnel)</Text>
-              <TextInput
-                style={[S.scoreInput, { minHeight: 70, textAlignVertical: 'top' }]}
-                placeholder="Commentaire, mouvements adaptés…"
-                placeholderTextColor={theme.textMuted}
-                value={notes}
-                onChangeText={setNotes}
-                multiline
-              />
-
-              <TouchableOpacity
-                style={[S.submitBtn, (!scoreInput.trim() || submitting) && S.submitBtnDisabled]}
-                onPress={submitScore}
-                disabled={!scoreInput.trim() || submitting}
-                activeOpacity={0.85}
-              >
-                {submitting
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.submitBtnText}>Valider le score</Text>}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -592,63 +392,41 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   memberElo: { fontSize: 13, fontWeight: '700', color: theme.textSecondary },
   section:      { paddingHorizontal: 16, marginTop: 20 },
   sectionTitle: { fontSize: 15, fontWeight: '900', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
+  dayGroup:     { gap: 10 },
   wodCard: {
     backgroundColor: theme.card, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: theme.border, gap: 10,
   },
-  wodCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  wodCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  blockBadge: {
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: `${theme.accent}15`, borderWidth: 1, borderColor: `${theme.accent}30`,
+  },
+  blockBadgeText: { fontSize: 10, fontWeight: '800', color: theme.accent },
   timeCap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   timeCapText: { fontSize: 11, color: theme.textMuted },
-  wodTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
-  wodDesc: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
-  notesBox: { backgroundColor: theme.surface, borderRadius: 8, padding: 10 },
-  notesText: { fontSize: 12, color: theme.textSecondary, lineHeight: 18 },
-  myScoreRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  myScoreBadge: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  myScoreLabel: { fontSize: 12, color: theme.textMuted, fontWeight: '600' },
-  myScoreValue: { fontSize: 20, fontWeight: '900', color: theme.text },
-  myScoreRx:    { fontSize: 11, fontWeight: '700', color: theme.success,
-    backgroundColor: `${theme.success}15`, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  editScoreBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editScoreBtnText: { fontSize: 12, color: theme.accent, fontWeight: '700' },
-  enterScoreBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, backgroundColor: theme.accent, borderRadius: 12, padding: 14, marginTop: 4,
-  },
-  enterScoreBtnText: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  wodTitle: { fontSize: 18, fontWeight: '900', color: theme.text },
+  wodDesc: { fontSize: 13, color: theme.textSecondary, lineHeight: 18 },
+  wodCardAction: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  wodCardActionText: { fontSize: 12, fontWeight: '700', color: theme.accent },
   noWodCard: {
     backgroundColor: theme.card, borderRadius: 16, padding: 32,
     borderWidth: 1, borderColor: theme.border, alignItems: 'center', gap: 10,
   },
   noWodEmoji: { fontSize: 36 },
   noWodText:  { fontSize: 14, color: theme.textMuted, textAlign: 'center' },
-  leaderboard: {
-    backgroundColor: theme.card, borderRadius: 16,
-    borderWidth: 1, borderColor: theme.border, overflow: 'hidden',
+  historyGroup: { marginBottom: 16 },
+  historyGroupDate: {
+    fontSize: 13, fontWeight: '800', color: theme.textSecondary,
+    marginBottom: 8, textTransform: 'capitalize',
   },
-  leaderRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: theme.border,
-  },
-  leaderRowMe:     { backgroundColor: `${theme.accent}10` },
-  leaderRank:      { width: 24, fontSize: 16, textAlign: 'center' },
-  leaderAvatar:    { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' },
-  leaderAvatarText: { fontSize: 13, fontWeight: '800', color: theme.text },
-  leaderMid:       { flex: 1 },
-  leaderName:      { fontSize: 13, fontWeight: '700', color: theme.text },
-  leaderRxTag:     { fontSize: 10, color: theme.textMuted, fontWeight: '600' },
-  leaderRight:     { alignItems: 'flex-end' },
-  leaderScore:     { fontSize: 15, fontWeight: '900', color: theme.text, fontVariant: ['tabular-nums'] },
-  leaderScoreGold: { color: theme.gold },
-  commentBtn:      { padding: 4 },
   historyRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: theme.card, borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: theme.border, marginBottom: 8, gap: 8,
+    borderWidth: 1, borderColor: theme.border, marginBottom: 6, gap: 8,
   },
-  historyTop:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  historyDate: { fontSize: 11, color: theme.textMuted },
+  historyTop:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  historyBlock: { fontSize: 10, fontWeight: '700', color: theme.accent },
   historyTitle: { fontSize: 14, fontWeight: '700', color: theme.text },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyText: { fontSize: 15, color: theme.textMuted, textAlign: 'center' },
@@ -681,46 +459,4 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     fontSize: 22, fontWeight: '800', color: theme.text,
     letterSpacing: 6, textAlign: 'center',
   },
-  modalContainer: { flex: 1, backgroundColor: theme.background },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16,
-    borderBottomWidth: 1, borderBottomColor: theme.border, backgroundColor: theme.card,
-  },
-  modalTitle:     { fontSize: 18, fontWeight: '900', color: theme.text },
-  modalClose:     { padding: 4 },
-  modalCloseText: { fontSize: 14, color: theme.accent, fontWeight: '700' },
-  modalBody:      { padding: 20, gap: 12 },
-  modalWodName:   { fontSize: 16, fontWeight: '800', color: theme.text, marginBottom: 4 },
-  modalLabel:     { fontSize: 11, fontWeight: '800', color: theme.textMuted, letterSpacing: 1 },
-  typeRow:        { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  typeChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
-  },
-  typeChipActive:     { backgroundColor: theme.accent, borderColor: theme.accent },
-  typeChipText:       { fontSize: 11, fontWeight: '800', color: theme.textMuted },
-  typeChipTextActive: { color: '#fff' },
-  scoreInput: {
-    backgroundColor: theme.card, borderRadius: 12,
-    borderWidth: 1, borderColor: theme.border,
-    paddingHorizontal: 14, paddingVertical: 13,
-    fontSize: 18, color: theme.text, fontWeight: '700',
-  },
-  rxRow:            { flexDirection: 'row', gap: 10 },
-  rxChip: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
-    alignItems: 'center',
-  },
-  rxChipActive:       { backgroundColor: theme.accent, borderColor: theme.accent },
-  rxChipActiveScaled: { backgroundColor: theme.warning, borderColor: theme.warning },
-  rxChipText:         { fontSize: 13, fontWeight: '800', color: theme.textMuted },
-  rxChipTextActive:   { color: '#fff' },
-  submitBtn: {
-    backgroundColor: theme.accent, borderRadius: 14,
-    padding: 18, alignItems: 'center', marginTop: 8,
-  },
-  submitBtnDisabled: { opacity: 0.4 },
-  submitBtnText:     { color: '#fff', fontSize: 16, fontWeight: '900' },
 }); }
