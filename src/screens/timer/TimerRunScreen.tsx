@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions, ActivityIndicator, ScrollView, Modal,
-  TextInput, Linking, Clipboard, Alert, useWindowDimensions, Image,
+  TextInput, Linking, Clipboard, Alert, useWindowDimensions, Image, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle } from 'react-native-svg';
@@ -826,7 +826,7 @@ export default function TimerRunScreen() {
   const showNormalStop = isActive && !showEndWorkBtn && !showEndBlockBtn;
 
   const qrData = JSON.stringify({
-    app: 'TheHub',
+    app: 'AthleX',
     type: displayLabel,
     time: mainTime,
     ...(videoTitle ? { title: videoTitle } : {}),
@@ -899,7 +899,7 @@ export default function TimerRunScreen() {
         >
           <ViewShot ref={cardRef} options={{ format: 'png', quality: 1 }} style={styles.sessionCard}>
             <View style={styles.sessionCardInner}>
-              <Text style={styles.sessionApp}>⚡ THEHUB</Text>
+              <Text style={styles.sessionApp}>⚡ ATHLEX</Text>
               <View style={styles.sessionBadge}>
                 <Text style={styles.sessionBadgeText}>{displayLabel}</Text>
               </View>
@@ -1144,7 +1144,10 @@ export default function TimerRunScreen() {
   function renderYTModal() {
     return (
       <Modal visible={showYT} transparent animationType="slide" onRequestClose={() => setShowYT(false)}>
-        <View style={styles.ytModal}>
+        <KeyboardAvoidingView
+          style={styles.ytModal}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.ytSheet}>
             <Text style={styles.ytSheetTitle}>🎬 Partager sur YouTube</Text>
             <Text style={styles.ytSheetSub}>Upload ta vidéo puis colle le lien pour générer l'analyse</Text>
@@ -1176,7 +1179,7 @@ export default function TimerRunScreen() {
                   Alert.alert('Lien manquant', 'Colle d\'abord le lien YouTube de ta vidéo.');
                   return;
                 }
-                const prompt = `Analyse cette vidéo CrossFit TheHub :\n\n🔗 Lien : ${ytLink.trim()}\n⏱ Temps : ${mainTime}\n🏋️ Type : ${displayLabel}\n\nAnalyse les points suivants :\n1. Technique des mouvements (qualité, erreurs)\n2. Gestion de l'effort et du rythme\n3. Points forts observés\n4. Axes d'amélioration prioritaires\n5. Conseils pour progresser`;
+                const prompt = `Analyse cette vidéo CrossFit AthleX :\n\n🔗 Lien : ${ytLink.trim()}\n⏱ Temps : ${mainTime}\n🏋️ Type : ${displayLabel}\n\nAnalyse les points suivants :\n1. Technique des mouvements (qualité, erreurs)\n2. Gestion de l'effort et du rythme\n3. Points forts observés\n4. Axes d'amélioration prioritaires\n5. Conseils pour progresser`;
                 Clipboard.setString(prompt);
                 Alert.alert('✅ Prompt copié !', 'Colle-le dans ChatGPT ou Claude pour analyser ta performance.');
               }}
@@ -1189,7 +1192,7 @@ export default function TimerRunScreen() {
               <Text style={styles.ytCloseTxt}>Fermer</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }

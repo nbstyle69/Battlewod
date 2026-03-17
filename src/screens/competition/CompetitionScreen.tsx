@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
-import { Swords, Trophy, Users, Clock, Zap, ChevronRight, Plus, MapPin, Flame } from 'lucide-react-native';
+import { Swords, Trophy, Users, Clock, Zap, ChevronRight, Plus, MapPin, Flame, Globe2 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -14,7 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'CompetitionList'>;
 
-const TABS = ['Tournois', 'Mini-Tournoi', 'Compét. Physique'];
+const TABS = ['Tournois', 'Mini-Tournoi', 'Compétition Physique', 'Inter-box'];
 
 const MOCK_MATCHES = [
   { id: '1', opponent: 'FlexKing42', elo: 1312, level: 'rx', status: 'pending', wod: 'Grace Sprint' },
@@ -338,61 +338,91 @@ export default function CompetitionScreen() {
           </>
         )}
 
+        {activeTab === 3 && (
+          <>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[S.createButton, S.createGradient, { backgroundColor: '#C9A227' }]}
+              onPress={() => navigation.navigate('InterCompetitionList')}
+            >
+              <Globe2 color="#fff" size={20} />
+              <Text style={S.createText}>Voir les compétitions inter-box</Text>
+            </TouchableOpacity>
+            <View style={[S.physInfoBox, { borderColor: '#C9A22725', backgroundColor: '#C9A22710' }]}>
+              <Text style={[S.physInfoTitle, { color: '#C9A227' }]}>🌍 Compétitions Inter-box</Text>
+              <Text style={S.physInfoText}>{"Affronte des athlètes de toutes les box.\n3 WODs révélés progressivement. Soumets tes scores avec preuve vidéo. Le Super Admin valide les résultats."}</Text>
+            </View>
+          </>
+        )}
+
         <View style={{ height: 32 }} />
       </ScrollView>
     </View>
   );
 }
 
-function createStyles(theme: AppTheme) { return StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  const isDark = theme.mode === 'dark';
+  const cardShadow = isDark ? {} : {
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  };
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
-  header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
-  headerTitle: { fontSize: 26, fontWeight: '900', color: theme.text },
+  header: {
+    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
+    backgroundColor: theme.card,
+    borderBottomWidth: isDark ? 1 : 0, borderBottomColor: theme.border,
+    ...(isDark ? {} : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }),
+  },
+  headerTitle: { fontSize: 24, fontWeight: '900', color: theme.text, letterSpacing: -0.3 },
   headerSub: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
   tabs: {
-    flexDirection: 'row', backgroundColor: theme.background,
+    flexDirection: 'row', backgroundColor: theme.card,
     borderBottomWidth: 1, borderBottomColor: theme.border,
   },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: theme.accent },
-  tabText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
-  tabTextActive: { color: theme.accent, fontWeight: '800' },
+  tabText: { fontSize: 12, fontWeight: '600', color: theme.textMuted, textAlign: 'center' },
+  tabTextActive: { color: theme.accent, fontWeight: '700' },
   content: { padding: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: theme.text, marginBottom: 12, marginTop: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 12, marginTop: 8 },
   createButton: { marginBottom: 16 },
   createGradient: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 14, padding: 16, gap: 8,
     backgroundColor: theme.accent,
   },
-  createText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  createText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   matchCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: theme.card, borderRadius: 12, padding: 14,
+    backgroundColor: isDark ? theme.card : theme.card, borderRadius: 14, padding: 14,
     marginBottom: 10, borderWidth: 1, borderColor: theme.border,
+    ...cardShadow,
   },
   matchLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   vsAvatar: {
-    width: 46, height: 46, borderRadius: 23,
+    width: 46, height: 46, borderRadius: 16,
     backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: theme.accent,
   },
   vsAvatarText: { fontSize: 18, fontWeight: '900', color: theme.text },
-  matchOpponent: { fontSize: 15, fontWeight: '800', color: theme.text },
+  matchOpponent: { fontSize: 15, fontWeight: '700', color: theme.text },
   matchMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
   matchElo: { fontSize: 12, color: theme.textMuted },
   matchWod: { fontSize: 11, color: theme.textSecondary, marginTop: 2 },
-  levelPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  levelPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
   levelPillText: { fontSize: 10, fontWeight: '700' },
   matchRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   statusText: { fontSize: 11, fontWeight: '700' },
   tournamentCard: {
-    backgroundColor: theme.card, borderRadius: 16, padding: 16,
-    marginBottom: 10, borderWidth: 1, borderColor: theme.cardBorder,
+    backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16, padding: 16,
+    marginBottom: 10, borderWidth: 1, borderColor: theme.border,
+    ...cardShadow,
   },
   tHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  tName: { fontSize: 15, fontWeight: '800', color: theme.text, flex: 1 },
+  tName: { fontSize: 15, fontWeight: '700', color: theme.text, flex: 1 },
   tStatus: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   tStatusText: { fontSize: 11, fontWeight: '700' },
   tInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
@@ -406,16 +436,17 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: theme.accent, borderRadius: 2 },
   miniInfo: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: `${theme.gold}15`, borderRadius: 10,
-    padding: 12, marginBottom: 16,
+    backgroundColor: `${theme.gold}12`, borderRadius: 12,
+    padding: 12, marginBottom: 16, borderWidth: 1, borderColor: `${theme.gold}25`,
   },
   miniInfoText: { fontSize: 12, color: theme.gold, flex: 1 },
   miniCard: {
-    backgroundColor: theme.card, borderRadius: 16, padding: 16,
-    marginBottom: 10, borderWidth: 1, borderColor: theme.cardBorder,
+    backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16, padding: 16,
+    marginBottom: 10, borderWidth: 1, borderColor: theme.border,
+    ...cardShadow,
   },
   miniHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  miniName: { fontSize: 15, fontWeight: '800', color: theme.text },
+  miniName: { fontSize: 15, fontWeight: '700', color: theme.text },
   miniFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   miniParticipants: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   participantDot: { width: 10, height: 10, borderRadius: 5 },
@@ -423,17 +454,17 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   miniTime: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   miniTimeText: { fontSize: 12, color: theme.textMuted },
   joinButton: {
-    borderRadius: 12, padding: 12, alignItems: 'center',
+    borderRadius: 14, padding: 12, alignItems: 'center',
     backgroundColor: theme.accent, marginTop: 4,
   },
-  joinButtonText: { color: '#fff', fontWeight: '800', fontSize: 13, letterSpacing: 1 },
+  joinButtonText: { color: '#fff', fontWeight: '700', fontSize: 13, letterSpacing: 0.5 },
   emptyBox:   { alignItems: 'center', paddingTop: 48, gap: 10 },
   emptyEmoji: { fontSize: 36 },
   emptyText:  { fontSize: 14, color: theme.textMuted, textAlign: 'center' },
   physInfoBox: {
-    backgroundColor: `#8B5CF615`, borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: `#8B5CF630`, marginTop: 8,
+    backgroundColor: `#8B5CF610`, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: `#8B5CF625`, marginTop: 8,
   },
-  physInfoTitle: { fontSize: 15, fontWeight: '900', color: '#8B5CF6', marginBottom: 6 },
+  physInfoTitle: { fontSize: 15, fontWeight: '700', color: '#8B5CF6', marginBottom: 6 },
   physInfoText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 19 },
 }); }

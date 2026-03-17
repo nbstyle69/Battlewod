@@ -9,6 +9,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { HomeStackParamList } from '../../navigation';
 import { AthleteLevel } from '../../types';
 
@@ -68,6 +69,8 @@ function formatDateShort(iso: string): string {
 export default function WodHistoryScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
 
   const [wods, setWods] = useState<SavedWOD[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +136,7 @@ export default function WodHistoryScreen() {
 
   function renderWod({ item }: { item: SavedWOD }) {
     const isExpanded = expandedId === item.id;
-    const levelColor = LevelColors[item.level as AthleteLevel] ?? Colors.textMuted;
+    const levelColor = LevelColors[item.level as AthleteLevel] ?? theme.textMuted;
     const bestScore = item.scores && item.scores.length > 0
       ? item.scores.sort((a, b) => item.wod_type === 'For Time' ? a.score_value - b.score_value : b.score_value - a.score_value)[0]
       : null;
@@ -147,8 +150,8 @@ export default function WodHistoryScreen() {
         {/* Top row */}
         <View style={S.wodTop}>
           <View style={S.wodBadges}>
-            <View style={[S.badge, { backgroundColor: `${Colors.primary}18` }]}>
-              <Text style={[S.badgeTxt, { color: Colors.primary }]}>{item.wod_type}</Text>
+            <View style={[S.badge, { backgroundColor: `${theme.accent}18` }]}>
+              <Text style={[S.badgeTxt, { color: theme.accent }]}>{item.wod_type}</Text>
             </View>
             <View style={[S.badge, { backgroundColor: `${levelColor}20` }]}>
               <Text style={[S.badgeTxt, { color: levelColor }]}>{item.level.toUpperCase()}</Text>
@@ -159,17 +162,17 @@ export default function WodHistoryScreen() {
               </View>
             )}
             {item.duration > 0 && (
-              <View style={[S.badge, { backgroundColor: Colors.surface }]}>
-                <Clock color={Colors.textMuted} size={10} />
-                <Text style={[S.badgeTxt, { color: Colors.textMuted }]}>{item.duration}m</Text>
+              <View style={[S.badge, { backgroundColor: theme.surface }]}>
+                <Clock color={theme.textMuted} size={10} />
+                <Text style={[S.badgeTxt, { color: theme.textMuted }]}>{item.duration}m</Text>
               </View>
             )}
           </View>
           <View style={S.wodActions}>
             <TouchableOpacity onPress={() => toggleFav(item)} hitSlop={8}>
-              <Heart color={item.is_favorite ? '#EF4444' : Colors.textMuted} size={16} fill={item.is_favorite ? '#EF4444' : 'transparent'} />
+              <Heart color={item.is_favorite ? '#EF4444' : theme.textMuted} size={16} fill={item.is_favorite ? '#EF4444' : 'transparent'} />
             </TouchableOpacity>
-            {isExpanded ? <ChevronUp color={Colors.textMuted} size={16} /> : <ChevronDown color={Colors.textMuted} size={16} />}
+            {isExpanded ? <ChevronUp color={theme.textMuted} size={16} /> : <ChevronDown color={theme.textMuted} size={16} />}
           </View>
         </View>
 
@@ -180,7 +183,7 @@ export default function WodHistoryScreen() {
         {/* Best score if any */}
         {bestScore && (
           <View style={S.bestScoreRow}>
-            <Zap color={Colors.gold} size={12} />
+            <Zap color={theme.gold} size={12} />
             <Text style={S.bestScoreTxt}>Meilleur : {formatScore(bestScore)} {bestScore.rx ? '(RX)' : '(Scaled)'}</Text>
           </View>
         )}
@@ -195,7 +198,7 @@ export default function WodHistoryScreen() {
             </View>
             {item.scoring && (
               <View style={S.scoringRow}>
-                <Zap color={Colors.gold} size={13} />
+                <Zap color={theme.gold} size={13} />
                 <Text style={S.scoringTxt}>{item.scoring}</Text>
               </View>
             )}
@@ -236,7 +239,7 @@ export default function WodHistoryScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
-          <ArrowLeft color={Colors.text} size={22} />
+          <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Historique WODs</Text>
         <View style={{ width: 22 }} />
@@ -270,7 +273,7 @@ export default function WodHistoryScreen() {
 
       {loading ? (
         <View style={S.center}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <FlatList
@@ -292,63 +295,63 @@ export default function WodHistoryScreen() {
   );
 }
 
-const S = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  headerTitle: { fontSize: 18, fontWeight: '900', color: Colors.text },
+  headerTitle: { fontSize: 18, fontWeight: '900', color: t.text },
   statsRow: {
     flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: t.border,
   },
   statBox: { alignItems: 'center' },
-  statNum: { fontSize: 22, fontWeight: '900', color: Colors.text },
-  statLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginTop: 2 },
+  statNum: { fontSize: 22, fontWeight: '900', color: t.text },
+  statLabel: { fontSize: 11, fontWeight: '600', color: t.textMuted, marginTop: 2 },
   filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+    borderWidth: 1.5, borderColor: t.border, backgroundColor: t.surface,
   },
-  filterChipSel: { backgroundColor: `${Colors.primary}15`, borderColor: Colors.primary },
-  filterTxt: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
-  filterTxtSel: { color: Colors.primary, fontWeight: '900' },
+  filterChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
+  filterTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
+  filterTxtSel: { color: t.accent, fontWeight: '900' },
   list: { padding: 16, gap: 12, paddingBottom: 40 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyEmoji: { fontSize: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
-  emptySub: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: 40 },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: t.text },
+  emptySub: { fontSize: 13, color: t.textMuted, textAlign: 'center', paddingHorizontal: 40 },
   wodCard: {
-    backgroundColor: Colors.card, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: Colors.border, gap: 6,
+    backgroundColor: t.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: t.border, gap: 6,
   },
   wodTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   wodBadges: { flexDirection: 'row', gap: 5, flexWrap: 'wrap', flex: 1 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5 },
   badgeTxt: { fontSize: 9, fontWeight: '800' },
   wodActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  wodName: { fontSize: 17, fontWeight: '900', color: Colors.text },
-  wodDate: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  wodName: { fontSize: 17, fontWeight: '900', color: t.text },
+  wodDate: { fontSize: 11, fontWeight: '600', color: t.textMuted },
   bestScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  bestScoreTxt: { fontSize: 12, fontWeight: '700', color: Colors.gold },
-  expandedContent: { gap: 10, marginTop: 8, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 },
-  movBox: { backgroundColor: Colors.surface, borderRadius: 8, padding: 10, gap: 2 },
-  movHeader: { fontSize: 11, fontWeight: '800', color: Colors.textSecondary },
-  movLine: { fontSize: 12, fontWeight: '600', color: Colors.text },
+  bestScoreTxt: { fontSize: 12, fontWeight: '700', color: t.gold },
+  expandedContent: { gap: 10, marginTop: 8, borderTopWidth: 1, borderTopColor: t.border, paddingTop: 10 },
+  movBox: { backgroundColor: t.surface, borderRadius: 8, padding: 10, gap: 2 },
+  movHeader: { fontSize: 11, fontWeight: '800', color: t.textSecondary },
+  movLine: { fontSize: 12, fontWeight: '600', color: t.text },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  scoringTxt: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, flex: 1 },
-  coachBox: { backgroundColor: `${Colors.gold}12`, borderRadius: 8, padding: 8 },
-  coachTxt: { fontSize: 11, color: Colors.textSecondary, lineHeight: 16 },
+  scoringTxt: { fontSize: 11, fontWeight: '700', color: t.textSecondary, flex: 1 },
+  coachBox: { backgroundColor: `${t.gold}12`, borderRadius: 8, padding: 8 },
+  coachTxt: { fontSize: 11, color: t.textSecondary, lineHeight: 16 },
   scoresSection: { gap: 4 },
-  scoresTitle: { fontSize: 12, fontWeight: '800', color: Colors.text },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: Colors.border },
-  scoreDate: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, width: 60 },
-  scoreValue: { fontSize: 14, fontWeight: '900', color: Colors.text },
-  scoreRx: { fontSize: 10, fontWeight: '800', color: Colors.primary, backgroundColor: `${Colors.primary}15`, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
-  scoreNotes: { fontSize: 10, color: Colors.textMuted, flex: 1 },
+  scoresTitle: { fontSize: 12, fontWeight: '800', color: t.text },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: t.border },
+  scoreDate: { fontSize: 11, fontWeight: '600', color: t.textMuted, width: 60 },
+  scoreValue: { fontSize: 14, fontWeight: '900', color: t.text },
+  scoreRx: { fontSize: 10, fontWeight: '800', color: t.accent, backgroundColor: `${t.accent}15`, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
+  scoreNotes: { fontSize: 10, color: t.textMuted, flex: 1 },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', paddingVertical: 6 },
   deleteTxt: { fontSize: 12, fontWeight: '700', color: '#EF4444' },
-});
+}); }

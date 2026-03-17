@@ -4,7 +4,9 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl, Switch,
 } from 'react-native';
-import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Eye, EyeOff } from 'lucide-react-native';
+import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Eye, EyeOff, Upload } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -148,6 +150,118 @@ export default function BOWODsScreen({ navigation }: any) {
     ]);
   }
 
+  // ── Import CSV / JSON ──
+  // CSV : date,title,type,description,timecap,rounds,notes,block,published,rank,groups
+  // JSON: { date, title, type, description, timecap, rounds, notes, block, published, rank, groups }
+  //   published = true/false  (défaut true)
+  //   rank      = true/false  (défaut true) → leaderboard_enabled
+  //   groups    = ["Nom A","Nom B"] (noms) — si vide/absent → visible par tous
+  //   (CSV : groupes séparés par | dans la dernière colonne)
+  async function importWODs() {
+    if (!currentBox || !user) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'application/json', 'text/plain'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const file = result.assets[0];
+      const content = await FileSystem.readAsStringAsync(file.uri);
+
+      const parseBool = (v: any, fb = true): boolean => {
+        if (v === undefined || v === null || v === '') return fb;
+        if (typeof v === 'boolean') return v;
+        const s = String(v).toLowerCase();
+        return !(s === 'false' || s === '0' || s === 'non');
+      };
+
+      let rows: any[] = [];
+
+      if (file.name?.endsWith('.json')) {
+        const parsed = JSON.parse(content);
+        rows = Array.isArray(parsed) ? parsed : [parsed];
+      } else {
+        // CSV: date,title,type,description,timecap,rounds,notes,block,published,rank,groups
+        const lines = content.split(/\r?\n/).filter(l => l.trim());
+        const header = lines[0].toLowerCase();
+        const hasHeader = header.includes('date') && header.includes('title');
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+        for (const line of dataLines) {
+          const cols = line.split(/[;,](?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
+          if (cols.length < 2) continue;
+          rows.push({
+            scheduled_date: cols[0] || toISO(new Date()),
+            title: cols[1] || 'WOD importé',
+            wod_type: cols[2] || 'custom',
+            description: cols[3] || null,
+            time_cap_seconds: cols[4] ? parseInt(cols[4]) * 60 : null,
+            rounds: cols[5] ? parseInt(cols[5]) : null,
+            notes: cols[6] || null,
+            block_name: cols[7] || null,
+            published: parseBool(cols[8]),
+            rank: parseBool(cols[9]),
+            groups: cols[10] ? cols[10].split('|').map((g: string) => g.trim()).filter(Boolean) : [],
+          });
+        }
+      }
+
+      if (rows.length === 0) { Alert.alert('Import', 'Aucun WOD trouvé dans le fichier.'); return; }
+
+      // Résoudre noms de groupes → IDs
+      const allGroupNames = [...new Set(rows.flatMap((r: any) => r.groups ?? []))] as string[];
+      const groupMap: Record<string, string> = {};
+      if (allGroupNames.length > 0) {
+        const { data: grps } = await supabase
+          .from('message_groups')
+          .select('id, name')
+          .eq('box_id', currentBox!.id)
+          .in('name', allGroupNames);
+        if (grps) grps.forEach((g: any) => { groupMap[g.name] = g.id; });
+        const missing = allGroupNames.filter(n => !groupMap[n]);
+        if (missing.length > 0) {
+          Alert.alert('Groupes inconnus', `Ces groupes n'existent pas :\n${missing.join(', ')}\n\nLes WODs concernés seront visibles par tous.`);
+        }
+      }
+
+      const VALID_TYPES: string[] = ['for-time','amrap','emom','tabata','strength','custom'];
+      const payloads = rows.map((r: any) => ({
+        box_id: currentBox!.id,
+        created_by: user!.id,
+        title: String(r.title || 'WOD importé').trim(),
+        description: r.description || null,
+        wod_type: VALID_TYPES.includes(r.wod_type ?? r.type ?? '') ? (r.wod_type ?? r.type) : 'custom',
+        scheduled_date: r.scheduled_date ?? r.date ?? toISO(new Date()),
+        time_cap_seconds: r.time_cap_seconds ?? (r.timecap ? parseInt(r.timecap) * 60 : null),
+        rounds: r.rounds ? parseInt(String(r.rounds)) : null,
+        notes: r.notes || null,
+        block_name: r.block_name ?? r.block ?? null,
+        is_published: parseBool(r.published ?? r.is_published),
+        leaderboard_enabled: parseBool(r.rank ?? r.leaderboard_enabled),
+      }));
+
+      const { data: inserted, error } = await supabase.from('box_wods').insert(payloads).select('id');
+      if (error || !inserted) { Alert.alert('Erreur import', error?.message ?? 'Erreur inconnue'); return; }
+
+      // Insérer wod_group_access
+      const accessRows: { wod_id: string; group_id: string }[] = [];
+      inserted.forEach((wod: any, i: number) => {
+        const grpNames: string[] = rows[i].groups ?? [];
+        for (const gn of grpNames) {
+          if (groupMap[gn]) accessRows.push({ wod_id: wod.id, group_id: groupMap[gn] });
+        }
+      });
+      if (accessRows.length > 0) {
+        const { error: gErr } = await supabase.from('wod_group_access').insert(accessRows);
+        if (gErr) Alert.alert('Attention', `WODs importés mais erreur groupes : ${gErr.message}`);
+      }
+
+      Alert.alert('Import réussi', `${inserted.length} WOD(s) importé(s) !`);
+      load();
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Import échoué');
+    }
+  }
+
   const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
   const todayISO = toISO(new Date());
 
@@ -158,7 +272,9 @@ export default function BOWODsScreen({ navigation }: any) {
           <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Calendrier WODs</Text>
-        <View style={{ width: 22 }} />
+        <TouchableOpacity onPress={importWODs} style={S.importBtn}>
+          <Upload color={theme.accent} size={18} />
+        </TouchableOpacity>
       </View>
 
       {/* Week navigation */}
@@ -334,6 +450,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   back:        { padding: 2 },
+  importBtn:   { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '900', color: theme.text },
   weekNav:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   weekArrow: { padding: 6 },

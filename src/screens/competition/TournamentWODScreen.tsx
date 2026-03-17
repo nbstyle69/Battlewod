@@ -396,7 +396,7 @@ export default function TournamentWODScreen() {
               '2. Appuie sur le "+" en bas de l\'écran',
               '3. Sélectionne "Importer une vidéo"',
               '4. Choisis ta vidéo dans la galerie',
-              '5. Titre : ex "TheHub – Fran 23/03/2026"',
+              '5. Titre : ex "AthleX – Fran 23/03/2026"',
               '6. Visibilité : "Non répertoriée" (recommandé)',
               '7. Copie le lien et colle-le ici',
             ].map((step, i) => <Text key={i} style={S.modalStep}>{step}</Text>)}

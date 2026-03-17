@@ -12,6 +12,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 
 type Nav = NativeStackNavigationProp<any>;
 
@@ -48,6 +49,8 @@ const SCORE_MODES: { key: string; label: string }[] = [
 export default function DailyTournamentsScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
 
   const [tournaments, setTournaments] = useState<DailyTournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,15 +100,11 @@ export default function DailyTournamentsScreen() {
 
   async function handleJoin(tournamentId: string) {
     if (!user) return;
-    const { error } = await supabase.from('daily_tournament_participants').insert({
+    const { error } = await supabase.from('daily_tournament_participants').upsert({
       tournament_id: tournamentId,
       user_id: user.id,
-    });
-    if (error) {
-      if (error.code === '23505') Alert.alert('Déjà inscrit', 'Tu participes déjà à ce mini-tournoi.');
-      else Alert.alert('Erreur', error.message);
-      return;
-    }
+    }, { onConflict: 'tournament_id,user_id', ignoreDuplicates: true });
+    if (error) { Alert.alert('Erreur', error.message); return; }
     load();
   }
 
@@ -130,10 +129,10 @@ export default function DailyTournamentsScreen() {
 
     // Auto-join
     if (data) {
-      await supabase.from('daily_tournament_participants').insert({
+      await supabase.from('daily_tournament_participants').upsert({
         tournament_id: data.id,
         user_id: user.id,
-      });
+      }, { onConflict: 'tournament_id,user_id', ignoreDuplicates: true });
     }
 
     setCreateModal(false);
@@ -159,7 +158,7 @@ export default function DailyTournamentsScreen() {
   }
 
   function renderTournament({ item }: { item: DailyTournament }) {
-    const levelColor = LevelColors[item.level] ?? Colors.textMuted;
+    const levelColor = LevelColors[item.level] ?? theme.textMuted;
     const isFull = item.participant_count >= item.max_players;
     const remaining = timeLeft(item.ends_at);
 
@@ -172,22 +171,22 @@ export default function DailyTournamentsScreen() {
         {/* Badges */}
         <View style={S.cardTop}>
           <View style={S.badges}>
-            <View style={[S.badge, { backgroundColor: `${Colors.primary}12` }]}>
-              <Text style={[S.badgeTxt, { color: Colors.primary }]}>{item.wod_type}</Text>
+            <View style={[S.badge, { backgroundColor: `${theme.accent}12` }]}>
+              <Text style={[S.badgeTxt, { color: theme.accent }]}>{item.wod_type}</Text>
             </View>
             <View style={[S.badge, { backgroundColor: `${levelColor}20` }]}>
               <Text style={[S.badgeTxt, { color: levelColor }]}>{item.level.toUpperCase()}</Text>
             </View>
             {item.duration > 0 && (
-              <View style={[S.badge, { backgroundColor: Colors.surface }]}>
-                <Clock color={Colors.textMuted} size={9} />
-                <Text style={[S.badgeTxt, { color: Colors.textMuted }]}>{item.duration}m</Text>
+              <View style={[S.badge, { backgroundColor: theme.surface }]}>
+                <Clock color={theme.textMuted} size={9} />
+                <Text style={[S.badgeTxt, { color: theme.textMuted }]}>{item.duration}m</Text>
               </View>
             )}
           </View>
-          <View style={[S.badge, { backgroundColor: remaining === 'Terminé' ? '#EF444420' : `${Colors.accent}15` }]}>
-            <Flame color={remaining === 'Terminé' ? '#EF4444' : Colors.accent} size={9} />
-            <Text style={[S.badgeTxt, { color: remaining === 'Terminé' ? '#EF4444' : Colors.accent }]}>{remaining}</Text>
+          <View style={[S.badge, { backgroundColor: remaining === 'Terminé' ? '#EF444420' : `${theme.accent}15` }]}>
+            <Flame color={remaining === 'Terminé' ? '#EF4444' : theme.accent} size={9} />
+            <Text style={[S.badgeTxt, { color: remaining === 'Terminé' ? '#EF4444' : theme.accent }]}>{remaining}</Text>
           </View>
         </View>
 
@@ -201,13 +200,13 @@ export default function DailyTournamentsScreen() {
         {/* Footer */}
         <View style={S.cardFooter}>
           <View style={S.playersRow}>
-            <Users color={Colors.textMuted} size={14} />
+            <Users color={theme.textMuted} size={14} />
             <Text style={[S.playersTxt, isFull && { color: '#EF4444' }]}>
               {item.participant_count}/{item.max_players}
             </Text>
           </View>
           <View style={S.rewardRow}>
-            <Trophy color={Colors.gold} size={13} />
+            <Trophy color={theme.gold} size={13} />
             <Text style={S.rewardTxt}>+{item.elo_reward} ELO</Text>
           </View>
           {!item.has_joined && !isFull && (
@@ -225,11 +224,11 @@ export default function DailyTournamentsScreen() {
             </View>
           )}
           {item.has_scored && (
-            <View style={[S.joinedBadge, { backgroundColor: `${Colors.gold}15` }]}>
-              <Text style={[S.joinedTxt, { color: Colors.gold }]}>Score ✓</Text>
+            <View style={[S.joinedBadge, { backgroundColor: `${theme.gold}15` }]}>
+              <Text style={[S.joinedTxt, { color: theme.gold }]}>Score ✓</Text>
             </View>
           )}
-          <ChevronRight color={Colors.textMuted} size={16} />
+          <ChevronRight color={theme.textMuted} size={16} />
         </View>
       </TouchableOpacity>
     );
@@ -240,11 +239,11 @@ export default function DailyTournamentsScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
-          <ArrowLeft color={Colors.text} size={22} />
+          <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Mini-Tournois</Text>
         <TouchableOpacity onPress={() => setCreateModal(true)} hitSlop={12}>
-          <Plus color={Colors.accent} size={22} />
+          <Plus color={theme.accent} size={22} />
         </TouchableOpacity>
       </View>
 
@@ -266,7 +265,7 @@ export default function DailyTournamentsScreen() {
 
       {loading ? (
         <View style={S.center}>
-          <ActivityIndicator size="large" color={Colors.accent} />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <FlatList
@@ -298,7 +297,7 @@ export default function DailyTournamentsScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
               <Text style={S.label}>Nom du WOD</Text>
-              <TextInput style={S.input} value={formName} onChangeText={setFormName} placeholder="Ex: Flash Burner" placeholderTextColor={Colors.textMuted} />
+              <TextInput style={S.input} value={formName} onChangeText={setFormName} placeholder="Ex: Flash Burner" placeholderTextColor={theme.textMuted} />
 
               <Text style={S.label}>Type</Text>
               <View style={S.chipRow}>
@@ -311,7 +310,7 @@ export default function DailyTournamentsScreen() {
               </View>
 
               <Text style={S.label}>Durée (min)</Text>
-              <TextInput style={S.input} value={formDuration} onChangeText={setFormDuration} keyboardType="numeric" placeholder="12" placeholderTextColor={Colors.textMuted} />
+              <TextInput style={S.input} value={formDuration} onChangeText={setFormDuration} keyboardType="numeric" placeholder="12" placeholderTextColor={theme.textMuted} />
 
               <Text style={S.label}>Niveau</Text>
               <View style={S.chipRow}>
@@ -340,7 +339,7 @@ export default function DailyTournamentsScreen() {
                 onChangeText={setFormMovements}
                 multiline
                 placeholder="21-15-9&#10;Thrusters (43/30 kg)&#10;Pull-ups"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={theme.textMuted}
               />
             </ScrollView>
 
@@ -368,84 +367,84 @@ export default function DailyTournamentsScreen() {
   );
 }
 
-const S = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  headerTitle: { fontSize: 18, fontWeight: '900', color: Colors.text },
+  headerTitle: { fontSize: 18, fontWeight: '900', color: t.text },
   statsRow: {
     flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: t.border,
   },
   statBox: { alignItems: 'center' },
-  statNum: { fontSize: 20, fontWeight: '900', color: Colors.text },
-  statLabel: { fontSize: 10, fontWeight: '600', color: Colors.textMuted, marginTop: 2 },
+  statNum: { fontSize: 20, fontWeight: '900', color: t.text },
+  statLabel: { fontSize: 10, fontWeight: '600', color: t.textMuted, marginTop: 2 },
   list: { padding: 16, gap: 12, paddingBottom: 40 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyEmoji: { fontSize: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
-  emptySub: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: 40 },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: t.text },
+  emptySub: { fontSize: 13, color: t.textMuted, textAlign: 'center', paddingHorizontal: 40 },
   emptyBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20, marginTop: 8,
+    backgroundColor: t.accent, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20, marginTop: 8,
   },
   emptyBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
   card: {
-    backgroundColor: Colors.card, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: Colors.border, gap: 6,
+    backgroundColor: t.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: t.border, gap: 6,
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   badges: { flexDirection: 'row', gap: 5, flexWrap: 'wrap', flex: 1 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5 },
   badgeTxt: { fontSize: 9, fontWeight: '800' },
-  cardName: { fontSize: 17, fontWeight: '900', color: Colors.text },
-  cardCreator: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
-  cardMovements: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
+  cardName: { fontSize: 17, fontWeight: '900', color: t.text },
+  cardCreator: { fontSize: 11, fontWeight: '600', color: t.textMuted },
+  cardMovements: { fontSize: 12, color: t.textSecondary, lineHeight: 17 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   playersRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  playersTxt: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
+  playersTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
   rewardRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  rewardTxt: { fontSize: 11, fontWeight: '800', color: Colors.gold },
+  rewardTxt: { fontSize: 11, fontWeight: '800', color: t.gold },
   joinBtn: {
-    marginLeft: 'auto', backgroundColor: Colors.accent, borderRadius: 8,
+    marginLeft: 'auto', backgroundColor: t.accent, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 6,
   },
   joinBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '800' },
   joinedBadge: {
-    marginLeft: 'auto', backgroundColor: `${Colors.accent}15`, borderRadius: 8,
+    marginLeft: 'auto', backgroundColor: `${t.accent}15`, borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 4,
   },
-  joinedTxt: { fontSize: 11, fontWeight: '800', color: Colors.accent },
+  joinedTxt: { fontSize: 11, fontWeight: '800', color: t.accent },
   // Modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalSheet: {
-    backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: t.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 40, gap: 10,
   },
-  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 4 },
-  modalTitle: { fontSize: 18, fontWeight: '900', color: Colors.text, marginBottom: 4 },
-  label: { fontSize: 11, fontWeight: '800', color: Colors.textMuted, letterSpacing: 0.5, marginTop: 8 },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 4 },
+  modalTitle: { fontSize: 18, fontWeight: '900', color: t.text, marginBottom: 4 },
+  label: { fontSize: 11, fontWeight: '800', color: t.textMuted, letterSpacing: 0.5, marginTop: 8 },
   input: {
-    backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
-    padding: 12, fontSize: 14, color: Colors.text, marginTop: 4,
+    backgroundColor: t.surface, borderRadius: 10, borderWidth: 1, borderColor: t.border,
+    padding: 12, fontSize: 14, color: t.text, marginTop: 4,
   },
   chipRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
   chip: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+    borderWidth: 1.5, borderColor: t.border, backgroundColor: t.surface,
   },
-  chipSel: { backgroundColor: `${Colors.accent}15`, borderColor: Colors.accent },
-  chipTxt: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
-  chipTxtSel: { color: Colors.accent, fontWeight: '900' },
+  chipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
+  chipTxt: { fontSize: 11, fontWeight: '700', color: t.textMuted },
+  chipTxtSel: { color: t.accent, fontWeight: '900' },
   createBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.accent, borderRadius: 12, padding: 14, marginTop: 8,
+    backgroundColor: t.accent, borderRadius: 12, padding: 14, marginTop: 8,
   },
   createBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
   cancelBtn: { alignItems: 'center', paddingVertical: 8 },
-  cancelTxt: { fontSize: 13, color: Colors.textMuted, fontWeight: '600' },
-});
+  cancelTxt: { fontSize: 13, color: t.textMuted, fontWeight: '600' },
+}); }

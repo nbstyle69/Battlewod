@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Shield, CheckCircle, XCircle, Video, Clock, Users, Trophy, LogOut } from 'lucide-react-native';
+import { Shield, CheckCircle, XCircle, Video, Clock, Users, Trophy, LogOut, Youtube, AlertTriangle, Zap } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { supabase } from '../../lib/supabase';
 
-const TABS = ['Scores', 'Matchs', 'Tournois'];
+const TABS = ['Scores', 'Matchs', 'Tournois', 'Daily WOD'];
 
 interface PendingScore {
   id: string;
@@ -21,6 +21,21 @@ interface PendingScore {
   submitted: string;
 }
 
+interface ContestedDaily {
+  id: string;
+  tournament_id: string;
+  tournament_name: string;
+  athlete: string;
+  athlete_id: string;
+  score_value: number;
+  score_mode: string;
+  rx: boolean;
+  video_url: string | null;
+  contest_reason: string | null;
+  contested_by_name: string;
+  submitted_at: string;
+}
+
 export default function AdminScreen() {
   const { user, signOut } = useAuth();
   const { theme, mode } = useTheme();
@@ -28,6 +43,8 @@ export default function AdminScreen() {
   const [activeTab, setActiveTab]     = useState(0);
   const [pendingScores, setPendingScores] = useState<PendingScore[]>([]);
   const [loadingScores, setLoadingScores] = useState(true);
+  const [contestedDailies, setContestedDailies] = useState<ContestedDaily[]>([]);
+  const [loadingDailies, setLoadingDailies] = useState(true);
 
   const loadScores = useCallback(async () => {
     setLoadingScores(true);
@@ -55,7 +72,38 @@ export default function AdminScreen() {
     setLoadingScores(false);
   }, []);
 
-  useEffect(() => { loadScores(); }, [loadScores]);
+  const loadDailies = useCallback(async () => {
+    setLoadingDailies(true);
+    const { data } = await supabase
+      .from('daily_tournament_scores')
+      .select('*, tournament:daily_tournaments(wod_name, score_mode), profile:profiles!daily_tournament_scores_user_id_profiles_fkey(username), contester:profiles!daily_tournament_scores_contested_by_fkey(username)')
+      .eq('status', 'contested')
+      .order('submitted_at', { ascending: false });
+
+    const mapped: ContestedDaily[] = (data ?? []).map((s: any) => {
+      const tournament = Array.isArray(s.tournament) ? s.tournament[0] : s.tournament;
+      const profile = Array.isArray(s.profile) ? s.profile[0] : s.profile;
+      const contester = Array.isArray(s.contester) ? s.contester[0] : s.contester;
+      return {
+        id: s.id,
+        tournament_id: s.tournament_id,
+        tournament_name: tournament?.wod_name ?? '—',
+        athlete: profile?.username ?? 'Inconnu',
+        athlete_id: s.user_id,
+        score_value: s.score_value,
+        score_mode: tournament?.score_mode ?? 'time',
+        rx: s.rx,
+        video_url: s.video_url,
+        contest_reason: s.contest_reason,
+        contested_by_name: contester?.username ?? 'Inconnu',
+        submitted_at: s.submitted_at,
+      };
+    });
+    setContestedDailies(mapped);
+    setLoadingDailies(false);
+  }, []);
+
+  useEffect(() => { loadScores(); loadDailies(); }, [loadScores, loadDailies]);
 
   async function handleValidate(id: string) {
     Alert.alert('Valider le score', 'Confirmer la validation de ce score ?', [
@@ -76,6 +124,36 @@ export default function AdminScreen() {
         text: 'Rejeter', style: 'destructive', onPress: async () => {
           await supabase.from('tournament_scores').update({ status: 'rejected' }).eq('id', id);
           setPendingScores(prev => prev.filter(s => s.id !== id));
+        },
+      },
+    ]);
+  }
+
+  async function handleDailyValidate(item: ContestedDaily) {
+    Alert.alert('Valider le score', `Confirmer la validation du score de ${item.athlete} ?`, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Valider', onPress: async () => {
+          await supabase.from('daily_tournament_scores')
+            .update({ status: 'validated' })
+            .eq('tournament_id', item.tournament_id)
+            .eq('user_id', item.athlete_id);
+          setContestedDailies(prev => prev.filter(d => d.id !== item.id));
+        },
+      },
+    ]);
+  }
+
+  async function handleDailyReject(item: ContestedDaily) {
+    Alert.alert('Rejeter le score', `Rejeter le score de ${item.athlete} et le supprimer ?`, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Rejeter', style: 'destructive', onPress: async () => {
+          await supabase.from('daily_tournament_scores')
+            .delete()
+            .eq('tournament_id', item.tournament_id)
+            .eq('user_id', item.athlete_id);
+          setContestedDailies(prev => prev.filter(d => d.id !== item.id));
         },
       },
     ]);
@@ -244,6 +322,85 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {activeTab === 3 && (
+          <>
+            {loadingDailies ? (
+              <View style={S.emptyState}>
+                <ActivityIndicator size="large" color={theme.accent} />
+              </View>
+            ) : contestedDailies.length === 0 ? (
+              <View style={S.emptyState}>
+                <CheckCircle color={theme.success} size={48} />
+                <Text style={S.emptyTitle}>Aucune contestation</Text>
+                <Text style={S.emptySub}>Tous les scores Daily WOD sont validés.</Text>
+              </View>
+            ) : (
+              contestedDailies.map(item => (
+                <View key={item.id} style={S.scoreCard}>
+                  <View style={S.scoreHeader}>
+                    <View style={S.athleteRow}>
+                      <View style={[S.avatar, { backgroundColor: `${theme.error}20` }]}>
+                        <AlertTriangle color={theme.error} size={18} />
+                      </View>
+                      <View>
+                        <Text style={S.athleteName}>{item.athlete}</Text>
+                        <Text style={S.dailyTournamentName}>{item.tournament_name}</Text>
+                      </View>
+                    </View>
+                    <View style={S.contestedBadge}>
+                      <Text style={S.contestedBadgeText}>CONTESTÉ</Text>
+                    </View>
+                  </View>
+
+                  <View style={S.scoreInfo}>
+                    <View>
+                      <Text style={S.scoreWod}>Score soumis</Text>
+                      <Text style={S.dailyScoreDetail}>{item.rx ? 'RX' : 'Scaled'}</Text>
+                    </View>
+                    <Text style={S.scoreValue}>{item.score_value}</Text>
+                  </View>
+
+                  {item.contest_reason ? (
+                    <View style={S.contestReasonBox}>
+                      <AlertTriangle color={theme.warning} size={14} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={S.contestReasonLabel}>Raison ({item.contested_by_name}) :</Text>
+                        <Text style={S.contestReasonText}>{item.contest_reason}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+
+                  <View style={S.videoRow}>
+                    {item.video_url ? (
+                      <TouchableOpacity style={S.videoButton} onPress={() => Linking.openURL(item.video_url!)}>
+                        <Youtube color="#FF0000" size={16} />
+                        <Text style={[S.videoButtonText, { color: '#FF0000' }]}>Voir la vidéo</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={S.noVideo}>
+                        <Text style={S.noVideoText}>⚠️ Pas de vidéo soumise</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={S.actionRow}>
+                    <TouchableOpacity onPress={() => handleDailyReject(item)} style={S.rejectButton}>
+                      <XCircle color={theme.error} size={18} />
+                      <Text style={S.rejectText}>Rejeter</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDailyValidate(item)} activeOpacity={0.8} style={{ flex: 1 }}>
+                      <LinearGradient colors={[theme.success, '#00E676']} style={S.validateButton}>
+                        <CheckCircle color="#fff" size={18} />
+                        <Text style={S.validateText}>Valider</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </>
+        )}
+
         <View style={{ height: 32 }} />
       </ScrollView>
     </View>
@@ -342,4 +499,19 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   vsText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   matchStatus: { borderRadius: 10, padding: 10 },
   matchStatusText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  // Daily WOD tab
+  dailyTournamentName: { fontSize: 11, color: theme.textMuted, fontWeight: '600', marginTop: 1 },
+  dailyScoreDetail: { fontSize: 11, color: theme.textMuted, fontWeight: '600', marginTop: 2 },
+  contestedBadge: {
+    backgroundColor: `${theme.error}15`, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: `${theme.error}30`,
+  },
+  contestedBadgeText: { fontSize: 10, fontWeight: '900', color: theme.error, letterSpacing: 0.5 },
+  contestReasonBox: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    backgroundColor: `${theme.warning}10`, borderRadius: 10, padding: 12,
+    marginBottom: 12, borderWidth: 1, borderColor: `${theme.warning}20`,
+  },
+  contestReasonLabel: { fontSize: 11, fontWeight: '800', color: theme.warning, marginBottom: 2 },
+  contestReasonText: { fontSize: 13, color: theme.text, fontWeight: '600' },
 }); }

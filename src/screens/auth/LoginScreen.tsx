@@ -40,7 +40,7 @@ export default function LoginScreen({ navigation }: Props) {
             <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.logoBox}>
               <Zap color="#fff" size={40} />
             </LinearGradient>
-            <Text style={S.appName}>TheHub</Text>
+            <Text style={S.appName}>AthleX</Text>
             <Text style={S.tagline}>Compétition • Partout • Maintenant</Text>
           </View>
 
@@ -72,6 +72,10 @@ export default function LoginScreen({ navigation }: Props) {
               />
             </View>
 
+            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={S.forgotLink}>
+              <Text style={S.forgotText}>Mot de passe oublié ?</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8}>
               <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
                 {loading
@@ -92,7 +96,13 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
-function createStyles(theme: AppTheme) { return StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  const isDark = theme.mode === 'dark';
+  const cardShadow = isDark ? {} : {
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+  };
+  return StyleSheet.create({
   gradient: { flex: 1 },
   flex: { flex: 1 },
   container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
@@ -105,17 +115,20 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   tagline: { fontSize: 13, color: theme.textSecondary, marginTop: 4, letterSpacing: 1 },
   form: {
     backgroundColor: theme.card, borderRadius: 20, padding: 24,
-    borderWidth: 1, borderColor: theme.cardBorder,
+    borderWidth: 1, borderColor: theme.border,
+    ...cardShadow,
   },
-  title: { fontSize: 22, fontWeight: '800', color: theme.text, marginBottom: 24 },
+  title: { fontSize: 22, fontWeight: '700', color: theme.text, marginBottom: 24 },
   inputContainer: { marginBottom: 16 },
-  label: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '600' },
+  label: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '500' },
   input: {
-    backgroundColor: theme.surface, borderRadius: 12, padding: 14,
+    backgroundColor: isDark ? theme.surface : theme.background, borderRadius: 14, padding: 14,
     color: theme.text, fontSize: 15, borderWidth: 1, borderColor: theme.border,
   },
   button: { borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  forgotLink: { alignItems: 'flex-end', marginTop: -8, marginBottom: 8 },
+  forgotText: { color: theme.accent, fontSize: 13, fontWeight: '600' },
   registerLink: { alignItems: 'center', marginTop: 20 },
   registerText: { color: theme.textSecondary, fontSize: 14 },
   registerHighlight: { color: theme.accent, fontWeight: '700' },

@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import {
   TournamentScore, MOVEMENT_BADGE_LEVELS,
   rankWodScores, cfPoints, calcTournamentElo,
@@ -21,9 +22,9 @@ import {
 } from '../../utils/tournamentUtils';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function StatusPill({ status }: { status: string }) {
-  const color = status === 'pending' ? Colors.warning
-    : status === 'validated' ? Colors.success : Colors.error;
+function StatusPill({ status, theme: t }: { status: string; theme: AppTheme }) {
+  const color = status === 'pending' ? t.warning
+    : status === 'validated' ? t.success : t.error;
   const label = status === 'pending' ? 'En attente' : status === 'validated' ? 'Validé' : 'Rejeté';
   return (
     <View style={[pill.wrap, { backgroundColor: `${color}20` }]}>
@@ -40,6 +41,8 @@ const pill = StyleSheet.create({
 export default function BOTournamentScreen() {
   const navigation = useNavigation();
   const { currentBox } = useAuth();
+  const { theme } = useTheme();
+  const s = createStyles(theme);
 
   const [tournaments,     setTournaments]     = useState<any[]>([]);
   const [selectedId,      setSelectedId]      = useState<string | null>(null);
@@ -363,7 +366,7 @@ Réponds en français, sois concis et factuel.`;
 
   // ─────────────────────────────────────────────────────────────────────────
   if (loading) return (
-    <View style={s.loadingWrap}><ActivityIndicator size="large" color={Colors.primary} /></View>
+    <View style={s.loadingWrap}><ActivityIndicator size="large" color={theme.accent} /></View>
   );
 
   return (
@@ -404,10 +407,10 @@ Réponds en français, sois concis et factuel.`;
       {/* ── Stats ── */}
       <View style={s.statsRow}>
         {[
-          { label: 'Total',     value: stats.total,     color: Colors.textSecondary },
-          { label: 'Attente',   value: stats.pending,   color: Colors.warning },
-          { label: 'Validés',   value: stats.validated, color: Colors.success },
-          { label: 'Rejetés',   value: stats.rejected,  color: Colors.error },
+          { label: 'Total',     value: stats.total,     color: theme.textSecondary },
+          { label: 'Attente',   value: stats.pending,   color: theme.warning },
+          { label: 'Validés',   value: stats.validated, color: theme.success },
+          { label: 'Rejetés',   value: stats.rejected,  color: theme.error },
         ].map(stat => (
           <View key={stat.label} style={s.statCard}>
             <Text style={[s.statValue, { color: stat.color }]}>{stat.value}</Text>
@@ -442,13 +445,13 @@ Réponds en français, sois concis et factuel.`;
               <Text style={s.rankFilterLabel}>au rang</Text>
               <TextInput style={s.rankFilterInput} value={rankTo} onChangeText={setRankTo} keyboardType="numeric" />
               <TouchableOpacity onPress={() => { setRankFrom('1'); setRankTo(String(participants.length)); }} style={s.rankResetBtn}>
-                <RotateCcw color={Colors.textMuted} size={14} />
+                <RotateCcw color={theme.textMuted} size={14} />
               </TouchableOpacity>
             </View>
 
             {/* Recalc button */}
             <TouchableOpacity style={s.recalcBtn} onPress={async () => { await recalcLeaderboard(); await loadData(); Alert.alert('✅', 'Classement recalculé.'); }} activeOpacity={0.8}>
-              <RotateCcw color={Colors.primary} size={14} />
+              <RotateCcw color={theme.accent} size={14} />
               <Text style={s.recalcTxt}>Recalculer le classement</Text>
             </TouchableOpacity>
 
@@ -473,7 +476,7 @@ Réponds en français, sois concis et factuel.`;
                     <Text style={[s.tableCell, s.colTotal, s.tableHeaderTxt]}>Total</Text>
                   </View>
                   {buildLeaderboard().map((row, i) => {
-                    const levelColor = LevelColors[row.level] ?? Colors.primary;
+                    const levelColor = LevelColors[row.level] ?? theme.accent;
                     return (
                       <View key={row.athleteId} style={[s.tableRow, i % 2 === 0 ? s.tableRowEven : s.tableRowOdd]}>
                         <View style={[s.tableCell, s.colRank]}>
@@ -490,7 +493,7 @@ Réponds en français, sois concis et factuel.`;
                         </View>
                         {wods.map(w => {
                           const res = row.wodResults[w.id];
-                          const bg  = !res ? 'transparent' : res.rank === 1 ? `${Colors.success}20` : res.rank <= 3 ? `${Colors.gold}15` : 'transparent';
+                          const bg  = !res ? 'transparent' : res.rank === 1 ? `${theme.success}20` : res.rank <= 3 ? `${theme.gold}15` : 'transparent';
                           return (
                             <View key={w.id} style={[s.tableCell, s.colWod, { backgroundColor: bg }]}>
                               {res
@@ -525,7 +528,7 @@ Réponds en français, sois concis et factuel.`;
         {tab === 'participants' && (
           <>
             <View style={s.partHeader}>
-              <Users color={Colors.primary} size={14} />
+              <Users color={theme.accent} size={14} />
               <Text style={s.partHeaderTxt}>{participants.length} inscrits — admin : exclure en appuyant sur 🗑</Text>
             </View>
             {participants.length === 0 ? (
@@ -534,7 +537,7 @@ Réponds en français, sois concis et factuel.`;
                 <Text style={s.emptyTxt}>Aucun inscrit pour ce tournoi.</Text>
               </View>
             ) : participants.map((p: any) => {
-              const levelColor = LevelColors[p.profile?.level ?? ''] ?? Colors.primary;
+              const levelColor = LevelColors[p.profile?.level ?? ''] ?? theme.accent;
               const boxName = p.profile?.box_members?.[0]?.box?.name ?? null;
               const regDate = p.created_at
                 ? new Date(p.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -558,7 +561,7 @@ Réponds en français, sois concis et factuel.`;
                       )}
                     </View>
                     <View style={s.partMeta}>
-                      <Star color={Colors.gold} size={10} />
+                      <Star color={theme.gold} size={10} />
                       <Text style={s.partMetaTxt}>ELO {p.profile?.elo ?? 1000}</Text>
                       {boxName && (
                         <><Text style={s.partMetaDot}>·</Text>
@@ -570,7 +573,7 @@ Réponds en français, sois concis et factuel.`;
                   <TouchableOpacity style={s.kickBtn}
                     onPress={() => handleKick(p.athlete_id, p.profile?.username ?? '?')}
                     activeOpacity={0.7}>
-                    <UserX color={Colors.error} size={16} />
+                    <UserX color={theme.error} size={16} />
                   </TouchableOpacity>
                 </View>
               );
@@ -600,7 +603,7 @@ Réponds en français, sois concis et factuel.`;
               </View>
             ) : filteredScores.map(score => {
               const isExpanded = expandedId === score.id;
-              const levelColor = LevelColors[score.profile?.level ?? ''] ?? Colors.primary;
+              const levelColor = LevelColors[score.profile?.level ?? ''] ?? theme.accent;
               return (
                 <View key={score.id} style={s.scoreCard}>
                   {/* Card header (always visible) */}
@@ -629,10 +632,10 @@ Réponds en français, sois concis et factuel.`;
                       </View>
                     </View>
                     <View style={s.scoreCardRight}>
-                      <StatusPill status={score.status} />
+                      <StatusPill status={score.status} theme={theme} />
                       {isExpanded
-                        ? <ChevronUp color={Colors.textMuted} size={16} />
-                        : <ChevronDown color={Colors.textMuted} size={16} />}
+                        ? <ChevronUp color={theme.textMuted} size={16} />
+                        : <ChevronDown color={theme.textMuted} size={16} />}
                     </View>
                   </TouchableOpacity>
 
@@ -650,7 +653,7 @@ Réponds en français, sois concis et factuel.`;
                       )}
                       {score.deadline_at && (
                         <Text style={s.deadlineTxt}>
-                          <Clock color={Colors.textMuted} size={12} /> Deadline : {formatDateTime(score.deadline_at)}
+                          <Clock color={theme.textMuted} size={12} /> Deadline : {formatDateTime(score.deadline_at)}
                         </Text>
                       )}
 
@@ -662,7 +665,7 @@ Réponds en français, sois concis et factuel.`;
                         </TouchableOpacity>
                       ) : (
                         <View style={s.ytWarning}>
-                          <AlertTriangle color={Colors.error} size={14} />
+                          <AlertTriangle color={theme.error} size={14} />
                           <Text style={s.ytWarningTxt}>Aucun lien vidéo soumis</Text>
                         </View>
                       )}
@@ -681,21 +684,21 @@ Réponds en français, sois concis et factuel.`;
                       {/* Action buttons */}
                       {score.status === 'pending' && (
                         <View style={s.actionRow}>
-                          <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${Colors.success}15`, borderColor: `${Colors.success}30` }]}
+                          <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.success}15`, borderColor: `${theme.success}30` }]}
                             onPress={() => handleValidate(score)} activeOpacity={0.8}>
-                            <CheckCircle color={Colors.success} size={16} />
-                            <Text style={[s.actionBtnTxt, { color: Colors.success }]}>Valider</Text>
+                            <CheckCircle color={theme.success} size={16} />
+                            <Text style={[s.actionBtnTxt, { color: theme.success }]}>Valider</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${Colors.error}15`, borderColor: `${Colors.error}30` }]}
+                          <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.error}15`, borderColor: `${theme.error}30` }]}
                             onPress={() => { setRejectModal(score); setRejectReason(''); }} activeOpacity={0.8}>
-                            <XCircle color={Colors.error} size={16} />
-                            <Text style={[s.actionBtnTxt, { color: Colors.error }]}>Rejeter</Text>
+                            <XCircle color={theme.error} size={16} />
+                            <Text style={[s.actionBtnTxt, { color: theme.error }]}>Rejeter</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${Colors.primary}10`, borderColor: `${Colors.primary}20`, flex: 1.2 }]}
+                          <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.accent}10`, borderColor: `${theme.accent}20`, flex: 1.2 }]}
                             onPress={() => runAI(score)} disabled={aiLoading === score.id} activeOpacity={0.8}>
                             {aiLoading === score.id
-                              ? <ActivityIndicator size="small" color={Colors.primary} />
-                              : <><Bot color={Colors.primary} size={15} /><Text style={[s.actionBtnTxt, { color: Colors.primary }]}>Évaluation du score</Text></>}
+                              ? <ActivityIndicator size="small" color={theme.accent} />
+                              : <><Bot color={theme.accent} size={15} /><Text style={[s.actionBtnTxt, { color: theme.accent }]}>Évaluation du score</Text></>}
                           </TouchableOpacity>
                         </View>
                       )}
@@ -721,7 +724,7 @@ Réponds en français, sois concis et factuel.`;
               value={rejectReason}
               onChangeText={setRejectReason}
               placeholder="Motif du rejet (optionnel)"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               multiline
             />
             <TouchableOpacity style={s.rejectConfirmBtn} onPress={confirmReject} activeOpacity={0.85}>
@@ -744,7 +747,7 @@ Réponds en français, sois concis et factuel.`;
               <Text style={s.aiAnalysisTxt}>{aiModal?.analysis}</Text>
             </ScrollView>
             <View style={[s.aiWarningBox, { marginTop: 12 }]}>
-              <AlertTriangle color={Colors.warning} size={14} />
+              <AlertTriangle color={theme.warning} size={14} />
               <Text style={s.aiWarningTxt}>
                 Analyse basée sur le score déclaré uniquement — vérification vidéo manuelle obligatoire.
               </Text>
@@ -757,15 +760,15 @@ Réponds en français, sois concis et factuel.`;
             ) : null}
             {aiModal?.score.status === 'pending' && (
               <View style={s.actionRow}>
-                <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${Colors.success}15`, borderColor: `${Colors.success}30` }]}
+                <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.success}15`, borderColor: `${theme.success}30` }]}
                   onPress={() => { setAiModal(null); if (aiModal) handleValidate(aiModal.score); }} activeOpacity={0.8}>
-                  <CheckCircle color={Colors.success} size={16} />
-                  <Text style={[s.actionBtnTxt, { color: Colors.success }]}>Valider</Text>
+                  <CheckCircle color={theme.success} size={16} />
+                  <Text style={[s.actionBtnTxt, { color: theme.success }]}>Valider</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${Colors.error}15`, borderColor: `${Colors.error}30` }]}
+                <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.error}15`, borderColor: `${theme.error}30` }]}
                   onPress={() => { setAiModal(null); if (aiModal) { setRejectModal(aiModal.score); setRejectReason(''); } }} activeOpacity={0.8}>
-                  <XCircle color={Colors.error} size={16} />
-                  <Text style={[s.actionBtnTxt, { color: Colors.error }]}>Rejeter</Text>
+                  <XCircle color={theme.error} size={16} />
+                  <Text style={[s.actionBtnTxt, { color: theme.error }]}>Rejeter</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -779,9 +782,9 @@ Réponds en français, sois concis et factuel.`;
   );
 }
 
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: Colors.background },
-  loadingWrap: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  container:   { flex: 1, backgroundColor: t.background },
+  loadingWrap: { flex: 1, backgroundColor: t.background, justifyContent: 'center', alignItems: 'center' },
 
   header:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn:     { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
@@ -789,94 +792,94 @@ const s = StyleSheet.create({
   headerTexts: { flex: 1 },
   headerLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.35)', letterSpacing: 1.5 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: '#fff' },
-  pendingBadge:    { backgroundColor: Colors.warning, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  pendingBadge:    { backgroundColor: t.warning, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   pendingBadgeTxt: { fontSize: 13, fontWeight: '900', color: '#fff' },
 
-  tournamentScroll:        { backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  tournamentScroll:        { backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border },
   tournamentScrollContent: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  tournamentChip:          { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
-  tournamentChipActive:    { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  tournamentChipTxt:       { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
+  tournamentChip:          { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border },
+  tournamentChipActive:    { backgroundColor: t.accent, borderColor: t.accent },
+  tournamentChipTxt:       { fontSize: 12, fontWeight: '700', color: t.textSecondary },
   tournamentChipTxtActive: { color: '#fff' },
-  chipBadge:    { backgroundColor: Colors.warning, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
+  chipBadge:    { backgroundColor: t.warning, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
   chipBadgeTxt: { fontSize: 10, fontWeight: '900', color: '#fff' },
 
   statsRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  statCard:  { flex: 1, backgroundColor: Colors.card, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.cardBorder },
+  statCard:  { flex: 1, backgroundColor: t.card, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: t.border },
   statValue: { fontSize: 20, fontWeight: '900' },
-  statLabel: { fontSize: 10, color: Colors.textMuted, fontWeight: '700', marginTop: 2 },
+  statLabel: { fontSize: 10, color: t.textMuted, fontWeight: '700', marginTop: 2 },
 
-  tabs:       { flexDirection: 'row', backgroundColor: Colors.card, marginHorizontal: 12, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 4 },
+  tabs:       { flexDirection: 'row', backgroundColor: t.card, marginHorizontal: 12, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: t.border, marginBottom: 4 },
   tab:        { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-  tabActive:  { backgroundColor: Colors.primary },
-  tabTxt:     { fontSize: 13, fontWeight: '700', color: Colors.textMuted },
+  tabActive:  { backgroundColor: t.accent },
+  tabTxt:     { fontSize: 13, fontWeight: '700', color: t.textMuted },
   tabTxtActive:{ color: '#fff' },
 
   content: { padding: 12, paddingTop: 8 },
 
   rankFilterRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  rankFilterLabel: { fontSize: 12, color: Colors.textMuted, fontWeight: '600' },
-  rankFilterInput: { backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, fontWeight: '800', color: Colors.text, borderWidth: 1, borderColor: Colors.border, width: 48, textAlign: 'center' },
+  rankFilterLabel: { fontSize: 12, color: t.textMuted, fontWeight: '600' },
+  rankFilterInput: { backgroundColor: t.card, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, fontWeight: '800', color: t.text, borderWidth: 1, borderColor: t.border, width: 48, textAlign: 'center' },
   rankResetBtn:    { padding: 6 },
-  recalcBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card, marginBottom: 12 },
-  recalcTxt:       { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  recalcBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: t.border, backgroundColor: t.card, marginBottom: 12 },
+  recalcTxt:       { fontSize: 12, fontWeight: '700', color: t.accent },
 
-  tableRow:       { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: Colors.border },
-  tableHeaderRow: { backgroundColor: Colors.surface },
-  tableRowEven:   { backgroundColor: Colors.card },
-  tableRowOdd:    { backgroundColor: Colors.background },
+  tableRow:       { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border },
+  tableHeaderRow: { backgroundColor: t.surface },
+  tableRowEven:   { backgroundColor: t.card },
+  tableRowOdd:    { backgroundColor: t.background },
   tableCell:      { paddingHorizontal: 8, paddingVertical: 10, justifyContent: 'center' },
-  tableHeaderTxt: { fontSize: 10, fontWeight: '800', color: Colors.textMuted, letterSpacing: 0.8 },
+  tableHeaderTxt: { fontSize: 10, fontWeight: '800', color: t.textMuted, letterSpacing: 0.8 },
   colRank:   { width: 48 },
   colName:   { width: 120, gap: 3 },
   colWod:    { width: 90, borderRadius: 4 },
   colTotal:  { width: 70 },
   rankEmoji: { fontSize: 18 },
-  rankNumTxt:{ fontSize: 13, fontWeight: '800', color: Colors.textSecondary },
-  athleteName:    { fontSize: 12, fontWeight: '800', color: Colors.text },
+  rankNumTxt:{ fontSize: 13, fontWeight: '800', color: t.textSecondary },
+  athleteName:    { fontSize: 12, fontWeight: '800', color: t.text },
   levelBadge:     { alignSelf: 'flex-start', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
   levelBadgeTxt:  { fontSize: 9, fontWeight: '800' },
-  wodCell:        { fontSize: 11, fontWeight: '700', color: Colors.text },
-  wodCellEmpty:   { fontSize: 12, color: Colors.textMuted, textAlign: 'center' },
-  totalPts:       { fontSize: 15, fontWeight: '900', color: Colors.primary, textAlign: 'center' },
+  wodCell:        { fontSize: 11, fontWeight: '700', color: t.text },
+  wodCellEmpty:   { fontSize: 12, color: t.textMuted, textAlign: 'center' },
+  totalPts:       { fontSize: 15, fontWeight: '900', color: t.accent, textAlign: 'center' },
 
-  closeBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.error, borderRadius: 14, padding: 15, marginTop: 16 },
+  closeBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: t.error, borderRadius: 14, padding: 15, marginTop: 16 },
   closeBtnTxt: { fontSize: 14, fontWeight: '900', color: '#fff' },
 
   filterRow:       { flexDirection: 'row', gap: 8, paddingBottom: 8 },
-  filterChip:      { borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
-  filterChipActive:{ backgroundColor: Colors.primary, borderColor: Colors.primary },
-  filterChipTxt:   { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
+  filterChip:      { borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border },
+  filterChipActive:{ backgroundColor: t.accent, borderColor: t.accent },
+  filterChipTxt:   { fontSize: 12, fontWeight: '700', color: t.textMuted },
   filterChipTxtActive: { color: '#fff' },
 
-  scoreCard:       { backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 10, overflow: 'hidden' },
+  scoreCard:       { backgroundColor: t.card, borderRadius: 14, borderWidth: 1, borderColor: t.border, marginBottom: 10, overflow: 'hidden' },
   scoreCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
   scoreAvatar:     { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   scoreAvatarTxt:  { fontSize: 18, fontWeight: '900' },
   scoreCardInfo:   { flex: 1, gap: 3 },
   scoreCardRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  scoreAthleteNm:  { fontSize: 14, fontWeight: '800', color: Colors.text },
-  scoreWodNm:      { fontSize: 11, color: Colors.textMuted },
-  scoreDate:       { fontSize: 11, color: Colors.textMuted },
-  scoreValue:      { fontSize: 14, fontWeight: '900', color: Colors.primary },
+  scoreAthleteNm:  { fontSize: 14, fontWeight: '800', color: t.text },
+  scoreWodNm:      { fontSize: 11, color: t.textMuted },
+  scoreDate:       { fontSize: 11, color: t.textMuted },
+  scoreValue:      { fontSize: 14, fontWeight: '900', color: t.accent },
   scoreCardRight:  { alignItems: 'flex-end', gap: 6 },
 
-  scoreCardBody: { padding: 12, paddingTop: 0, gap: 10, borderTopWidth: 1, borderTopColor: Colors.border },
-  scoreNote:     { backgroundColor: Colors.surface, borderRadius: 10, padding: 10, gap: 4 },
-  scoreNoteLabel:{ fontSize: 10, fontWeight: '800', color: Colors.textMuted, letterSpacing: 1 },
-  scoreNoteTxt:  { fontSize: 13, color: Colors.textSecondary, lineHeight: 20 },
-  tiebreakTxt:   { fontSize: 12, color: Colors.textSecondary },
-  deadlineTxt:   { fontSize: 12, color: Colors.textMuted },
+  scoreCardBody: { padding: 12, paddingTop: 0, gap: 10, borderTopWidth: 1, borderTopColor: t.border },
+  scoreNote:     { backgroundColor: t.surface, borderRadius: 10, padding: 10, gap: 4 },
+  scoreNoteLabel:{ fontSize: 10, fontWeight: '800', color: t.textMuted, letterSpacing: 1 },
+  scoreNoteTxt:  { fontSize: 13, color: t.textSecondary, lineHeight: 20 },
+  tiebreakTxt:   { fontSize: 12, color: t.textSecondary },
+  deadlineTxt:   { fontSize: 12, color: t.textMuted },
 
-  ytBtn:        { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${Colors.error}10`, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: `${Colors.error}20` },
+  ytBtn:        { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${t.error}10`, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: `${t.error}20` },
   ytBtnTxt:     { fontSize: 13, fontWeight: '700', color: '#FF0000' },
-  ytWarning:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${Colors.error}10`, borderRadius: 8, padding: 10 },
-  ytWarningTxt: { fontSize: 12, color: Colors.error, fontWeight: '600' },
+  ytWarning:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${t.error}10`, borderRadius: 8, padding: 10 },
+  ytWarningTxt: { fontSize: 12, color: t.error, fontWeight: '600' },
 
-  aiPreview:      { backgroundColor: `${Colors.primary}08`, borderRadius: 10, padding: 10, gap: 4, borderWidth: 1, borderColor: `${Colors.primary}15` },
-  aiPreviewLabel: { fontSize: 10, fontWeight: '800', color: Colors.primary, letterSpacing: 1 },
-  aiPreviewTxt:   { fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
-  aiPreviewMore:  { fontSize: 12, color: Colors.primary, fontWeight: '700', marginTop: 4 },
+  aiPreview:      { backgroundColor: `${t.accent}08`, borderRadius: 10, padding: 10, gap: 4, borderWidth: 1, borderColor: `${t.accent}15` },
+  aiPreviewLabel: { fontSize: 10, fontWeight: '800', color: t.accent, letterSpacing: 1 },
+  aiPreviewTxt:   { fontSize: 12, color: t.textSecondary, lineHeight: 18 },
+  aiPreviewMore:  { fontSize: 12, color: t.accent, fontWeight: '700', marginTop: 4 },
 
   actionRow: { flexDirection: 'row', gap: 8 },
   actionBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, padding: 10, borderWidth: 1 },
@@ -884,32 +887,32 @@ const s = StyleSheet.create({
 
   emptyState: { alignItems: 'center', paddingTop: 40, gap: 8 },
   emptyEmoji: { fontSize: 36 },
-  emptyTxt:   { fontSize: 13, color: Colors.textMuted, textAlign: 'center' },
-  partHeader:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${Colors.primary}10`, borderRadius: 10, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: `${Colors.primary}20` },
-  partHeaderTxt: { fontSize: 12, color: Colors.primary, fontWeight: '600', flex: 1 },
-  partRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.cardBorder },
+  emptyTxt:   { fontSize: 13, color: t.textMuted, textAlign: 'center' },
+  partHeader:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${t.accent}10`, borderRadius: 10, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: `${t.accent}20` },
+  partHeaderTxt: { fontSize: 12, color: t.accent, fontWeight: '600', flex: 1 },
+  partRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: t.card, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: t.border },
   partAvatar:    { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   partAvatarTxt: { fontSize: 18, fontWeight: '900' },
   partInfo:      { flex: 1, gap: 2 },
   partNameRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  partName:      { fontSize: 14, fontWeight: '800', color: Colors.text },
+  partName:      { fontSize: 14, fontWeight: '800', color: t.text },
   partMeta:      { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  partMetaTxt:   { fontSize: 11, color: Colors.textSecondary },
-  partMetaDot:   { fontSize: 11, color: Colors.textMuted },
-  partDate:      { fontSize: 10, color: Colors.textMuted, marginTop: 1 },
-  kickBtn:       { width: 34, height: 34, borderRadius: 9, backgroundColor: `${Colors.error}12`, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: `${Colors.error}30` },
+  partMetaTxt:   { fontSize: 11, color: t.textSecondary },
+  partMetaDot:   { fontSize: 11, color: t.textMuted },
+  partDate:      { fontSize: 10, color: t.textMuted, marginTop: 1 },
+  kickBtn:       { width: 34, height: 34, borderRadius: 9, backgroundColor: `${t.error}12`, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: `${t.error}30` },
 
   modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalSheet:     { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 12, borderWidth: 1, borderColor: Colors.cardBorder },
-  modalTitle:     { fontSize: 17, fontWeight: '900', color: Colors.text },
-  modalSub:       { fontSize: 13, color: Colors.textMuted },
-  rejectInput:    { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, fontSize: 13, color: Colors.text, borderWidth: 1, borderColor: Colors.border, minHeight: 80, textAlignVertical: 'top' },
-  rejectConfirmBtn:{ backgroundColor: Colors.error, borderRadius: 14, padding: 15, alignItems: 'center' },
+  modalSheet:     { backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 12, borderWidth: 1, borderColor: t.border },
+  modalTitle:     { fontSize: 17, fontWeight: '900', color: t.text },
+  modalSub:       { fontSize: 13, color: t.textMuted },
+  rejectInput:    { backgroundColor: t.surface, borderRadius: 12, padding: 14, fontSize: 13, color: t.text, borderWidth: 1, borderColor: t.border, minHeight: 80, textAlignVertical: 'top' },
+  rejectConfirmBtn:{ backgroundColor: t.error, borderRadius: 14, padding: 15, alignItems: 'center' },
   rejectConfirmTxt:{ color: '#fff', fontSize: 15, fontWeight: '900' },
   modalCancelBtn: { alignItems: 'center', padding: 12 },
-  modalCancelTxt: { fontSize: 14, color: Colors.textMuted, fontWeight: '700' },
+  modalCancelTxt: { fontSize: 14, color: t.textMuted, fontWeight: '700' },
 
-  aiAnalysisTxt: { fontSize: 13, color: Colors.textSecondary, lineHeight: 22 },
-  aiWarningBox:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: `${Colors.warning}12`, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: `${Colors.warning}25` },
-  aiWarningTxt:  { fontSize: 12, color: Colors.warning, lineHeight: 18, flex: 1 },
-});
+  aiAnalysisTxt: { fontSize: 13, color: t.textSecondary, lineHeight: 22 },
+  aiWarningBox:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: `${t.warning}12`, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: `${t.warning}25` },
+  aiWarningTxt:  { fontSize: 12, color: t.warning, lineHeight: 18, flex: 1 },
+}); }

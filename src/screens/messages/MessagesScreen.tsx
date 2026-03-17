@@ -2,14 +2,27 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator, RefreshControl,
-  ScrollView,
+  Image, Modal, Pressable, Dimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Send, Megaphone } from 'lucide-react-native';
+import { Send, Megaphone, ImagePlus, X, Search } from 'lucide-react-native';
+
+const TENOR_API_KEY = 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ'; // Free public Tenor key
+interface GifResult { id: string; url: string; preview: string; }
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { MessageType } from '../../types';
+
+const REACTION_EMOJIS = ['❤️', '🔥', '💪', '😂', '👏', '👀'];
+const SCREEN_W = Dimensions.get('window').width;
+
+interface Reaction {
+  emoji: string;
+  count: number;
+  mine: boolean;
+}
 
 interface MsgRow {
   id: string;
@@ -24,6 +37,7 @@ interface MsgRow {
   created_at: string;
   read_by: string[];
   sender: { username: string; avatar_url?: string } | null;
+  reactions?: Reaction[];
 }
 
 interface Group { id: string; name: string; color: string | null; }
@@ -39,7 +53,15 @@ export default function MessagesScreen() {
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sending,    setSending]    = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [previewImg,   setPreviewImg]   = useState<string | null>(null);
+  const [reactionMsgId, setReactionMsgId] = useState<string | null>(null);
+  const [gifOpen,    setGifOpen]    = useState(false);
+  const [gifSearch,  setGifSearch]  = useState('');
+  const [gifResults, setGifResults] = useState<GifResult[]>([]);
+  const [gifLoading, setGifLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
 
   const load = useCallback(async () => {
     if (!currentBox || !user) { setLoading(false); setRefreshing(false); return; }
@@ -59,7 +81,7 @@ export default function MessagesScreen() {
     // 2. Messages du chat membre
     const { data: chatData } = await supabase
       .from('messages')
-      .select('id, box_id, sender_id, content, message_type, is_announcement, created_at, read_by, sender:profiles!messages_sender_id_fkey(username, avatar_url)')
+      .select('id, box_id, sender_id, content, message_type, is_announcement, attachment_url, created_at, read_by, sender:profiles!messages_sender_id_fkey(username, avatar_url)')
       .eq('box_id', currentBox.id)
       .eq('message_type', 'general')
       .order('created_at', { ascending: true })
@@ -109,7 +131,7 @@ export default function MessagesScreen() {
     if (groupIds.length > 0) {
       const { data: gcData } = await supabase
         .from('group_messages')
-        .select('id, group_id, sender_id, content, created_at')
+        .select('id, group_id, sender_id, content, attachment_url, created_at')
         .in('group_id', groupIds)
         .order('created_at', { ascending: true })
         .limit(100);
@@ -126,6 +148,7 @@ export default function MessagesScreen() {
         sender_id:       m.sender_id,
         group_id:        m.group_id,
         content:         m.content,
+        attachment_url:   m.attachment_url ?? undefined,
         message_type:    'general' as MessageType,
         is_announcement: false,
         created_at:      m.created_at,
@@ -139,7 +162,29 @@ export default function MessagesScreen() {
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
 
-    setMessages(all);
+    // 6. Load reactions for all messages
+    const allIds = all.map(m => m.id);
+    let reactionsMap: Record<string, Reaction[]> = {};
+    if (allIds.length > 0) {
+      try {
+        const { data: rxData } = await supabase
+          .from('message_reactions')
+          .select('message_id, emoji, member_id')
+          .in('message_id', allIds);
+        const grouped: Record<string, Record<string, { count: number; mine: boolean }>> = {};
+        (rxData ?? []).forEach((r: any) => {
+          if (!grouped[r.message_id]) grouped[r.message_id] = {};
+          if (!grouped[r.message_id][r.emoji]) grouped[r.message_id][r.emoji] = { count: 0, mine: false };
+          grouped[r.message_id][r.emoji].count++;
+          if (r.member_id === user.id) grouped[r.message_id][r.emoji].mine = true;
+        });
+        Object.entries(grouped).forEach(([msgId, emojis]) => {
+          reactionsMap[msgId] = Object.entries(emojis).map(([emoji, v]) => ({ emoji, ...v }));
+        });
+      } catch (_) { /* table may not exist yet */ }
+    }
+
+    setMessages(all.map(m => ({ ...m, reactions: reactionsMap[m.id] ?? [] })));
     setLoading(false);
     setRefreshing(false);
   }, [currentBox, user]);
@@ -201,6 +246,7 @@ export default function MessagesScreen() {
             sender_id: raw.sender_id,
             group_id: raw.group_id,
             content: raw.content,
+            attachment_url: raw.attachment_url ?? undefined,
             message_type: 'general',
             is_announcement: false,
             created_at: raw.created_at,
@@ -224,26 +270,152 @@ export default function MessagesScreen() {
     }
   }, [loading]);
 
-  async function sendMessage() {
-    if (!input.trim() || !user || !currentBox) return;
-    const text = input.trim();
-    setInput('');
+  async function searchGifs(query: string) {
+    setGifLoading(true);
+    try {
+      const endpoint = query.trim()
+        ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&limit=20&media_filter=tinygif,gif`
+        : `https://tenor.googleapis.com/v2/featured?key=${TENOR_API_KEY}&limit=20&media_filter=tinygif,gif`;
+      const res = await fetch(endpoint);
+      const json = await res.json();
+      const results: GifResult[] = (json.results ?? []).map((r: any) => ({
+        id: r.id,
+        url: r.media_formats?.gif?.url ?? r.media_formats?.tinygif?.url ?? '',
+        preview: r.media_formats?.tinygif?.url ?? r.media_formats?.gif?.url ?? '',
+      }));
+      setGifResults(results);
+    } catch (_) { setGifResults([]); }
+    setGifLoading(false);
+  }
+
+  function openGifPicker() {
+    setGifOpen(true);
+    setGifSearch('');
+    searchGifs('');
+  }
+
+  async function sendGif(gifUrl: string) {
+    if (!user || !currentBox) return;
+    setGifOpen(false);
     setSending(true);
     if (activeTab) {
-      // Send to group chat
       await supabase.from('group_messages').insert({
         group_id: activeTab,
         sender_id: user.id,
-        content: text,
+        content: 'GIF',
+        attachment_url: gifUrl,
       });
     } else {
-      // Send to general box chat
       await supabase.from('messages').insert({
         box_id: currentBox.id,
         sender_id: user.id,
-        content: text,
+        content: 'GIF',
         message_type: 'general',
         is_announcement: false,
+        attachment_url: gifUrl,
+      });
+    }
+    setSending(false);
+    load();
+  }
+
+  async function pickImage() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPendingImage(result.assets[0].uri);
+    }
+  }
+
+  async function uploadImage(uri: string): Promise<string | null> {
+    try {
+      const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const arrayBuf = await new Response(blob).arrayBuffer();
+      const { error } = await supabase.storage
+        .from('message-attachments')
+        .upload(fileName, arrayBuf, { contentType: blob.type || `image/${ext}`, upsert: false });
+      if (error) { console.warn('Upload error:', error.message); return null; }
+      const { data: urlData } = supabase.storage.from('message-attachments').getPublicUrl(fileName);
+      return urlData.publicUrl;
+    } catch (e) { console.warn('Upload failed:', e); return null; }
+  }
+
+  async function toggleReaction(msgId: string, emoji: string) {
+    if (!user) return;
+    const msg = messages.find(m => m.id === msgId);
+    const existing = msg?.reactions?.find(r => r.emoji === emoji && r.mine);
+    if (existing) {
+      await supabase.from('message_reactions').delete()
+        .eq('message_id', msgId).eq('member_id', user.id).eq('emoji', emoji);
+    } else {
+      await supabase.from('message_reactions').insert({
+        message_id: msgId, member_id: user.id, emoji,
+      });
+    }
+    // Optimistic update
+    setMessages(prev => prev.map(m => {
+      if (m.id !== msgId) return m;
+      let rx = [...(m.reactions ?? [])];
+      const idx = rx.findIndex(r => r.emoji === emoji);
+      if (existing) {
+        if (idx >= 0) {
+          rx[idx] = { ...rx[idx], count: rx[idx].count - 1, mine: false };
+          if (rx[idx].count <= 0) rx.splice(idx, 1);
+        }
+      } else {
+        if (idx >= 0) rx[idx] = { ...rx[idx], count: rx[idx].count + 1, mine: true };
+        else rx.push({ emoji, count: 1, mine: true });
+      }
+      return { ...m, reactions: rx };
+    }));
+    setReactionMsgId(null);
+  }
+
+  function handleDoubleTap(msgId: string) {
+    const now = Date.now();
+    if (lastTapRef.current.id === msgId && now - lastTapRef.current.time < 300) {
+      toggleReaction(msgId, '\u2764\ufe0f');
+      lastTapRef.current = { id: '', time: 0 };
+    } else {
+      lastTapRef.current = { id: msgId, time: now };
+    }
+  }
+
+  async function sendMessage() {
+    const hasText = input.trim().length > 0;
+    const hasImage = !!pendingImage;
+    if ((!hasText && !hasImage) || !user || !currentBox) return;
+    const text = input.trim();
+    setInput('');
+    setSending(true);
+
+    let attachmentUrl: string | null = null;
+    if (pendingImage) {
+      attachmentUrl = await uploadImage(pendingImage);
+      setPendingImage(null);
+    }
+
+    if (activeTab) {
+      await supabase.from('group_messages').insert({
+        group_id: activeTab,
+        sender_id: user.id,
+        content: text || (attachmentUrl ? '📷 Image' : ''),
+        ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
+      });
+    } else {
+      await supabase.from('messages').insert({
+        box_id: currentBox.id,
+        sender_id: user.id,
+        content: text || (attachmentUrl ? '📷 Image' : ''),
+        message_type: 'general',
+        is_announcement: false,
+        ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
       });
     }
     setSending(false);
@@ -306,7 +478,7 @@ export default function MessagesScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={S.container}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+      keyboardVerticalOffset={0}
     >
       {/* Header */}
       <View style={S.header}>
@@ -318,32 +490,29 @@ export default function MessagesScreen() {
 
       {/* Group tabs */}
       {groups.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={S.tabsContainer}
-          contentContainerStyle={S.tabsContent}
-        >
-          <TouchableOpacity
-            style={[S.tab, activeTab === null && S.tabActive]}
-            onPress={() => setActiveTab(null)}
-          >
-            <Text style={[S.tabText, activeTab === null && S.tabTextActive]}>Tous</Text>
-          </TouchableOpacity>
-          {groups.map(g => (
+        <View style={S.tabsContainer}>
+          <View style={S.tabsContent}>
             <TouchableOpacity
-              key={g.id}
-              style={[
-                S.tab,
-                activeTab === g.id && { backgroundColor: g.color ?? theme.accent, borderColor: g.color ?? theme.accent },
-              ]}
-              onPress={() => setActiveTab(g.id)}
+              style={[S.tab, activeTab === null && S.tabActive]}
+              onPress={() => setActiveTab(null)}
             >
-              <View style={[S.tabDot, { backgroundColor: g.color ?? theme.accent }]} />
-              <Text style={[S.tabText, activeTab === g.id && S.tabTextActive]}>{g.name}</Text>
+              <Text style={[S.tabText, activeTab === null && S.tabTextActive]}>Tous</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+            {groups.map(g => (
+              <TouchableOpacity
+                key={g.id}
+                style={[
+                  S.tab,
+                  activeTab === g.id && { backgroundColor: g.color ?? theme.accent, borderColor: g.color ?? theme.accent },
+                ]}
+                onPress={() => setActiveTab(g.id)}
+              >
+                <View style={[S.tabDot, { backgroundColor: g.color ?? theme.accent }]} />
+                <Text style={[S.tabText, activeTab === g.id && S.tabTextActive]} numberOfLines={1}>{g.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
       )}
 
       {/* Messages list */}
@@ -373,6 +542,7 @@ export default function MessagesScreen() {
           const isMe = msg.sender_id === user?.id;
           const initial = (msg.sender?.username?.[0] ?? '?').toUpperCase();
           const showSender = msg._showSender;
+          const hasReactions = (msg.reactions?.length ?? 0) > 0;
           return (
             <View style={[S.msgRow, isMe && S.msgRowMe, !showSender && S.msgRowGrouped]}>
               {!isMe && (
@@ -380,19 +550,47 @@ export default function MessagesScreen() {
                   ? <View style={S.avatar}><Text style={S.avatarText}>{initial}</Text></View>
                   : <View style={S.avatarSpacer} />
               )}
-              <View style={[S.bubble, isMe ? S.bubbleMe : S.bubbleThem]}>
-                {!isMe && showSender && (
-                  <Text style={S.senderName}>{msg.sender?.username ?? 'Inconnu'}</Text>
-                )}
-                {msg.is_announcement && (
-                  <View style={S.announcementTag}>
-                    <Megaphone color={theme.warning} size={10} />
-                    <Text style={S.announcementText}>Annonce</Text>
+              <Pressable
+                onPress={() => handleDoubleTap(msg.id)}
+                onLongPress={() => setReactionMsgId(msg.id)}
+                delayLongPress={400}
+                style={{ maxWidth: '78%' }}
+              >
+                <View style={[S.bubble, isMe ? S.bubbleMe : S.bubbleThem]}>
+                  {!isMe && showSender && (
+                    <Text style={S.senderName}>{msg.sender?.username ?? 'Inconnu'}</Text>
+                  )}
+                  {msg.is_announcement && (
+                    <View style={S.announcementTag}>
+                      <Megaphone color={theme.warning} size={10} />
+                      <Text style={S.announcementText}>Annonce</Text>
+                    </View>
+                  )}
+                  {msg.attachment_url && (
+                    <Pressable onPress={() => setPreviewImg(msg.attachment_url!)} style={S.attachmentWrap}>
+                      <Image source={{ uri: msg.attachment_url }} style={S.attachmentImg} resizeMode="cover" />
+                    </Pressable>
+                  )}
+                  {msg.content && msg.content !== '📷 Image' && (
+                    <Text style={[S.bubbleText, isMe && S.bubbleTextMe]}>{msg.content}</Text>
+                  )}
+                  <Text style={[S.timeText, isMe && S.timeTextMe]}>{formatTime(msg.created_at)}</Text>
+                </View>
+                {hasReactions && (
+                  <View style={[S.reactionsRow, isMe && { justifyContent: 'flex-end' }]}>
+                    {msg.reactions!.map(r => (
+                      <Pressable
+                        key={r.emoji}
+                        onPress={() => toggleReaction(msg.id, r.emoji)}
+                        style={[S.reactionPill, r.mine && S.reactionPillMine]}
+                      >
+                        <Text style={S.reactionEmoji}>{r.emoji}</Text>
+                        <Text style={[S.reactionCount, r.mine && { color: theme.accent }]}>{r.count}</Text>
+                      </Pressable>
+                    ))}
                   </View>
                 )}
-                <Text style={[S.bubbleText, isMe && S.bubbleTextMe]}>{msg.content}</Text>
-                <Text style={[S.timeText, isMe && S.timeTextMe]}>{formatTime(msg.created_at)}</Text>
-              </View>
+              </Pressable>
             </View>
           );
         }}
@@ -404,8 +602,24 @@ export default function MessagesScreen() {
         }
       />
 
+      {/* Pending image preview */}
+      {pendingImage && (
+        <View style={S.pendingImageBar}>
+          <Image source={{ uri: pendingImage }} style={S.pendingImageThumb} />
+          <TouchableOpacity onPress={() => setPendingImage(null)} style={S.pendingImageRemove}>
+            <X color="#fff" size={14} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Input bar */}
       <View style={S.inputBar}>
+        <TouchableOpacity onPress={pickImage} style={S.imgBtn} activeOpacity={0.7}>
+          <ImagePlus color={theme.textMuted} size={22} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={openGifPicker} style={S.imgBtn} activeOpacity={0.7}>
+          <Text style={S.gifBtnLabel}>GIF</Text>
+        </TouchableOpacity>
         <TextInput
           style={S.input}
           placeholder="Écrire un message…"
@@ -417,9 +631,9 @@ export default function MessagesScreen() {
           returnKeyType="default"
         />
         <TouchableOpacity
-          style={[S.sendBtn, (!input.trim() || sending) && S.sendBtnDisabled]}
+          style={[S.sendBtn, (!input.trim() && !pendingImage || sending) && S.sendBtnDisabled]}
           onPress={sendMessage}
-          disabled={!input.trim() || sending}
+          disabled={(!input.trim() && !pendingImage) || sending}
           activeOpacity={0.8}
         >
           {sending
@@ -427,33 +641,109 @@ export default function MessagesScreen() {
             : <Send color="#fff" size={18} />}
         </TouchableOpacity>
       </View>
+
+      {/* Fullscreen image preview */}
+      <Modal visible={!!previewImg} transparent animationType="fade" onRequestClose={() => setPreviewImg(null)}>
+        <Pressable style={S.previewOverlay} onPress={() => setPreviewImg(null)}>
+          <Image source={{ uri: previewImg! }} style={S.previewImage} resizeMode="contain" />
+          <TouchableOpacity style={S.previewClose} onPress={() => setPreviewImg(null)}>
+            <X color="#fff" size={24} />
+          </TouchableOpacity>
+        </Pressable>
+      </Modal>
+
+      {/* Reaction picker */}
+      <Modal visible={!!reactionMsgId} transparent animationType="fade" onRequestClose={() => setReactionMsgId(null)}>
+        <Pressable style={S.reactionOverlay} onPress={() => setReactionMsgId(null)}>
+          <View style={S.reactionPickerBar}>
+            {REACTION_EMOJIS.map(emoji => (
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => reactionMsgId && toggleReaction(reactionMsgId, emoji)}
+                style={S.reactionPickerBtn}
+              >
+                <Text style={S.reactionPickerEmoji}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* GIF picker modal */}
+      <Modal visible={gifOpen} animationType="slide" onRequestClose={() => setGifOpen(false)}>
+        <View style={S.gifModal}>
+          <View style={S.gifHeader}>
+            <Text style={S.gifHeaderTitle}>Envoyer un GIF</Text>
+            <TouchableOpacity onPress={() => setGifOpen(false)}>
+              <X color={theme.textMuted} size={22} />
+            </TouchableOpacity>
+          </View>
+          <View style={S.gifSearchBar}>
+            <Search color={theme.textMuted} size={16} />
+            <TextInput
+              style={S.gifSearchInput}
+              placeholder="Rechercher un GIF..."
+              placeholderTextColor={theme.textMuted}
+              value={gifSearch}
+              onChangeText={t => { setGifSearch(t); searchGifs(t); }}
+              autoFocus
+            />
+          </View>
+          {gifLoading ? (
+            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.accent} />
+          ) : (
+            <FlatList
+              data={gifResults}
+              keyExtractor={g => g.id}
+              numColumns={2}
+              contentContainerStyle={{ padding: 6 }}
+              renderItem={({ item: g }) => (
+                <TouchableOpacity
+                  style={S.gifItem}
+                  onPress={() => sendGif(g.url)}
+                  activeOpacity={0.7}
+                >
+                  <Image source={{ uri: g.preview }} style={S.gifImage} resizeMode="cover" />
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={[S.emptyText, { marginTop: 40 }]}>Aucun r\u00e9sultat</Text>
+              }
+            />
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
 
-function createStyles(theme: AppTheme) { return StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  const isDark = theme.mode === 'dark';
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
-    backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
+    backgroundColor: theme.card,
+    borderBottomWidth: isDark ? 1 : 0, borderBottomColor: theme.border,
+    ...(isDark ? {} : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }),
   },
-  headerTitle: { fontSize: 22, fontWeight: '900', color: theme.text },
+  headerTitle: { fontSize: 22, fontWeight: '900', color: theme.text, letterSpacing: -0.3 },
   headerSub:   { fontSize: 12, color: theme.textMuted, marginTop: 2 },
   list: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6 },
   dateDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 14, gap: 10 },
   dateLine:    { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.border },
-  dateLabel:   { fontSize: 11, color: theme.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  dateLabel:   { fontSize: 11, color: theme.textMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   msgRow:        { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 2, marginTop: 8 },
   msgRowMe:      { flexDirection: 'row-reverse' },
   msgRowGrouped: { marginTop: 2 },
-  avatar:        { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' },
+  avatar:        { width: 28, height: 28, borderRadius: 10, backgroundColor: theme.accentShadow, justifyContent: 'center', alignItems: 'center' },
   avatarSpacer:  { width: 28 },
-  avatarText:    { fontSize: 11, fontWeight: '900', color: theme.text },
+  avatarText:    { fontSize: 11, fontWeight: '900', color: '#fff' },
   bubble: {
-    maxWidth: '78%', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9,
   },
   bubbleThem: {
-    backgroundColor: theme.card,
+    backgroundColor: isDark ? theme.card : theme.card,
     borderWidth: 1, borderColor: theme.border,
     borderBottomLeftRadius: 4,
   },
@@ -461,16 +751,16 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: theme.accent,
     borderBottomRightRadius: 4,
   },
-  senderName:       { fontSize: 11, fontWeight: '800', color: theme.accent, marginBottom: 2 },
+  senderName:       { fontSize: 11, fontWeight: '700', color: theme.accent, marginBottom: 2 },
   announcementTag:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
-  announcementText: { fontSize: 9, fontWeight: '800', color: theme.warning },
+  announcementText: { fontSize: 9, fontWeight: '700', color: theme.warning },
   bubbleText:       { fontSize: 15, color: theme.text, lineHeight: 21 },
   bubbleTextMe:     { color: '#fff' },
   timeText:         { fontSize: 10, color: theme.textMuted, alignSelf: 'flex-end', marginTop: 2 },
   timeTextMe:       { color: 'rgba(255,255,255,0.55)' },
   inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 12, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 6,
     backgroundColor: theme.card, borderTopWidth: 1, borderTopColor: theme.border,
   },
   input: {
@@ -479,21 +769,54 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10,
     fontSize: 15, color: theme.text, maxHeight: 100,
   },
-  sendBtn:         { width: 42, height: 42, borderRadius: 21, backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center' },
+  sendBtn:         { width: 42, height: 42, borderRadius: 14, backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { opacity: 0.4 },
   empty:     { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, paddingTop: 60, gap: 12 },
   emptyEmoji: { fontSize: 40 },
   emptyText: { fontSize: 14, color: theme.textMuted, textAlign: 'center', lineHeight: 22 },
   tabsContainer: { backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
-  tabsContent:   { paddingHorizontal: 12, paddingVertical: 10, gap: 8, flexDirection: 'row', alignItems: 'center' },
+  tabsContent:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   tab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1.5, borderColor: theme.border,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10,
+    borderRadius: 20, borderWidth: 1, borderColor: theme.border,
     backgroundColor: theme.surface,
   },
   tabActive:     { backgroundColor: theme.accent, borderColor: theme.accent },
   tabDot:        { width: 7, height: 7, borderRadius: 4 },
   tabText:       { fontSize: 13, fontWeight: '700', color: theme.textSecondary ?? theme.textMuted },
-  tabTextActive: { color: '#fff', fontWeight: '800' },
+  tabTextActive: { color: '#fff', fontWeight: '700' },
+
+  attachmentWrap:  { marginBottom: 6, borderRadius: 12, overflow: 'hidden' },
+  attachmentImg:   { width: SCREEN_W * 0.55, height: SCREEN_W * 0.4, borderRadius: 12 },
+
+  reactionsRow:    { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4, paddingHorizontal: 4 },
+  reactionPill:    { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 12, paddingHorizontal: 7, paddingVertical: 3 },
+  reactionPillMine:{ borderWidth: 1, borderColor: `${theme.accent}50`, backgroundColor: `${theme.accent}12` },
+  reactionEmoji:   { fontSize: 14 },
+  reactionCount:   { fontSize: 11, fontWeight: '700', color: theme.textMuted },
+
+  pendingImageBar:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.card, borderTopWidth: 1, borderTopColor: theme.border },
+  pendingImageThumb: { width: 60, height: 60, borderRadius: 10 },
+  pendingImageRemove:{ position: 'absolute', top: 4, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, padding: 4 },
+
+  imgBtn:          { justifyContent: 'center', alignItems: 'center', padding: 6 },
+
+  previewOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
+  previewImage:    { width: SCREEN_W, height: SCREEN_W },
+  previewClose:    { position: 'absolute', top: 56, right: 20, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: 10 },
+
+  reactionOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  reactionPickerBar:  { flexDirection: 'row', backgroundColor: isDark ? '#1a1a1a' : '#fff', borderRadius: 28, paddingHorizontal: 8, paddingVertical: 6, gap: 2, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, elevation: 10 },
+  reactionPickerBtn:  { padding: 8 },
+  reactionPickerEmoji:{ fontSize: 28 },
+
+  gifBtnLabel:     { fontSize: 13, fontWeight: '900', color: theme.textMuted, letterSpacing: 0.5 },
+  gifModal:        { flex: 1, backgroundColor: theme.background, paddingTop: Platform.OS === 'ios' ? 56 : 32 },
+  gifHeader:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12 },
+  gifHeaderTitle:  { fontSize: 18, fontWeight: '800', color: theme.text },
+  gifSearchBar:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12, marginBottom: 12, backgroundColor: theme.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 14, paddingVertical: 10 },
+  gifSearchInput:  { flex: 1, fontSize: 15, color: theme.text },
+  gifItem:         { flex: 1, margin: 4, borderRadius: 10, overflow: 'hidden', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+  gifImage:        { width: '100%', height: (SCREEN_W - 36) / 2 * 0.75, borderRadius: 10 },
 }); }

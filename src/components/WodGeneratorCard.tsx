@@ -4,6 +4,7 @@ import { Sparkles, RefreshCw, Zap, Clock, Users, User, ArrowLeft, Bookmark, Hear
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, LevelColors } from '../theme/colors';
+import { useTheme, AppTheme } from '../context/ThemeContext';
 import { HomeStackParamList } from '../navigation';
 import { AthleteLevel } from '../types';
 import { supabase } from '../lib/supabase';
@@ -13,7 +14,8 @@ const HYROX_ORANGE = '#F97316';
 type Sport = 'functional' | 'hybrid';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
-type WODType = 'For Time' | 'AMRAP' | 'EMOM' | 'Tabata' | 'Max Reps';
+type WODType = 'For Time' | 'AMRAP' | 'EMOM' | 'Tabata' | 'Max Reps' | 'Chipper' | 'Ladder' | 'Couplet' | 'Death By';
+const UI_WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Reps'];
 type LK = AthleteLevel;
 
 const LEVELS: { key: LK; label: string }[] = [
@@ -26,7 +28,7 @@ const FORMATS = ['Solo', 'Équipe 2', 'Équipe 3', 'Équipe 4', 'Équipe 6'];
 
 const HYROX_LEVELS = ['Open', 'Pro', 'Elite'];
 const HYROX_FORMATS = ['Solo', 'Doubles', 'Relais', 'Mixed Relais'];
-const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force', 'Running Intervals'];
+const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force'];
 const HYROX_DURATIONS = [20, 30, 45, 60];
 const HYROX_EQ_LIST = [
   { key: 'ski',  label: 'SkiErg' },       { key: 'slp',  label: 'Sled Push' },
@@ -45,7 +47,6 @@ const HYROX_NAMES: Record<string, string[]> = {
   'Race Simulation':   ['Race Day Protocol','HYROX Race Sim','Competition Mode','Full Distance','Race Forge','Pre-Race Drill','Event Simulator','Race Crusher','Qualifier Prep','Podium Run'],
   'Station Training':  ['Station Domination','Power Station','Station Mastery','Station Siege','Platform Work','Station Builder','Force Station','Block Drill','Station Storm','Grid Work'],
   'Cardio Force':      ['Hybrid Forge','Cardio Machine','Hybrid Engine','Power Cardio','Endurance Force','Hybrid Burn','Engine Room','Cross Cardio','Hybrid Blast','Force Cardio'],
-  'Running Intervals': ['Track & Station','Run & Gun','Interval Force','Run Blocks','Speed Station','Running Man','Run Circuit','Lap & Station','Road & Station','Track Crusher'],
 };
 const HYROX_COACHES: Record<string, string[]> = {
   'Race Simulation': [
@@ -69,13 +70,6 @@ const HYROX_COACHES: Record<string, string[]> = {
     'Optimise ta respiration sur les stations de force.',
     'Marcher c\'est acceptable. S\'asseoir non.',
   ],
-  'Running Intervals': [
-    'Allure de course régulière. Les stations sont ta récup active.',
-    'Vitesse identique sur chaque intervalle. La constance prime.',
-    'Ne t\'épuise pas sur les stations : elles régulent ta fréquence cardiaque.',
-    'Simule les conditions race sur chaque run.',
-    'Trouve ton tempo optimal race sur ces intervalles.',
-  ],
 };
 
 function generateHyroxWOD(level: string, format: string, type: string, duration: number, eqKeys: string[]): HyroxWOD {
@@ -91,128 +85,179 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const db   = eqKeys.includes('db2');
   const trd  = eqKeys.includes('run');
 
-  const sp_kg  = ['60','80','100+'][li];
-  const sl_kg  = ['40','60','80+'][li];
-  const wb_rep = [75, 90, 100][li];
+  // ── Charges / volumes par catégorie ──
+  const sp_kg  = ['60','80','102'][li];
+  const sl_kg  = ['40','60','80'][li];
+  const wb_rep = [75, 100, 100][li];
   const wb_kg  = ['6','9','9'][li];
-  const fc_kg  = ['16','20','24'][li];
-  const sb_kg  = ['10','15','20'][li];
-  const db_kg  = ['12','15','20'][li];
-  const ski_d  = ['800m','1000m','1200m'][li];
-  const row_d  = ['800m','1000m','1200m'][li];
-  const r1k    = trd ? '1km Tapis' : '1km Course';
-  const r800   = trd ? '800m Tapis' : '800m Course';
-  const r400   = trd ? '400m Tapis' : '400m Course';
+  const fc_kg  = ['16','24','32'][li];
+  const sb_kg  = ['10','20','20'][li];
+  const db_kg  = ['12.5','15','22.5'][li];
+  const ski_d  = ['800m','1000m','1000m'][li];
+  const row_d  = ['800m','1000m','1000m'][li];
+  const r1k    = trd ? '1 km Tapis' : '1 km Run';
+  const r800   = trd ? '800m Tapis' : '800m Run';
+  const r400   = trd ? '400m Tapis' : '400m Run';
 
-  const E = {
-    ski1k:  ski  ? `${ski_d} SkiErg`                                         : row ? `${row_d} RowErg`              : `${ski_d} Course`,
-    row1k:  row  ? `${row_d} RowErg`                                         : ski ? `${ski_d} SkiErg`              : `${row_d} Course`,
-    ski500: ski  ? '500m SkiErg'                                              : row ? '500m RowErg'                  : r800,
-    row500: row  ? '500m RowErg'                                              : ski ? '500m SkiErg'                  : r800,
-    slp:    slp  ? `50m Sled Push (${sp_kg} kg)`                             : bbj ? `${[15,20,25][li]} Burpee BJ`  : `${[20,25,30][li]} KB Swings lourds`,
-    slpu:   slpu ? `50m Sled Pull (${sl_kg} kg)`                             : fc  ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)` : `${[15,20,25][li]} Burpees`,
-    sbl:    sbl  ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)`      : fc  ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)` : `${[40,60,80][li]} Air Squats`,
-    wb:     wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`                      : `${[80,100,120][li]} Air Squats`,
-    fc:     fc   ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)`     : sbl ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)` : `${[40,60,80][li]} Goblet Squats`,
-    bbj:    bbj  ? `${[15,20,25][li]} Burpee Broad Jump`                     : `${[20,25,30][li]} Burpees`,
-    db:     db   ? `${[12,15,20][li]} DB Thrusters (${db_kg}kg/main)`       : `${[15,20,25][li]} KB Thrusters lourds`,
-    ski250: ski  ? `${['250m','300m','400m'][li]} SkiErg`                    : row ? `${['250m','300m','400m'][li]} RowErg` : `${['200m','300m','400m'][li]} Course`,
+  // ── Stations disponibles (équipement strict + fallback bodyweight) ──
+  const S = {
+    ski:  ski  ? `${ski_d} SkiErg`                                  : row ? `${row_d} RowErg`              : `${ski_d} Run`,
+    row:  row  ? `${row_d} RowErg`                                  : ski ? `${ski_d} SkiErg`              : `${row_d} Run`,
+    slp:  slp  ? `50m Sled Push (${sp_kg} kg)`                     : bbj ? `${[15,20,25][li]} Burpee Broad Jump` : `${[20,30,40][li]} Burpees`,
+    slpu: slpu ? `50m Sled Pull (${sl_kg} kg)`                     : fc  ? `${[150,200,200][li]}m Farmers Carry (${fc_kg} kg×2)` : `${[15,20,25][li]} Burpees`,
+    sbl:  sbl  ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)`: fc  ? `${[100,150,200][li]}m Farmers Carry (${fc_kg} kg×2)` : `${[40,60,80][li]} Walking Lunges`,
+    wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`              : `${[60,80,100][li]} Air Squats`,
+    fc:   fc   ? `${[200,200,200][li]}m Farmers Carry (${fc_kg} kg×2)` : sbl ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)` : `${[40,60,80][li]} Goblet Squats`,
+    bbj:  bbj  ? `${[15,20,25][li]} Burpee Broad Jump`             : `${[15,20,30][li]} Burpees`,
+    db:   db   ? `${[12,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,25][li]} Thrusters PVC`,
   };
 
-  const name  = rand(HYROX_NAMES[type]   ?? HYROX_NAMES['Race Simulation']);
+  // ── Pools cardio / force ──
+  const cardioPool = [S.ski, S.row, r800, r400, `${['250m','300m','400m'][li]} SkiErg`].filter(Boolean);
+  const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db];
+  const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db];
+
+  // ── Anti-doublons : aucune station identique consécutive ──
+  function noConsecutive(arr: string[]): string[] {
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i] === arr[i - 1]) {
+        for (let j = i + 1; j < arr.length; j++) {
+          if (arr[j] !== arr[i]) { [arr[i], arr[j]] = [arr[j], arr[i]]; break; }
+        }
+      }
+    }
+    return arr;
+  }
+
+  // ── Run distance par catégorie ──
+  function runForLevel(): string {
+    if (li === 0) return rand([r400, r800]);     // Open
+    if (li === 1) return rand([r800, r1k]);      // Pro
+    return r1k;                                   // Elite
+  }
+
+  const name  = rand(HYROX_NAMES[type] ?? HYROX_NAMES['Race Simulation']);
   const coach = rand(HYROX_COACHES[type] ?? HYROX_COACHES['Race Simulation']);
   let stations: string[] = [];
   let scoring  = '';
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🏁 RACE SIMULATION — alternance Run + Station
+  // ═══════════════════════════════════════════════════════════════════════
   if (type === 'Race Simulation') {
-    // Scale stations to match selected duration
-    const allStations = [E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj, E.db];
-    if (duration <= 20) {
-      // Short: 2-3 stations with 400-800m runs
-      const count = 2 + Math.floor(Math.random() * 2); // 2 or 3
-      const s = pick(allStations, count);
-      const run = rand([r400, r800]);
-      stations = s.flatMap(st => [run, st]);
-    } else if (duration <= 30) {
-      // Medium: 3-4 stations with 800m runs
-      const count = 3 + Math.floor(Math.random() * 2); // 3 or 4
-      const s = pick(allStations, count);
-      stations = s.flatMap(st => [r800, st]);
-    } else if (duration <= 45) {
-      // Long: 4-5 stations with mixed runs
-      const count = 4 + Math.floor(Math.random() * 2); // 4 or 5
-      const s = pick(allStations, count);
-      stations = s.flatMap(st => [rand([r800, r1k]), st]);
-    } else {
-      // Full race: 5 stations with 1km runs
-      const s = pick(allStations, 5);
-      stations = s.flatMap(st => [r1k, st]);
+    const blocCount = duration <= 20 ? rand([3,4])
+                    : duration <= 30 ? rand([4,5])
+                    : duration <= 45 ? rand([6,7])
+                    : 8;
+    const picked = pick(allStations, Math.min(blocCount, allStations.length));
+    // Extend if more blocs needed than unique stations
+    while (picked.length < blocCount) picked.push(rand(allStations.filter(s => s !== picked[picked.length - 1])));
+    const result: string[] = [];
+    for (let i = 0; i < blocCount; i++) {
+      result.push(runForLevel());
+      result.push(picked[i]);
     }
-    scoring = `Temps total — objectif < ${duration} min`;
+    stations = noConsecutive(result);
+    const timeTarget = level === 'Elite' ? `< ${duration - 5} min` : level === 'Pro' ? `< ${duration} min` : `< ${duration + 5} min`;
+    scoring = `For Time — ${blocCount} blocs Run + Station — objectif ${timeTarget}`;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎯 STATION TRAINING — circuit sans run continu
+  // ═══════════════════════════════════════════════════════════════════════
   else if (type === 'Station Training') {
-    const sets = ['4 ×','5 ×','6 ×'][li];
-    const stPool: string[] = [
-      ski ? `${sets} ${ski_d} SkiErg`              : row ? `${sets} ${row_d} RowErg`       : `${sets} ${r800}`,
-      slp  ? `${sets} 20m Sled Push (max charge)` : `${sets} ${E.bbj}`,
-      slpu ? `${sets} 30m Sled Pull (${sl_kg} kg)`: `${sets} ${E.fc}`,
-      sbl  ? `${sets} 25m Sandbag Lunges (${sb_kg} kg)` : `${sets} ${E.fc}`,
-      wb   ? `${sets} 25 Wall Balls (${wb_kg} kg)`: `${sets} 30 Air Squats`,
-      fc   ? `${sets} 50m Farmers Carry (${fc_kg}kg×2)` : `${sets} 20 KB Swings lourds`,
-      row  ? `${sets} 250m RowErg tempo`           : ski ? `${sets} 250m SkiErg tempo`      : `${sets} ${r400}`,
-      `${sets} ${E.bbj}`,
-      `${sets} ${E.db}`,
-      ski  ? `${sets} 150m SkiErg sprint`          : `${sets} 150m RowErg sprint`,
-    ];
-    const count = duration <= 20 ? 3 : duration <= 30 ? 4 : duration <= 45 ? 5 : 6;
-    stations = pick(stPool, count);
-    scoring  = `Score = stations complétées en ${duration} min`;
+    if (duration <= 20) {
+      // AMRAP Couplet / Triplet
+      const n = rand([2, 3]);
+      const mvs = pick(allStations, n);
+      stations = [`AMRAP ${duration} min :`, ...mvs];
+      scoring = `Max rounds + reps en ${duration} min — ${n === 3 ? 'Triplet' : 'Couplet'}`;
+    } else if (duration <= 30) {
+      // For Time Chipper / Triplet
+      const isChipper = Math.random() < 0.5;
+      if (isChipper) {
+        const mvs = pick([...allStations, S.ski, S.row], Math.min(5, allStations.length + 2));
+        stations = ['For Time (Chipper) :', ...mvs];
+        scoring = `Chipper — Temps (cap ${duration} min)`;
+      } else {
+        const rounds = rand([4, 5]);
+        const mvs = pick(allStations, 3);
+        stations = [`${rounds} Rounds For Time :`, ...mvs];
+        scoring = `Triplet — Temps (cap ${duration} min)`;
+      }
+    } else if (duration <= 45) {
+      // EMOM + Chipper combiné
+      const emomMins = rand([2, 3]);
+      const emomMvs = pick(allStations, emomMins);
+      const emomCycles = Math.floor(20 / emomMins);
+      const chipperMvs = pick(allStations.filter(s => !emomMvs.includes(s)).concat([S.ski, S.row]), 4);
+      stations = [
+        `── Partie 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
+        ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
+        `── Partie 2 : Chipper For Time (cap ${duration - emomCycles * emomMins} min) ──`,
+        ...chipperMvs,
+      ];
+      scoring = `EMOM ${emomCycles * emomMins} min + Chipper restant`;
+    } else {
+      // 60 min : Ladder + Chipper
+      const ladderMvs = pick(allStations, 2);
+      const maxRung = [8, 10, 12][li];
+      const chipperMvs = pick(allStations.filter(s => !ladderMvs.includes(s)).concat([S.ski, S.row]), 5);
+      stations = [
+        `── Partie 1 : Ladder 1→${maxRung} For Time ──`,
+        ...ladderMvs,
+        `── Partie 2 : Chipper For Time (cap restant) ──`,
+        ...chipperMvs,
+      ];
+      scoring = `Ladder + Chipper — Temps total (cap ${duration} min)`;
+    }
+    stations = noConsecutive(stations);
   }
 
-  else if (type === 'Cardio Force') {
-    const cardioPool = [E.ski500, E.row500, r800, r400, `${[20,25,30][li]} Cal Assault Bike`, E.ski250, `${['400m','500m','600m'][li]} Course`];
-    const forcePool  = [E.slp, E.slpu, E.wb, E.sbl, E.fc, E.bbj, E.db, `${[10,15,20][li]} KB Thrusters lourds`];
-    const count = duration <= 20 ? 4 : duration <= 30 ? 5 : duration <= 45 ? 6 : 8;
-    const nC = Math.ceil(count / 2);
-    const nF = Math.floor(count / 2);
-    const pC = pick(cardioPool, nC);
-    const pF = pick(forcePool, nF);
+  // ═══════════════════════════════════════════════════════════════════════
+  // 💪 CARDIO FORCE — alternance cardio + force
+  // ═══════════════════════════════════════════════════════════════════════
+  else {
+    const blocCount = duration <= 20 ? 4 : duration <= 30 ? 6 : duration <= 45 ? 8 : 10;
+    const nC = Math.ceil(blocCount / 2);
+    const nF = Math.floor(blocCount / 2);
+    const pC = pick(cardioPool, Math.min(nC, cardioPool.length));
+    while (pC.length < nC) pC.push(rand(cardioPool.filter(c => c !== pC[pC.length - 1])));
+    const pF = pick(forcePool, Math.min(nF, forcePool.length));
+    while (pF.length < nF) pF.push(rand(forcePool.filter(f => f !== pF[pF.length - 1])));
+    // Strict alternation: cardio → force → cardio → force
     const combined: string[] = [];
     for (let i = 0; i < Math.max(nC, nF); i++) {
       if (pC[i]) combined.push(pC[i]);
       if (pF[i]) combined.push(pF[i]);
     }
-    stations = combined;
-    scoring  = `AMRAP ${duration} min — max rounds`;
-  }
-
-  else {
-    const runOpts = [r400, r800, r1k];
-    const stPool  = [E.ski500, E.row500, E.wb, E.slp, E.sbl, E.fc, E.bbj, E.db, `${[20,25,30][li]} Cal SkiErg`, E.ski250];
-    const cycles  = duration <= 20 ? 2 : duration <= 30 ? 3 : duration <= 45 ? 4 : 5;
-    const runDist = rand(runOpts);
-    const picked  = pick(stPool, Math.min(cycles, 4));
-    const result: string[] = [];
-    for (let i = 0; i < cycles; i++) {
-      result.push(runDist);
-      result.push(picked[i % picked.length]);
+    const useEMOM = duration >= 30 && Math.random() < 0.5;
+    if (useEMOM) {
+      const mins = combined.length;
+      stations = [`EMOM ${mins} min (${Math.floor(duration / mins)} cycles = ${duration} min) :`];
+      combined.forEach((m, i) => stations.push(`  Min ${i + 1}: ${m}`));
+      scoring = `EMOM ${duration} min — score = cycles complétés`;
+    } else {
+      const rounds = Math.max(2, Math.floor(duration / (combined.length * 1.5)));
+      stations = [`${rounds} Rounds For Time :`].concat(combined);
+      scoring = `For Time — ${rounds} rounds (cap ${duration} min)`;
     }
-    stations = result;
-    scoring  = `Temps total pour ${cycles} cycles`;
+    stations = noConsecutive(stations);
   }
 
+  // ── Format équipe ──
   const fmtStation = (s: string): string => {
-    if (format === 'Doubles')      return `(split) ${s}`;
-    if (format === 'Relais')       return `[relais] ${s}`;
-    if (format === 'Mixed Relais') return `[mixed] ${s}`;
+    if (s.startsWith('──') || s.startsWith('AMRAP') || s.startsWith('For Time')
+        || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  Min')) return s;
+    if (format === 'Doubles')      return `${s}  ⟨split ×2 — I go / You go⟩`;
+    if (format === 'Relais')       return `${s}  ⟨relais — 1 athlète par station⟩`;
+    if (format === 'Mixed Relais') return `${s}  ⟨mixed H/F — charges adaptées⟩`;
     return s;
   };
   stations = stations.map(fmtStation);
   return { name, level, format, type, duration, stations, scoring, coach };
 }
 const DURATIONS = [5, 10, 15, 20, 30, 40, 60];
-const WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Reps'];
 const EQ_LIST = [
   { key: 'bb', label: 'Barbell' }, { key: 'db', label: 'Haltères' },
   { key: 'kb', label: 'Kettlebell' }, { key: 'bx', label: 'Box' },
@@ -347,7 +392,7 @@ const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
     { mv: 'Sit-ups', scale: ['×1','×1','×1','V-ups','V-ups','Hollow rocks'] },
     { mv: 'Lunges alt.', scale: ['×1','×1','×1','walking','jumping','jumping'] },
     { mv: 'Mountain Climbers', scale: ['lents','lents','normaux','normaux','rapides','rapides'] },
-    { mv: 'Pistol Squats', scale: ['—','—','assistés','Pistols','Pistols','Pistols'] },
+    { mv: 'Pistol Squats', scale: ['assistés','assistés','Pistols','Pistols','Pistols','Pistols'] },
     { mv: 'HSPU Stricts', scale: ['—','—','HSPU Stricts','HSPU Stricts','HSPU Stricts','HSPU Stricts'] },
     { mv: 'Wall Facing HSPU', scale: ['—','—','—','Wall Facing HSPU','Wall Facing HSPU','Wall Facing HSPU'] },
     { mv: 'Wall Walks', scale: ['—','partiels','Wall Walks','Wall Walks','Wall Walks','Wall Walks'] },
@@ -402,6 +447,10 @@ const NAMES_AM = ['Endless Engine','Non-Stop','Forever Young','Electric','The Gr
 const NAMES_EM = ['Minute Man','Clockwork','Second Nature','Steady State','Rhythm','Metronome','The Beat','Chronos','Tempo','Beat Drop','Epoch','Cycle','Interval','The Grid','Sequence'];
 const NAMES_TB = ['Tabata Terror','Eight Rounds','War Cry','Short Fuse','Blast','Thunder','Lightning','Shock','Impact','Explosion','Strike','Hammer','Jolt','Flash','Surge'];
 const NAMES_MR = ['Peak','Limit Tester','Max Out','Ceiling','The Summit','Threshold','Pinnacle','Zenith','Apex','Top Out','Redline','Breakthrough','The Wall','Surge Max','Push'];
+const NAMES_CH = ['The Chipper','Brick Wall','Top to Bottom','The Grinder','Full List','Death March','The Stack','Wall of Pain','Checklist','Chip Away','Iron List','Layer by Layer','The Descent','Box Crusher','One Pass'];
+const NAMES_LD = ['The Ladder','Stairway','Ascending','Pyramid Peak','The Climb','Escalation','Rising Storm','Step Up','Ascent','One More','Ground Floor','The Pyramid','Step by Step','Upward','Base Camp'];
+const NAMES_CP = ['Double Trouble','Power Pair','Triple Threat','The Duo','Tag Team','Iron Pair','Force Duo','Twin Engine','Three Pillars','The Triplet','Couplet Classic','The Double','The Triple','Two for One','Pair Work'];
+const NAMES_DB = ['Death By','The Reaper','Last Man','Minute Killer','Final Countdown','No Ceiling','The Abyss','Into the Deep','The Void','One More Rep','Never Enough','Death Toll','Unlimited','The Grind','One by One'];
 
 function rand<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function pick<T>(arr: T[], n: number): T[] {
@@ -455,6 +504,8 @@ function fmtName(mv: { mv: string; scale: string[] }, li: number): string {
   if (mv.mv === 'Sit-ups') return s === '×1' ? 'Sit-ups' : s;
   if (mv.mv === 'Lunges alt.') return `Lunges (${s})`;
   if (mv.mv === 'Mountain Climbers') return 'Mountain Climbers';
+  if (mv.mv === 'Pistol Squats') return s === 'Pistols' ? 'Pistol Squats' : `Pistol Squats (${s})`;
+  if (mv.mv === 'Wall Walks') return s === 'Wall Walks' ? 'Wall Walks' : `Wall Walks (${s})`;
   if (mv.mv === 'Double Unders') return s.startsWith('×') ? 'Single Unders' : (s === 'DU' || s.startsWith('DU') ? 'Double Unders' : s);
   if (mv.mv === 'Single Unders') return 'Single Unders';
   if (/^×\d/.test(s)) return mv.mv;
@@ -481,6 +532,8 @@ function fmt(mv: { mv: string; scale: string[] }, reps: number, li: number): str
   if (mv.mv === 'Sit-ups') return s === '×1' ? `${reps} Sit-ups` : `${reps} ${s}`;
   if (mv.mv === 'Lunges alt.') return `${reps} Lunges (${s})`;
   if (mv.mv === 'Mountain Climbers') return `${reps * 2} Mountain Climbers`;
+  if (mv.mv === 'Pistol Squats') return `${reps} ${s === 'Pistols' ? 'Pistol Squats' : `Pistol Squats (${s})`}`;
+  if (mv.mv === 'Wall Walks') return `${reps} ${s === 'Wall Walks' ? 'Wall Walks' : `Wall Walks (${s})`}`;
   // Double/Single Unders
   if (mv.mv === 'Double Unders') {
     if (s === 'DU' || s.startsWith('DU')) return `${reps} Double Unders`;
@@ -516,100 +569,248 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 1 — Matrice format → type de circuit interne
+  // ═══════════════════════════════════════════════════════════════════════
+  type CircuitType = 'round' | 'chipper' | 'couplet' | 'triplet' | 'ladder' | 'death_by' | 'single' | 'double_couplet';
+  const CIRCUIT_MAP: Record<string, CircuitType[]> = {
+    'For Time': ['round', 'chipper', 'couplet', 'triplet', 'ladder'],
+    'AMRAP':    ['round', 'couplet', 'triplet', 'chipper'],
+    'EMOM':     ['couplet', 'triplet', 'death_by'],
+    'Tabata':   ['couplet', 'double_couplet'],
+    'Max Reps': ['single'],
+  };
+  const circuit: CircuitType = rand(CIRCUIT_MAP[type] ?? CIRCUIT_MAP['AMRAP']);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 2 — Anti-doublons consécutifs
+  // ═══════════════════════════════════════════════════════════════════════
+  // getMovesForced() ne pick jamais le même mouvement 2 fois → pas de
+  // doublons adjacents dans un round. Pour les formats en boucle (rounds),
+  // on s'assure aussi que le dernier mouvement ≠ le premier.
+  function ensureNoWrap(mvs: Array<{ mv: string; scale: string[] }>): Array<{ mv: string; scale: string[] }> {
+    if (mvs.length < 3) return mvs;
+    if (mvs[0].mv === mvs[mvs.length - 1].mv) {
+      // Swap last with second-to-last if different
+      if (mvs.length > 2 && mvs[mvs.length - 2].mv !== mvs[0].mv) {
+        const tmp = mvs[mvs.length - 1];
+        mvs[mvs.length - 1] = mvs[mvs.length - 2];
+        mvs[mvs.length - 2] = tmp;
+      }
+    }
+    return mvs;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 3 — Calibration durée (mouvements & rounds)
+  // ═══════════════════════════════════════════════════════════════════════
+  function mvCountCal(base: number): number {
+    if (duration <= 5)  return Math.max(2, base - 2);
+    if (duration <= 10) return Math.max(3, base - 1);
+    if (duration <= 15) return base;
+    if (duration <= 20) return base + 1;
+    if (duration <= 30) return base + 1;
+    return base + 2;
+  }
+  function roundsCal(): number {
+    if (duration <= 5)  return 3;
+    if (duration <= 10) return 4;
+    if (duration <= 15) return 5;
+    if (duration <= 20) return 6;
+    if (duration <= 30) return 7;
+    return 8;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 4 — Adaptation niveau (charges, reps, complexité)
+  //   → déjà appliquée via scaleReps(), getMovesForced() filtre par level
+  // RÈGLE 5 — Équipement strict
+  //   → getMovesForced() n'utilise QUE les clés eq sélectionnées
+  //   → si eqKeys vide ou ['bw'], seuls les mouvements bodyweight/wall
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 6 — Charge uniforme par catégorie de matériel
+  //   → bb, db, kb : même charge (la plus basse) pour tous les mouvements
+  //     d'une même catégorie dans un même WOD.
+  // ═══════════════════════════════════════════════════════════════════════
+  const _eqLookup = new Map<object, string>();
+  for (const [k, ms] of Object.entries(MOVES)) for (const m of ms) _eqLookup.set(m, k);
+
+  function unifyLoads(origMvs: Array<{ mv: string; scale: string[] }>): Array<{ mv: string; scale: string[] }> {
+    const cloned = origMvs.map(m => ({ mv: m.mv, scale: [...m.scale] }));
+    if (cloned.length < 2) return cloned;
+    const groups = new Map<string, number[]>();
+    for (let i = 0; i < origMvs.length; i++) {
+      const key = _eqLookup.get(origMvs[i]);
+      if (!key || !['bb', 'db', 'kb'].includes(key)) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(i);
+    }
+    for (const [, indices] of groups) {
+      if (indices.length < 2) continue;
+      const weighted = indices.filter(i => /^\d/.test(cloned[i].scale[li]) && cloned[i].scale[li].includes('/'));
+      if (weighted.length < 2) continue;
+      let minIdx = weighted[0], minVal = parseFloat(cloned[minIdx].scale[li]);
+      for (const idx of weighted) {
+        const v = parseFloat(cloned[idx].scale[li]);
+        if (v < minVal) { minVal = v; minIdx = idx; }
+      }
+      const unified = cloned[minIdx].scale[li];
+      for (const idx of weighted) cloned[idx].scale[li] = unified;
+    }
+    return cloned;
+  }
+
+  function pickMvs(count: number): Array<{ mv: string; scale: string[] }> {
+    return unifyLoads(getMovesForced(eqKeys, li, count));
+  }
+
   let name = '', movements = '', scoring = '', coach = '', teamNote = '';
 
+  // ── FOR TIME ──────────────────────────────────────────────────────────
   if (type === 'For Time') {
-    name = rand(NAMES_FT);
-    // 3 formats: rounds, sprint chipper, descending rep scheme
-    const style = Math.random();
-
-    if (style < 0.35) {
-      // ── Classic rounds ──
-      const rounds = duration <= 5 ? 2 : duration <= 10 ? 3 : duration <= 15 ? 4 : duration <= 20 ? 5 : 7;
-      const mvs = getMovesForced(eqKeys, li, 3);
-      movements = `${rounds} rounds :\n` + mvs.map(m => `  ${fmt(m, scaleReps(15, li), li)}`).join('\n');
+    if (circuit === 'round') {
+      name = rand(NAMES_FT);
+      const rounds = roundsCal();
+      const mvs = ensureNoWrap(pickMvs(mvCountCal(3)));
+      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, scaleReps(12, li), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min)`;
       coach = 'Gère ton effort : les 2 premiers rounds doivent sembler faciles.';
-    } else if (style < 0.7) {
-      // ── Sprint chipper (single pass, no rounds) ──
-      const mvCount = duration <= 5 ? 3 : duration <= 10 ? 4 : duration <= 15 ? 5 : duration <= 20 ? 6 : 7;
-      const mvs = getMovesForced(eqKeys, li, mvCount);
-      // Rep ranges calibrated to duration: short = lower reps, long = higher reps
-      const repRanges: Record<number, number[]> = {
-        3: [15, 20, 10],
-        4: [20, 30, 15, 10],
-        5: [20, 30, 15, 25, 10],
-        6: [15, 25, 20, 30, 12, 10],
-        7: [20, 30, 15, 25, 20, 12, 10],
-      };
-      const reps = repRanges[mvCount] ?? repRanges[5]!;
-      movements = mvs.map((m, i) => `${fmt(m, scaleReps(reps[i], li), li)}`).join('\n');
-      scoring = `Sprint — Temps le plus court (cap ${duration} min)`;
-      coach = 'Pas de round, pas de repos. Enchaîne les mouvements sans t\'arrêter.';
-    } else {
-      // ── Descending rep scheme (21-15-9, 30-20-10, etc.) ──
-      const schemes: Record<string, { label: string; reps: number[] }[]> = {
-        short:  [{ label: '21-15-9', reps: [21, 15, 9] }, { label: '15-12-9', reps: [15, 12, 9] }],
-        medium: [{ label: '21-15-9', reps: [21, 15, 9] }, { label: '30-20-10', reps: [30, 20, 10] }],
-        long:   [{ label: '30-20-10', reps: [30, 20, 10] }, { label: '50-40-30-20-10', reps: [50, 40, 30, 20, 10] }],
-      };
-      const bucket = duration <= 10 ? 'short' : duration <= 20 ? 'medium' : 'long';
-      const scheme = rand(schemes[bucket]);
-      const mvs = getMovesForced(eqKeys, li, 2);
-      const lines: string[] = [`${scheme.label} :`];
-      mvs.forEach(m => lines.push(`  ${fmtName(m, li)}`));
-      movements = lines.join('\n');
-      scoring = `${scheme.label} — Temps le plus court (cap ${duration} min)`;
-      coach = 'Fractionne les grosses séries si besoin. Ne lâche pas le rythme.';
+    } else if (circuit === 'chipper') {
+      name = rand(NAMES_CH);
+      const mvCount = mvCountCal(5);
+      const mvs = pickMvs(mvCount);
+      const chipReps = [50, 40, 30, 25, 20, 15, 10];
+      movements = `Chipper For Time :\n` + mvs.map((m, i) => `  ${fmt(m, scaleReps(chipReps[i] ?? 10, li), li)}`).join('\n');
+      scoring = `Temps le plus court (cap ${duration} min) — 1 passage`;
+      coach = 'Du haut vers le bas. Fractionne les gros sets. Jamais plus de 10s d\'arrêt.';
+    } else if (circuit === 'couplet' || circuit === 'triplet') {
+      name = rand(NAMES_CP);
+      const n = circuit === 'triplet' ? 3 : 2;
+      const mvs = pickMvs(n);
+      const rounds = roundsCal();
+      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, scaleReps(15, li), li)}`).join('\n');
+      scoring = `Temps le plus court (cap ${duration} min) — ${circuit === 'triplet' ? 'Triplet' : 'Couplet'}`;
+      coach = circuit === 'triplet'
+        ? 'Triplet rythmé. Pas de repos entre les 3 mouvements.'
+        : '2 mouvements. Transitions immédiates. Pousse le rythme.';
+    } else if (circuit === 'ladder') {
+      name = rand(NAMES_LD);
+      const isPyramid = Math.random() < 0.5;
+      const maxRung = duration <= 5 ? 7 : duration <= 10 ? 10 : duration <= 20 ? 12 : 15;
+      const top = Math.floor(maxRung / 2);
+      const mvs = pickMvs(rand([1, 2]));
+      if (isPyramid) {
+        movements = `Pyramide For Time (1→${top}→1) :\n` + mvs.map(m => `  ${fmtName(m, li)}`).join('\n');
+        scoring = `Temps le plus court (cap ${duration} min) — pyramide 1→${top}→1`;
+        coach = 'Le sommet est le moment critique. Pace-toi sur la montée.';
+      } else {
+        movements = `Ladder For Time (1→${maxRung}) :\n` + mvs.map(m => `  ${fmtName(m, li)}`).join('\n');
+        scoring = `Temps le plus court (cap ${duration} min) — ladder 1→${maxRung}`;
+        coach = 'Facile au départ. Chaque round coûte plus cher.';
+      }
     }
     teamNote = isTeam ? `Équipe de ${teamN} : alternance par round.` : '';
   }
 
+  // ── AMRAP ─────────────────────────────────────────────────────────────
   else if (type === 'AMRAP') {
-    name = rand(NAMES_AM);
-    const mvs = getMovesForced(eqKeys, li, 3);
-    const baseReps = [10, 15, 20];
-    movements = `AMRAP ${duration} min :\n` + mvs.map((m, i) => `  ${fmt(m, scaleReps(baseReps[i], li), li)}`).join('\n');
-    scoring = `Max rounds + reps en ${duration} min`;
-    coach = 'Trouve UN rythme et tiens-le. Évite le sprint initial.';
-    teamNote = isTeam ? `Équipe de ${teamN} : score commun. Alternance complète par round.` : '';
+    if (circuit === 'round') {
+      name = rand(NAMES_AM);
+      const mvs = ensureNoWrap(pickMvs(mvCountCal(3)));
+      const baseReps = [10, 15, 12, 20, 8, 15];
+      movements = `AMRAP ${duration} min :\n` + mvs.map((m, i) => `  ${fmt(m, scaleReps(baseReps[i] ?? 12, li), li)}`).join('\n');
+      scoring = `Max rounds + reps en ${duration} min`;
+      coach = 'Trouve UN rythme et tiens-le. Évite le sprint initial.';
+    } else if (circuit === 'couplet' || circuit === 'triplet') {
+      name = rand([...NAMES_AM, ...NAMES_CP]);
+      const n = circuit === 'triplet' ? 3 : 2;
+      const mvs = pickMvs(n);
+      movements = `AMRAP ${duration} min :\n` + mvs.map(m => `  ${fmt(m, scaleReps(15, li), li)}`).join('\n');
+      scoring = `Max rounds + reps en ${duration} min — ${circuit === 'triplet' ? 'Triplet' : 'Couplet'}`;
+      coach = circuit === 'triplet'
+        ? '3 mouvements en boucle. Rythme constant, transitions rapides.'
+        : '2 mouvements. Transitions immédiates, rythme constant.';
+    } else if (circuit === 'chipper') {
+      name = rand([...NAMES_AM, ...NAMES_CH]);
+      const mvCount = mvCountCal(5);
+      const mvs = pickMvs(mvCount);
+      const chipReps = [40, 30, 25, 20, 15, 12, 10];
+      movements = `AMRAP ${duration} min (Chipper) :\n` + mvs.map((m, i) => `  ${fmt(m, scaleReps(chipReps[i] ?? 10, li), li)}`).join('\n');
+      scoring = `Max rounds + reps en ${duration} min — Chipper style`;
+      coach = 'Enchaîne sans pause. Chaque passage complet = 1 round.';
+    }
+    teamNote = isTeam ? `Équipe de ${teamN} : score commun. Alternance par round.` : '';
   }
 
+  // ── EMOM ──────────────────────────────────────────────────────────────
   else if (type === 'EMOM') {
-    name = rand(NAMES_EM);
-    const mins = Math.min(duration, 6);
-    const mvs = getMovesForced(eqKeys, li, Math.min(mins, 3));
-    const lines: string[] = [];
-    for (let i = 0; i < mins; i++) {
-      const m = mvs[i % mvs.length];
-      lines.push(`  Min ${i+1}: ${fmt(m, scaleReps(10, li), li)}`);
+    if (circuit === 'death_by') {
+      name = rand(NAMES_DB);
+      const excludeErg = ['Cal Rameur','Cal Ski Erg','Cal Assault Bike','m Rameur',
+        'DB Farmer Carry (m)','KB Farmer Carry (m)','Bear Crawl (m)','Shuttle Run (×7.62m)'];
+      const deathPool = getMoves(eqKeys, li).filter((m: any) => !excludeErg.includes(m.mv));
+      const m = rand(deathPool.length > 0 ? deathPool : getMoves(eqKeys, li));
+      const moveName = fmtName(m, li);
+      const lines: string[] = [`Death By ${moveName} :`];
+      for (let i = 1; i <= 6; i++) lines.push(`  Min ${i} : ${i} ${moveName}`);
+      lines.push(`  ... (continue jusqu'à l'échec)`);
+      movements = lines.join('\n');
+      scoring = `Score = dernière minute complétée`;
+      coach = 'Les premières minutes semblent faciles. C\'est un piège. Gère ta respiration.';
+    } else {
+      name = rand(NAMES_EM);
+      const n = circuit === 'triplet' ? 3 : 2;
+      const mvs = pickMvs(n);
+      const lines: string[] = [];
+      for (let i = 0; i < n; i++) {
+        lines.push(`  Min ${i+1}: ${fmt(mvs[i], scaleReps(10, li), li)}`);
+      }
+      const cycles = Math.round(duration / n);
+      lines.push(`  → Répéter le cycle (${cycles} fois = ${duration} min)`);
+      movements = `E${n}MOM ${duration} min :\n` + lines.join('\n');
+      scoring = `Score = rounds complétés sur ${duration} min`;
+      coach = 'Finis chaque minute avec au moins 15s de repos. Régularité.';
     }
-    if (duration > mins) lines.push(`  → Répéter le cycle (${Math.round(duration / mins)} fois)`);
-    movements = `EMOM ${duration} min :\n` + lines.join('\n');
-    scoring = `Score = rounds complétés`;
-    coach = 'Finis chaque minute avec au moins 15s de repos.';
     teamNote = isTeam ? `Équipe de ${teamN} : A fait min impaires, B min paires${teamN > 2 ? ', C min 3,6,9...' : ''}.` : '';
   }
 
+  // ── TABATA ────────────────────────────────────────────────────────────
   else if (type === 'Tabata') {
     name = rand(NAMES_TB);
-    const count = Math.max(1, Math.floor(duration / 4));
-    const mvs = getMovesForced(eqKeys, li, count);
-    movements = `Tabata ${duration} min (${count} mouv.):\n` + mvs.map(m => `  8×20s ${fmtName(m, li)} / 10s repos`).join('\n');
-    scoring = 'Score = min de reps sur un round (par mouvement)';
-    coach = 'Maintiens le même nombre de reps à chaque round des 8.';
+    if (circuit === 'double_couplet') {
+      const count = Math.max(2, Math.floor(duration / 4));
+      const mvs = pickMvs(count);
+      movements = `Tabata ${duration} min (${count} mouv.) :\n` + mvs.map(m => `  8×20s ${fmtName(m, li)} / 10s repos`).join('\n');
+      scoring = 'Score = min de reps sur un round (par mouvement)';
+      coach = 'Maintiens le même nombre de reps à chaque round des 8.';
+    } else {
+      const mvs = pickMvs(2);
+      const tabCycles = Math.max(1, Math.floor(duration / 4));
+      movements = `Tabata ${duration} min :\n` + mvs.map(m => `  8×20s ${fmtName(m, li)} / 10s repos`).join('\n');
+      if (tabCycles > 1) movements += `\n  → ${tabCycles} cycles`;
+      scoring = 'Score = total de reps sur tous les rounds';
+      coach = 'Chaque round de 20s à 100%. Le repos de 10s est sacré.';
+    }
     teamNote = isTeam ? `Équipe de ${teamN} : score collectif = somme des reps.` : '';
   }
 
+  // ── MAX REPS ──────────────────────────────────────────────────────────
   else {
     name = rand(NAMES_MR);
+    const count = rand([1, 2]);
     const pool = getMoves(eqKeys, li);
-    const m = rand(pool);
-    const maxReps = scaleReps(10, li);
-    movements = `Max reps en ${duration} min :\n  ${fmtName(m, li)}`;
-    scoring = `Score = total de reps (${maxReps} reps/set conseillé, repos 15s max)`;
+    if (count === 1) {
+      const m = rand(pool);
+      movements = `Max reps en ${duration} min :\n  ${fmtName(m, li)}`;
+    } else {
+      const mvs = unifyLoads(pick(pool, 2));
+      movements = `Max reps en ${duration} min :\n` + mvs.map(m => `  ${fmtName(m, li)}`).join('\n');
+    }
+    scoring = `Score = total de reps (repos 15s max entre sets)`;
     coach = 'Sets réguliers. Repos jamais > 20s. Pousse jusqu\'au bout.';
-    teamNote = isTeam ? `Équipe de ${teamN} : score = somme des reps. Alternance toutes les 30s.` : '';
+    teamNote = isTeam ? `Équipe de ${teamN} : score = somme des reps. Alternance 30s.` : '';
   }
 
   return { name, type, duration, level, movements, scoring, coach, teamNote: isTeam ? teamNote : undefined };
@@ -618,6 +819,8 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
 export default function WodGeneratorCard({ navigation: navProp }: { navigation?: Nav }) {
   const navHook = useNavigation<Nav>();
   const navigation = navProp ?? navHook;
+  const { theme } = useTheme();
+  const s = createStyles(theme);
 
   const [sport,       setSport]       = useState<Sport>('functional');
   // Functional Fitness
@@ -716,11 +919,15 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     else if (currentWod.type === 'AMRAP') { setScoreType('reps'); }
     else if (currentWod.type === 'EMOM') { setScoreType('rounds'); }
     else if (currentWod.type === 'Max Reps') { setScoreType('reps'); }
+    else if (currentWod.type === 'Chipper') { setScoreType('time'); }
+    else if (currentWod.type === 'Ladder') { setScoreType('rounds'); }
+    else if (currentWod.type === 'Couplet') { setScoreType('time'); }
+    else if (currentWod.type === 'Death By') { setScoreType('rounds'); }
     else { setScoreType('time'); }
     setScoreModal(true);
   }
 
-  const accent = sport === 'hybrid' ? HYROX_ORANGE : Colors.primary;
+  const accent = sport === 'hybrid' ? HYROX_ORANGE : theme.accent;
 
   function toggleEq(k: string) {
     if (k === 'bw') { setEquipment(['bw']); return; }
@@ -755,14 +962,14 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     <SafeAreaView style={s.screen}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
-          <ArrowLeft color={Colors.text} size={22} />
+          <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <View style={s.headerTitle}>
-          <Sparkles color={Colors.primary} size={16} />
+          <Sparkles color={theme.accent} size={16} />
           <Text style={s.headerTitleTxt}>Générateur de WOD</Text>
         </View>
         <TouchableOpacity onPress={() => navigation.navigate('WodHistory')} style={s.backBtn} activeOpacity={0.7}>
-          <History color={Colors.primary} size={20} />
+          <History color={theme.accent} size={20} />
         </TouchableOpacity>
       </View>
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
@@ -771,7 +978,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       {/* Quick access: Historique & Favoris */}
       <View style={s.quickAccessRow}>
         <TouchableOpacity style={s.quickAccessBtn} onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}>
-          <History color="#111" size={16} />
+          <History color={theme.text} size={16} />
           <Text style={s.quickAccessTxt}>Historique</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.quickAccessBtn} onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}>
@@ -787,8 +994,8 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           onPress={() => setSport('functional')} activeOpacity={0.8}
         >
           <Text style={s.sportEmoji}>🏋️</Text>
-          <Text style={[s.sportLabel, sport === 'functional' && { color: Colors.primary }]}>{"Functional\nFitness"}</Text>
-          {sport === 'functional' && <View style={[s.sportDot, { backgroundColor: Colors.primary }]} />}
+          <Text style={[s.sportLabel, sport === 'functional' && { color: theme.accent }]}>{"Functional\nFitness"}</Text>
+          {sport === 'functional' && <View style={[s.sportDot, { backgroundColor: theme.accent }]} />}
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.sportCard, sport === 'hybrid' && s.sportCardHybrid]}
@@ -818,7 +1025,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         {FORMATS.map(f => (
           <TouchableOpacity key={f} onPress={() => setFormat(f)} activeOpacity={0.7}
             style={[s.chip, format === f && s.chipSel]}>
-            {f === 'Solo' ? <User color={format === f ? Colors.primary : Colors.textMuted} size={13} /> : <Users color={format === f ? Colors.primary : Colors.textMuted} size={13} />}
+            {f === 'Solo' ? <User color={format === f ? theme.accent : theme.textMuted} size={13} /> : <Users color={format === f ? theme.accent : theme.textMuted} size={13} />}
             <Text style={[s.chipTxt, format === f && s.chipTxtSel]}>{f}</Text>
           </TouchableOpacity>
         ))}
@@ -830,7 +1037,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         {DURATIONS.map(d => (
           <TouchableOpacity key={d} onPress={() => setDuration(d)} activeOpacity={0.7}
             style={[s.chip, duration === d && s.chipSel]}>
-            <Clock color={duration === d ? Colors.primary : Colors.textMuted} size={12} />
+            <Clock color={duration === d ? theme.accent : theme.textMuted} size={12} />
             <Text style={[s.chipTxt, duration === d && s.chipTxtSel]}>{d} min</Text>
           </TouchableOpacity>
         ))}
@@ -839,7 +1046,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       {/* Type */}
       <Text style={s.optLabel}>TYPE</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
-        {WOD_TYPES.map(t => (
+        {UI_WOD_TYPES.map(t => (
           <TouchableOpacity key={t} onPress={() => setWodType(t)} activeOpacity={0.7}
             style={[s.chip, wodType === t && s.chipSel]}>
             <Text style={[s.chipTxt, wodType === t && s.chipTxtSel]}>{t}</Text>
@@ -899,7 +1106,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         {HYROX_DURATIONS.map(d => (
           <TouchableOpacity key={d} onPress={() => setHyroxDur(d)} activeOpacity={0.7}
             style={[s.chip, hyroxDur === d && s.chipHybrid]}>
-            <Clock color={hyroxDur === d ? HYROX_ORANGE : Colors.textMuted} size={12} />
+            <Clock color={hyroxDur === d ? HYROX_ORANGE : theme.textMuted} size={12} />
             <Text style={[s.chipTxt, hyroxDur === d && { color: HYROX_ORANGE, fontWeight: '900' }]}>{d} min</Text>
           </TouchableOpacity>
         ))}
@@ -937,9 +1144,9 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
               <View style={[s.badge, { backgroundColor: `${HYROX_ORANGE}15` }]}>
                 <Text style={[s.badgeTxt, { color: HYROX_ORANGE }]}>{hyroxWod.level}</Text>
               </View>
-              <View style={[s.badge, { backgroundColor: Colors.surface }]}>
-                <Clock color={Colors.textMuted} size={11} />
-                <Text style={[s.badgeTxt, { color: Colors.textMuted }]}>{hyroxWod.duration} min</Text>
+              <View style={[s.badge, { backgroundColor: theme.surface }]}>
+                <Clock color={theme.textMuted} size={11} />
+                <Text style={[s.badgeTxt, { color: theme.textMuted }]}>{hyroxWod.duration} min</Text>
               </View>
             </View>
             <TouchableOpacity onPress={handleGenerate} activeOpacity={0.7}>
@@ -999,19 +1206,19 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         <View style={s.resultCard}>
           <View style={s.resultTop}>
             <View style={s.badges}>
-              <View style={[s.badge, { backgroundColor: `${Colors.primary}20` }]}>
-                <Text style={[s.badgeTxt, { color: Colors.primary }]}>{wod.type}</Text>
+              <View style={[s.badge, { backgroundColor: `${theme.accent}20` }]}>
+                <Text style={[s.badgeTxt, { color: theme.accent }]}>{wod.type}</Text>
               </View>
               <View style={[s.badge, { backgroundColor: `${LevelColors[wod.level]}20` }]}>
                 <Text style={[s.badgeTxt, { color: LevelColors[wod.level] }]}>{LEVELS.find(l => l.key === wod.level)?.label}</Text>
               </View>
-              <View style={[s.badge, { backgroundColor: Colors.surface }]}>
-                <Clock color={Colors.textMuted} size={11} />
-                <Text style={[s.badgeTxt, { color: Colors.textMuted }]}>{wod.duration} min</Text>
+              <View style={[s.badge, { backgroundColor: theme.surface }]}>
+                <Clock color={theme.textMuted} size={11} />
+                <Text style={[s.badgeTxt, { color: theme.textMuted }]}>{wod.duration} min</Text>
               </View>
             </View>
             <TouchableOpacity onPress={handleGenerate} activeOpacity={0.7}>
-              <RefreshCw color={Colors.primary} size={18} />
+              <RefreshCw color={theme.accent} size={18} />
             </TouchableOpacity>
           </View>
 
@@ -1024,7 +1231,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           </View>
 
           <View style={s.scoringRow}>
-            <Zap color={Colors.gold} size={14} />
+            <Zap color={theme.gold} size={14} />
             <Text style={s.scoringTxt}>{wod.scoring}</Text>
           </View>
 
@@ -1035,7 +1242,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
 
           {wod.teamNote ? (
             <View style={s.teamBox}>
-              <Users color={Colors.primary} size={13} />
+              <Users color={theme.accent} size={13} />
               <Text style={s.teamTxt}>{wod.teamNote}</Text>
             </View>
           ) : null}
@@ -1044,16 +1251,16 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           <View style={s.actionRow}>
             {!savedWodId ? (
               <TouchableOpacity style={s.actionBtn} onPress={() => saveWod(wod, null)} disabled={saving} activeOpacity={0.7}>
-                {saving ? <ActivityIndicator size="small" color={Colors.primary} /> : <><Bookmark color={Colors.primary} size={14} /><Text style={s.actionBtnTxt}>Sauvegarder</Text></>}
+                {saving ? <ActivityIndicator size="small" color={theme.accent} /> : <><Bookmark color={theme.accent} size={14} /><Text style={s.actionBtnTxt}>Sauvegarder</Text></>}
               </TouchableOpacity>
             ) : (
               <>
-                <TouchableOpacity style={[s.actionBtn, savedWodId && { backgroundColor: `${Colors.primary}10` }]} onPress={toggleFavorite} activeOpacity={0.7}>
-                  <Heart color={Colors.primary} size={14} fill={isFavorite ? Colors.primary : 'transparent'} />
+                <TouchableOpacity style={[s.actionBtn, savedWodId && { backgroundColor: `${theme.accent}10` }]} onPress={toggleFavorite} activeOpacity={0.7}>
+                  <Heart color={theme.accent} size={14} fill={isFavorite ? theme.accent : 'transparent'} />
                   <Text style={s.actionBtnTxt}>Favori</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.actionBtn} onPress={() => openScoreModal(wod)} activeOpacity={0.7}>
-                  <Check color={Colors.primary} size={14} />
+                  <Check color={theme.accent} size={14} />
                   <Text style={s.actionBtnTxt}>Entrer score</Text>
                 </TouchableOpacity>
               </>
@@ -1069,14 +1276,14 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       )}
 
       {/* ── Score Modal ── */}
-      <Modal visible={scoreModal} animationType="slide" presentationStyle="pageSheet" transparent onRequestClose={() => setScoreModal(false)}>
+      <Modal visible={scoreModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setScoreModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
           <View style={s.modalSheet}>
             <View style={s.modalHandle} />
             <View style={s.modalHeader}>
               <Text style={s.modalTitle}>Entrer mon score</Text>
               <TouchableOpacity onPress={() => setScoreModal(false)}>
-                <X color={Colors.textMuted} size={22} />
+                <X color={theme.textMuted} size={22} />
               </TouchableOpacity>
             </View>
 
@@ -1098,7 +1305,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             <TextInput
               style={s.modalInput}
               placeholder={scoreType === 'time' ? '14:32' : '150'}
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               value={scoreInput}
               onChangeText={setScoreInput}
               keyboardType={scoreType === 'time' ? 'default' : 'numeric'}
@@ -1110,8 +1317,8 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
               <TouchableOpacity style={[s.modalTypeChip, scoreRx && s.modalTypeChipSel]} onPress={() => setScoreRx(true)}>
                 <Text style={[s.modalTypeChipTxt, scoreRx && s.modalTypeChipTxtSel]}>RX</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.modalTypeChip, !scoreRx && { backgroundColor: `${Colors.gold}20`, borderColor: Colors.gold }]} onPress={() => setScoreRx(false)}>
-                <Text style={[s.modalTypeChipTxt, !scoreRx && { color: Colors.gold, fontWeight: '900' }]}>Scaled</Text>
+              <TouchableOpacity style={[s.modalTypeChip, !scoreRx && { backgroundColor: `${theme.gold}20`, borderColor: theme.gold }]} onPress={() => setScoreRx(false)}>
+                <Text style={[s.modalTypeChipTxt, !scoreRx && { color: theme.gold, fontWeight: '900' }]}>Scaled</Text>
               </TouchableOpacity>
             </View>
 
@@ -1119,7 +1326,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             <TextInput
               style={[s.modalInput, { minHeight: 60, textAlignVertical: 'top' }]}
               placeholder="Mouvements adaptés, sensations…"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               value={scoreNotes}
               onChangeText={setScoreNotes}
               multiline
@@ -1143,57 +1350,57 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: t.border,
   },
   backBtn: { width: 38, height: 38, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerTitleTxt: { fontSize: 16, fontWeight: '900', color: Colors.text },
+  headerTitleTxt: { fontSize: 16, fontWeight: '900', color: t.text },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 40 },
   wrapper: { paddingHorizontal: 16, marginTop: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  sectionTitle: { fontSize: 17, fontWeight: '900', color: Colors.text, letterSpacing: -0.2 },
-  optLabel: { fontSize: 10, fontWeight: '800', color: Colors.textMuted, letterSpacing: 1.2, marginBottom: 6 },
+  sectionTitle: { fontSize: 17, fontWeight: '900', color: t.text, letterSpacing: -0.2 },
+  optLabel: { fontSize: 10, fontWeight: '800', color: t.textMuted, letterSpacing: 1.2, marginBottom: 6 },
   chipScroll: { marginHorizontal: -16 },
   chipRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, marginBottom: 14, flexWrap: 'wrap' },
   chipScrollContent: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingBottom: 14 },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10,
-    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: t.card, borderWidth: 1, borderColor: t.border,
   },
-  chipSel: { backgroundColor: `${Colors.primary}15`, borderColor: Colors.primary },
-  chipTxt: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
-  chipTxtSel: { color: Colors.primary, fontWeight: '900' },
+  chipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
+  chipTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
+  chipTxtSel: { color: t.accent, fontWeight: '900' },
   eqGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
   eqChip: {
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
-    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: t.card, borderWidth: 1, borderColor: t.border,
   },
-  eqChipSel: { backgroundColor: `${Colors.primary}15`, borderColor: Colors.primary },
-  eqTxt: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
-  eqTxtSel: { color: Colors.primary, fontWeight: '900' },
+  eqChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
+  eqTxt: { fontSize: 11, fontWeight: '700', color: t.textMuted },
+  eqTxtSel: { color: t.accent, fontWeight: '900' },
   quickAccessRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   quickAccessBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#F3F4F6', borderRadius: 12, paddingVertical: 12,
-    borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: t.surface, borderRadius: 12, paddingVertical: 12,
+    borderWidth: 1, borderColor: t.border,
   },
-  quickAccessTxt: { fontSize: 13, fontWeight: '800', color: '#111' },
+  quickAccessTxt: { fontSize: 13, fontWeight: '800', color: t.text },
   sportRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   sportCard: {
     flex: 1, borderRadius: 14, padding: 14, alignItems: 'center', gap: 3,
-    backgroundColor: Colors.card, borderWidth: 2, borderColor: Colors.border,
+    backgroundColor: t.card, borderWidth: 2, borderColor: t.border,
   },
-  sportCardActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}10` },
+  sportCardActive: { borderColor: t.accent, backgroundColor: `${t.accent}10` },
   sportCardHybrid: { borderColor: HYROX_ORANGE, backgroundColor: `${HYROX_ORANGE}10` },
   sportEmoji: { fontSize: 24, marginBottom: 2 },
-  sportLabel: { fontSize: 12, fontWeight: '800', color: Colors.textMuted, textAlign: 'center', lineHeight: 17 },
+  sportLabel: { fontSize: 12, fontWeight: '800', color: t.textMuted, textAlign: 'center', lineHeight: 17 },
   sportDot: { width: 7, height: 7, borderRadius: 4, marginTop: 3 },
   chipHybrid: { backgroundColor: `${HYROX_ORANGE}15`, borderColor: HYROX_ORANGE },
   eqChipHybrid: { backgroundColor: `${HYROX_ORANGE}15`, borderColor: HYROX_ORANGE },
@@ -1201,63 +1408,63 @@ const s = StyleSheet.create({
   stationDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
   genBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: 14, padding: 16, marginBottom: 4,
+    backgroundColor: t.accent, borderRadius: 14, padding: 16, marginBottom: 4,
   },
   genBtnTxt: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
   resultCard: {
-    marginTop: 14, backgroundColor: Colors.card, borderRadius: 16,
-    padding: 16, borderWidth: 1, borderColor: Colors.border, gap: 12,
+    marginTop: 14, backgroundColor: t.card, borderRadius: 16,
+    padding: 16, borderWidth: 1, borderColor: t.border, gap: 12,
   },
   resultTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   badges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgeTxt: { fontSize: 10, fontWeight: '800' },
-  wodName: { fontSize: 22, fontWeight: '900', color: Colors.text, letterSpacing: -0.3 },
-  movBox: { backgroundColor: Colors.surface, borderRadius: 10, padding: 12, gap: 3 },
-  movHeader: { fontSize: 12, fontWeight: '800', color: Colors.textSecondary },
-  movLine: { fontSize: 13, fontWeight: '600', color: Colors.text },
+  wodName: { fontSize: 22, fontWeight: '900', color: t.text, letterSpacing: -0.3 },
+  movBox: { backgroundColor: t.surface, borderRadius: 10, padding: 12, gap: 3 },
+  movHeader: { fontSize: 12, fontWeight: '800', color: t.textSecondary },
+  movLine: { fontSize: 13, fontWeight: '600', color: t.text },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  scoringTxt: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, flex: 1 },
-  coachBox: { backgroundColor: `${Colors.gold}12`, borderRadius: 10, padding: 10, gap: 4 },
-  coachLabel: { fontSize: 11, fontWeight: '800', color: Colors.gold },
-  coachTxt: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
-  teamBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: `${Colors.primary}10`, borderRadius: 8, padding: 8 },
-  teamTxt: { fontSize: 12, color: Colors.textSecondary, flex: 1, lineHeight: 17 },
+  scoringTxt: { fontSize: 12, fontWeight: '700', color: t.textSecondary, flex: 1 },
+  coachBox: { backgroundColor: `${t.gold}12`, borderRadius: 10, padding: 10, gap: 4 },
+  coachLabel: { fontSize: 11, fontWeight: '800', color: t.gold },
+  coachTxt: { fontSize: 12, color: t.textSecondary, lineHeight: 17 },
+  teamBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: `${t.accent}10`, borderRadius: 8, padding: 8 },
+  teamTxt: { fontSize: 12, color: t.textSecondary, flex: 1, lineHeight: 17 },
   startBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: 12, padding: 14,
+    backgroundColor: t.accent, borderRadius: 12, padding: 14,
   },
   startBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
   // Action row (save / fav / score)
   actionRow: { flexDirection: 'row', gap: 8 },
   actionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderRadius: 10, borderWidth: 1.5, borderColor: Colors.primary, paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1.5, borderColor: t.accent, paddingVertical: 10,
   },
-  actionBtnTxt: { fontSize: 12, fontWeight: '800', color: Colors.primary },
+  actionBtnTxt: { fontSize: 12, fontWeight: '800', color: t.accent },
   // Score modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalSheet: {
-    backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: t.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 40, gap: 12,
   },
   modalHandle: {
-    width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border,
+    width: 40, height: 4, borderRadius: 2, backgroundColor: t.border,
     alignSelf: 'center', marginBottom: 4,
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontSize: 18, fontWeight: '900', color: Colors.text },
-  modalLabel: { fontSize: 11, fontWeight: '800', color: Colors.textMuted, letterSpacing: 0.5, marginTop: 4 },
+  modalTitle: { fontSize: 18, fontWeight: '900', color: t.text },
+  modalLabel: { fontSize: 11, fontWeight: '800', color: t.textMuted, letterSpacing: 0.5, marginTop: 4 },
   modalTypeRow: { flexDirection: 'row', gap: 8 },
   modalTypeChip: {
     flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+    borderWidth: 1.5, borderColor: t.border, backgroundColor: t.surface,
   },
-  modalTypeChipSel: { backgroundColor: `${Colors.primary}15`, borderColor: Colors.primary },
-  modalTypeChipTxt: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
-  modalTypeChipTxtSel: { color: Colors.primary, fontWeight: '900' },
+  modalTypeChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
+  modalTypeChipTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
+  modalTypeChipTxtSel: { color: t.accent, fontWeight: '900' },
   modalInput: {
-    backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
-    padding: 12, fontSize: 16, fontWeight: '700', color: Colors.text,
+    backgroundColor: t.surface, borderRadius: 10, borderWidth: 1, borderColor: t.border,
+    padding: 12, fontSize: 16, fontWeight: '700', color: t.text,
   },
-});
+}); }

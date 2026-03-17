@@ -10,6 +10,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -17,7 +19,7 @@ Notifications.setNotificationHandler({
 export async function setupAndroidChannel() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'TheHub',
+      name: 'AthleX',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#10B981',
@@ -119,6 +121,8 @@ export interface NotificationPrefs {
   friend_requests: boolean;
   tournament_updates: boolean;
   score_updates: boolean;
+  score_comments: boolean;
+  score_reactions: boolean;
 }
 
 export async function getNotificationPrefs(userId: string): Promise<NotificationPrefs> {
@@ -134,6 +138,8 @@ export async function getNotificationPrefs(userId: string): Promise<Notification
     friend_requests: true,
     tournament_updates: true,
     score_updates: true,
+    score_comments: true,
+    score_reactions: true,
   };
 }
 
@@ -153,5 +159,56 @@ export async function saveNotificationPrefs(userId: string, prefs: Partial<Notif
     if (full.daily_reminder) {
       await scheduleDailyReminder(full.reminder_hour);
     }
+  }
+}
+
+// ── Envoyer une push notification pour commentaire/réaction sur un score ──
+export async function sendScoreNotification(
+  targetUserId: string,
+  senderUsername: string,
+  type: 'comment' | 'reaction',
+  emoji?: string,
+) {
+  // Check if the target user has this notification type enabled
+  const prefs = await getNotificationPrefs(targetUserId);
+  if (type === 'comment' && !prefs.score_comments) return;
+  if (type === 'reaction' && !prefs.score_reactions) return;
+
+  // Get target user's push tokens
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('user_id', targetUserId);
+
+  if (!tokens || tokens.length === 0) return;
+
+  const title = type === 'comment'
+    ? `💬 ${senderUsername} a commenté ton score`
+    : `${emoji ?? '❤️'} ${senderUsername} a réagi à ton score`;
+
+  const body = type === 'comment'
+    ? 'Va voir ce qu\'il a dit !'
+    : `Réaction ${emoji ?? '❤️'}`;
+
+  // Send via Expo Push API
+  const messages = tokens.map(t => ({
+    to: t.token,
+    sound: 'default' as const,
+    title,
+    body,
+    data: { type: `score_${type}`, targetUserId },
+  }));
+
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(messages),
+    });
+  } catch (err) {
+    console.error('Error sending score notification:', err);
   }
 }

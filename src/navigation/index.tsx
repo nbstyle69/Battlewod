@@ -2,16 +2,18 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, ActivityIndicator } from 'react-native';
-import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home } from 'lucide-react-native';
+import { View, Image, ActivityIndicator, Platform } from 'react-native';
+import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import WaitingScreen from '../screens/onboarding/WaitingScreen';
 import JoinBoxScreen from '../screens/onboarding/JoinBoxScreen';
 import CreateBoxScreen from '../screens/onboarding/CreateBoxScreen';
@@ -41,6 +43,7 @@ import AdminScreen from '../screens/admin/AdminScreen';
 import BODashboardScreen from '../screens/backoffice/BODashboardScreen';
 import BOMembersScreen from '../screens/backoffice/BOMembersScreen';
 import BOWODsScreen from '../screens/backoffice/BOWODsScreen';
+import BOScheduleScreen from '../screens/backoffice/BOScheduleScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import CommunityScreen from '../screens/community/CommunityScreen';
 import CompetitionDetailScreen from '../screens/competition/CompetitionDetailScreen';
@@ -50,6 +53,12 @@ import WodHistoryScreen from '../screens/wod/WodHistoryScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 import DailyTournamentsScreen from '../screens/tournament/DailyTournamentsScreen';
 import DailyTournamentDetailScreen from '../screens/tournament/DailyTournamentDetailScreen';
+import ReservationScreen from '../screens/reservation/ReservationScreen';
+import InterCompetitionListScreen from '../screens/competition/InterCompetitionListScreen';
+import InterCompetitionDetailScreen from '../screens/competition/InterCompetitionDetailScreen';
+import InterScoreSubmitScreen from '../screens/competition/InterScoreSubmitScreen';
+import InterTeamScreen from '../screens/competition/InterTeamScreen';
+import DocumentsScreen from '../screens/documents/DocumentsScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -67,6 +76,7 @@ export type OnboardingStackParamList = {
 export type BoxOwnerTabParamList = {
   BODashboard: undefined;
   BOWODs: undefined;
+  BOSchedule: undefined;
   BOMembers: undefined;
   BOMessages: undefined;
   BOProfile: undefined;
@@ -82,12 +92,14 @@ export type BODashboardStackParamList = {
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
 };
 
 export type MainTabParamList = {
   Home: undefined;
   Competitions: undefined;
   Whiteboard: undefined;
+  Reservation: undefined;
 };
 
 export type TimerType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'ywyr' | 'libre';
@@ -210,6 +222,18 @@ export type CompetitionStackParamList = {
     wodScoring: string;
   };
   Tournament: { tournamentId: string };
+  InterCompetitionList: undefined;
+  InterCompetitionDetail: { competitionId: string };
+  InterScoreSubmit: {
+    competitionId: string;
+    wodId: string;
+    wodTitle: string;
+    wodDescription: string;
+    timeCap: number | null;
+    scoringType: string;
+    existingScore: { id: string; score_value: any; score_display: string | null; video_url: string | null; status: string } | null;
+  };
+  InterTeam: { competitionId: string; teamSize: number };
   VideoPlayback: {
     videoURL: string;
     title?: string;
@@ -255,6 +279,7 @@ export type WhiteboardStackParamList = {
   WODDetail: { wodId: string };
   PublicProfile: { userId: string };
   Messages: undefined;
+  Documents: undefined;
 };
 
 export type CommunityStackParamList = {
@@ -279,6 +304,7 @@ function AuthNavigator() {
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
   );
 }
@@ -309,7 +335,7 @@ function HomeNavigator() {
       <HomeStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <HomeStack.Screen name="DailyTournaments" component={DailyTournamentsScreen} />
       <HomeStack.Screen name="DailyTournamentDetail" component={DailyTournamentDetailScreen} />
-      <HomeStack.Screen name="Profile" component={user?.role === 'admin' ? AdminScreen : ProfileScreen} />
+      <HomeStack.Screen name="Profile" component={user?.role === 'admin' || user?.role === 'super_admin' ? AdminScreen : ProfileScreen} />
       <HomeStack.Screen name="CompetitionDetail" component={CompetitionDetailScreen} />
       <HomeStack.Screen name="PublicProfile" component={PublicProfileScreen} />
     </HomeStack.Navigator>
@@ -333,6 +359,7 @@ function WhiteboardNavigator() {
       <WhiteboardStack.Screen name="WODDetail"      component={WODDetailScreen} />
       <WhiteboardStack.Screen name="PublicProfile"  component={PublicProfileScreen} />
       <WhiteboardStack.Screen name="Messages"       component={MessagesScreen} />
+      <WhiteboardStack.Screen name="Documents"      component={DocumentsScreen} />
     </WhiteboardStack.Navigator>
   );
 }
@@ -362,6 +389,10 @@ function CompetitionNavigator() {
       <CompStack.Screen name="VideoPlayback" component={VideoPlaybackScreen} />
       <CompStack.Screen name="DailyTournaments" component={DailyTournamentsScreen} />
       <CompStack.Screen name="DailyTournamentDetail" component={DailyTournamentDetailScreen} />
+      <CompStack.Screen name="InterCompetitionList" component={InterCompetitionListScreen} />
+      <CompStack.Screen name="InterCompetitionDetail" component={InterCompetitionDetailScreen} />
+      <CompStack.Screen name="InterScoreSubmit" component={InterScoreSubmitScreen} />
+      <CompStack.Screen name="InterTeam" component={InterTeamScreen} />
     </CompStack.Navigator>
   );
 }
@@ -379,12 +410,13 @@ function BODashboardNavigator() {
 
 function BoxOwnerTabs() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const tabStyle = {
     backgroundColor: theme.tabBar,
     borderTopColor: theme.tabBarBorder,
     borderTopWidth: 1,
-    height: 70,
-    paddingBottom: 10,
+    height: 60 + insets.bottom,
+    paddingBottom: 10 + insets.bottom,
     paddingTop: 8,
   };
   return (
@@ -399,6 +431,7 @@ function BoxOwnerTabs() {
           const icons: Record<string, React.ReactNode> = {
             BODashboard: <Building2 color={color} size={size} />,
             BOWODs:      <ClipboardList color={color} size={size} />,
+            BOSchedule:  <CalendarClock color={color} size={size} />,
             BOMembers:   <Users color={color} size={size} />,
             BOMessages:  <MessageCircle color={color} size={size} />,
             BOProfile:   <User color={color} size={size} />,
@@ -409,6 +442,7 @@ function BoxOwnerTabs() {
     >
       <BOTab.Screen name="BODashboard" component={BODashboardNavigator} options={{ tabBarLabel: 'Dashboard' }} />
       <BOTab.Screen name="BOWODs"      component={BOWODsScreen}          options={{ tabBarLabel: 'WODs' }} />
+      <BOTab.Screen name="BOSchedule"  component={BOScheduleScreen}      options={{ tabBarLabel: 'Horaires' }} />
       <BOTab.Screen name="BOMembers"   component={BOMembersScreen}       options={{ tabBarLabel: 'Membres' }} />
       <BOTab.Screen name="BOMessages"  component={MessagesScreen}        options={{ tabBarLabel: 'Messages' }} />
       <BOTab.Screen name="BOProfile"   component={ProfileScreen}         options={{ tabBarLabel: 'Profil' }} />
@@ -418,6 +452,8 @@ function BoxOwnerTabs() {
 
 function MainTabs() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   return (
     <Tab.Navigator
       initialRouteName="Home"
@@ -427,38 +463,62 @@ function MainTabs() {
           backgroundColor: theme.tabBar,
           borderTopColor: theme.tabBarBorder,
           borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 10,
+          height: Platform.OS === 'ios' ? 84 : 60 + bottomInset,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 10 + bottomInset,
           paddingTop: 8,
+          elevation: 0,
+          shadowOpacity: 0,
         },
         tabBarActiveTintColor: theme.tabBarActive,
         tabBarInactiveTintColor: theme.tabBarInactive,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.2 },
         tabBarIcon: ({ color, size, focused }) => {
+          const iconSize = 22;
           const icons: Record<string, React.ReactNode> = {
-            Home:         <Home color={color} size={size} />,
-            Competitions: <Trophy color={color} size={size} />,
-            Whiteboard:   <Layout color={color} size={size} />,
+            Competitions: <Trophy color={color} size={iconSize} />,
+            Home:         <Home color={color} size={iconSize} />,
+            Whiteboard:   <Layout color={color} size={iconSize} />,
+            Reservation:  <CalendarClock color={color} size={iconSize} />,
           };
-          return icons[route.name] ?? null;
+          return (
+            <View style={{ alignItems: 'center', gap: 3 }}>
+              {icons[route.name] ?? null}
+              {focused && (
+                <View style={{
+                  width: 4, height: 4, borderRadius: 2,
+                  backgroundColor: theme.tabBarActive,
+                }} />
+              )}
+            </View>
+          );
         },
       })}
     >
       <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compétitions' }} />
-      <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: 'Accueil', tabBarAccessibilityLabel: 'Accueil' }} />
-      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Whiteboard' }} />
+      <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: 'Accueil' }} />
+      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Ma Box' }} />
+      <Tab.Screen name="Reservation"  component={ReservationScreen}     options={{ tabBarLabel: 'Réservation' }} />
     </Tab.Navigator>
   );
 }
 
 export default function AppNavigator() {
   const { session, user, currentBox, loading, boxSkipped } = useAuth();
-
   const { theme } = useTheme();
+  const [splashDone, setSplashDone] = React.useState(false);
 
-  if (loading) {
+  React.useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (loading || !splashDone) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#0A0A0F', justifyContent: 'center', alignItems: 'center', gap: 32 }}>
+        <Image
+          source={require('../../assets/logo.png')}
+          style={{ width: 180, height: 180, resizeMode: 'contain' }}
+        />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );

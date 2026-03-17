@@ -68,7 +68,7 @@ export default function RegisterScreen({ navigation }: Props) {
             <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.logoBox}>
               <Zap color="#fff" size={32} />
             </LinearGradient>
-            <Text style={S.appName}>TheHub</Text>
+            <Text style={S.appName}>AthleX</Text>
           </View>
 
           <View style={S.form}>
@@ -170,7 +170,13 @@ export default function RegisterScreen({ navigation }: Props) {
   );
 }
 
-function createStyles(theme: AppTheme) { return StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  const isDark = theme.mode === 'dark';
+  const cardShadow = isDark ? {} : {
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+  };
+  return StyleSheet.create({
   gradient: { flex: 1 },
   flex: { flex: 1 },
   container: { flexGrow: 1, padding: 24, paddingTop: 60 },
@@ -184,32 +190,34 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   appName: { fontSize: 34, fontFamily: 'Barlow_900Black', color: theme.text, letterSpacing: 3 },
   form: {
     backgroundColor: theme.card, borderRadius: 20,
-    padding: 24, borderWidth: 1, borderColor: theme.cardBorder,
+    padding: 24, borderWidth: 1, borderColor: theme.border,
+    ...cardShadow,
   },
-  title: { fontSize: 22, fontWeight: '800', color: theme.text, marginBottom: 24 },
+  title: { fontSize: 22, fontWeight: '700', color: theme.text, marginBottom: 24 },
   inputContainer: { marginBottom: 16 },
-  label: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '600' },
+  label: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '500' },
   input: {
-    backgroundColor: theme.surface, borderRadius: 12, padding: 14,
+    backgroundColor: isDark ? theme.surface : theme.background, borderRadius: 14, padding: 14,
     color: theme.text, fontSize: 15, borderWidth: 1, borderColor: theme.border,
   },
   roleRow:       { flexDirection: 'row', gap: 10 },
   roleCard: {
     flex: 1, padding: 14, borderRadius: 14,
-    borderWidth: 1.5, borderColor: theme.border,
-    backgroundColor: theme.surface, alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: theme.border,
+    backgroundColor: isDark ? theme.surface : theme.background, alignItems: 'center', gap: 4,
   },
-  roleCardActive: { borderColor: theme.accent, backgroundColor: `${theme.accent}12` },
-  roleLabel:      { fontSize: 13, fontWeight: '800', color: theme.textMuted, textAlign: 'center' },
+  roleCardActive: { borderColor: theme.accent, backgroundColor: `${theme.accent}10` },
+  roleLabel:      { fontSize: 13, fontWeight: '700', color: theme.textMuted, textAlign: 'center' },
   roleLabelActive: { color: theme.accent },
   roleDesc:       { fontSize: 10, color: theme.textMuted, textAlign: 'center' },
   levelsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   levelCard: {
-    width: '48%', padding: 12, borderRadius: 12,
-    borderWidth: 1.5, borderColor: theme.border, backgroundColor: theme.surface,
+    width: '48%', padding: 12, borderRadius: 14,
+    borderWidth: 1, borderColor: theme.border,
+    backgroundColor: isDark ? theme.surface : theme.background,
   },
   levelLabel: { fontSize: 14, fontWeight: '700', color: theme.text, marginBottom: 2 },
   levelDesc: { fontSize: 11, color: theme.textMuted },
   button: { borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 }); }

@@ -5,7 +5,7 @@ import { User, Box } from '../types';
 import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, getNotificationPrefs } from '../services/notifications';
 
-const BOX_SKIPPED_KEY = '@thehub:boxSkipped';
+const BOX_SKIPPED_KEY = '@athlex:boxSkipped';
 
 interface AuthContextType {
   session: Session | null;
@@ -15,6 +15,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, username: string, level: string, asBoxOwner?: boolean) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
   updateUser: (updates: Partial<User>) => void;
   boxSkipped: boolean;
   skipBox: () => Promise<void>;
@@ -218,6 +219,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null, box: box as Box };
   }
 
+  async function resetPassword(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    return { error: error?.message ?? null };
+  }
+
   async function signOut() {
     if (user) removePushToken(user.id).catch(() => {});
     await supabase.auth.signOut();
@@ -233,7 +239,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, user, currentBox, loading,
-      signIn, signUp, signOut, updateUser,
+      signIn, signUp, signOut, resetPassword, updateUser,
       boxSkipped, skipBox, leaveBox,
       joinBox, createBox, refreshBox,
     }}>

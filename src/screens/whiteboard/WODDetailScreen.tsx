@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, RefreshControl,
+  ActivityIndicator, Alert, RefreshControl, FlatList,
 } from 'react-native';
-import { ChevronLeft, Clock, Plus, RotateCcw, MessageSquare, Trophy } from 'lucide-react-native';
+import { ChevronLeft, Clock, Plus, RotateCcw, MessageSquare, Trophy, Heart, Send, X, Smile } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, WODScore, ScoreType } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
+import { sendScoreNotification } from '../../services/notifications';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -149,6 +150,19 @@ export default function WODDetailScreen() {
   const [noteInput,  setNoteInput]  = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Score detail modal
+  const [selectedScore, setSelectedScore] = useState<WODScore | null>(null);
+  const [comments, setComments]     = useState<any[]>([]);
+  const [reactions, setReactions]   = useState<any[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [sendingComment, setSendingComment] = useState(false);
+  const [showEmojis, setShowEmojis] = useState(false);
+
+  const EMOJI_LIST = ['❤️', '🔥', '💪', '👏', '🎯', '⚡', '🏆', '💥', '👊', '🙌', '😤', '🫡'];
+
+  // Reaction/comment counts per score
+  const [scoreMeta, setScoreMeta] = useState<Record<string, { reactions: number; comments: number }>>({});
+
   const load = useCallback(async () => {
     const { data: wodData } = await supabase.from('box_wods').select('*').eq('id', wodId).single();
     const w = wodData as BoxWOD | null;
@@ -165,6 +179,20 @@ export default function WODDetailScreen() {
       setScores(list);
       setMyScore(list.find(sc => sc.member_id === user?.id) ?? null);
       setScoreType(allowedScoreTypes(w.wod_type).default);
+
+      // Load reaction & comment counts for each score
+      const scoreIds = list.map(s => s.id);
+      if (scoreIds.length > 0) {
+        const [{ data: rxnData }, { data: cmtData }] = await Promise.all([
+          supabase.from('score_reactions').select('score_id').in('score_id', scoreIds),
+          supabase.from('score_comments').select('score_id').in('score_id', scoreIds),
+        ]);
+        const meta: Record<string, { reactions: number; comments: number }> = {};
+        scoreIds.forEach(id => { meta[id] = { reactions: 0, comments: 0 }; });
+        (rxnData ?? []).forEach((r: any) => { if (meta[r.score_id]) meta[r.score_id].reactions++; });
+        (cmtData ?? []).forEach((c: any) => { if (meta[c.score_id]) meta[c.score_id].comments++; });
+        setScoreMeta(meta);
+      }
     }
     setLoading(false);
     setRefreshing(false);
@@ -209,13 +237,104 @@ export default function WODDetailScreen() {
     setScores(list);
     setMyScore(list.find(sc => sc.member_id === user.id) ?? null);
 
-    // ELO calculation
-    await computeAndSaveElo(wod.id, currentBox.id, list, wod.wod_type === 'for-time');
+    // ELO calculation (only if leaderboard enabled)
+    if (wod.leaderboard_enabled !== false) {
+      await computeAndSaveElo(wod.id, currentBox.id, list, wod.wod_type === 'for-time');
+    }
 
     setSubmitting(false);
     setModalOpen(false);
     setScoreInput('');
     setNoteInput('');
+  }
+
+  async function openScoreDetail(sc: WODScore) {
+    setSelectedScore(sc);
+    setCommentText('');
+    setShowEmojis(false);
+    await loadScoreDetail(sc.id);
+  }
+
+  async function loadScoreDetail(scoreId: string) {
+    const [{ data: cmts }, { data: rxns }] = await Promise.all([
+      supabase
+        .from('score_comments')
+        .select('*, author:profiles!score_comments_author_id_fkey(id, username)')
+        .eq('score_id', scoreId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('score_reactions')
+        .select('*, reactor:profiles!score_reactions_user_id_fkey(username)')
+        .eq('score_id', scoreId),
+    ]);
+    setComments(cmts ?? []);
+    setReactions(rxns ?? []);
+  }
+
+  async function sendComment() {
+    if (!selectedScore || !user || !currentBox || !commentText.trim()) return;
+    setSendingComment(true);
+    const { error } = await supabase.from('score_comments').insert({
+      score_id: selectedScore.id,
+      box_id: currentBox.id,
+      author_id: user.id,
+      content: commentText.trim(),
+    });
+    if (!error) {
+      setCommentText('');
+      await loadScoreDetail(selectedScore.id);
+      // Update leaderboard count
+      setScoreMeta(prev => ({
+        ...prev,
+        [selectedScore.id]: {
+          ...prev[selectedScore.id],
+          comments: (prev[selectedScore.id]?.comments ?? 0) + 1,
+        },
+      }));
+      // Notify score owner (don't notify yourself)
+      if (selectedScore.member_id !== user.id) {
+        sendScoreNotification(
+          selectedScore.member_id,
+          user.username ?? 'Quelqu\'un',
+          'comment',
+        ).catch(() => {});
+      }
+    }
+    setSendingComment(false);
+  }
+
+  async function toggleReaction(emoji: string) {
+    if (!selectedScore || !user) return;
+    const existing = reactions.find(r => r.user_id === user.id && r.emoji === emoji);
+    if (existing) {
+      await supabase.from('score_reactions').delete().eq('id', existing.id);
+    } else {
+      await supabase.from('score_reactions').insert({
+        score_id: selectedScore.id,
+        user_id: user.id,
+        emoji,
+      });
+      // Notify score owner (don't notify yourself)
+      if (selectedScore.member_id !== user.id) {
+        sendScoreNotification(
+          selectedScore.member_id,
+          user.username ?? 'Quelqu\'un',
+          'reaction',
+          emoji,
+        ).catch(() => {});
+      }
+    }
+    await loadScoreDetail(selectedScore.id);
+    // Recalculate leaderboard reaction count from fresh data
+    const { data: freshRxns } = await supabase
+      .from('score_reactions').select('score_id').eq('score_id', selectedScore.id);
+    setScoreMeta(prev => ({
+      ...prev,
+      [selectedScore.id]: {
+        ...prev[selectedScore.id],
+        reactions: freshRxns?.length ?? 0,
+      },
+    }));
   }
 
   if (loading) {
@@ -295,7 +414,7 @@ export default function WODDetailScreen() {
                 <Text style={S.myScoreValue}>{formatScore(myScore)}</Text>
                 <Text style={S.myScoreRx}>{myScore.rx ? 'RX' : 'Scaled'}</Text>
               </View>
-              {myRank && (
+              {wod.leaderboard_enabled !== false && myRank && (
                 <View style={S.myRankBadge}>
                   <Trophy color={myRank <= 3 ? theme.gold : theme.textMuted} size={14} />
                   <Text style={[S.myRankText, myRank <= 3 && { color: theme.gold }]}>#{myRank}</Text>
@@ -315,7 +434,7 @@ export default function WODDetailScreen() {
         </View>
 
         {/* Leaderboard */}
-        {scores.length > 0 && (
+        {scores.length > 0 && wod.leaderboard_enabled !== false && (
           <View style={S.section}>
             <Text style={S.sectionTitle}>Classement · {scores.length} score{scores.length > 1 ? 's' : ''}</Text>
             <View style={S.leaderboard}>
@@ -326,10 +445,7 @@ export default function WODDetailScreen() {
                   <TouchableOpacity
                     key={sc.id}
                     style={[S.leaderRow, isMe && S.leaderRowMe]}
-                    onPress={() => {
-                      const profileId = (sc.profile as any)?.id;
-                      if (profileId) navigation.navigate('PublicProfile', { userId: profileId });
-                    }}
+                    onPress={() => openScoreDetail(sc)}
                     activeOpacity={0.75}
                   >
                     <Text style={S.leaderRank}>{medal ?? `${i + 1}`}</Text>
@@ -342,7 +458,21 @@ export default function WODDetailScreen() {
                       <Text style={S.leaderName}>
                         {(sc.profile as any)?.username ?? 'Athlète'}{isMe ? ' (moi)' : ''}
                       </Text>
-                      <Text style={S.leaderRxTag}>{sc.rx ? 'RX' : 'Scaled'}</Text>
+                      <View style={S.leaderSubRow}>
+                        <Text style={S.leaderRxTag}>{sc.rx ? 'RX' : 'Scaled'}</Text>
+                        {(scoreMeta[sc.id]?.reactions ?? 0) > 0 && (
+                          <View style={S.leaderMetaChip}>
+                            <Heart color="#EC4899" size={10} fill="#EC4899" />
+                            <Text style={S.leaderMetaCount}>{scoreMeta[sc.id].reactions}</Text>
+                          </View>
+                        )}
+                        {(scoreMeta[sc.id]?.comments ?? 0) > 0 && (
+                          <View style={S.leaderMetaChip}>
+                            <MessageSquare color="#3B82F6" size={10} />
+                            <Text style={S.leaderMetaCount}>{scoreMeta[sc.id].comments}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                     <View style={S.leaderRight}>
                       <Text style={[S.leaderScore, i === 0 && S.leaderScoreGold]}>{formatScore(sc)}</Text>
@@ -451,45 +581,215 @@ export default function WODDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Score Detail Modal */}
+      <Modal visible={!!selectedScore} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelectedScore(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View style={S.sdContainer}>
+            {/* Header */}
+            <View style={S.sdHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={S.sdTitle}>
+                  {(selectedScore?.profile as any)?.username ?? 'Athlète'}
+                </Text>
+                <Text style={S.sdSub}>
+                  {selectedScore ? formatScore(selectedScore) : ''} · {selectedScore?.rx ? 'RX' : 'Scaled'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedScore(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X color={theme.textMuted} size={22} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Score card */}
+            {selectedScore && (
+              <View style={S.sdScoreCard}>
+                <View style={S.sdScoreRow}>
+                  <View style={S.sdAvatar}>
+                    <Text style={S.sdAvatarText}>
+                      {((selectedScore.profile as any)?.username?.[0] ?? '?').toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={S.sdAthleteName}>{(selectedScore.profile as any)?.username}</Text>
+                    <Text style={S.sdLevel}>{(selectedScore.profile as any)?.level?.toUpperCase()}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={S.sdScoreValue}>{formatScore(selectedScore)}</Text>
+                    <View style={[S.sdRxTag, { backgroundColor: selectedScore.rx ? `${theme.success}15` : `${theme.warning}15` }]}>
+                      <Text style={[S.sdRxText, { color: selectedScore.rx ? theme.success : theme.warning }]}>
+                        {selectedScore.rx ? 'RX' : 'Scaled'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                {selectedScore.notes ? (
+                  <View style={S.sdNotesBox}>
+                    <Text style={S.sdNotesText}>{selectedScore.notes}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* Reactions summary */}
+            {reactions.length > 0 && (
+              <View style={S.sdReactionsRow}>
+                {(() => {
+                  const grouped: Record<string, { count: number; mine: boolean }> = {};
+                  reactions.forEach(r => {
+                    if (!grouped[r.emoji]) grouped[r.emoji] = { count: 0, mine: false };
+                    grouped[r.emoji].count++;
+                    if (r.user_id === user?.id) grouped[r.emoji].mine = true;
+                  });
+                  return Object.entries(grouped).map(([emoji, { count, mine }]) => (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={[S.sdReactionChip, mine && S.sdReactionChipMine]}
+                      onPress={() => toggleReaction(emoji)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={S.sdReactionEmoji}>{emoji}</Text>
+                      <Text style={[S.sdReactionCount, mine && S.sdReactionCountMine]}>{count}</Text>
+                    </TouchableOpacity>
+                  ));
+                })()}
+              </View>
+            )}
+
+            {/* Emoji picker */}
+            <View style={S.sdEmojiRow}>
+              <TouchableOpacity onPress={() => setShowEmojis(!showEmojis)} style={S.sdEmojiToggle}>
+                <Smile color={showEmojis ? theme.accent : theme.textMuted} size={20} />
+              </TouchableOpacity>
+              {showEmojis && (
+                <View style={S.sdEmojiGrid}>
+                  {EMOJI_LIST.map(e => (
+                    <TouchableOpacity key={e} onPress={() => toggleReaction(e)} style={S.sdEmojiBtn}>
+                      <Text style={S.sdEmojiBtnText}>{e}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {!showEmojis && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                  {EMOJI_LIST.slice(0, 6).map(e => (
+                    <TouchableOpacity key={e} onPress={() => toggleReaction(e)} style={S.sdQuickEmoji}>
+                      <Text style={{ fontSize: 18 }}>{e}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Comments */}
+            <View style={{ flex: 1 }}>
+              <Text style={S.sdCommentsTitle}>
+                <MessageSquare color={theme.textMuted} size={14} /> Commentaires ({comments.length})
+              </Text>
+              <FlatList
+                data={comments}
+                keyExtractor={c => c.id}
+                contentContainerStyle={S.sdCommentsList}
+                renderItem={({ item }) => {
+                  const author = Array.isArray(item.author) ? item.author[0] : item.author;
+                  const isMyComment = author?.id === user?.id;
+                  const ago = Math.floor((Date.now() - new Date(item.created_at).getTime()) / 60000);
+                  const timeLabel = ago < 60 ? `${ago}min` : ago < 1440 ? `${Math.floor(ago / 60)}h` : `${Math.floor(ago / 1440)}j`;
+                  return (
+                    <View style={[S.sdComment, isMyComment && S.sdCommentMine]}>
+                      <View style={S.sdCommentHeader}>
+                        <View style={S.sdCommentAvatar}>
+                          <Text style={S.sdCommentAvatarText}>{(author?.username?.[0] ?? '?').toUpperCase()}</Text>
+                        </View>
+                        <Text style={S.sdCommentAuthor}>{author?.username ?? 'Inconnu'}</Text>
+                        <Text style={S.sdCommentTime}>{timeLabel}</Text>
+                      </View>
+                      <Text style={S.sdCommentContent}>{item.content}</Text>
+                    </View>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={S.sdEmptyComments}>
+                    <MessageSquare color={theme.textMuted} size={24} />
+                    <Text style={S.sdEmptyText}>Aucun commentaire</Text>
+                    <Text style={S.sdEmptySubText}>Sois le premier à commenter !</Text>
+                  </View>
+                }
+              />
+            </View>
+
+            {/* Comment input */}
+            <View style={S.sdInputRow}>
+              <TextInput
+                style={S.sdInput}
+                placeholder="Écrire un commentaire..."
+                placeholderTextColor={theme.textMuted}
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+                maxLength={500}
+              />
+              <TouchableOpacity
+                onPress={sendComment}
+                disabled={!commentText.trim() || sendingComment}
+                style={[S.sdSendBtn, (!commentText.trim() || sendingComment) && { opacity: 0.4 }]}
+              >
+                {sendingComment
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Send color="#fff" size={16} />}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
 
-function createStyles(theme: AppTheme) { return StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  const isDark = theme.mode === 'dark';
+  const cardShadow = isDark ? {} : {
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  };
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
   header: {
     paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,
-    backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
+    backgroundColor: theme.card,
+    borderBottomWidth: isDark ? 1 : 0, borderBottomColor: theme.border,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    ...(isDark ? {} : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }),
   },
   backBtn: { padding: 2 },
-  headerTitle: { fontSize: 18, fontWeight: '900', color: theme.text, flex: 1, textAlign: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: theme.text, flex: 1, textAlign: 'center' },
   wodCard: {
-    margin: 16, backgroundColor: theme.card, borderRadius: 16, padding: 16,
+    margin: 16, backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: theme.border, gap: 10,
+    ...cardShadow,
   },
   wodMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  typeBadge: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  typeBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  typeBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  typeBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
   blockBadge: {
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
-    backgroundColor: `${theme.accent}15`, borderWidth: 1, borderColor: `${theme.accent}30`,
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: `${theme.accent}12`, borderWidth: 1, borderColor: `${theme.accent}25`,
   },
-  blockBadgeText: { fontSize: 10, fontWeight: '800', color: theme.accent },
+  blockBadgeText: { fontSize: 10, fontWeight: '700', color: theme.accent },
   timeCap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   timeCapText: { fontSize: 11, color: theme.textMuted },
-  wodDate: { fontSize: 12, color: theme.textMuted, fontWeight: '600', textTransform: 'capitalize' },
+  wodDate: { fontSize: 12, color: theme.textMuted, fontWeight: '500', textTransform: 'capitalize' },
   wodDesc: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
-  notesBox: { backgroundColor: theme.surface, borderRadius: 8, padding: 10, gap: 4 },
-  notesLabel: { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 0.5 },
+  notesBox: { backgroundColor: theme.surface, borderRadius: 10, padding: 10, gap: 4 },
+  notesLabel: { fontSize: 10, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.5 },
   notesText: { fontSize: 12, color: theme.textSecondary, lineHeight: 18 },
   myScoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   myScoreBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  myScoreLabel: { fontSize: 12, color: theme.textMuted, fontWeight: '600' },
+  myScoreLabel: { fontSize: 12, color: theme.textMuted, fontWeight: '500' },
   myScoreValue: { fontSize: 20, fontWeight: '900', color: theme.text },
   myScoreRx: {
     fontSize: 11, fontWeight: '700', color: theme.success,
-    backgroundColor: `${theme.success}15`, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
+    backgroundColor: `${theme.success}12`, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
   },
   myRankBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 8 },
   myRankText: { fontSize: 16, fontWeight: '900', color: theme.text },
@@ -497,27 +797,31 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   editScoreBtnText: { fontSize: 12, color: theme.accent, fontWeight: '700' },
   enterScoreBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, backgroundColor: theme.accent, borderRadius: 12, padding: 14, marginTop: 4,
+    gap: 6, backgroundColor: theme.accent, borderRadius: 14, padding: 14, marginTop: 4,
   },
-  enterScoreBtnText: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  enterScoreBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   section: { paddingHorizontal: 16, marginTop: 8 },
-  sectionTitle: { fontSize: 15, fontWeight: '900', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
   leaderboard: {
-    backgroundColor: theme.card, borderRadius: 16,
+    backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16,
     borderWidth: 1, borderColor: theme.border, overflow: 'hidden',
+    ...cardShadow,
   },
   leaderRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 14, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: theme.border,
   },
-  leaderRowMe: { backgroundColor: `${theme.accent}10` },
+  leaderRowMe: { backgroundColor: `${theme.accent}08` },
   leaderRank: { width: 24, fontSize: 16, textAlign: 'center' },
-  leaderAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' },
-  leaderAvatarText: { fontSize: 13, fontWeight: '800', color: theme.text },
+  leaderAvatar: { width: 32, height: 32, borderRadius: 12, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' },
+  leaderAvatarText: { fontSize: 13, fontWeight: '700', color: theme.text },
   leaderMid: { flex: 1 },
   leaderName: { fontSize: 13, fontWeight: '700', color: theme.text },
   leaderRxTag: { fontSize: 10, color: theme.textMuted, fontWeight: '600' },
+  leaderSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  leaderMetaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: theme.surface, borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
+  leaderMetaCount: { fontSize: 10, fontWeight: '700', color: theme.textMuted },
   leaderRight: { alignItems: 'flex-end' },
   leaderScore: { fontSize: 15, fontWeight: '900', color: theme.text, fontVariant: ['tabular-nums'] },
   leaderScoreGold: { color: theme.gold },
@@ -527,21 +831,21 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16,
     borderBottomWidth: 1, borderBottomColor: theme.border, backgroundColor: theme.card,
   },
-  modalTitle: { fontSize: 18, fontWeight: '900', color: theme.text },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: theme.text },
   modalCloseText: { fontSize: 14, color: theme.accent, fontWeight: '700' },
   modalBody: { padding: 20, gap: 12 },
-  modalWodName: { fontSize: 16, fontWeight: '800', color: theme.text, marginBottom: 4 },
-  modalLabel: { fontSize: 11, fontWeight: '800', color: theme.textMuted, letterSpacing: 1 },
+  modalWodName: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 4 },
+  modalLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, letterSpacing: 1 },
   typeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   typeChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
     backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
   },
   typeChipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
-  typeChipText: { fontSize: 11, fontWeight: '800', color: theme.textMuted },
+  typeChipText: { fontSize: 11, fontWeight: '700', color: theme.textMuted },
   typeChipTextActive: { color: '#fff' },
   scoreInput: {
-    backgroundColor: theme.card, borderRadius: 12,
+    backgroundColor: isDark ? theme.card : theme.background, borderRadius: 12,
     borderWidth: 1, borderColor: theme.border,
     paddingHorizontal: 14, paddingVertical: 13,
     fontSize: 18, color: theme.text, fontWeight: '700',
@@ -554,12 +858,119 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   rxChipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
   rxChipActiveScaled: { backgroundColor: theme.warning, borderColor: theme.warning },
-  rxChipText: { fontSize: 13, fontWeight: '800', color: theme.textMuted },
+  rxChipText: { fontSize: 13, fontWeight: '700', color: theme.textMuted },
   rxChipTextActive: { color: '#fff' },
   submitBtn: {
     backgroundColor: theme.accent, borderRadius: 14,
     padding: 18, alignItems: 'center', marginTop: 8,
   },
   submitBtnDisabled: { opacity: 0.4 },
-  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  // ── Score Detail Modal ──
+  sdContainer: { flex: 1, backgroundColor: theme.background },
+  sdHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: theme.border, backgroundColor: theme.card,
+  },
+  sdTitle: { fontSize: 18, fontWeight: '700', color: theme.text },
+  sdSub: { fontSize: 13, color: theme.textMuted, marginTop: 2 },
+  sdScoreCard: {
+    margin: 16, backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: theme.border, gap: 12,
+    ...cardShadow,
+  },
+  sdScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sdAvatar: {
+    width: 40, height: 40, borderRadius: 14, backgroundColor: theme.surface,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  sdAvatarText: { fontSize: 16, fontWeight: '900', color: theme.text },
+  sdAthleteName: { fontSize: 15, fontWeight: '700', color: theme.text },
+  sdLevel: { fontSize: 10, fontWeight: '600', color: theme.textMuted, letterSpacing: 0.5 },
+  sdScoreValue: { fontSize: 22, fontWeight: '900', color: theme.accent },
+  sdRxTag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginTop: 2 },
+  sdRxText: { fontSize: 10, fontWeight: '700' },
+  sdNotesBox: {
+    backgroundColor: theme.surface, borderRadius: 10, padding: 10,
+    borderWidth: 1, borderColor: theme.border,
+  },
+  sdNotesText: { fontSize: 12, color: theme.textSecondary, lineHeight: 18 },
+
+  // Reactions
+  sdReactionsRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 8,
+  },
+  sdReactionChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: theme.surface, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6,
+    borderWidth: 1, borderColor: theme.border,
+  },
+  sdReactionChipMine: { borderColor: theme.accent, backgroundColor: `${theme.accent}12` },
+  sdReactionEmoji: { fontSize: 16 },
+  sdReactionCount: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
+  sdReactionCountMine: { color: theme.accent },
+
+  // Emoji picker
+  sdEmojiRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: theme.border,
+  },
+  sdEmojiToggle: { padding: 4 },
+  sdEmojiGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1,
+  },
+  sdEmojiBtn: {
+    width: 36, height: 36, borderRadius: 12, backgroundColor: theme.surface,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  sdEmojiBtnText: { fontSize: 18 },
+  sdQuickEmoji: {
+    width: 36, height: 36, borderRadius: 12, backgroundColor: theme.surface,
+    justifyContent: 'center', alignItems: 'center',
+  },
+
+  // Comments
+  sdCommentsTitle: {
+    fontSize: 13, fontWeight: '700', color: theme.textMuted,
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8,
+  },
+  sdCommentsList: { paddingHorizontal: 16, gap: 10, paddingBottom: 12 },
+  sdComment: {
+    backgroundColor: isDark ? theme.card : theme.card, borderRadius: 14, padding: 12,
+    borderWidth: 1, borderColor: theme.border,
+  },
+  sdCommentMine: { borderColor: `${theme.accent}30` },
+  sdCommentHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  sdCommentAvatar: {
+    width: 24, height: 24, borderRadius: 8, backgroundColor: theme.surface,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  sdCommentAvatarText: { fontSize: 10, fontWeight: '700', color: theme.text },
+  sdCommentAuthor: { fontSize: 12, fontWeight: '700', color: theme.text, flex: 1 },
+  sdCommentTime: { fontSize: 10, color: theme.textMuted },
+  sdCommentContent: { fontSize: 13, color: theme.textSecondary, lineHeight: 19, marginLeft: 32 },
+  sdEmptyComments: { alignItems: 'center', paddingVertical: 32, gap: 8 },
+  sdEmptyText: { fontSize: 14, fontWeight: '700', color: theme.textMuted },
+  sdEmptySubText: { fontSize: 12, color: theme.textMuted },
+
+  // Comment input
+  sdInputRow: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: theme.card,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+  },
+  sdInput: {
+    flex: 1, backgroundColor: theme.surface, borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 10, maxHeight: 100,
+    fontSize: 14, color: theme.text, borderWidth: 1, borderColor: theme.border,
+  },
+  sdSendBtn: {
+    width: 40, height: 40, borderRadius: 14, backgroundColor: theme.accent,
+    justifyContent: 'center', alignItems: 'center',
+  },
 }); }

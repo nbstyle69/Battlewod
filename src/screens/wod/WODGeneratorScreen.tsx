@@ -12,7 +12,8 @@ import { AthleteLevel, WODType } from '../../types';
 
 const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'gx', 'pro'];
 const DURATIONS = [5, 10, 15, 20];
-const WOD_TYPES: WODType[] = ['AMRAP', 'For Time', 'EMOM', 'Tabata', 'Max Reps'];
+const WOD_TYPES: WODType[] = ['AMRAP', 'For Time', 'EMOM', 'Tabata', 'Max Reps', 'Chipper', 'Ladder', 'Couplet', 'Death By'];
+const UI_WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Reps'];
 
 const EQUIPMENT_OPTIONS = [
   'Barre + Disques', 'Haltères', 'Kettlebell', 'Box', 'Corde à sauter',
@@ -25,7 +26,7 @@ const HYROX_ORANGE = '#F97316';
 
 const HYROX_LEVELS = ['Open', 'Pro', 'Elite'];
 const HYROX_FORMATS = ['Solo', 'Doubles', 'Relais', 'Mixed Relais'];
-const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force', 'Running Intervals'];
+const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force'];
 const HYROX_DURATIONS = [20, 30, 45, 60];
 const HYROX_EQUIPMENT = [
   'SkiErg', 'Sled Push', 'Sled Pull', 'RowErg',
@@ -48,7 +49,6 @@ const HYROX_SCR_NAMES: Record<string, string[]> = {
   'Race Simulation':   ['Race Day Protocol','HYROX Race Sim','Competition Mode','Full Distance','Race Forge','Pre-Race Drill','Event Simulator','Race Crusher','Qualifier Prep','Podium Run'],
   'Station Training':  ['Station Domination','Power Station','Station Mastery','Station Siege','Platform Work','Station Builder','Force Station','Block Drill','Station Storm','Grid Work'],
   'Cardio Force':      ['Hybrid Forge','Cardio Machine','Hybrid Engine','Power Cardio','Endurance Force','Hybrid Burn','Engine Room','Cross Cardio','Hybrid Blast','Force Cardio'],
-  'Running Intervals': ['Track & Station','Run & Gun','Interval Force','Run Blocks','Speed Station','Running Man','Run Circuit','Lap & Station','Road & Station','Track Crusher'],
 };
 const HYROX_SCR_TIPS: Record<string, string[]> = {
   'Race Simulation': [
@@ -72,13 +72,6 @@ const HYROX_SCR_TIPS: Record<string, string[]> = {
     'Optimise ta respiration sur les stations de force.',
     'Marcher c\'est acceptable. S\'asseoir non.',
   ],
-  'Running Intervals': [
-    'Allure de course régulière. Les stations sont ta récup active.',
-    'Vitesse identique sur chaque intervalle. La constance prime.',
-    'Ne t\'épuise pas sur les stations : elles régulent ta fréquence cardiaque.',
-    'Simule les conditions race sur chaque run.',
-    'Trouve ton tempo optimal race sur ces intervalles.',
-  ],
 };
 function srand<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function spick<T>(arr: T[], n: number): T[] {
@@ -101,111 +94,169 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const bbj  = equipment.includes('Burpee Broad Jump');
   const fc   = equipment.includes('Farmers Carry');
   const db   = equipment.includes('Haltères');
+  const trd  = equipment.includes('Tapis de course');
 
-  const sp_kg  = ['60','80','100+'][li];
-  const sl_kg  = ['40','60','80+'][li];
-  const wb_rep = [75, 90, 100][li];
+  // ── Charges / volumes par catégorie ──
+  const sp_kg  = ['60','80','102'][li];
+  const sl_kg  = ['40','60','80'][li];
+  const wb_rep = [75, 100, 100][li];
   const wb_kg  = ['6','9','9'][li];
-  const fc_kg  = ['16','20','24'][li];
-  const sb_kg  = ['10','15','20'][li];
-  const db_kg  = ['12','15','20'][li];
-  const ski_d  = ['800m','1000m','1200m'][li];
-  const row_d  = ['800m','1000m','1200m'][li];
+  const fc_kg  = ['16','24','32'][li];
+  const sb_kg  = ['10','20','20'][li];
+  const db_kg  = ['12.5','15','22.5'][li];
+  const ski_d  = ['800m','1000m','1000m'][li];
+  const row_d  = ['800m','1000m','1000m'][li];
+  const r1k    = trd ? '1 km Tapis' : '1 km Run';
+  const r800   = trd ? '800m Tapis' : '800m Run';
+  const r400   = trd ? '400m Tapis' : '400m Run';
 
-  const E = {
-    ski1k:  ski  ? `${ski_d} SkiErg`                                         : row ? `${row_d} RowErg`              : `${ski_d} Course`,
-    row1k:  row  ? `${row_d} RowErg`                                         : ski ? `${ski_d} SkiErg`              : `${row_d} Course`,
-    ski500: ski  ? '500m SkiErg'                                              : row ? '500m RowErg'                  : '800m Course',
-    row500: row  ? '500m RowErg'                                              : ski ? '500m SkiErg'                  : '800m Course',
-    slp:    slp  ? `50m Sled Push (${sp_kg} kg)`                             : bbj ? `${[15,20,25][li]} Burpee BJ`  : `${[20,25,30][li]} KB Swings lourds`,
-    slpu:   slpu ? `50m Sled Pull (${sl_kg} kg)`                             : fc  ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)` : `${[15,20,25][li]} Burpees`,
-    sbl:    sbl  ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)`      : fc  ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)` : `${[40,60,80][li]} Air Squats`,
-    wb:     wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`                      : `${[80,100,120][li]} Air Squats`,
-    fc:     fc   ? `${[150,200,250][li]}m Farmers Carry (${fc_kg}kg×2)`     : sbl ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)` : `${[40,60,80][li]} Goblet Squats`,
-    bbj:    bbj  ? `${[15,20,25][li]} Burpee Broad Jump`                     : `${[20,25,30][li]} Burpees`,
-    db:     db   ? `${[12,15,20][li]} DB Thrusters (${db_kg}kg/main)`       : `${[15,20,25][li]} KB Thrusters lourds`,
-    ski250: ski  ? `${['250m','300m','400m'][li]} SkiErg`                    : row ? `${['250m','300m','400m'][li]} RowErg` : `${['200m','300m','400m'][li]} Course`,
+  // ── Stations disponibles (équipement strict + fallback bodyweight) ──
+  const S = {
+    ski:  ski  ? `${ski_d} SkiErg`                                  : row ? `${row_d} RowErg`              : `${ski_d} Run`,
+    row:  row  ? `${row_d} RowErg`                                  : ski ? `${ski_d} SkiErg`              : `${row_d} Run`,
+    slp:  slp  ? `50m Sled Push (${sp_kg} kg)`                     : bbj ? `${[15,20,25][li]} Burpee Broad Jump` : `${[20,30,40][li]} Burpees`,
+    slpu: slpu ? `50m Sled Pull (${sl_kg} kg)`                     : fc  ? `${[150,200,200][li]}m Farmers Carry (${fc_kg} kg×2)` : `${[15,20,25][li]} Burpees`,
+    sbl:  sbl  ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)`: fc  ? `${[100,150,200][li]}m Farmers Carry (${fc_kg} kg×2)` : `${[40,60,80][li]} Walking Lunges`,
+    wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`              : `${[60,80,100][li]} Air Squats`,
+    fc:   fc   ? `${[200,200,200][li]}m Farmers Carry (${fc_kg} kg×2)` : sbl ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)` : `${[40,60,80][li]} Goblet Squats`,
+    bbj:  bbj  ? `${[15,20,25][li]} Burpee Broad Jump`             : `${[15,20,30][li]} Burpees`,
+    db:   db   ? `${[12,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,25][li]} Thrusters PVC`,
   };
 
-  const title = srand(HYROX_SCR_NAMES[type]  ?? HYROX_SCR_NAMES['Race Simulation']);
-  const tip   = srand(HYROX_SCR_TIPS[type]   ?? HYROX_SCR_TIPS['Race Simulation']);
+  // ── Pools cardio / force ──
+  const cardioPool = [S.ski, S.row, r800, r400, `${['250m','300m','400m'][li]} SkiErg`].filter(Boolean);
+  const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db];
+  const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db];
+
+  // ── Anti-doublons : aucune station identique consécutive ──
+  function noConsecutive(arr: string[]): string[] {
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i] === arr[i - 1]) {
+        for (let j = i + 1; j < arr.length; j++) {
+          if (arr[j] !== arr[i]) { [arr[i], arr[j]] = [arr[j], arr[i]]; break; }
+        }
+      }
+    }
+    return arr;
+  }
+
+  // ── Run distance par catégorie ──
+  function runForLevel(): string {
+    if (li === 0) return srand([r400, r800]);     // Open
+    if (li === 1) return srand([r800, r1k]);      // Pro
+    return r1k;                                    // Elite
+  }
+
+  const title = srand(HYROX_SCR_NAMES[type] ?? HYROX_SCR_NAMES['Race Simulation']);
+  const tip   = srand(HYROX_SCR_TIPS[type]  ?? HYROX_SCR_TIPS['Race Simulation']);
   let stations: string[] = [];
   let scoring  = '';
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🏁 RACE SIMULATION — alternance Run + Station
+  // ═══════════════════════════════════════════════════════════════════════
   if (type === 'Race Simulation') {
-    const variant = duration >= 50 ? 0 : Math.floor(Math.random() * 5);
-    if (variant === 0) {
-      stations = ['1km Course', E.ski1k, '1km Course', E.slp, '1km Course', E.slpu, '1km Course', E.sbl, '1km Course', E.wb];
-    } else if (variant === 1) {
-      stations = ['1km Course', E.row1k, '1km Course', E.slp, '1km Course', E.fc, '1km Course', E.sbl, '1km Course', E.wb];
-    } else if (variant === 2) {
-      const s4 = spick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 4);
-      stations = ['1km Course', s4[0], '1km Course', s4[1], '1km Course', s4[2], '1km Course', s4[3]];
-    } else if (variant === 3) {
-      const s3 = spick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 3);
-      stations = ['800m Course', s3[0], '800m Course', s3[1], '800m Course', s3[2]];
-    } else {
-      const s4 = spick([E.slp, E.slpu, E.sbl, E.wb, E.fc, E.bbj], 4);
-      stations = ['400m Course', s4[0], '800m Course', s4[1], '1km Course', s4[2], '800m Course', s4[3]];
+    const blocCount = duration <= 20 ? srand([3,4])
+                    : duration <= 30 ? srand([4,5])
+                    : duration <= 45 ? srand([6,7])
+                    : 8;
+    const picked = spick(allStations, Math.min(blocCount, allStations.length));
+    while (picked.length < blocCount) picked.push(srand(allStations.filter(s => s !== picked[picked.length - 1])));
+    const result: string[] = [];
+    for (let i = 0; i < blocCount; i++) {
+      result.push(runForLevel());
+      result.push(picked[i]);
     }
-    scoring = `Temps total — objectif ${level === 'Elite' ? '< 55 min' : level === 'Pro' ? '< 70 min' : '< 85 min'}`;
+    stations = noConsecutive(result);
+    const timeTarget = level === 'Elite' ? `< ${duration - 5} min` : level === 'Pro' ? `< ${duration} min` : `< ${duration + 5} min`;
+    scoring = `For Time — ${blocCount} blocs Run + Station — objectif ${timeTarget}`;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎯 STATION TRAINING — circuit sans run continu
+  // ═══════════════════════════════════════════════════════════════════════
   else if (type === 'Station Training') {
-    const sets = ['4 ×','5 ×','6 ×'][li];
-    const stPool: string[] = [
-      ski ? `${sets} ${ski_d} SkiErg`              : row ? `${sets} ${row_d} RowErg`    : `${sets} 800m Course`,
-      slp  ? `${sets} 20m Sled Push (max charge)` : `${sets} ${E.bbj}`,
-      slpu ? `${sets} 30m Sled Pull (${sl_kg} kg)`: `${sets} ${E.fc}`,
-      sbl  ? `${sets} 25m Sandbag Lunges (${sb_kg} kg)` : `${sets} ${E.fc}`,
-      wb   ? `${sets} 25 Wall Balls (${wb_kg} kg)`: `${sets} 30 Air Squats`,
-      fc   ? `${sets} 50m Farmers Carry (${fc_kg}kg×2)` : `${sets} 20 KB Swings lourds`,
-      row  ? `${sets} 250m RowErg tempo`           : ski ? `${sets} 250m SkiErg tempo`  : `${sets} 400m Course`,
-      `${sets} ${E.bbj}`,
-      `${sets} ${E.db}`,
-      ski  ? `${sets} 150m SkiErg sprint`          : `${sets} 150m RowErg sprint`,
-    ];
-    const count = duration <= 20 ? 3 : duration <= 30 ? 4 : duration <= 45 ? 5 : 6;
-    stations = spick(stPool, count);
-    scoring  = `Score = stations complétées en ${duration} min`;
+    if (duration <= 20) {
+      const n = srand([2, 3]);
+      const mvs = spick(allStations, n);
+      stations = [`AMRAP ${duration} min :`, ...mvs];
+      scoring = `Max rounds + reps en ${duration} min — ${n === 3 ? 'Triplet' : 'Couplet'}`;
+    } else if (duration <= 30) {
+      const isChipper = Math.random() < 0.5;
+      if (isChipper) {
+        const mvs = spick([...allStations, S.ski, S.row], Math.min(5, allStations.length + 2));
+        stations = ['For Time (Chipper) :', ...mvs];
+        scoring = `Chipper — Temps (cap ${duration} min)`;
+      } else {
+        const rounds = srand([4, 5]);
+        const mvs = spick(allStations, 3);
+        stations = [`${rounds} Rounds For Time :`, ...mvs];
+        scoring = `Triplet — Temps (cap ${duration} min)`;
+      }
+    } else if (duration <= 45) {
+      const emomMins = srand([2, 3]);
+      const emomMvs = spick(allStations, emomMins);
+      const emomCycles = Math.floor(20 / emomMins);
+      const chipperMvs = spick(allStations.filter(s => !emomMvs.includes(s)).concat([S.ski, S.row]), 4);
+      stations = [
+        `── Partie 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
+        ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
+        `── Partie 2 : Chipper For Time (cap ${duration - emomCycles * emomMins} min) ──`,
+        ...chipperMvs,
+      ];
+      scoring = `EMOM ${emomCycles * emomMins} min + Chipper restant`;
+    } else {
+      const ladderMvs = spick(allStations, 2);
+      const maxRung = [8, 10, 12][li];
+      const chipperMvs = spick(allStations.filter(s => !ladderMvs.includes(s)).concat([S.ski, S.row]), 5);
+      stations = [
+        `── Partie 1 : Ladder 1→${maxRung} For Time ──`,
+        ...ladderMvs,
+        `── Partie 2 : Chipper For Time (cap restant) ──`,
+        ...chipperMvs,
+      ];
+      scoring = `Ladder + Chipper — Temps total (cap ${duration} min)`;
+    }
+    stations = noConsecutive(stations);
   }
 
-  else if (type === 'Cardio Force') {
-    const cardioPool = [E.ski500, E.row500, '800m Course', '400m Course', `${[20,25,30][li]} Cal Assault Bike`, E.ski250];
-    const forcePool  = [E.slp, E.slpu, E.wb, E.sbl, E.fc, E.bbj, E.db, `${[10,15,20][li]} KB Thrusters lourds`];
-    const count = duration <= 20 ? 4 : duration <= 30 ? 5 : duration <= 45 ? 6 : 8;
-    const nC = Math.ceil(count / 2);
-    const nF = Math.floor(count / 2);
-    const pC = spick(cardioPool, nC);
-    const pF = spick(forcePool, nF);
+  // ═══════════════════════════════════════════════════════════════════════
+  // 💪 CARDIO FORCE — alternance cardio + force
+  // ═══════════════════════════════════════════════════════════════════════
+  else {
+    const blocCount = duration <= 20 ? 4 : duration <= 30 ? 6 : duration <= 45 ? 8 : 10;
+    const nC = Math.ceil(blocCount / 2);
+    const nF = Math.floor(blocCount / 2);
+    const pC = spick(cardioPool, Math.min(nC, cardioPool.length));
+    while (pC.length < nC) pC.push(srand(cardioPool.filter(c => c !== pC[pC.length - 1])));
+    const pF = spick(forcePool, Math.min(nF, forcePool.length));
+    while (pF.length < nF) pF.push(srand(forcePool.filter(f => f !== pF[pF.length - 1])));
     const combined: string[] = [];
     for (let i = 0; i < Math.max(nC, nF); i++) {
       if (pC[i]) combined.push(pC[i]);
       if (pF[i]) combined.push(pF[i]);
     }
-    stations = combined;
-    scoring  = `AMRAP ${duration} min — max rounds`;
-  }
-
-  else {
-    const runOpts = ['400m Course', '800m Course', '1km Course'];
-    const stPool  = [E.ski500, E.row500, E.wb, E.slp, E.sbl, E.fc, E.bbj, E.db, `${[20,25,30][li]} Cal SkiErg`, E.ski250];
-    const cycles  = duration <= 20 ? 2 : duration <= 30 ? 3 : duration <= 45 ? 4 : 5;
-    const runDist = srand(runOpts);
-    const picked  = spick(stPool, Math.min(cycles, 4));
-    const result: string[] = [];
-    for (let i = 0; i < cycles; i++) {
-      result.push(runDist);
-      result.push(picked[i % picked.length]);
+    const useEMOM = duration >= 30 && Math.random() < 0.5;
+    if (useEMOM) {
+      const mins = combined.length;
+      stations = [`EMOM ${mins} min (${Math.floor(duration / mins)} cycles = ${duration} min) :`];
+      combined.forEach((m, i) => stations.push(`  Min ${i + 1}: ${m}`));
+      scoring = `EMOM ${duration} min — score = cycles complétés`;
+    } else {
+      const rounds = Math.max(2, Math.floor(duration / (combined.length * 1.5)));
+      stations = [`${rounds} Rounds For Time :`].concat(combined);
+      scoring = `For Time — ${rounds} rounds (cap ${duration} min)`;
     }
-    stations = result;
-    scoring  = `Temps total pour ${cycles} cycles`;
+    stations = noConsecutive(stations);
   }
 
+  // ── Format équipe ──
   const fmtS = (s: string): string => {
-    if (format === 'Doubles')      return `(split) ${s}`;
-    if (format === 'Relais')       return `[relais] ${s}`;
-    if (format === 'Mixed Relais') return `[mixed] ${s}`;
+    if (s.startsWith('──') || s.startsWith('AMRAP') || s.startsWith('For Time')
+        || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  Min')) return s;
+    if (format === 'Doubles')      return `${s}  ⟨split ×2 — I go / You go⟩`;
+    if (format === 'Relais')       return `${s}  ⟨relais — 1 athlète par station⟩`;
+    if (format === 'Mixed Relais') return `${s}  ⟨mixed H/F — charges adaptées⟩`;
     return s;
   };
   stations = stations.map(fmtS);
@@ -242,12 +293,14 @@ const MVTS: Mvt[] = [
   { name: 'Broad Jumps',          eq: [],                    reps: [5,6,8,10,10,12] },
   { name: 'HSPU Stricts',          eq: [],                    reps: [0,0,5,7,10,12] },
   { name: 'Wall Facing HSPU',     eq: [],                    reps: [0,0,0,5,8,10] },
+  { name: 'Pistol Squats (assistés)', eq: [],               reps: [5,6,0,0,0,0] },
   { name: 'Pistol Squats',        eq: [],                    reps: [0,0,6,8,10,12] },
   { name: 'Hollow Rocks',         eq: [],                    reps: [10,12,15,20,25,30] },
   { name: 'Up-Downs',             eq: [],                    reps: [6,8,10,12,15,15] },
   { name: 'Course',               eq: [],                    reps: [200,200,400,400,400,800], unit: 'm' },
   { name: 'Bear Crawl',           eq: [],                    reps: [10,10,15,15,20,20], unit: 'm' },
-  { name: 'Wall Walks',           eq: [],                    reps: [0,2,3,4,5,6] },
+  { name: 'Wall Walks (partiels)', eq: [],                   reps: [0,2,0,0,0,0] },
+  { name: 'Wall Walks',           eq: [],                    reps: [0,0,3,4,5,6] },
   { name: 'Shuttle Run',          eq: [],                    reps: [2,2,4,4,6,6], unit: '×7.62m' },
   // ── Bodyweight avec matériel ──
   { name: 'Burpee Over the Bar',  eq: ['Barre + Disques'],   reps: [5,6,8,10,12,15] },
@@ -355,7 +408,11 @@ const WOD_NAMES: Record<string, string[]> = {
   'For Time': ['Speed Demon','Grace Remix','Lightning Strike','Race Day','The Sprint','Time Crusher','Flash Point','Velocity','Quick & Dirty','The Eliminator','Fast Lane','Time Bomb','The Gauntlet','Blitz','Clock Breaker'],
   'EMOM':     ['Minute Warrior','Clock Work','Tick Tock','The Metronome','Precision','Tempo Work','Clock Killer','Beat the Clock','Rhythm Machine','Minute Mastery','Interval Forge','Time Under Tension','On the Minute','Minute Grind','Tempo Storm'],
   'Tabata':   ['Tabata Fury','Burn Notice','Maximum Output','Short Fuse','Tabata Storm','Explosive Intervals','Quick Burn','Afterburner','Inferno','Flash Burn','Tabata Thunder','Rapid Fire','Heat Wave','Meltdown','Ignition'],
-  'Max Reps': ['Peak Performance','Limit Breaker','All Out','Max Effort','No Ceiling','Beyond Limits','Full Send','The Wall','Capacity Test','Raw Power','Final Push','Red Zone','Absolute Max','Breaking Point','Last Man Standing'],
+  'Max Reps':  ['Peak Performance','Limit Breaker','All Out','Max Effort','No Ceiling','Beyond Limits','Full Send','The Wall','Capacity Test','Raw Power','Final Push','Red Zone','Absolute Max','Breaking Point','Last Man Standing'],
+  'Chipper':   ['The Chipper','Brick Wall','Top to Bottom','Full List','Death March','The Stack','Wall of Pain','Checklist','Chip Away','Iron List','Layer by Layer','The Descent','Box Crusher','One Pass','The Grinder'],
+  'Ladder':    ['The Ladder','Stairway','Ascending','Pyramid Peak','The Climb','Escalation','Rising Storm','Step Up','Ascent','One More','Ground Floor','The Pyramid','Step by Step','Upward','Base Camp'],
+  'Couplet':   ['Double Trouble','Power Pair','Triple Threat','The Duo','Tag Team','Iron Pair','Force Duo','Twin Engine','Three Pillars','The Triplet','Couplet Classic','The Double','The Triple','Two for One','Pair Work'],
+  'Death By':  ['Death By','The Reaper','Last Man','Minute Killer','Final Countdown','No Ceiling','The Abyss','Into the Deep','The Void','One More Rep','Never Enough','Death Toll','Unlimited','The Grind','One by One'],
 };
 
 const WOD_TIPS: Record<string, string[]> = {
@@ -418,6 +475,34 @@ const WOD_TIPS: Record<string, string[]> = {
     'Note ton score pour pouvoir le battre la prochaine fois.',
     'Si tu utilises une barre, ne la lâche pas plus de 5 secondes.',
     'Dernière minute = tout donner. Pas de regrets.',
+  ],
+  'Chipper': [
+    'Grignoter la liste du haut vers le bas. Fractionne les gros sets.',
+    'Ne t\'arrête jamais plus de 10s. L\'objectif c\'est le débit.',
+    'Commence fort sur les mouvements que tu maîtrises.',
+    'Les derniers mouvements sont toujours les plus difficiles. Garde du jus.',
+    'Split les gros sets : 50 = 3×17. Mieux que d\'aller à l\'échec.',
+  ],
+  'Ladder': [
+    'Facile au départ. Chaque round coûte un peu plus. Pace-toi.',
+    'La pyramide monte et redescend. Le sommet est le moment critique.',
+    'Plus le mouvement est technique, plus la gestion est importante.',
+    'L\'accumulation est ce qui te tue. Respire entre chaque rep si besoin.',
+    'Ne sous-estime pas les premières minutes : elles prédisent les suivantes.',
+  ],
+  'Couplet': [
+    'Seulement 2-3 mouvements. Aucune excuse pour ne pas être efficace.',
+    'Transitions immédiates entre les mouvements. Zéro temps mort.',
+    'Le couplet classique est brutal dans sa simplicité. Reste régulier.',
+    'Pace-toi sur le mouvement limitant. Ne te crame pas dessus.',
+    'Le triplet est plus généreux physiquement. Exploite ça pour le rythme.',
+  ],
+  'Death By': [
+    'Les premières minutes semblent faciles. C\'est un piège. Gère ta respiration dès le départ.',
+    'Death By teste ta capacité à tenir sous la fatigue accumulée. Pas de sprint.',
+    'Score = dernière minute complétée. Chaque rep de bonus compte.',
+    'Ne gaspille pas d\'énergie sur les premières minutes. C\'est une stratégie, pas un sprint.',
+    'Ton vrai score commence quand ça devient difficile. Bats-toi minute par minute.',
   ],
 };
 
@@ -506,7 +591,12 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
   const noEquip = equipment.includes('Aucun matériel') || equipment.length === 0;
   const realEquip = equipment.filter(e => e !== 'Aucun matériel' && e !== 'Benchmark');
 
-  // Filter movements available for this level + equipment
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 5 — Équipement strict : ne propose QUE les mouvements dont
+  //   TOUT l'équipement requis est sélectionné. Si aucun → bodyweight.
+  // RÈGLE 4 — Adaptation niveau : filtre reps[li] === 0 (mouvement trop
+  //   avancé ou trop simple pour ce level).
+  // ═══════════════════════════════════════════════════════════════════════
   const pool = MVTS.filter(m => {
     if (m.reps[li] === 0) return false;
     if (noEquip) return m.eq.length === 0;
@@ -522,87 +612,214 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
     }
   }
 
-  // Smart pick: forced + random fill from remaining pool (no duplicates)
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 6 — Charge uniforme par catégorie de matériel
+  //   → Barre + Disques, Haltères, Kettlebell : même charge (la plus
+  //     basse) pour tous les mouvements d'une même catégorie dans un WOD.
+  // ═══════════════════════════════════════════════════════════════════════
+  const LOAD_EQS = ['Barre + Disques', 'Haltères', 'Kettlebell'];
+  function unifyLoads(mvs: Mvt[]): Mvt[] {
+    const cloned: Mvt[] = mvs.map(m => ({ ...m, load: m.load ? [...m.load] : undefined }));
+    if (cloned.length < 2) return cloned;
+    for (const eq of LOAD_EQS) {
+      const indices = cloned.map((m, i) => m.eq.includes(eq) && m.load && m.load[li] && parseFloat(m.load[li]) > 0 ? i : -1).filter(i => i >= 0);
+      if (indices.length < 2) continue;
+      let minIdx = indices[0], minVal = parseFloat(cloned[minIdx].load![li]);
+      for (const idx of indices) {
+        const v = parseFloat(cloned[idx].load![li]);
+        if (v < minVal) { minVal = v; minIdx = idx; }
+      }
+      const unified = cloned[minIdx].load![li];
+      for (const idx of indices) cloned[idx].load![li] = unified;
+    }
+    return cloned;
+  }
+
+  // Smart pick: forced + random fill (no duplicates) + shuffle + unify loads
   const pickWithForced = (n: number): Mvt[] => {
     const needed = Math.max(0, n - forced.length);
     const remaining = pool.filter(m => !forced.includes(m));
     const extra = spick(remaining, Math.min(needed, remaining.length));
     const result = [...forced, ...extra];
-    // Shuffle so forced aren't always first
     for (let i = result.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [result[i], result[j]] = [result[j], result[i]];
     }
-    return result.slice(0, n);
+    return unifyLoads(result.slice(0, n));
   };
 
-  const title = srand(WOD_NAMES[type] ?? WOD_NAMES['AMRAP']);
-  const tip   = srand(WOD_TIPS[type]  ?? WOD_TIPS['AMRAP']);
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 1 — Matrice format → type de circuit interne
+  // ═══════════════════════════════════════════════════════════════════════
+  type CircuitType = 'round' | 'chipper' | 'couplet' | 'triplet' | 'ladder' | 'death_by' | 'single' | 'double_couplet';
+  const CIRCUIT_MAP: Record<string, CircuitType[]> = {
+    'For Time': ['round', 'chipper', 'couplet', 'triplet', 'ladder'],
+    'AMRAP':    ['round', 'couplet', 'triplet', 'chipper'],
+    'EMOM':     ['couplet', 'triplet', 'death_by'],
+    'Tabata':   ['couplet', 'double_couplet'],
+    'Max Reps': ['single'],
+  };
+  const circuit: CircuitType = srand(CIRCUIT_MAP[type] ?? CIRCUIT_MAP['AMRAP']);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 2 — Anti-doublons consécutifs
+  // pickWithForced() ne pick jamais 2× le même mouvement. Pour les
+  // formats en boucle, on s'assure que le dernier ≠ le premier.
+  // ═══════════════════════════════════════════════════════════════════════
+  function ensureNoWrap(mvs: Mvt[]): Mvt[] {
+    if (mvs.length < 3) return mvs;
+    if (mvs[0].name === mvs[mvs.length - 1].name && mvs[mvs.length - 2].name !== mvs[0].name) {
+      const tmp = mvs[mvs.length - 1];
+      mvs[mvs.length - 1] = mvs[mvs.length - 2];
+      mvs[mvs.length - 2] = tmp;
+    }
+    return mvs;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÈGLE 3 — Calibration durée (nb mouvements & rounds)
+  // ═══════════════════════════════════════════════════════════════════════
+  function mvCountCal(base: number): number {
+    if (duration <= 5)  return Math.max(2, base - 2);
+    if (duration <= 10) return Math.max(3, base - 1);
+    if (duration <= 15) return base;
+    if (duration <= 20) return base + 1;
+    return base + 2;
+  }
+  function roundsCal(): number {
+    if (duration <= 5)  return 3;
+    if (duration <= 10) return 4;
+    if (duration <= 15) return 5;
+    if (duration <= 20) return 6;
+    return 7;
+  }
+
+  // Name & tip pools — pick from the matching circuit type for variety
+  const namePool = { round: WOD_NAMES, chipper: WOD_NAMES, couplet: WOD_NAMES, triplet: WOD_NAMES, ladder: WOD_NAMES, death_by: WOD_NAMES, single: WOD_NAMES, double_couplet: WOD_NAMES };
+  const tipKey = circuit === 'death_by' ? 'Death By' : circuit === 'chipper' ? 'Chipper' : circuit === 'ladder' ? 'Ladder' : (circuit === 'couplet' || circuit === 'triplet') ? 'Couplet' : type;
+  const title = srand(WOD_NAMES[tipKey] ?? WOD_NAMES[type] ?? WOD_NAMES['AMRAP']);
+  const tip   = srand(WOD_TIPS[tipKey]  ?? WOD_TIPS[type]  ?? WOD_TIPS['AMRAP']);
 
   let movements: string[] = [];
   let scoring = '';
 
-  switch (type) {
-    case 'AMRAP': {
-      const count = duration <= 5 ? 3 : duration <= 10 ? srand([3,4]) : duration <= 15 ? srand([4,5]) : srand([4,5,6]);
-      movements = pickWithForced(count).map(m => fmtMvt(m, li));
-      scoring = `Max rounds en ${duration} min`;
-      break;
-    }
-    case 'For Time': {
-      const variant = srand(['descending','rft','chipper'] as const);
-      if (variant === 'descending') {
-        const scheme = srand(['21-15-9','15-12-9','12-9-6','10-8-6-4-2','15-10-5']);
-        const mvts = pickWithForced(srand([2,3]));
-        movements = [`${scheme} :`].concat(mvts.map(m => fmtMvtLabel(m, li)));
-        scoring = `${scheme} — Temps (cap ${duration} min)`;
-      } else if (variant === 'rft') {
-        const rounds = srand([3,4,5]);
-        const mvts = pickWithForced(srand([3,4]));
-        movements = [`${rounds} Rounds For Time :`].concat(mvts.map(m => fmtMvt(m, li)));
-        scoring = `${rounds} RFT — Temps (cap ${duration} min)`;
+  // ── FOR TIME ──────────────────────────────────────────────────────────
+  if (type === 'For Time') {
+    if (circuit === 'round') {
+      const rounds = roundsCal();
+      const mvts = ensureNoWrap(pickWithForced(mvCountCal(3)));
+      movements = [`${rounds} Rounds For Time :`].concat(mvts.map(m => fmtMvt(m, li)));
+      scoring = `${rounds} RFT — Temps (cap ${duration} min)`;
+    } else if (circuit === 'chipper') {
+      const mvCount = mvCountCal(5);
+      const mvts = pickWithForced(mvCount);
+      const chipReps = [50, 40, 30, 25, 20, 15, 10];
+      movements = mvts.map((m, i) => {
+        const base = chipReps[i] ?? 10;
+        const r = Math.round(base * (li < 2 ? 0.7 : li > 3 ? 1.3 : 1));
+        const u = m.unit ?? ''; const ld = m.load?.[li];
+        if (u === 'm') return `${r}m ${m.name}`;
+        if (u === 'cal') return `${r} Cal ${m.name}`;
+        if (ld) return `${r} ${m.name} (${ld} kg)`;
+        return `${r} ${m.name}`;
+      });
+      scoring = `Chipper — Temps (cap ${duration} min) — 1 passage`;
+    } else if (circuit === 'couplet' || circuit === 'triplet') {
+      const n = circuit === 'triplet' ? 3 : 2;
+      const rounds = roundsCal();
+      const mvts = pickWithForced(n);
+      movements = [`${rounds} Rounds For Time :`].concat(mvts.map(m => fmtMvt(m, li)));
+      scoring = `${circuit === 'triplet' ? 'Triplet' : 'Couplet'} — Temps (cap ${duration} min)`;
+    } else if (circuit === 'ladder') {
+      const isPyramid = Math.random() < 0.5;
+      const maxRung = duration <= 5 ? 7 : duration <= 10 ? 10 : duration <= 20 ? 12 : 15;
+      const top = Math.floor(maxRung / 2);
+      const mvts = pickWithForced(srand([1, 2]));
+      if (isPyramid) {
+        movements = [`Pyramide For Time (1→${top}→1) :`, ...mvts.map(m => fmtMvtLabel(m, li))];
+        scoring = `Pyramide — Temps (cap ${duration} min)`;
       } else {
-        const mvts = pickWithForced(srand([5,6,7]));
-        movements = mvts.map(m => {
-          const mult = srand([2,3,4]);
-          const r = m.reps[li] * mult;
-          const u = m.unit ?? '';
-          const ld = m.load?.[li];
-          if (u === 'm')        return `${r}m ${m.name}`;
-          if (u === 'cal')      return `${r} Cal ${m.name}`;
-          if (u === '×7.62m')   return `${r}×7.62m ${m.name}`;
-          if (ld)               return `${r} ${m.name} (${ld} kg)`;
-          return `${r} ${m.name}`;
-        });
-        scoring = `Chipper — Temps (cap ${duration} min)`;
+        movements = [`Ladder For Time (1→${maxRung}) :`, ...mvts.map(m => fmtMvtLabel(m, li))];
+        scoring = `Ladder — Temps (cap ${duration} min)`;
       }
-      break;
     }
-    case 'EMOM': {
-      const mins = duration <= 5 ? 2 : duration <= 10 ? srand([2,3]) : duration <= 15 ? srand([3,4]) : srand([4,5]);
-      const mvts = pickWithForced(mins);
+  }
+
+  // ── AMRAP ─────────────────────────────────────────────────────────────
+  else if (type === 'AMRAP') {
+    if (circuit === 'round') {
+      const mvts = ensureNoWrap(pickWithForced(mvCountCal(3)));
+      movements = mvts.map(m => fmtMvt(m, li));
+      scoring = `Max rounds en ${duration} min`;
+    } else if (circuit === 'couplet' || circuit === 'triplet') {
+      const n = circuit === 'triplet' ? 3 : 2;
+      const mvts = pickWithForced(n);
+      movements = mvts.map(m => fmtMvt(m, li));
+      scoring = `Max rounds en ${duration} min — ${circuit === 'triplet' ? 'Triplet' : 'Couplet'}`;
+    } else if (circuit === 'chipper') {
+      const mvCount = mvCountCal(5);
+      const mvts = pickWithForced(mvCount);
+      const chipReps = [40, 30, 25, 20, 15, 12, 10];
+      movements = mvts.map((m, i) => {
+        const base = chipReps[i] ?? 10;
+        const r = Math.round(base * (li < 2 ? 0.7 : li > 3 ? 1.3 : 1));
+        const u = m.unit ?? ''; const ld = m.load?.[li];
+        if (u === 'm') return `${r}m ${m.name}`;
+        if (u === 'cal') return `${r} Cal ${m.name}`;
+        if (ld) return `${r} ${m.name} (${ld} kg)`;
+        return `${r} ${m.name}`;
+      });
+      scoring = `Max rounds en ${duration} min — Chipper style`;
+    }
+  }
+
+  // ── EMOM ──────────────────────────────────────────────────────────────
+  else if (type === 'EMOM') {
+    if (circuit === 'death_by') {
+      const solidPool = pool.filter(m => !m.unit);
+      const m = solidPool.length > 0 ? srand(solidPool) : srand(pool);
+      const ld = m.load?.[li];
+      const mvLabel = ld ? `${m.name} (${ld} kg)` : m.name;
+      movements = [`Death By ${mvLabel} :`];
+      for (let i = 1; i <= 6; i++) movements.push(`  Min ${i} : ${i} ${mvLabel}`);
+      movements.push(`  ... (continue jusqu'à l'échec)`);
+      scoring = `Score = dernière minute complétée`;
+    } else {
+      const n = circuit === 'triplet' ? 3 : 2;
+      const mvts = pickWithForced(n);
       movements = mvts.map((m, i) => `Min ${i + 1} : ${fmtMvt(m, li)}`);
-      scoring = `E${mins}MOM pendant ${duration} min — score = rounds complétés`;
-      break;
+      const cycles = Math.round(duration / n);
+      movements.push(`→ Répéter (${cycles} fois = ${duration} min)`);
+      scoring = `E${n}MOM ${duration} min — score = rounds complétés`;
     }
-    case 'Tabata': {
-      const count = srand([3,4,5]);
+  }
+
+  // ── TABATA ────────────────────────────────────────────────────────────
+  else if (type === 'Tabata') {
+    if (circuit === 'double_couplet') {
+      const count = Math.max(2, Math.floor(duration / 4));
       const mvts = pickWithForced(count);
       movements = mvts.map(m => `20s ${m.name} / 10s Repos × 8`);
+      scoring = 'Score = min de reps sur un round (par mouvement)';
+    } else {
+      const mvts = pickWithForced(2);
+      const tabCycles = Math.max(1, Math.floor(duration / 4));
+      movements = mvts.map(m => `20s ${m.name} / 10s Repos × 8`);
+      if (tabCycles > 1) movements.push(`→ ${tabCycles} cycles`);
       scoring = 'Score = total de reps sur tous les rounds';
-      break;
     }
-    case 'Max Reps': {
-      const count = srand([1,2]);
-      const mvts = pickWithForced(count);
-      movements = mvts.map(m => {
-        const ld = m.load?.[li];
-        const suffix = ld ? ` (${ld} kg)` : '';
-        return `Max ${m.name}${suffix} en ${count === 1 ? duration : Math.floor(duration / count)} min`;
-      });
-      scoring = 'Score = total de reps';
-      break;
-    }
+  }
+
+  // ── MAX REPS ──────────────────────────────────────────────────────────
+  else {
+    const count = srand([1, 2]);
+    const mvts = pickWithForced(count);
+    movements = mvts.map(m => {
+      const ld = m.load?.[li];
+      const suffix = ld ? ` (${ld} kg)` : '';
+      return `Max ${m.name}${suffix} en ${count === 1 ? duration : Math.floor(duration / count)} min`;
+    });
+    scoring = 'Score = total de reps';
   }
 
   // ── Team format ──
@@ -683,18 +900,18 @@ export default function WODGeneratorScreen() {
         {/* Quick access: Historique & Favoris */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
           <TouchableOpacity
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F3F4F6', borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: '#E5E7EB' }}
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.surface, borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: theme.border }}
             onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
           >
-            <History color="#111" size={16} />
-            <Text style={{ fontSize: 13, fontWeight: '800', color: '#111' }}>Historique</Text>
+            <History color={theme.text} size={16} />
+            <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Historique</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F3F4F6', borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: '#E5E7EB' }}
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.surface, borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: theme.border }}
             onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
           >
             <Heart color="#EF4444" size={16} />
-            <Text style={{ fontSize: 13, fontWeight: '800', color: '#111' }}>Favoris</Text>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Favoris</Text>
           </TouchableOpacity>
         </View>
 
@@ -758,7 +975,7 @@ export default function WODGeneratorScreen() {
         <View style={S.section}>
           <Text style={S.sectionTitle}>Type de WOD</Text>
           <View style={S.chipRow}>
-            {WOD_TYPES.map(t => (
+            {UI_WOD_TYPES.map(t => (
               <TouchableOpacity
                 key={t}
                 onPress={() => setWODType(t)}

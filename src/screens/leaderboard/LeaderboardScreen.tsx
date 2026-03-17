@@ -1,48 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  Modal, TextInput, Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { Trophy, Zap, Users, MapPin, Plus, X, ChevronRight, ChevronLeft } from 'lucide-react-native';
+import { Users, MapPin, ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const LEVELS: (AthleteLevel | 'all')[] = ['all', 'scaled', 'inter', 'rx', 'rx+', 'gx', 'pro'];
 const MAIN_TABS = ['Individuel', 'Équipes', 'Box'];
-
-const MOCK_ATHLETES = [
-  { rank: 1,  username: 'MaxPower',    elo: 1892, level: 'pro',  wins: 87, matches: 95,  streak: 12 },
-  { rank: 2,  username: 'IronJane',    elo: 1744, level: 'gx',   wins: 72, matches: 89,  streak: 8  },
-  { rank: 3,  username: 'FlexKing42',  elo: 1698, level: 'rx+',  wins: 65, matches: 82,  streak: 5  },
-  { rank: 4,  username: 'CrossBeast',  elo: 1623, level: 'rx+',  wins: 58, matches: 76,  streak: 3  },
-  { rank: 5,  username: 'FitWarrior',  elo: 1567, level: 'rx',   wins: 54, matches: 71,  streak: 6  },
-  { rank: 6,  username: 'WodQueen',    elo: 1512, level: 'rx',   wins: 49, matches: 67,  streak: 2  },
-  { rank: 7,  username: 'AthleteYou',  elo: 1247, level: 'rx',   wins: 28, matches: 42,  streak: 5, isMe: true },
-  { rank: 8,  username: 'SweatMachine',elo: 1198, level: 'inter', wins: 24, matches: 38, streak: 1  },
-  { rank: 9,  username: 'PushPull99',  elo: 1145, level: 'inter', wins: 21, matches: 35, streak: 0  },
-  { rank: 10, username: 'GrindDaily',  elo: 1089, level: 'scaled',wins: 18, matches: 30, streak: 2  },
-];
-
-const MOCK_TEAMS = [
-  { rank: 1, name: 'CrossFire Alpha', gym: 'CF Paris 11', members: 5, avgElo: 1680, wins: 124, tag: '🔥' },
-  { rank: 2, name: 'Iron Wolves',     gym: 'CF Lyon',     members: 4, avgElo: 1540, wins: 98,  tag: '🐺' },
-  { rank: 3, name: 'Box Warriors',    gym: 'CF Bordeaux', members: 5, avgElo: 1490, wins: 87,  tag: '⚔️' },
-  { rank: 4, name: 'Storm Squad',     gym: 'CF Lille',    members: 3, avgElo: 1345, wins: 61,  tag: '⚡' },
-  { rank: 5, name: 'Gainz Factory',   gym: 'CF Nantes',   members: 4, avgElo: 1290, wins: 52,  tag: '🏭' },
-];
-
-const MOCK_GYMS = [
-  { rank: 1, name: 'CrossFit Paris 11', city: 'Paris',    athletes: 34, avgElo: 1520, topAthlete: 'MaxPower'    },
-  { rank: 2, name: 'CrossFit Lyon',     city: 'Lyon',     athletes: 28, avgElo: 1440, topAthlete: 'IronJane'    },
-  { rank: 3, name: 'CrossFit Bordeaux', city: 'Bordeaux', athletes: 22, avgElo: 1380, topAthlete: 'FlexKing42'  },
-  { rank: 4, name: 'CrossFit Marseille',city: 'Marseille',athletes: 19, avgElo: 1320, topAthlete: 'CrossBeast'  },
-  { rank: 5, name: 'CrossFit Lille',   city: 'Lille',    athletes: 15, avgElo: 1270, topAthlete: 'FitWarrior'  },
-  { rank: 6, name: 'CrossFit Nantes',  city: 'Nantes',   athletes: 12, avgElo: 1240, topAthlete: 'WodQueen'    },
-];
 
 function RankBadge({ rank }: { rank: number }) {
   const { theme } = useTheme();
@@ -58,26 +30,120 @@ type Nav = NativeStackNavigationProp<HomeStackParamList, 'Leaderboard'>;
 export default function LeaderboardScreen() {
   const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const S = createStyles(theme);
   const [mainTab, setMainTab] = useState(0);
   const [selectedLevel, setSelectedLevel] = useState<AthleteLevel | 'all'>('all');
-  const [showCreateTeam, setShowCreateTeam] = useState(false);
-  const [teamName, setTeamName] = useState('');
-  const [teamGym, setTeamGym] = useState('');
+
+  const [athletes,       setAthletes]       = useState<any[]>([]);
+  const [loadingAthletes,setLoadingAthletes] = useState(false);
+  const [teams,          setTeams]          = useState<any[]>([]);
+  const [loadingTeams,   setLoadingTeams]   = useState(false);
+  const [boxes,          setBoxes]          = useState<any[]>([]);
+  const [loadingBoxes,   setLoadingBoxes]   = useState(false);
+
+  const loadAthletes = useCallback(async () => {
+    setLoadingAthletes(true);
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, level, elo, wins, total_matches')
+      .order('elo', { ascending: false })
+      .limit(100);
+    setAthletes((data ?? []).map((p: any, i: number) => ({ ...p, rank: i + 1, isMe: p.id === user?.id })));
+    setLoadingAthletes(false);
+  }, [user?.id]);
+
+  const loadTeams = useCallback(async () => {
+    setLoadingTeams(true);
+    const { data: teamsData } = await supabase
+      .from('inter_teams')
+      .select('id, name, box_id, captain_id');
+    if (!teamsData?.length) { setTeams([]); setLoadingTeams(false); return; }
+
+    const teamIds = teamsData.map((t: any) => t.id);
+    const { data: membersData } = await supabase
+      .from('inter_team_members')
+      .select('team_id, user_id, status')
+      .in('team_id', teamIds)
+      .eq('status', 'accepted');
+
+    const memberUserIds = [...new Set([
+      ...(membersData ?? []).map((m: any) => m.user_id),
+      ...teamsData.map((t: any) => t.captain_id),
+    ])].filter(Boolean) as string[];
+
+    let profilesMap: Record<string, any> = {};
+    if (memberUserIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles').select('id, elo, username').in('id', memberUserIds);
+      (profilesData ?? []).forEach((p: any) => { profilesMap[p.id] = p; });
+    }
+
+    const boxIds = [...new Set(teamsData.map((t: any) => t.box_id).filter(Boolean))] as string[];
+    let boxMap: Record<string, string> = {};
+    if (boxIds.length > 0) {
+      const { data: boxData } = await supabase.from('boxes').select('id, name').in('id', boxIds);
+      (boxData ?? []).forEach((b: any) => { boxMap[b.id] = b.name; });
+    }
+
+    const teamList = teamsData.map((t: any) => {
+      const accepted = (membersData ?? []).filter((m: any) => m.team_id === t.id);
+      const elos = [
+        profilesMap[t.captain_id]?.elo ?? 1000,
+        ...accepted.map((m: any) => profilesMap[m.user_id]?.elo ?? 1000),
+      ];
+      const avgElo = Math.round(elos.reduce((a: number, b: number) => a + b, 0) / elos.length);
+      return { id: t.id, name: t.name, boxName: boxMap[t.box_id] ?? '—', memberCount: elos.length, avgElo };
+    });
+    teamList.sort((a: any, b: any) => b.avgElo - a.avgElo);
+    setTeams(teamList.map((t: any, i: number) => ({ ...t, rank: i + 1 })));
+    setLoadingTeams(false);
+  }, []);
+
+  const loadBoxes = useCallback(async () => {
+    setLoadingBoxes(true);
+    const { data: boxData } = await supabase.from('boxes').select('id, name, city');
+    if (!boxData?.length) { setBoxes([]); setLoadingBoxes(false); return; }
+
+    const boxIds = boxData.map((b: any) => b.id);
+    const { data: membersData } = await supabase
+      .from('box_members').select('box_id, member_id').in('box_id', boxIds).eq('status', 'active');
+
+    const memberIds = [...new Set((membersData ?? []).map((m: any) => m.member_id))] as string[];
+    let profilesMap: Record<string, any> = {};
+    if (memberIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles').select('id, elo, username').in('id', memberIds);
+      (profilesData ?? []).forEach((p: any) => { profilesMap[p.id] = p; });
+    }
+
+    const boxList = boxData.map((b: any) => {
+      const members = (membersData ?? []).filter((m: any) => m.box_id === b.id);
+      const elos = members.map((m: any) => profilesMap[m.member_id]?.elo ?? 0).filter((e: number) => e > 0);
+      const avgElo = elos.length ? Math.round(elos.reduce((a: number, c: number) => a + c, 0) / elos.length) : 0;
+      const top = members.map((m: any) => profilesMap[m.member_id]).filter(Boolean)
+        .sort((a: any, b: any) => b.elo - a.elo)[0];
+      return { id: b.id, name: b.name, city: b.city ?? '', memberCount: members.length, avgElo, topAthlete: top?.username ?? '—' };
+    }).filter((b: any) => b.memberCount > 0);
+
+    boxList.sort((a: any, b: any) => b.avgElo - a.avgElo);
+    setBoxes(boxList.map((b: any, i: number) => ({ ...b, rank: i + 1 })));
+    setLoadingBoxes(false);
+  }, []);
+
+  useEffect(() => {
+    if (mainTab === 0 && athletes.length === 0) loadAthletes();
+    else if (mainTab === 1 && teams.length === 0) loadTeams();
+    else if (mainTab === 2 && boxes.length === 0) loadBoxes();
+  }, [mainTab]);
+
+  useEffect(() => { loadAthletes(); }, []);
 
   const filtered = selectedLevel === 'all'
-    ? MOCK_ATHLETES
-    : MOCK_ATHLETES.filter(e => e.level === selectedLevel);
+    ? athletes
+    : athletes.filter((e: any) => e.level === selectedLevel);
 
-  const top3 = MOCK_ATHLETES.slice(0, 3);
-
-  function handleCreateTeam() {
-    if (!teamName.trim()) { Alert.alert('Nom requis', 'Entre un nom pour ton équipe.'); return; }
-    Alert.alert('Équipe créée !', `"${teamName}" a été créée. Invite tes coéquipiers.`);
-    setShowCreateTeam(false);
-    setTeamName('');
-    setTeamGym('');
-  }
+  const top3 = athletes.slice(0, 3);
 
   return (
     <View style={S.container}>
@@ -86,7 +152,7 @@ export default function LeaderboardScreen() {
           <ChevronLeft color={theme.textSecondary} size={24} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Classement</Text>
-        <Text style={S.headerSub}>Qui domine TheHub ?</Text>
+        <Text style={S.headerSub}>Qui domine AthleX ?</Text>
 
         <View style={S.podium}>
           {[top3[1], top3[0], top3[2]].map((p, idx) => {
@@ -130,140 +196,125 @@ export default function LeaderboardScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+          {loadingAthletes ? (
+            <ActivityIndicator style={{ marginTop: 40 }} color={theme.accent} />
+          ) : (
+            <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
+              {filtered.map((item: any) => (
+                <View key={item.id} style={[S.row, item.isMe && S.rowMe]}>
+                  <View style={S.rankCell}><RankBadge rank={item.rank} /></View>
+                  <View style={[S.avatarBox, { borderColor: LevelColors[item.level as AthleteLevel] ?? theme.border }]}>
+                    <Text style={S.avatarText}>{(item.username ?? '?')[0].toUpperCase()}</Text>
+                  </View>
+                  <View style={S.info}>
+                    <Text style={[S.name, item.isMe && { color: theme.accent }]}>
+                      {item.username}{item.isMe ? ' 👈' : ''}
+                    </Text>
+                    <View style={S.metaRow}>
+                      {item.level && (
+                        <View style={[S.lvlPill, { backgroundColor: `${LevelColors[item.level as AthleteLevel] ?? theme.border}18` }]}>
+                          <Text style={[S.lvlText, { color: LevelColors[item.level as AthleteLevel] ?? theme.textMuted }]}>
+                            {item.level.toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      {item.wins != null && (
+                        <Text style={S.winsText}>
+                          {item.wins}V – {(item.total_matches ?? item.wins) - item.wins}D
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <View style={S.eloCell}>
+                    <Text style={S.eloValue}>{item.elo ?? 1000}</Text>
+                    <Text style={S.eloLabel}>ELO</Text>
+                  </View>
+                </View>
+              ))}
+              {filtered.length === 0 && (
+                <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                  <Text style={{ color: theme.textMuted, fontWeight: '600' }}>Aucun athlète pour ce niveau</Text>
+                </View>
+              )}
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          )}
+        </>
+      )}
+
+      {mainTab === 1 && (
+        loadingTeams ? (
+          <ActivityIndicator style={{ marginTop: 40 }} color={theme.accent} />
+        ) : (
           <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
-            {filtered.map((item) => (
-              <View key={item.rank} style={[S.row, item.isMe && S.rowMe]}>
-                <View style={S.rankCell}><RankBadge rank={item.rank} /></View>
-                <View style={[S.avatarBox, { borderColor: LevelColors[item.level] }]}>
-                  <Text style={S.avatarText}>{item.username[0]}</Text>
+            {teams.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <Users size={40} color={theme.textMuted} />
+                <Text style={{ color: theme.textMuted, fontWeight: '600', marginTop: 12 }}>Aucune équipe enregistrée</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>Les équipes apparaissent ici après les compétitions inter-box</Text>
+              </View>
+            ) : teams.map((team: any) => (
+              <View key={team.id} style={S.teamRow}>
+                <View style={S.rankCell}><RankBadge rank={team.rank} /></View>
+                <View style={S.teamAvatar}>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: theme.accent }}>{(team.name ?? '?')[0].toUpperCase()}</Text>
                 </View>
                 <View style={S.info}>
-                  <Text style={[S.name, item.isMe && { color: theme.accent }]}>
-                    {item.username}{item.isMe ? ' 👈' : ''}
-                  </Text>
+                  <Text style={S.name}>{team.name}</Text>
                   <View style={S.metaRow}>
-                    <View style={[S.lvlPill, { backgroundColor: `${LevelColors[item.level]}18` }]}>
-                      <Text style={[S.lvlText, { color: LevelColors[item.level] }]}>
-                        {item.level.toUpperCase()}
-                      </Text>
-                    </View>
-                    <Text style={S.winsText}>{item.wins}V – {item.matches - item.wins}D</Text>
-                    {item.streak > 0 && (
-                      <View style={S.streakPill}>
-                        <Zap color={theme.warning} size={9} />
-                        <Text style={S.streakText}>{item.streak}</Text>
-                      </View>
-                    )}
+                    <MapPin color={theme.textMuted} size={11} />
+                    <Text style={S.gymText}>{team.boxName}</Text>
+                    <Users color={theme.textMuted} size={11} />
+                    <Text style={S.gymText}>{team.memberCount} membres</Text>
                   </View>
                 </View>
                 <View style={S.eloCell}>
-                  <Text style={S.eloValue}>{item.elo}</Text>
-                  <Text style={S.eloLabel}>ELO</Text>
+                  <Text style={S.eloValue}>{team.avgElo}</Text>
+                  <Text style={S.eloLabel}>ELO moy.</Text>
                 </View>
               </View>
             ))}
             <View style={{ height: 24 }} />
           </ScrollView>
-        </>
-      )}
-
-      {mainTab === 1 && (
-        <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={S.createTeamBtn} onPress={() => setShowCreateTeam(true)} activeOpacity={0.8}>
-            <Plus color={theme.accent} size={18} />
-            <Text style={S.createTeamText}>Créer une équipe</Text>
-          </TouchableOpacity>
-
-          {MOCK_TEAMS.map((team) => (
-            <TouchableOpacity key={team.rank} style={S.teamRow} activeOpacity={0.7}>
-              <View style={S.rankCell}><RankBadge rank={team.rank} /></View>
-              <View style={S.teamAvatar}>
-                <Text style={{ fontSize: 22 }}>{team.tag}</Text>
-              </View>
-              <View style={S.info}>
-                <Text style={S.name}>{team.name}</Text>
-                <View style={S.metaRow}>
-                  <MapPin color={theme.textMuted} size={11} />
-                  <Text style={S.gymText}>{team.gym}</Text>
-                  <Users color={theme.textMuted} size={11} />
-                  <Text style={S.gymText}>{team.members} membres</Text>
-                </View>
-              </View>
-              <View style={S.eloCell}>
-                <Text style={S.eloValue}>{team.avgElo}</Text>
-                <Text style={S.eloLabel}>ELO moy.</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-          <View style={{ height: 24 }} />
-        </ScrollView>
+        )
       )}
 
       {mainTab === 2 && (
-        <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
-          <Text style={S.sectionHint}>
-            Classement des box par ELO moyen de leurs athlètes
-          </Text>
-          {MOCK_GYMS.map((gym) => (
-            <TouchableOpacity key={gym.rank} style={S.gymRow} activeOpacity={0.7}>
-              <View style={S.rankCell}><RankBadge rank={gym.rank} /></View>
-              <View style={S.gymIcon}>
-                <MapPin color={theme.accent} size={20} />
+        loadingBoxes ? (
+          <ActivityIndicator style={{ marginTop: 40 }} color={theme.accent} />
+        ) : (
+          <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
+            <Text style={S.sectionHint}>Classement des box par ELO moyen de leurs athlètes</Text>
+            {boxes.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <MapPin size={40} color={theme.textMuted} />
+                <Text style={{ color: theme.textMuted, fontWeight: '600', marginTop: 12 }}>Aucune box enregistrée</Text>
               </View>
-              <View style={S.info}>
-                <Text style={S.name}>{gym.name}</Text>
-                <View style={S.metaRow}>
-                  <Text style={S.gymText}>{gym.city}</Text>
-                  <Text style={S.dotSep}>·</Text>
-                  <Text style={S.gymText}>{gym.athletes} athlètes</Text>
-                  <Text style={S.dotSep}>·</Text>
-                  <Text style={S.gymText}>Top: {gym.topAthlete}</Text>
+            ) : boxes.map((gym: any) => (
+              <View key={gym.id} style={S.gymRow}>
+                <View style={S.rankCell}><RankBadge rank={gym.rank} /></View>
+                <View style={S.gymIcon}>
+                  <MapPin color={theme.accent} size={20} />
+                </View>
+                <View style={S.info}>
+                  <Text style={S.name}>{gym.name}</Text>
+                  <View style={S.metaRow}>
+                    {gym.city ? <><Text style={S.gymText}>{gym.city}</Text><Text style={S.dotSep}>·</Text></> : null}
+                    <Text style={S.gymText}>{gym.memberCount} athlète{gym.memberCount > 1 ? 's' : ''}</Text>
+                    <Text style={S.dotSep}>·</Text>
+                    <Text style={S.gymText}>Top: {gym.topAthlete}</Text>
+                  </View>
+                </View>
+                <View style={S.eloCell}>
+                  <Text style={S.eloValue}>{gym.avgElo}</Text>
+                  <Text style={S.eloLabel}>ELO moy.</Text>
                 </View>
               </View>
-              <View style={S.eloCell}>
-                <Text style={S.eloValue}>{gym.avgElo}</Text>
-                <Text style={S.eloLabel}>ELO moy.</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-          <View style={{ height: 24 }} />
-        </ScrollView>
+            ))}
+            <View style={{ height: 24 }} />
+          </ScrollView>
+        )
       )}
-
-      <Modal visible={showCreateTeam} transparent animationType="slide">
-        <View style={S.modalOverlay}>
-          <View style={S.modalSheet}>
-            <View style={S.modalHeader}>
-              <Text style={S.modalTitle}>Nouvelle équipe</Text>
-              <TouchableOpacity onPress={() => setShowCreateTeam(false)}>
-                <X color={theme.textMuted} size={22} />
-              </TouchableOpacity>
-            </View>
-            <Text style={S.modalLabel}>Nom de l'équipe *</Text>
-            <TextInput
-              style={S.modalInput}
-              value={teamName}
-              onChangeText={setTeamName}
-              placeholder="Ex: CrossFit Alpha"
-              placeholderTextColor={theme.textMuted}
-            />
-            <Text style={S.modalLabel}>Box CrossFit (optionnel)</Text>
-            <TextInput
-              style={S.modalInput}
-              value={teamGym}
-              onChangeText={setTeamGym}
-              placeholder="Ex: CrossFit Paris 11"
-              placeholderTextColor={theme.textMuted}
-            />
-            <Text style={S.modalHint}>
-              Tu seras capitaine. Tu pourras inviter jusqu'à 4 coéquipiers depuis leur profil.
-            </Text>
-            <TouchableOpacity style={S.modalCreateBtn} onPress={handleCreateTeam} activeOpacity={0.85}>
-              <Text style={S.modalCreateText}>Créer l'équipe</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -345,13 +396,6 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   eloCell: { alignItems: 'flex-end' },
   eloValue: { fontSize: 17, fontWeight: '900', color: theme.text },
   eloLabel: { fontSize: 8, color: theme.textMuted, fontWeight: '600', letterSpacing: 0.5 },
-  createTeamBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' as any,
-    borderColor: theme.accent, padding: 14,
-    justifyContent: 'center',
-  },
-  createTeamText: { fontSize: 14, fontWeight: '700', color: theme.accent },
   teamRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: theme.card, borderRadius: 12, padding: 12,
@@ -372,22 +416,4 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   gymText: { fontSize: 11, color: theme.textMuted },
   dotSep: { color: theme.border, fontSize: 11 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40,
-  },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
-  modalLabel: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  modalInput: {
-    backgroundColor: theme.surface, borderRadius: 12, padding: 14,
-    fontSize: 15, color: theme.text, marginBottom: 16,
-    borderWidth: 1, borderColor: theme.border,
-  },
-  modalHint: { fontSize: 12, color: theme.textMuted, lineHeight: 18, marginBottom: 20 },
-  modalCreateBtn: {
-    backgroundColor: theme.accent, borderRadius: 14, padding: 16, alignItems: 'center',
-  },
-  modalCreateText: { color: '#FFFFFF', fontWeight: '900', fontSize: 15 },
 }); }

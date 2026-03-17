@@ -42,6 +42,7 @@ export interface BoxWOD {
   notes?: string;
   block_name?: string;
   is_published: boolean;
+  leaderboard_enabled?: boolean;
   created_at: string;
   scores?: WODScore[];
 }
@@ -158,7 +159,7 @@ export interface Competition {
 
 export type UserRole_B2B = 'super_admin' | 'box_owner' | 'member';
 
-export type WODType = 'AMRAP' | 'For Time' | 'EMOM' | 'Tabata' | 'Max Reps';
+export type WODType = 'AMRAP' | 'For Time' | 'EMOM' | 'Tabata' | 'Max Reps' | 'Chipper' | 'Ladder' | 'Couplet' | 'Death By';
 
 export type MatchStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 

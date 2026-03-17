@@ -82,7 +82,7 @@ export default function TournamentScreen() {
     setWods((tw ?? []) as TournamentWOD[]);
 
     // Merge server result with local cache (handles RLS SELECT blocks)
-    const cacheKey = `@thehub:registered:${user?.id}:${tournamentId}`;
+    const cacheKey = `@athlex:registered:${user?.id}:${tournamentId}`;
     const cached   = await AsyncStorage.getItem(cacheKey);
     const registered = !!myReg || cached === 'true';
     setIsRegistered(registered);
@@ -145,7 +145,7 @@ export default function TournamentScreen() {
         return;
       }
       // Persist registration locally so cold-restart survives RLS
-      await AsyncStorage.setItem(`@thehub:registered:${user.id}:${tournamentId}`, 'true');
+      await AsyncStorage.setItem(`@athlex:registered:${user.id}:${tournamentId}`, 'true');
       setIsRegistered(true);
       setParticipants(prev =>
         prev.some(p => p.athlete_id === user.id)
@@ -244,7 +244,7 @@ export default function TournamentScreen() {
             .eq('tournament_id', tournamentId)
             .eq('athlete_id', user.id);
           if (error) { Alert.alert('Erreur', error.message); return; }
-          await AsyncStorage.removeItem(`@thehub:registered:${user.id}:${tournamentId}`);
+          await AsyncStorage.removeItem(`@athlex:registered:${user.id}:${tournamentId}`);
           setIsRegistered(false);
           load();
         }},

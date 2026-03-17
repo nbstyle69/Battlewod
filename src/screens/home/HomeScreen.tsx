@@ -227,7 +227,7 @@ export default function HomeScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  const levelColor = LevelColors[level] ?? '#111';
+  const levelColor = LevelColors[level] ?? theme.text;
 
   return (
     <ScrollView style={S.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
@@ -238,19 +238,6 @@ export default function HomeScreen() {
           <View>
             <Text style={S.greeting}>Bonjour,</Text>
             <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
-          </View>
-          <View style={S.headerActions}>
-            <TouchableOpacity style={S.iconBtn} onPress={() => navigation.navigate('Friends')} activeOpacity={0.7}>
-              <Users size={20} color="#111" />
-              {pendingFriends > 0 && (
-                <View style={S.notifDot}>
-                  <Text style={S.notifDotTxt}>{pendingFriends > 9 ? '9+' : pendingFriends}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity style={S.iconBtn} onPress={() => navigation.navigate('Profile')} activeOpacity={0.7}>
-              <User size={20} color="#111" />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -283,6 +270,25 @@ export default function HomeScreen() {
           <Text style={[S.levelTxt, { color: levelColor }]}>{level.toUpperCase()}</Text>
           <Text style={S.matchesTxt}>{user?.total_matches ?? 0} matchs</Text>
         </View>
+
+        {/* Action buttons */}
+        <View style={S.actionBtns}>
+          <TouchableOpacity style={S.actionBtn} onPress={() => navigation.navigate('Friends')} activeOpacity={0.75}>
+            <View style={{ position: 'relative' }}>
+              <Users size={17} color={theme.text} />
+              {pendingFriends > 0 && (
+                <View style={S.notifDot}>
+                  <Text style={S.notifDotTxt}>{pendingFriends > 9 ? '9+' : pendingFriends}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={S.actionBtnTxt}>Amis</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={S.actionBtn} onPress={() => navigation.navigate('Profile')} activeOpacity={0.75}>
+            <User size={17} color={theme.text} />
+            <Text style={S.actionBtnTxt}>Profil</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Activité semaine ──────────────────────────────────────────── */}
@@ -302,8 +308,8 @@ export default function HomeScreen() {
               const active = weekActivity[i] > 0;
               return (
                 <View key={i} style={S.weekCol}>
-                  <View style={[S.weekBar, { height: h, backgroundColor: active ? '#111' : '#E5E7EB' }, isToday && active && { backgroundColor: '#000' }]} />
-                  <Text style={[S.weekDayTxt, isToday && { fontWeight: '900', color: '#111' }]}>{day}</Text>
+                  <View style={[S.weekBar, { height: h, backgroundColor: active ? theme.text : theme.border }, isToday && active && { backgroundColor: theme.primary }]} />
+                  <Text style={[S.weekDayTxt, isToday && { fontWeight: '900', color: theme.text }]}>{day}</Text>
                 </View>
               );
             })}
@@ -343,11 +349,16 @@ export default function HomeScreen() {
       {/* ── Outils ─────────────────────────────────────────────────────── */}
       <View style={S.section}>
         <Text style={S.sectionTitle}>Outils</Text>
-        <View style={S.toolGrid}>
+        <View style={S.toolList}>
           {TOOLS.map(t => (
-            <TouchableOpacity key={t.label} style={S.toolCard} onPress={() => navigation.navigate(t.screen as any)} activeOpacity={0.6}>
-              <t.icon color="#111" size={22} />
-              <Text style={S.toolLabel}>{t.label}</Text>
+            <TouchableOpacity key={t.label} style={S.toolRow} onPress={() => navigation.navigate(t.screen as any)} activeOpacity={0.6}>
+              <View style={[S.toolIconBox, { backgroundColor: t.color + '18' }]}>
+                <t.icon color={t.color} size={20} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.toolLabel}>{t.label}</Text>
+                <Text style={S.toolDesc}>{t.desc}</Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -371,7 +382,7 @@ export default function HomeScreen() {
                 activeOpacity={0.7}
               >
                 <View style={S.compBadgeRow}>
-                  <View style={[S.compDot, { backgroundColor: comp.status === 'open' ? '#111' : comp.status === 'active' ? '#999' : '#ddd' }]} />
+                  <View style={[S.compDot, { backgroundColor: comp.status === 'open' ? theme.text : comp.status === 'active' ? theme.textMuted : theme.border }]} />
                   <Text style={S.compStatus}>{comp.status === 'open' ? 'Ouvert' : comp.status === 'active' ? 'En cours' : 'Terminé'}</Text>
                 </View>
                 <Text style={S.compName} numberOfLines={2}>{comp.name}</Text>
@@ -402,7 +413,7 @@ export default function HomeScreen() {
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[S.resultStatus, {
-                  color: r.status === 'approved' ? '#111' : r.status === 'rejected' ? '#DC2626' : '#9CA3AF',
+                  color: r.status === 'approved' ? theme.text : r.status === 'rejected' ? theme.error : theme.textMuted,
                 }]}>
                   {r.status === 'approved' ? 'Validé' : r.status === 'rejected' ? 'Rejeté' : 'En attente'}
                 </Text>
@@ -418,59 +429,77 @@ export default function HomeScreen() {
 }
 
 import { AppTheme } from '../../context/ThemeContext';
-function createStyles(_theme: AppTheme) {
+function createStyles(t: AppTheme) {
+  const isDark = t.mode === 'dark';
+  const cardShadow = isDark ? {} : {
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  };
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff' },
+    container: { flex: 1, backgroundColor: t.background },
 
     // ── Header ──
     header: {
       paddingTop: 58, paddingHorizontal: 20, paddingBottom: 24,
-      backgroundColor: '#fff',
-      borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+      backgroundColor: t.card,
+      borderBottomWidth: isDark ? 1 : 0, borderBottomColor: t.border,
+      ...(isDark ? {} : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }),
     },
     headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-    greeting: { fontSize: 14, fontWeight: '500', color: '#9CA3AF', letterSpacing: 0.2 },
-    username: { fontSize: 28, fontWeight: '900', color: '#111', letterSpacing: -0.8, marginTop: 2 },
-    headerActions: { flexDirection: 'row', gap: 6, paddingTop: 4 },
+    greeting: { fontSize: 14, fontWeight: '500', color: t.textMuted, letterSpacing: 0.2 },
+    username: { fontSize: 26, fontWeight: '900', color: t.text, letterSpacing: -0.5, marginTop: 2 },
+    headerActions: { flexDirection: 'row', gap: 8, paddingTop: 4 },
     iconBtn: {
-      width: 42, height: 42, borderRadius: 21,
-      backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6',
+      width: 42, height: 42, borderRadius: 14,
+      backgroundColor: isDark ? t.surface : t.background,
+      borderWidth: 1, borderColor: t.border,
       justifyContent: 'center', alignItems: 'center',
     },
-    notifDot: {
-      position: 'absolute', top: -2, right: -2,
-      backgroundColor: '#111', borderRadius: 8,
-      minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center',
-      paddingHorizontal: 3, borderWidth: 2, borderColor: '#fff',
+    actionBtns: { flexDirection: 'row', gap: 10, marginTop: 14 },
+    actionBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      backgroundColor: isDark ? t.surface : t.background,
+      borderRadius: 14, paddingVertical: 13,
+      borderWidth: 1, borderColor: t.border,
     },
-    notifDotTxt: { fontSize: 8, fontWeight: '900', color: '#fff' },
+    actionBtnTxt: { fontSize: 14, fontWeight: '700', color: t.text },
+    notifDot: {
+      position: 'absolute', top: -3, right: -3,
+      backgroundColor: t.error, borderRadius: 9,
+      minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center',
+      paddingHorizontal: 3, borderWidth: 2, borderColor: t.card,
+    },
+    notifDotTxt: { fontSize: 9, fontWeight: '900', color: '#fff' },
 
     // ── Hero stats ──
     heroRow: {
       flexDirection: 'row', alignItems: 'center',
-      backgroundColor: '#FAFAFA', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 4,
+      backgroundColor: isDark ? t.surface : t.card,
+      borderRadius: 16, paddingVertical: 18, paddingHorizontal: 4,
       marginBottom: 14,
+      borderWidth: 1, borderColor: t.border,
+      ...cardShadow,
     },
     heroElo: { flex: 1.2, alignItems: 'center' },
-    heroEloNum: { fontSize: 32, fontWeight: '900', color: '#111', letterSpacing: -1 },
-    heroEloLabel: { fontSize: 10, fontWeight: '700', color: '#9CA3AF', letterSpacing: 2, marginTop: 2 },
-    heroDivider: { width: 1, height: 32, backgroundColor: '#E5E7EB' },
+    heroEloNum: { fontSize: 30, fontWeight: '900', color: t.accent, letterSpacing: -1 },
+    heroEloLabel: { fontSize: 10, fontWeight: '700', color: t.textMuted, letterSpacing: 2, marginTop: 2 },
+    heroDivider: { width: 1, height: 28, backgroundColor: t.border },
     heroStat: { flex: 1, alignItems: 'center' },
-    heroStatNum: { fontSize: 18, fontWeight: '800', color: '#111' },
-    heroStatLabel: { fontSize: 9, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.3, marginTop: 2 },
+    heroStatNum: { fontSize: 18, fontWeight: '900', color: t.text },
+    heroStatLabel: { fontSize: 9, fontWeight: '600', color: t.textMuted, letterSpacing: 0.3, marginTop: 2 },
 
     // ── Level ──
     levelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     levelDot: { width: 8, height: 8, borderRadius: 4 },
-    levelTxt: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-    matchesTxt: { fontSize: 11, color: '#D1D5DB', fontWeight: '600', marginLeft: 'auto' },
+    levelTxt: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+    matchesTxt: { fontSize: 11, color: t.textMuted, fontWeight: '500', marginLeft: 'auto' },
 
     // ── Sections ──
     section: { paddingHorizontal: 20, marginTop: 28 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-    sectionTitle: { fontSize: 16, fontWeight: '900', color: '#111', letterSpacing: -0.3, marginBottom: 14 },
-    linkText: { fontSize: 12, fontWeight: '600', color: '#9CA3AF' },
-    emptyText: { fontSize: 13, color: '#D1D5DB', paddingVertical: 12 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: t.text, letterSpacing: -0.3, marginBottom: 14 },
+    linkText: { fontSize: 12, fontWeight: '600', color: t.accent },
+    emptyText: { fontSize: 13, color: t.textMuted, paddingVertical: 12 },
 
     // ── Week activity ──
     weekRow: {
@@ -478,62 +507,71 @@ function createStyles(_theme: AppTheme) {
       height: 56, marginBottom: 20,
     },
     weekCol: { alignItems: 'center', flex: 1, gap: 6 },
-    weekBar: { width: 24, borderRadius: 6, minHeight: 3 },
-    weekDayTxt: { fontSize: 10, fontWeight: '500', color: '#D1D5DB' },
+    weekBar: { width: 22, borderRadius: 6, minHeight: 3 },
+    weekDayTxt: { fontSize: 10, fontWeight: '500', color: t.textMuted },
 
     // ── Progression strip ──
     progStrip: {
-      flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#F3F4F6',
+      flexDirection: 'row', borderTopWidth: 1, borderTopColor: t.border,
       paddingTop: 16, marginBottom: 16,
     },
     progItem: { flex: 1, alignItems: 'center' },
-    progItemNum: { fontSize: 18, fontWeight: '900', color: '#111' },
-    progItemLbl: { fontSize: 9, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.3, marginTop: 3 },
+    progItemNum: { fontSize: 18, fontWeight: '900', color: t.text },
+    progItemLbl: { fontSize: 9, fontWeight: '600', color: t.textMuted, letterSpacing: 0.3, marginTop: 3 },
 
     // ── PRs ──
     prBlock: {
-      borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 16, gap: 10,
+      borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, gap: 10,
     },
-    prBlockTitle: { fontSize: 13, fontWeight: '800', color: '#111', marginBottom: 2 },
+    prBlockTitle: { fontSize: 13, fontWeight: '700', color: t.text, marginBottom: 2 },
     prLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     prLineIcon: { fontSize: 14, width: 20, textAlign: 'center' },
-    prLineName: { flex: 1, fontSize: 13, fontWeight: '600', color: '#374151' },
-    prLineVal: { fontSize: 14, fontWeight: '900', color: '#111' },
+    prLineName: { flex: 1, fontSize: 13, fontWeight: '500', color: t.textSecondary },
+    prLineVal: { fontSize: 14, fontWeight: '900', color: t.text },
 
-    // ── Tool grid ──
-    toolGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    toolCard: {
-      width: '31%', aspectRatio: 1, borderRadius: 16,
-      backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#F3F4F6',
-      justifyContent: 'center', alignItems: 'center', gap: 8,
+    // ── Tool list ──
+    toolList: { gap: 8 },
+    toolRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      backgroundColor: isDark ? t.surface : t.card,
+      borderRadius: 14, borderWidth: 1, borderColor: t.border,
+      paddingVertical: 14, paddingHorizontal: 16,
+      ...cardShadow,
     },
-    toolLabel: { fontSize: 10, fontWeight: '700', color: '#374151', textAlign: 'center', paddingHorizontal: 4 },
+    toolIconBox: {
+      width: 42, height: 42, borderRadius: 12,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    toolLabel: { fontSize: 14, fontWeight: '700', color: t.text },
+    toolDesc: { fontSize: 11, fontWeight: '500', color: t.textMuted, marginTop: 2 },
 
     // ── Competition cards ──
     compCard: {
-      width: 155, backgroundColor: '#FAFAFA', borderRadius: 14,
-      borderWidth: 1, borderColor: '#F3F4F6', padding: 14, gap: 6,
+      width: 160, backgroundColor: isDark ? t.surface : t.card,
+      borderRadius: 14, borderWidth: 1, borderColor: t.border,
+      padding: 14, gap: 6,
+      ...cardShadow,
     },
     compBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     compDot: { width: 6, height: 6, borderRadius: 3 },
-    compStatus: { fontSize: 9, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 },
-    compName: { fontSize: 13, fontWeight: '800', color: '#111', lineHeight: 17 },
-    compMeta: { fontSize: 10, color: '#9CA3AF' },
-    compDate: { fontSize: 10, color: '#D1D5DB' },
+    compStatus: { fontSize: 9, fontWeight: '700', color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+    compName: { fontSize: 13, fontWeight: '700', color: t.text, lineHeight: 17 },
+    compMeta: { fontSize: 10, color: t.textMuted },
+    compDate: { fontSize: 10, color: t.textMuted },
 
     // ── Results ──
     resultRow: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
-      paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+      paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: t.border,
     },
     resultAvatar: {
-      width: 38, height: 38, borderRadius: 19,
-      backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center',
+      width: 38, height: 38, borderRadius: 12,
+      backgroundColor: t.surface, justifyContent: 'center', alignItems: 'center',
     },
-    resultAvatarTxt: { fontSize: 14, fontWeight: '800', color: '#374151' },
-    resultTitle: { fontSize: 13, fontWeight: '700', color: '#111' },
-    resultDate: { fontSize: 11, color: '#D1D5DB', marginTop: 1 },
-    resultStatus: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
-    resultScore: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
+    resultAvatarTxt: { fontSize: 14, fontWeight: '700', color: t.textSecondary },
+    resultTitle: { fontSize: 13, fontWeight: '700', color: t.text },
+    resultDate: { fontSize: 11, color: t.textMuted, marginTop: 1 },
+    resultStatus: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
+    resultScore: { fontSize: 11, color: t.textMuted, marginTop: 1 },
   });
 }

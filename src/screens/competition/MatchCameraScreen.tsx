@@ -97,7 +97,7 @@ export default function MatchCameraScreen({ navigation, route }: Props) {
     return (
       <View style={S.permissionContainer}>
         <Text style={S.permissionTitle}>Accès caméra requis</Text>
-        <Text style={S.permissionSub}>TheHub a besoin de la caméra et du micro pour enregistrer ton WOD.</Text>
+        <Text style={S.permissionSub}>AthleX a besoin de la caméra et du micro pour enregistrer ton WOD.</Text>
         <TouchableOpacity onPress={requestPermissions} activeOpacity={0.8}>
           <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.permissionBtn}>
             <Text style={S.permissionBtnText}>Autoriser</Text>

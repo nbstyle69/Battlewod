@@ -133,13 +133,7 @@ export default function ProfileScreen() {
   const [friends, setFriends] = useState<Array<{ id: string; username: string; level: string; avatar_url?: string }>>([]);
   // ── PR editing
   const [editingPR, setEditingPR] = useState<string | null>(null);
-  const [prValues, setPrValues] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {};
-    PR_CATEGORIES.forEach(cat => cat.items.forEach(item => {
-      init[`${cat.label}_${item.movement}`] = item.value;
-    }));
-    return init;
-  });
+  const [prValues, setPrValues] = useState<Record<string, string>>({});
 
   // ── Box join modal
   const [joinModal, setJoinModal]   = useState(false);
@@ -249,12 +243,12 @@ export default function ProfileScreen() {
   }
 
   async function handleCopyReferral() {
-    await Share.share({ message: referralCode, title: 'Code de parrainage TheHub' });
+    await Share.share({ message: referralCode, title: 'Code de parrainage AthleX' });
   }
 
   async function handleShareReferral() {
     await Share.share({
-      message: `Rejoins-moi sur TheHub ! Utilise mon code de parrainage : ${referralCode} 🏋️`,
+      message: `Rejoins-moi sur AthleX ! Utilise mon code de parrainage : ${referralCode} 🏋️`,
     });
   }
 
@@ -319,7 +313,7 @@ export default function ProfileScreen() {
   async function handleShareBoxCode() {
     if (!currentBox?.invite_code) return;
     await Share.share({
-      message: `Rejoins ma box « ${currentBox.name} » sur TheHub !\nCode d'invitation : ${currentBox.invite_code} 🏋️`,
+      message: `Rejoins ma box « ${currentBox.name} » sur AthleX !\nCode d'invitation : ${currentBox.invite_code} 🏋️`,
     });
   }
 
@@ -448,26 +442,40 @@ export default function ProfileScreen() {
                       <View key={i} style={[S.prRow, i === cat.items.length - 1 && { borderBottomWidth: 0 }]}>
                         <View style={{ flex: 1 }}>
                           <Text style={S.prMovement}>{pr.movement}</Text>
-                          <Text style={S.prDate}>{pr.date}</Text>
+                          <Text style={S.prDate}>
+                            {prValues[`${key}_date`] ?? (prValues[key] ? '' : pr.date)}
+                          </Text>
                         </View>
                         {isEditingThis ? (
                           <View style={S.prEditRow}>
                             <TextInput
                               style={S.prEditInput}
-                              value={prValues[key]}
+                              value={prValues[key] ?? ''}
                               onChangeText={v => setPrValues(prev => ({ ...prev, [key]: v }))}
                               keyboardType="numeric"
                               autoFocus
                               selectTextOnFocus
                             />
                             <Text style={S.prUnit}>{pr.unit}</Text>
-                            <TouchableOpacity onPress={() => { setEditingPR(null); savePRs(prValues); }} style={S.prEditConfirm}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                const today = new Date().toISOString().split('T')[0];
+                                const updated = { ...prValues, [`${key}_date`]: today };
+                                setPrValues(updated);
+                                setEditingPR(null);
+                                savePRs(updated);
+                              }}
+                              style={S.prEditConfirm}
+                            >
                               <Check color={theme.text} size={16} />
                             </TouchableOpacity>
                           </View>
                         ) : (
                           <TouchableOpacity onPress={() => setEditingPR(key)} style={S.prValueBtn}>
-                            <Text style={S.prValue}>{prValues[key]} <Text style={S.prUnit}>{pr.unit}</Text></Text>
+                            <Text style={[S.prValue, !prValues[key] && { color: theme.textMuted }]}>
+                              {prValues[key] ?? '—'}{' '}
+                              <Text style={S.prUnit}>{prValues[key] ? pr.unit : ''}</Text>
+                            </Text>
                             <Edit3 color={theme.textMuted} size={12} />
                           </TouchableOpacity>
                         )}
@@ -776,30 +784,37 @@ function InfoRow({ label, value, S }: { label: string; value: string; S: ReturnT
   );
 }
 
-function createStyles(t: AppTheme) { return StyleSheet.create({
+function createStyles(t: AppTheme) {
+  const isDark = t.mode === 'dark';
+  const cardShadow = isDark ? {} : {
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  };
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: {
     paddingTop: 58, paddingHorizontal: 20, paddingBottom: 20,
     backgroundColor: t.card,
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    borderBottomWidth: isDark ? 1 : 0, borderBottomColor: t.border,
+    ...(isDark ? {} : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }),
   },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
   avatar: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: t.surface, justifyContent: 'center', alignItems: 'center',
+    width: 60, height: 60, borderRadius: 20,
+    backgroundColor: t.accentShadow, justifyContent: 'center', alignItems: 'center',
     borderWidth: 2,
   },
-  avatarText: { fontSize: 22, fontWeight: '900', color: t.text },
+  avatarText: { fontSize: 22, fontWeight: '900', color: '#fff' },
   userInfo: { flex: 1 },
   username: { fontSize: 20, fontWeight: '900', color: t.text, letterSpacing: -0.5 },
   email: { fontSize: 11, color: t.textMuted, marginBottom: 6 },
   levelBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
     alignSelf: 'flex-start', borderWidth: 1,
   },
   levelDot: { width: 5, height: 5, borderRadius: 3 },
-  levelText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  levelText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   logoutBtn: { padding: 8 },
   statsRow: { flexDirection: 'row', marginBottom: 16 },
   statPill: { flex: 1, alignItems: 'center', paddingVertical: 4 },
@@ -808,101 +823,105 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   statPillLabel: { fontSize: 9, color: t.textMuted, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
   progressSection: {},
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  progressLabel: { fontSize: 11, color: t.textMuted, fontWeight: '600' },
-  progressPct: { fontSize: 11, fontWeight: '700', color: t.text },
+  progressLabel: { fontSize: 11, color: t.textMuted, fontWeight: '500' },
+  progressPct: { fontSize: 11, fontWeight: '700', color: t.accent },
   progressTrack: { height: 3, backgroundColor: t.surface, borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
-  progressFill: { height: '100%', backgroundColor: t.text, borderRadius: 2 },
+  progressFill: { height: '100%', backgroundColor: t.accent, borderRadius: 2 },
   progressNote: { fontSize: 10, color: t.textMuted },
   tabs: {
     flexDirection: 'row', backgroundColor: t.card,
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: t.text },
+  tabActive: { borderBottomColor: t.accent },
   tabText: { fontSize: 13, fontWeight: '600', color: t.textMuted },
-  tabTextActive: { color: t.text, fontWeight: '800' },
+  tabTextActive: { color: t.text, fontWeight: '700' },
   content: { padding: 20 },
   gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   gridCard: {
-    width: '47%', backgroundColor: t.surface, borderRadius: 14,
+    width: '47%', backgroundColor: isDark ? t.surface : t.card, borderRadius: 14,
     padding: 16, alignItems: 'center', gap: 6,
     borderWidth: 1, borderColor: t.border,
+    ...cardShadow,
   },
   gridValue: { fontSize: 22, fontWeight: '900', color: t.text },
   gridLabel: { fontSize: 10, color: t.textMuted, fontWeight: '600', textAlign: 'center' },
   prCategory: {
-    backgroundColor: t.card, borderRadius: 14,
+    backgroundColor: isDark ? t.card : t.card, borderRadius: 14,
     borderWidth: 1, borderColor: t.border, marginBottom: 10, overflow: 'hidden',
+    ...cardShadow,
   },
   prCategoryHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14,
   },
   prCategoryIcon: { fontSize: 18 },
-  prCategoryLabel: { flex: 1, fontSize: 14, fontWeight: '800', color: t.text },
+  prCategoryLabel: { flex: 1, fontSize: 14, fontWeight: '700', color: t.text },
   prCategoryCount: { fontSize: 11, color: t.textMuted },
   prRow: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10,
     borderTopWidth: 1, borderTopColor: t.border,
   },
-  prMovement: { flex: 1, fontSize: 13, fontWeight: '600', color: t.textSecondary },
+  prMovement: { flex: 1, fontSize: 13, fontWeight: '500', color: t.textSecondary },
   prDate: { fontSize: 10, color: t.textMuted, marginRight: 12 },
   prValue: { fontSize: 15, fontWeight: '900', color: t.text },
   prUnit: { fontSize: 11, color: t.textMuted, fontWeight: '400' },
   badgeSummary: { marginBottom: 16 },
   badgeSummaryText: { fontSize: 13, color: t.textSecondary },
   badgeCategoryBlock: { marginBottom: 24 },
-  badgeCategoryTitle: { fontSize: 11, fontWeight: '800', color: t.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  badgeCategoryTitle: { fontSize: 11, fontWeight: '700', color: t.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badgeCard: {
-    width: '47%', backgroundColor: t.surface, borderRadius: 14,
+    width: '47%', backgroundColor: isDark ? t.surface : t.card, borderRadius: 14,
     padding: 14, alignItems: 'center', gap: 4,
     borderWidth: 1, borderColor: t.border,
+    ...cardShadow,
   },
   badgeCardLocked: { opacity: 0.3 },
   badgeIcon: { fontSize: 26, marginBottom: 4 },
-  badgeName: { fontSize: 12, fontWeight: '800', color: t.text, textAlign: 'center' },
+  badgeName: { fontSize: 12, fontWeight: '700', color: t.text, textAlign: 'center' },
   badgeDesc: { fontSize: 10, color: t.textMuted, textAlign: 'center', lineHeight: 14 },
-  earnedBar: { height: 2, width: 24, backgroundColor: t.text, borderRadius: 1, marginTop: 4 },
+  earnedBar: { height: 2, width: 24, backgroundColor: t.accent, borderRadius: 1, marginTop: 4 },
 
   compteSection: { gap: 16, paddingBottom: 8 },
   compteCard: {
-    backgroundColor: t.surface, borderRadius: 16,
+    backgroundColor: isDark ? t.surface : t.card, borderRadius: 16,
     borderWidth: 1, borderColor: t.border, padding: 16, gap: 14,
+    ...cardShadow,
   },
   compteCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  compteCardTitle: { fontSize: 11, fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
+  compteCardTitle: { fontSize: 11, fontWeight: '700', color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
   editIconBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editIconText: { fontSize: 12, fontWeight: '700', color: t.text },
+  editIconText: { fontSize: 12, fontWeight: '700', color: t.accent },
   themeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   themeLabel: { fontSize: 14, fontWeight: '600', color: t.text },
 
   boxRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  boxName: { fontSize: 15, fontWeight: '800', color: t.text },
+  boxName: { fontSize: 15, fontWeight: '700', color: t.text },
   boxDesc: { fontSize: 12, color: t.textMuted, marginTop: 2 },
   activeTag: {
-    backgroundColor: t.surface, borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: t.border,
+    backgroundColor: `${t.accent}12`, borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: `${t.accent}25`,
   },
-  activeTagText: { fontSize: 10, fontWeight: '800', color: t.text },
+  activeTagText: { fontSize: 10, fontWeight: '700', color: t.accent },
   noBoxText: { fontSize: 13, color: t.textMuted },
   joinBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: t.text, borderRadius: 12, padding: 14,
+    gap: 8, backgroundColor: t.accent, borderRadius: 14, padding: 14,
   },
-  joinBtnText: { color: t.background, fontSize: 14, fontWeight: '800' },
+  joinBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   leaveBtn: {
-    borderWidth: 1.5, borderColor: t.border, borderRadius: 12,
+    borderWidth: 1.5, borderColor: t.border, borderRadius: 14,
     padding: 12, alignItems: 'center',
   },
-  leaveBtnText: { color: t.textSecondary, fontSize: 13, fontWeight: '700' },
+  leaveBtnText: { color: t.textSecondary, fontSize: 13, fontWeight: '600' },
 
   infoRows: { gap: 0 },
   infoRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  infoRowLabel: { fontSize: 13, color: t.textMuted, fontWeight: '600' },
+  infoRowLabel: { fontSize: 13, color: t.textMuted, fontWeight: '500' },
   infoRowValue: { fontSize: 13, fontWeight: '700', color: t.text, maxWidth: '60%' },
 
   editForm: { gap: 12 },
@@ -910,15 +929,15 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   editField: { flex: 1, gap: 4 },
   editLabel: { fontSize: 11, fontWeight: '700', color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.4 },
   editInput: {
-    backgroundColor: t.card, borderRadius: 10, borderWidth: 1,
+    backgroundColor: isDark ? t.card : t.background, borderRadius: 12, borderWidth: 1,
     borderColor: t.border, paddingHorizontal: 12, paddingVertical: 10,
     fontSize: 14, color: t.text,
   },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: t.text, borderRadius: 12, padding: 14, marginTop: 4,
+    gap: 8, backgroundColor: t.accent, borderRadius: 14, padding: 14, marginTop: 4,
   },
-  saveBtnText: { color: t.background, fontSize: 14, fontWeight: '800' },
+  saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalSheet: {
@@ -926,20 +945,20 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     padding: 24, gap: 14, paddingBottom: 40,
   },
   modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 4 },
-  modalTitle: { fontSize: 20, fontWeight: '900', color: t.text, textAlign: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: t.text, textAlign: 'center' },
   modalSub: { fontSize: 13, color: t.textMuted, textAlign: 'center' },
   codeInput: {
     backgroundColor: t.surface, borderRadius: 14, borderWidth: 1.5,
     borderColor: t.border, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 22, fontWeight: '900', color: t.text, textAlign: 'center', letterSpacing: 6,
+    fontSize: 22, fontWeight: '700', color: t.text, textAlign: 'center', letterSpacing: 6,
   },
   modalCancel: { alignItems: 'center', paddingVertical: 8 },
   modalCancelText: { fontSize: 13, color: t.textMuted, fontWeight: '600' },
 
   photoPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  photoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: t.border },
+  photoPreview: { width: 64, height: 64, borderRadius: 20, borderWidth: 2, borderColor: t.border },
   photoPlaceholder: {
-    width: 64, height: 64, borderRadius: 32,
+    width: 64, height: 64, borderRadius: 20,
     backgroundColor: t.surface, justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: t.border,
   },
@@ -947,7 +966,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   photoPickerBtns: { flex: 1, gap: 8 },
   photoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: t.surface, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12,
+    backgroundColor: t.surface, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12,
     borderWidth: 1, borderColor: t.border,
   },
   photoBtnText: { fontSize: 12, fontWeight: '700', color: t.textSecondary },
@@ -958,29 +977,30 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   friendsList: { gap: 8 },
   friendRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: t.card, borderRadius: 12,
+    backgroundColor: isDark ? t.card : t.card, borderRadius: 14,
     padding: 10, borderWidth: 1, borderColor: t.border,
+    ...cardShadow,
   },
-  friendAvatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 2 },
+  friendAvatar: { width: 40, height: 40, borderRadius: 14, borderWidth: 2 },
   friendAvatarLetter: { fontSize: 16, fontWeight: '900' },
   friendName: { fontSize: 14, fontWeight: '700', color: t.text },
-  friendLevel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5, marginTop: 1 },
+  friendLevel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginTop: 1 },
 
   prValueBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   prEditRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   prEditInput: {
-    backgroundColor: t.card, borderRadius: 8, borderWidth: 1,
-    borderColor: t.text, paddingHorizontal: 8, paddingVertical: 4,
-    fontSize: 16, fontWeight: '800', color: t.text, width: 70, textAlign: 'right',
+    backgroundColor: isDark ? t.card : t.background, borderRadius: 8, borderWidth: 1,
+    borderColor: t.accent, paddingHorizontal: 8, paddingVertical: 4,
+    fontSize: 16, fontWeight: '700', color: t.text, width: 70, textAlign: 'right',
   },
   prEditConfirm: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 28, height: 28, borderRadius: 10,
     backgroundColor: t.surface, justifyContent: 'center', alignItems: 'center',
   },
 
   referralDesc: { fontSize: 12, color: t.textMuted, lineHeight: 17 },
   referralBox: {
-    backgroundColor: t.card, borderRadius: 12, borderWidth: 1.5,
+    backgroundColor: isDark ? t.card : t.background, borderRadius: 14, borderWidth: 1.5,
     borderColor: t.border, paddingVertical: 14, alignItems: 'center',
     borderStyle: 'dashed',
   },
@@ -988,13 +1008,13 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   referralBtns: { flexDirection: 'row', gap: 10 },
   referralBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, borderRadius: 12, paddingVertical: 11,
+    gap: 6, borderRadius: 14, paddingVertical: 11,
     backgroundColor: t.surface, borderWidth: 1, borderColor: t.border,
   },
-  referralBtnShare: { backgroundColor: t.text, borderColor: t.text },
-  referralBtnText: { fontSize: 13, fontWeight: '800', color: t.textSecondary },
+  referralBtnShare: { backgroundColor: t.accent, borderColor: t.accent },
+  referralBtnText: { fontSize: 13, fontWeight: '700', color: t.textSecondary },
   roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: t.surface, borderColor: t.border },
-  roleBadgeText: { fontSize: 12, fontWeight: '800' as const, color: t.textSecondary },
+  roleBadgeText: { fontSize: 12, fontWeight: '700' as const, color: t.textSecondary },
   inviteCodeRow: { flexDirection: 'row' as const, alignItems: 'center' as const },
-  inviteCodeText: { fontSize: 14, fontWeight: '800' as const, letterSpacing: 2, color: t.text },
+  inviteCodeText: { fontSize: 14, fontWeight: '700' as const, letterSpacing: 2, color: t.text },
 }); }

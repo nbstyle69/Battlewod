@@ -1,18 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
-  ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import {
-  ArrowLeft, Users, Clock, Zap, Trophy, Crown, Medal, Check, X,
+  ArrowLeft, Users, Clock, Zap, Trophy, Crown, Medal, Check, X, Play, Edit3,
+  Youtube, AlertTriangle, ThumbsUp, Link,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 
-type Nav = NativeStackNavigationProp<any>;
+import { HomeStackParamList, TimerType } from '../../navigation';
+
+type Nav = NativeStackNavigationProp<HomeStackParamList>;
 type Route = RouteProp<{ DailyTournamentDetail: { tournamentId: string } }, 'DailyTournamentDetail'>;
 
 interface Participant {
@@ -23,6 +27,8 @@ interface Participant {
   score_value: number | null;
   rx: boolean;
   submitted_at: string | null;
+  video_url: string | null;
+  status: string;
 }
 
 interface TournamentDetail {
@@ -55,6 +61,8 @@ function formatScore(value: number, mode: string): string {
 }
 
 export default function DailyTournamentDetailScreen() {
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user } = useAuth();
@@ -73,7 +81,10 @@ export default function DailyTournamentDetailScreen() {
   const [scoreInput, setScoreInput] = useState('');
   const [scoreRx, setScoreRx] = useState(true);
   const [scoreNotes, setScoreNotes] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [contestModal, setContestModal] = useState<Participant | null>(null);
+  const [contestReason, setContestReason] = useState('');
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -94,7 +105,7 @@ export default function DailyTournamentDetailScreen() {
 
     const { data: scores } = await supabase
       .from('daily_tournament_scores')
-      .select('user_id, score_value, rx, submitted_at')
+      .select('user_id, score_value, rx, submitted_at, video_url, status')
       .eq('tournament_id', tournamentId);
 
     const scoreMap = new Map((scores ?? []).map((s: any) => [s.user_id, s]));
@@ -110,6 +121,8 @@ export default function DailyTournamentDetailScreen() {
         score_value: score?.score_value ?? null,
         rx: score?.rx ?? true,
         submitted_at: score?.submitted_at ?? null,
+        video_url: score?.video_url ?? null,
+        status: score?.status ?? 'pending',
       };
     });
 
@@ -125,7 +138,20 @@ export default function DailyTournamentDetailScreen() {
     });
 
     setParticipants(mapped);
-    setHasJoined(mapped.some(p => p.user_id === user.id));
+    const alreadyJoined = mapped.some(p => p.user_id === user.id);
+    const isCreator = t?.creator_id === user.id;
+
+    // Auto-join creator if not already in participants
+    if (isCreator && !alreadyJoined) {
+      await supabase.from('daily_tournament_participants').upsert({
+        tournament_id: tournamentId,
+        user_id: user.id,
+      }, { onConflict: 'tournament_id,user_id', ignoreDuplicates: true });
+      setHasJoined(true);
+    } else {
+      setHasJoined(alreadyJoined);
+    }
+
     setHasScored(mapped.some(p => p.user_id === user.id && p.score_value !== null));
     setLoading(false);
     setRefreshing(false);
@@ -133,13 +159,40 @@ export default function DailyTournamentDetailScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  function mapTimerType(wodType: string): TimerType {
+    const map: Record<string, TimerType> = {
+      'For Time': 'for-time', 'AMRAP': 'amrap', 'EMOM': 'emom', 'Tabata': 'tabata',
+    };
+    return map[wodType] ?? 'for-time';
+  }
+
+  function handleLaunchWOD() {
+    if (!tournament) return;
+    const tt = mapTimerType(tournament.wod_type);
+    const dur = (tournament.duration || 12) * 60;
+    navigation.navigate('TimerRun', {
+      timerType: tt,
+      countdown: 10,
+      totalSeconds: tt === 'amrap' || tt === 'emom' ? dur : 0,
+      maxTime: tt === 'for-time' ? dur : 0,
+      interval: tt === 'emom' ? 60 : 0,
+      rounds: 1,
+      workTime: tt === 'tabata' ? 20 : 0,
+      restTime: tt === 'tabata' ? 10 : 0,
+      withCamera: true,
+      sequence: '[]',
+      videoTitle: tournament.wod_name,
+      withTimestamp: true,
+    });
+  }
+
   async function handleJoin() {
     if (!user) return;
     setJoining(true);
-    const { error } = await supabase.from('daily_tournament_participants').insert({
+    const { error } = await supabase.from('daily_tournament_participants').upsert({
       tournament_id: tournamentId,
       user_id: user.id,
-    });
+    }, { onConflict: 'tournament_id,user_id', ignoreDuplicates: true });
     setJoining(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
     load();
@@ -168,6 +221,8 @@ export default function DailyTournamentDetailScreen() {
       score_value: value,
       rx: scoreRx,
       notes: scoreNotes.trim() || null,
+      video_url: videoUrl.trim() || null,
+      status: 'pending',
     }, { onConflict: 'tournament_id,user_id' });
 
     setSubmitting(false);
@@ -176,6 +231,7 @@ export default function DailyTournamentDetailScreen() {
     setScoreModal(false);
     setScoreInput('');
     setScoreNotes('');
+    setVideoUrl('');
 
     // Check if all participants scored → complete tournament
     const { count } = await supabase
@@ -228,6 +284,29 @@ export default function DailyTournamentDetailScreen() {
     await supabase.from('daily_tournaments').update({ status: 'completed' }).eq('id', tournamentId);
   }
 
+  async function handleValidateScore(participantId: string) {
+    const { error } = await supabase.from('daily_tournament_scores')
+      .update({ status: 'validated' })
+      .eq('tournament_id', tournamentId)
+      .eq('user_id', participantId);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    Alert.alert('✅', 'Score validé !');
+    load();
+  }
+
+  async function handleContestScore() {
+    if (!contestModal || !user) return;
+    const { error } = await supabase.from('daily_tournament_scores')
+      .update({ status: 'contested', contested_by: user.id, contest_reason: contestReason.trim() || null })
+      .eq('tournament_id', tournamentId)
+      .eq('user_id', contestModal.user_id);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    setContestModal(null);
+    setContestReason('');
+    Alert.alert('⚠️', 'Score contesté — un administrateur vérifiera.');
+    load();
+  }
+
   function timeLeft(): string {
     if (!tournament) return '';
     const diff = new Date(tournament.ends_at).getTime() - Date.now();
@@ -240,12 +319,12 @@ export default function DailyTournamentDetailScreen() {
   if (loading || !tournament) {
     return (
       <View style={[S.screen, S.center]}>
-        <ActivityIndicator size="large" color={Colors.accent} />
+        <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }
 
-  const levelColor = LevelColors[tournament.level] ?? Colors.textMuted;
+  const levelColor = LevelColors[tournament.level] ?? theme.textMuted;
   const isCompleted = tournament.status === 'completed';
   const isFull = participants.length >= tournament.max_players;
 
@@ -254,7 +333,7 @@ export default function DailyTournamentDetailScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
-          <ArrowLeft color={Colors.text} size={22} />
+          <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Text style={S.headerTitle} numberOfLines={1}>{tournament.wod_name}</Text>
         <View style={{ width: 22 }} />
@@ -267,20 +346,20 @@ export default function DailyTournamentDetailScreen() {
       >
         {/* Status + badges */}
         <View style={S.badges}>
-          <View style={[S.badge, { backgroundColor: `${Colors.primary}12` }]}>
-            <Text style={[S.badgeTxt, { color: Colors.primary }]}>{tournament.wod_type}</Text>
+          <View style={[S.badge, { backgroundColor: `${theme.accent}12` }]}>
+            <Text style={[S.badgeTxt, { color: theme.accent }]}>{tournament.wod_type}</Text>
           </View>
           <View style={[S.badge, { backgroundColor: `${levelColor}20` }]}>
             <Text style={[S.badgeTxt, { color: levelColor }]}>{tournament.level.toUpperCase()}</Text>
           </View>
           {tournament.duration > 0 && (
-            <View style={[S.badge, { backgroundColor: Colors.surface }]}>
-              <Clock color={Colors.textMuted} size={10} />
-              <Text style={[S.badgeTxt, { color: Colors.textMuted }]}>{tournament.duration} min</Text>
+            <View style={[S.badge, { backgroundColor: theme.surface }]}>
+              <Clock color={theme.textMuted} size={10} />
+              <Text style={[S.badgeTxt, { color: theme.textMuted }]}>{tournament.duration} min</Text>
             </View>
           )}
-          <View style={[S.badge, { backgroundColor: isCompleted ? '#EF444418' : `${Colors.accent}15` }]}>
-            <Text style={[S.badgeTxt, { color: isCompleted ? '#EF4444' : Colors.accent }]}>
+          <View style={[S.badge, { backgroundColor: isCompleted ? '#EF444418' : `${theme.accent}15` }]}>
+            <Text style={[S.badgeTxt, { color: isCompleted ? '#EF4444' : theme.accent }]}>
               {isCompleted ? 'TERMINÉ' : timeLeft()}
             </Text>
           </View>
@@ -288,7 +367,7 @@ export default function DailyTournamentDetailScreen() {
 
         {/* Reward */}
         <View style={S.rewardCard}>
-          <Trophy color={Colors.gold} size={18} />
+          <Trophy color={theme.gold} size={18} />
           <Text style={S.rewardTxt}>Récompense : +{tournament.elo_reward} ELO pour le 1er</Text>
         </View>
 
@@ -300,7 +379,7 @@ export default function DailyTournamentDetailScreen() {
           ))}
           {tournament.scoring && (
             <View style={S.scoringRow}>
-              <Zap color={Colors.gold} size={12} />
+              <Zap color={theme.gold} size={12} />
               <Text style={S.scoringTxt}>{tournament.scoring}</Text>
             </View>
           )}
@@ -316,35 +395,77 @@ export default function DailyTournamentDetailScreen() {
         ) : (
           participants.map((p, i) => {
             const isMe = p.user_id === user?.id;
-            const pLevelColor = LevelColors[p.level] ?? Colors.textMuted;
+            const pLevelColor = LevelColors[p.level] ?? theme.textMuted;
             const rank = p.score_value !== null ? i + 1 : null;
             const RankIcon = rank === 1 ? Crown : rank === 2 ? Medal : rank === 3 ? Medal : null;
-            const rankColor = rank === 1 ? Colors.gold : rank === 2 ? Colors.silver : rank === 3 ? Colors.bronze : Colors.textMuted;
+            const rankColor = rank === 1 ? theme.gold : rank === 2 ? theme.silver : rank === 3 ? theme.bronze : theme.textMuted;
+
+            const statusColor = p.status === 'validated' ? theme.success
+              : p.status === 'contested' ? theme.error : theme.warning;
+            const statusLabel = p.status === 'validated' ? 'Validé'
+              : p.status === 'contested' ? 'Contesté' : 'En attente';
 
             return (
-              <View key={p.user_id} style={[S.playerRow, isMe && S.playerRowMe]}>
-                <View style={S.rankCol}>
-                  {RankIcon ? (
-                    <RankIcon color={rankColor} size={18} />
+              <View key={p.user_id} style={[S.playerCard, isMe && S.playerRowMe]}>
+                <View style={S.playerRow}>
+                  <View style={S.rankCol}>
+                    {RankIcon ? (
+                      <RankIcon color={rankColor} size={18} />
+                    ) : (
+                      <Text style={S.rankNum}>{rank ?? '—'}</Text>
+                    )}
+                  </View>
+                  <View style={S.playerInfo}>
+                    <Text style={S.playerName}>{p.username} {isMe ? '(moi)' : ''}</Text>
+                    <View style={S.playerMeta}>
+                      <View style={[S.levelDot, { backgroundColor: pLevelColor }]} />
+                      <Text style={[S.levelTxt, { color: pLevelColor }]}>{p.level.toUpperCase()}</Text>
+                      <Text style={S.eloTxt}>{p.elo} ELO</Text>
+                    </View>
+                  </View>
+                  {p.score_value !== null ? (
+                    <View style={S.scoreCol}>
+                      <Text style={S.scoreValue}>{formatScore(p.score_value, tournament.score_mode)}</Text>
+                      <Text style={S.scoreRx}>{p.rx ? 'RX' : 'SC'}</Text>
+                    </View>
                   ) : (
-                    <Text style={S.rankNum}>{rank ?? '—'}</Text>
+                    <Text style={S.pendingTxt}>En attente…</Text>
                   )}
                 </View>
-                <View style={S.playerInfo}>
-                  <Text style={S.playerName}>{p.username} {isMe ? '(moi)' : ''}</Text>
-                  <View style={S.playerMeta}>
-                    <View style={[S.levelDot, { backgroundColor: pLevelColor }]} />
-                    <Text style={[S.levelTxt, { color: pLevelColor }]}>{p.level.toUpperCase()}</Text>
-                    <Text style={S.eloTxt}>{p.elo} ELO</Text>
+
+                {/* Video + status + actions (only if scored) */}
+                {p.score_value !== null && (
+                  <View style={S.playerActions}>
+                    <View style={S.playerActionsTop}>
+                      {p.video_url ? (
+                        <TouchableOpacity style={S.videoBtn} onPress={() => Linking.openURL(p.video_url!)} activeOpacity={0.8}>
+                          <Youtube color="#FF0000" size={14} />
+                          <Text style={S.videoBtnTxt}>Vidéo</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={S.noVideoTag}>
+                          <Text style={S.noVideoTxt}>Pas de vidéo</Text>
+                        </View>
+                      )}
+                      <View style={[S.statusTag, { backgroundColor: `${statusColor}15` }]}>
+                        <Text style={[S.statusTxt, { color: statusColor }]}>{statusLabel}</Text>
+                      </View>
+                    </View>
+
+                    {/* Validate / Contest (only for other participants, not self, and only if pending) */}
+                    {!isMe && hasJoined && p.status === 'pending' && (
+                      <View style={S.voteRow}>
+                        <TouchableOpacity style={S.validateBtn} onPress={() => handleValidateScore(p.user_id)} activeOpacity={0.8}>
+                          <ThumbsUp color={theme.success} size={13} />
+                          <Text style={[S.voteTxt, { color: theme.success }]}>Valider</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={S.contestBtn} onPress={() => { setContestModal(p); setContestReason(''); }} activeOpacity={0.8}>
+                          <AlertTriangle color={theme.error} size={13} />
+                          <Text style={[S.voteTxt, { color: theme.error }]}>Contester</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
-                </View>
-                {p.score_value !== null ? (
-                  <View style={S.scoreCol}>
-                    <Text style={S.scoreValue}>{formatScore(p.score_value, tournament.score_mode)}</Text>
-                    <Text style={S.scoreRx}>{p.rx ? 'RX' : 'SC'}</Text>
-                  </View>
-                ) : (
-                  <Text style={S.pendingTxt}>En attente…</Text>
                 )}
               </View>
             );
@@ -365,14 +486,20 @@ export default function DailyTournamentDetailScreen() {
               </TouchableOpacity>
             )}
             {hasJoined && !hasScored && (
-              <TouchableOpacity style={S.actionBtn} onPress={() => setScoreModal(true)} activeOpacity={0.85}>
-                <Zap color="#fff" size={16} />
-                <Text style={S.actionBtnTxt}>Entrer mon score</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity style={S.actionBtn} onPress={handleLaunchWOD} activeOpacity={0.85}>
+                  <Play color="#fff" size={16} />
+                  <Text style={S.actionBtnTxt}>Lancer le WOD</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={S.secondaryBtn} onPress={() => setScoreModal(true)} activeOpacity={0.85}>
+                  <Edit3 color={theme.accent} size={16} />
+                  <Text style={S.secondaryBtnTxt}>Entrer mon score manuellement</Text>
+                </TouchableOpacity>
+              </>
             )}
             {hasScored && (
               <View style={S.doneBadge}>
-                <Check color={Colors.accent} size={16} />
+                <Check color={theme.accent} size={16} />
                 <Text style={S.doneTxt}>Score soumis ✓</Text>
               </View>
             )}
@@ -381,7 +508,7 @@ export default function DailyTournamentDetailScreen() {
 
         {isCompleted && participants.length > 0 && participants[0].score_value !== null && (
           <View style={S.winnerCard}>
-            <Crown color={Colors.gold} size={22} />
+            <Crown color={theme.gold} size={22} />
             <Text style={S.winnerTxt}>🏆 {participants[0].username} remporte +{tournament.elo_reward} ELO !</Text>
           </View>
         )}
@@ -395,22 +522,31 @@ export default function DailyTournamentDetailScreen() {
             <View style={S.modalHeader}>
               <Text style={S.modalTitle}>Entrer mon score</Text>
               <TouchableOpacity onPress={() => setScoreModal(false)} hitSlop={8}>
-                <X color={Colors.textMuted} size={20} />
+                <X color={theme.textMuted} size={20} />
               </TouchableOpacity>
             </View>
 
             <Text style={S.modalLabel}>
-              {tournament.score_mode === 'time' ? 'TEMPS (MM:SS ou secondes)' :
+              {tournament.score_mode === 'time' ? 'TEMPS (MM:SS)' :
                tournament.score_mode === 'reps' ? 'NOMBRE DE REPS' :
                tournament.score_mode === 'rounds' ? 'NOMBRE DE ROUNDS' : 'POIDS (KG)'}
             </Text>
             <TextInput
               style={S.modalInput}
               value={scoreInput}
-              onChangeText={setScoreInput}
-              keyboardType="numeric"
+              onChangeText={(raw) => {
+                if (tournament.score_mode === 'time') {
+                  const digits = raw.replace(/\D/g, '').slice(0, 4);
+                  if (digits.length <= 2) setScoreInput(digits);
+                  else setScoreInput(`${digits.slice(0, 2)}:${digits.slice(2)}`);
+                } else {
+                  setScoreInput(raw);
+                }
+              }}
+              keyboardType="number-pad"
               placeholder={tournament.score_mode === 'time' ? '12:30' : '150'}
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={theme.textMuted}
+              maxLength={tournament.score_mode === 'time' ? 5 : undefined}
               autoFocus
             />
 
@@ -428,9 +564,23 @@ export default function DailyTournamentDetailScreen() {
               value={scoreNotes}
               onChangeText={setScoreNotes}
               placeholder="Notes (optionnel)"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               multiline
             />
+
+            <Text style={S.modalLabel}>LIEN VIDÉO YOUTUBE (recommandé)</Text>
+            <View style={S.videoInputRow}>
+              <Link color={theme.textMuted} size={16} />
+              <TextInput
+                style={S.videoInput}
+                value={videoUrl}
+                onChangeText={setVideoUrl}
+                placeholder="https://youtube.com/..."
+                placeholderTextColor={theme.textMuted}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+            </View>
 
             <TouchableOpacity
               style={[S.submitBtn, (!scoreInput.trim() || submitting) && { opacity: 0.5 }]}
@@ -448,99 +598,180 @@ export default function DailyTournamentDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Contest modal */}
+      <Modal visible={!!contestModal} transparent animationType="slide" onRequestClose={() => setContestModal(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
+          <View style={S.modalSheet}>
+            <View style={S.modalHandle} />
+            <View style={S.modalHeader}>
+              <Text style={S.modalTitle}>Contester le score</Text>
+              <TouchableOpacity onPress={() => setContestModal(null)} hitSlop={8}>
+                <X color={theme.textMuted} size={20} />
+              </TouchableOpacity>
+            </View>
+            <Text style={S.contestInfo}>
+              {contestModal?.username} — {contestModal?.score_value != null ? formatScore(contestModal.score_value, tournament?.score_mode ?? 'time') : ''}
+            </Text>
+            <TextInput
+              style={[S.modalInput, { minHeight: 80 }]}
+              value={contestReason}
+              onChangeText={setContestReason}
+              placeholder="Raison de la contestation..."
+              placeholderTextColor={theme.textMuted}
+              multiline
+            />
+            <TouchableOpacity style={S.contestConfirmBtn} onPress={handleContestScore} activeOpacity={0.85}>
+              <AlertTriangle color="#fff" size={16} />
+              <Text style={S.contestConfirmTxt}>Confirmer la contestation</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={S.modalCancelBtn} onPress={() => setContestModal(null)}>
+              <Text style={S.modalCancelTxt}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
 
-const S = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.background },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  headerTitle: { fontSize: 18, fontWeight: '900', color: Colors.text, flex: 1, textAlign: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '900', color: t.text, flex: 1, textAlign: 'center' },
   content: { padding: 16, gap: 14, paddingBottom: 40 },
   badges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgeTxt: { fontSize: 10, fontWeight: '800' },
   rewardCard: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: `${Colors.gold}12`, borderRadius: 12, padding: 12,
+    backgroundColor: `${t.gold}12`, borderRadius: 12, padding: 12,
   },
-  rewardTxt: { fontSize: 13, fontWeight: '700', color: Colors.gold },
+  rewardTxt: { fontSize: 13, fontWeight: '700', color: t.gold },
   wodCard: {
-    backgroundColor: Colors.card, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: Colors.border, gap: 4,
+    backgroundColor: t.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: t.border, gap: 4,
   },
-  wodTitle: { fontSize: 18, fontWeight: '900', color: Colors.text, marginBottom: 4 },
-  wodHeader: { fontSize: 12, fontWeight: '800', color: Colors.textSecondary },
-  wodLine: { fontSize: 13, fontWeight: '600', color: Colors.text },
+  wodTitle: { fontSize: 18, fontWeight: '900', color: t.text, marginBottom: 4 },
+  wodHeader: { fontSize: 12, fontWeight: '800', color: t.textSecondary },
+  wodLine: { fontSize: 13, fontWeight: '600', color: t.text },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  scoringTxt: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary },
-  sectionTitle: { fontSize: 15, fontWeight: '900', color: Colors.text },
-  noParticipants: { fontSize: 13, color: Colors.textMuted },
+  scoringTxt: { fontSize: 11, fontWeight: '700', color: t.textSecondary },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: t.text },
+  noParticipants: { fontSize: 13, color: t.textMuted },
   playerRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.card, borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: Colors.border, gap: 10,
+    flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10,
   },
-  playerRowMe: { borderColor: Colors.accent, backgroundColor: `${Colors.accent}06` },
+  playerRowMe: { borderColor: t.accent, backgroundColor: `${t.accent}06` },
   rankCol: { width: 28, alignItems: 'center' },
-  rankNum: { fontSize: 14, fontWeight: '900', color: Colors.textMuted },
+  rankNum: { fontSize: 14, fontWeight: '900', color: t.textMuted },
   playerInfo: { flex: 1 },
-  playerName: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  playerName: { fontSize: 14, fontWeight: '700', color: t.text },
   playerMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   levelDot: { width: 6, height: 6, borderRadius: 3 },
   levelTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
-  eloTxt: { fontSize: 10, color: Colors.textMuted, fontWeight: '600' },
+  eloTxt: { fontSize: 10, color: t.textMuted, fontWeight: '600' },
   scoreCol: { alignItems: 'flex-end' },
-  scoreValue: { fontSize: 16, fontWeight: '900', color: Colors.text },
-  scoreRx: { fontSize: 9, fontWeight: '800', color: Colors.accent, marginTop: 1 },
-  pendingTxt: { fontSize: 11, color: Colors.textMuted, fontStyle: 'italic' },
+  scoreValue: { fontSize: 16, fontWeight: '900', color: t.text },
+  scoreRx: { fontSize: 9, fontWeight: '800', color: t.accent, marginTop: 1 },
+  pendingTxt: { fontSize: 11, color: t.textMuted, fontStyle: 'italic' },
   actions: { gap: 10 },
   actionBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.accent, borderRadius: 12, padding: 14,
+    backgroundColor: t.accent, borderRadius: 12, padding: 14,
   },
   actionBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  secondaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: `${t.accent}12`, borderRadius: 12, padding: 14,
+    borderWidth: 1.5, borderColor: `${t.accent}30`,
+  },
+  secondaryBtnTxt: { color: t.accent, fontSize: 13, fontWeight: '800' },
   doneBadge: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: `${Colors.accent}12`, borderRadius: 12, padding: 14,
+    backgroundColor: `${t.accent}12`, borderRadius: 12, padding: 14,
   },
-  doneTxt: { fontSize: 14, fontWeight: '800', color: Colors.accent },
+  doneTxt: { fontSize: 14, fontWeight: '800', color: t.accent },
   winnerCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: `${Colors.gold}12`, borderRadius: 14, padding: 16,
-    borderWidth: 1.5, borderColor: `${Colors.gold}30`,
+    backgroundColor: `${t.gold}12`, borderRadius: 14, padding: 16,
+    borderWidth: 1.5, borderColor: `${t.gold}30`,
   },
-  winnerTxt: { fontSize: 14, fontWeight: '900', color: Colors.gold, flex: 1 },
+  winnerTxt: { fontSize: 14, fontWeight: '900', color: t.gold, flex: 1 },
   // Modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalSheet: {
-    backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: t.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 40, gap: 12,
   },
-  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 4 },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 4 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontSize: 18, fontWeight: '900', color: Colors.text },
-  modalLabel: { fontSize: 11, fontWeight: '800', color: Colors.textMuted, letterSpacing: 0.5 },
+  modalTitle: { fontSize: 18, fontWeight: '900', color: t.text },
+  modalLabel: { fontSize: 11, fontWeight: '800', color: t.textMuted, letterSpacing: 0.5 },
   modalInput: {
-    backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
-    padding: 12, fontSize: 16, fontWeight: '700', color: Colors.text,
+    backgroundColor: t.surface, borderRadius: 10, borderWidth: 1, borderColor: t.border,
+    padding: 12, fontSize: 16, fontWeight: '700', color: t.text,
   },
   rxRow: { flexDirection: 'row', gap: 8 },
   rxBtn: {
     flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+    borderWidth: 1.5, borderColor: t.border, backgroundColor: t.surface,
   },
-  rxBtnSel: { backgroundColor: `${Colors.accent}15`, borderColor: Colors.accent },
-  rxTxt: { fontSize: 13, fontWeight: '700', color: Colors.textMuted },
-  rxTxtSel: { color: Colors.accent, fontWeight: '900' },
+  rxBtnSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
+  rxTxt: { fontSize: 13, fontWeight: '700', color: t.textMuted },
+  rxTxtSel: { color: t.accent, fontWeight: '900' },
   submitBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.accent, borderRadius: 12, padding: 14,
+    backgroundColor: t.accent, borderRadius: 12, padding: 14,
   },
   submitBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
-});
+  // Player card with actions
+  playerCard: {
+    backgroundColor: t.card, borderRadius: 12,
+    borderWidth: 1, borderColor: t.border, overflow: 'hidden',
+  },
+  playerActions: { paddingHorizontal: 12, paddingBottom: 10, gap: 8, borderTopWidth: 1, borderTopColor: t.border, paddingTop: 8 },
+  playerActionsTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  videoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#FF000012', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  videoBtnTxt: { fontSize: 11, fontWeight: '700', color: '#FF0000' },
+  noVideoTag: { backgroundColor: t.surface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  noVideoTxt: { fontSize: 11, fontWeight: '600', color: t.textMuted },
+  statusTag: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  statusTxt: { fontSize: 11, fontWeight: '800' },
+  voteRow: { flexDirection: 'row', gap: 8 },
+  validateBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    backgroundColor: `${t.success}12`, borderRadius: 8, paddingVertical: 8,
+    borderWidth: 1, borderColor: `${t.success}25`,
+  },
+  contestBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    backgroundColor: `${t.error}12`, borderRadius: 8, paddingVertical: 8,
+    borderWidth: 1, borderColor: `${t.error}25`,
+  },
+  voteTxt: { fontSize: 12, fontWeight: '700' },
+  // Video input in score modal
+  videoInputRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: t.surface, borderRadius: 10, borderWidth: 1, borderColor: t.border,
+    paddingHorizontal: 12,
+  },
+  videoInput: { flex: 1, fontSize: 14, fontWeight: '600', color: t.text, paddingVertical: 12 },
+  // Contest modal
+  contestInfo: { fontSize: 14, fontWeight: '700', color: t.textSecondary },
+  contestConfirmBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: t.error, borderRadius: 12, padding: 14,
+  },
+  contestConfirmTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  modalCancelBtn: { alignItems: 'center', padding: 12 },
+  modalCancelTxt: { fontSize: 14, color: t.textMuted, fontWeight: '700' },
+}); }
