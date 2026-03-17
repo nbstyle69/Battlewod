@@ -89,11 +89,26 @@ export default function WhiteboardScreen() {
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
 
-    // 1. Fetch user's group memberships
+    // 1. Fetch user's group memberships + visibility modes
     const { data: myGroupRows } = user
       ? await supabase.from('message_group_members').select('group_id').eq('member_id', user.id)
       : { data: [] };
     const myGroupIds = new Set((myGroupRows ?? []).map((r: any) => r.group_id));
+
+    // Fetch visibility mode for each group the user belongs to
+    const groupVisibility: Record<string, string> = {};
+    if (myGroupIds.size > 0) {
+      const { data: grpModes } = await supabase
+        .from('message_groups')
+        .select('id, wod_visibility_mode')
+        .in('id', [...myGroupIds]);
+      for (const g of (grpModes ?? []) as any[]) {
+        groupVisibility[g.id] = g.wod_visibility_mode ?? 'weekly';
+      }
+    }
+
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const isFutureDate = selectedDate > todayISO;
 
     const { data: dayData } = await supabase
       .from('box_wods')
@@ -118,11 +133,21 @@ export default function WhiteboardScreen() {
       }
     }
 
-    // 3. Filter by group access
+    // 3. Filter by group access + visibility mode
     function canSee(wod: any): boolean {
       const restricted = accessMap[wod.id];
+      // No group restriction → visible to all
       if (!restricted || restricted.length === 0) return true;
-      return restricted.some(gid => myGroupIds.has(gid));
+      // Check if user belongs to any restricted group
+      const myMatchingGroups = restricted.filter(gid => myGroupIds.has(gid));
+      if (myMatchingGroups.length === 0) return false;
+      // If future date, check visibility mode:
+      // hidden only if ALL matching groups are 'daily'
+      if (isFutureDate) {
+        const hasWeekly = myMatchingGroups.some(gid => groupVisibility[gid] === 'weekly');
+        if (!hasWeekly) return false;
+      }
+      return true;
     }
 
     setDayWODs((dayData ?? []).filter(canSee) as BoxWOD[]);
