@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  s.name           = 'video-overlay'
+  s.name           = 'VideoOverlay'
   s.version        = '1.0.0'
   s.summary        = 'Native video overlay module for burning timer/countdown overlays into videos'
   s.description    = 'Expo module that burns timer, countdown, title and watermark overlays into recorded videos using AVFoundation.'
@@ -12,5 +12,5 @@ Pod::Spec.new do |s|
 
   s.dependency 'ExpoModulesCore'
 
-  s.source_files = 'ios/**/*.{h,m,mm,swift}'
+  s.source_files = '**/*.{h,m,mm,swift}'
 end
