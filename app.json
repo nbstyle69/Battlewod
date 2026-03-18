@@ -77,6 +77,12 @@
         "projectId": "54f4c573-40f9-4b3a-a2dd-d2e93500482b"
       }
     },
-    "owner": "nbstyle"
+    "owner": "nbstyle",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/54f4c573-40f9-4b3a-a2dd-d2e93500482b"
+    }
   }
 }

@@ -31,6 +31,7 @@
     "expo-media-library": "~18.2.1",
     "expo-notifications": "^0.32.16",
     "expo-status-bar": "~3.0.9",
+    "expo-updates": "~29.0.16",
     "expo-video": "~3.0.16",
     "expo-web-browser": "^55.0.10",
     "lucide-react-native": "^0.460.0",
@@ -38,7 +39,6 @@
     "react-dom": "^19.1.0",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
-    "realtime-recorder": "file:./modules/realtime-recorder",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
@@ -49,6 +49,7 @@
     "react-native-web": "^0.21.0",
     "react-native-webview": "^13.12.5",
     "react-native-worklets": "0.5.1",
+    "realtime-recorder": "file:./modules/realtime-recorder",
     "screen-recorder": "file:./modules/screen-recorder",
     "video-overlay": "file:./modules/video-overlay"
   },
@@ -59,7 +60,9 @@
   "private": true,
   "expo": {
     "autolinking": {
-      "exclude": ["expo-dev-client"]
+      "exclude": [
+        "expo-dev-client"
+      ]
     }
   }
 }

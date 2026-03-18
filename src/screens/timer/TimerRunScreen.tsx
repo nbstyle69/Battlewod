@@ -279,7 +279,7 @@ export default function TimerRunScreen() {
   const [showYT, setShowYT] = useState(false);
   const [ytLink, setYtLink] = useState('');
   const [isRecordingActive, setIsRecordingActive] = useState(false);
-  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(withCamera);
   const [sessionMeta, setSessionMeta] = useState<{
     videoURL: string; title: string; recordedAt: string;
     timerStartOffset: number; timerStopOffset: number; countdownDuration: number;
@@ -308,16 +308,6 @@ export default function TimerRunScreen() {
   }, [withTimestamp]);
   const [facing, setFacing] = useState<'front' | 'back'>('back');
 
-  // Fallback: if onReady never fires from native, force isCameraReady after 2s
-  const camGranted = camPermission?.granted ?? false;
-  useEffect(() => {
-    if (!withCamera || isCameraReady || !camGranted) return;
-    const t = setTimeout(() => {
-      console.log('⚠️ onReady fallback — forcing isCameraReady');
-      setIsCameraReady(true);
-    }, 2000);
-    return () => clearTimeout(t);
-  }, [withCamera, isCameraReady, camGranted]);
 
   // Sync overlay state to native module on every render tick
   useEffect(() => {
@@ -784,7 +774,7 @@ export default function TimerRunScreen() {
   function handleReset() {
     clearTimer();
     if (withCamera && recordingActiveRef.current) { nativeStopRec().catch(() => {}); recordingActiveRef.current = false; setIsRecordingActive(false); }
-    setIsCameraReady(false);
+    setIsCameraReady(withCamera);
     setCountdownVal(countdown);
     setSavedUri(null); setSaving(false);
     recordingCdRef.current = 0;
