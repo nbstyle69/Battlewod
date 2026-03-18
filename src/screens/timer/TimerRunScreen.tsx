@@ -484,8 +484,9 @@ export default function TimerRunScreen() {
           });
           overlayDidBurn = true;
           console.log('🔥 overlay burned:', finalVideoPath);
-        } catch (overlayErr) {
+        } catch (overlayErr: any) {
           console.warn('⚠️ Native overlay failed, saving raw video:', overlayErr);
+          Alert.alert('Overlay debug', String(overlayErr?.message || overlayErr));
         }
 
         // Save processed (or raw fallback) video to phone gallery
