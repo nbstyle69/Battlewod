@@ -484,17 +484,29 @@ export default function TimerRunScreen() {
           });
           overlayDidBurn = true;
           console.log('🔥 overlay burned:', finalVideoPath);
+          // Debug: compare file sizes
+          const inputInfo = await FileSystem.getInfoAsync(permanentPath);
+          const outputInfo = await FileSystem.getInfoAsync(finalVideoPath);
+          const inSize = inputInfo.exists ? ((inputInfo as any).size ?? 0) : 0;
+          const outSize = outputInfo.exists ? ((outputInfo as any).size ?? 0) : 0;
+          Alert.alert('Burn OK', 
+            `input: ${Math.round(inSize / 1024)}KB\n` +
+            `output: ${Math.round(outSize / 1024)}KB\n` +
+            `outputExists: ${outputInfo.exists}\n` +
+            `outputPath: ${finalVideoPath?.slice(-40)}`
+          );
         } catch (overlayErr: any) {
           console.warn('⚠️ Native overlay failed, saving raw video:', overlayErr);
-          Alert.alert('Overlay debug', String(overlayErr?.message || overlayErr));
+          Alert.alert('Overlay FAIL', String(overlayErr?.message || overlayErr));
         }
 
         // Save processed (or raw fallback) video to phone gallery
         try {
           await MediaLibrary.saveToLibraryAsync(finalVideoPath);
           console.log('✅ saved to library');
-        } catch (libErr) {
+        } catch (libErr: any) {
           console.warn('⚠️ MediaLibrary save failed:', libErr);
+          Alert.alert('Library FAIL', String(libErr?.message || libErr));
         }
         setSavedUri(finalVideoPath);
 
