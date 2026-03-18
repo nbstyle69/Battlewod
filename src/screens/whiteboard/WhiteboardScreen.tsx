@@ -4,7 +4,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { Clock, ChevronRight, Hash, Users, X, MessageCircle, FileText } from 'lucide-react-native';
+import { Clock, ChevronRight, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -183,8 +183,8 @@ export default function WhiteboardScreen() {
               onPress={() => navigation.navigate('Documents')}
               activeOpacity={0.8}
             >
-              <FileText size={16} color={theme.accent} />
-              <Text style={S.membersBtnText}>Mes Documents</Text>
+              <Upload size={16} color={theme.accent} />
+              <Text style={S.membersBtnText}>Importation WOD</Text>
             </TouchableOpacity>
             <TouchableOpacity style={S.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.85}>
               <Hash color="#fff" size={16} />
@@ -267,8 +267,8 @@ export default function WhiteboardScreen() {
           onPress={() => navigation.navigate('Documents')}
           activeOpacity={0.8}
         >
-          <FileText size={16} color={theme.accent} />
-          <Text style={S.membersBtnText}>Documents</Text>
+          <Upload size={16} color={theme.accent} />
+          <Text style={S.membersBtnText}>Importation WOD</Text>
         </TouchableOpacity>
       </View>
 
@@ -279,6 +279,32 @@ export default function WhiteboardScreen() {
         onSelectDate={setSelectedDate}
         theme={theme}
       />
+
+      {/* Quick action buttons when a WOD block exists */}
+      {(() => {
+        const mainWod = dayWODs.find(w => w.block_name === 'wod');
+        if (!mainWod) return null;
+        return (
+          <View style={S.quickActions}>
+            <TouchableOpacity
+              style={S.scoreBtn}
+              onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id })}
+              activeOpacity={0.85}
+            >
+              <Sparkles size={20} color="#fff" />
+              <Text style={S.scoreBtnText}>ENTRER MON SCORE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={S.rankBtn}
+              onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id })}
+              activeOpacity={0.85}
+            >
+              <Trophy size={18} color={theme.accent} />
+              <Text style={S.rankBtnText}>Classement</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })()}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -403,7 +429,7 @@ function createStyles(theme: AppTheme) {
   headerTitle: { fontSize: 22, fontWeight: '900', color: theme.text, letterSpacing: -0.3 },
   headerSub:   { fontSize: 12, color: theme.textMuted, marginTop: 2 },
   membersBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: isDark ? `${theme.accent}15` : `${theme.accent}08`,
     borderRadius: 12,
     paddingHorizontal: 12, paddingVertical: 8,
@@ -506,5 +532,26 @@ function createStyles(theme: AppTheme) {
     borderColor: theme.border, paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 22, fontWeight: '700', color: theme.text,
     letterSpacing: 6, textAlign: 'center',
+  },
+  quickActions: {
+    paddingHorizontal: 16, gap: 10, marginTop: 12,
+  },
+  scoreBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, backgroundColor: '#10B981', borderRadius: 16,
+    paddingVertical: 18, paddingHorizontal: 20,
+  },
+  scoreBtnText: {
+    color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 0.5,
+  },
+  rankBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8,
+    backgroundColor: isDark ? `${theme.accent}15` : `${theme.accent}08`,
+    borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20,
+    borderWidth: 1, borderColor: `${theme.accent}30`,
+  },
+  rankBtnText: {
+    fontSize: 14, fontWeight: '700', color: theme.accent,
   },
 }); }

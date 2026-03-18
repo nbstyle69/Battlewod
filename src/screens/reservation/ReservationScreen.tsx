@@ -216,6 +216,21 @@ export default function ReservationScreen() {
         }
       } catch (_) { /* if RPC doesn't exist yet, skip check */ }
 
+      // Check daily limit (1 créneau/jour sauf illimité)
+      try {
+        const { data: dailyData } = await supabase.rpc('check_daily_limit', {
+          p_user_id: user.id, p_box_id: currentBox.id, p_date: item.scheduled_date,
+        });
+        if (dailyData && !dailyData.allowed) {
+          Alert.alert(
+            'Limite journalière',
+            'Tu as déjà réservé un créneau ce jour. Ton abonnement permet 1 séance par jour.',
+          );
+          setBooking(null);
+          return;
+        }
+      } catch (_) { /* if RPC doesn't exist yet, skip check */ }
+
       const status = item.available_spots > 0 ? 'confirmed' : 'waiting';
       if (status === 'waiting') {
         Alert.alert(
@@ -329,8 +344,8 @@ export default function ReservationScreen() {
                       >
                         <View style={S.slotLeft}>
                           <View style={S.slotTimeRow}>
-                            <Clock color={item.my_status === 'confirmed' ? theme.accent : theme.textMuted} size={12} />
-                            <Text style={[S.slotTime, item.my_status === 'confirmed' && { color: theme.accent }]}>
+                            <Clock color={item.my_status === 'confirmed' ? '#C9A227' : theme.textMuted} size={12} />
+                            <Text style={[S.slotTime, item.my_status === 'confirmed' && { color: '#C9A227' }]}>
                               {item.start_time} – {item.end_time}
                             </Text>
                           </View>
@@ -383,7 +398,7 @@ export default function ReservationScreen() {
                               onPress={() => toggleBooking(item)}
                               disabled={isBusy}
                             >
-                              {item.my_status === 'confirmed' && <Check color={theme.accent} size={13} />}
+                              {item.my_status === 'confirmed' && <Check color={'#C9A227'} size={13} />}
                               {isWaiting && <Timer color="#f59e0b" size={13} />}
                               <Text style={[
                                 S.bookBtnText,
@@ -537,7 +552,7 @@ function createStyles(t: AppTheme) {
     noSlotsText:        { fontSize: 12, color: t.textMuted, fontStyle: 'italic' },
 
     slotCard:           { flexDirection: 'row', alignItems: 'center', backgroundColor: t.card, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: t.border },
-    slotCardBooked:     { borderColor: t.accent, backgroundColor: `${t.accent}08` },
+    slotCardBooked:     { borderColor: '#C9A227', backgroundColor: 'rgba(201,162,39,0.08)' },
     slotCardWaiting:    { borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.05)' },
     slotCardPast:       { opacity: 0.45 },
     slotLeft:           { flex: 1 },
@@ -559,11 +574,11 @@ function createStyles(t: AppTheme) {
     waitingPositionLabel: { fontSize: 11, fontWeight: '700', color: '#f59e0b' },
 
     bookBtn:            { backgroundColor: t.accent, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
-    bookBtnBooked:      { backgroundColor: `${t.accent}15`, borderWidth: 1, borderColor: t.accent },
+    bookBtnBooked:      { backgroundColor: 'rgba(201,162,39,0.15)', borderWidth: 1, borderColor: '#C9A227' },
     bookBtnWaiting:     { backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 1, borderColor: '#f59e0b' },
     bookBtnQueue:       { backgroundColor: t.card, borderWidth: 1, borderColor: t.border },
     bookBtnText:        { fontSize: 12, fontWeight: '800', color: '#fff' },
-    bookBtnTextBooked:  { color: t.accent },
+    bookBtnTextBooked:  { color: '#C9A227' },
     bookBtnTextWaiting: { color: '#f59e0b' },
 
     emptyWeek:          { alignItems: 'center', paddingTop: 60, gap: 12 },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Image,
 } from 'react-native';
 import { Zap, Trophy, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -235,10 +235,12 @@ export default function HomeScreen() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={S.header}>
         <View style={S.headerTop}>
-          <View>
-            <Text style={S.greeting}>Bonjour,</Text>
+          <View style={{ flex: 1 }}>
             <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
           </View>
+          {currentBox?.logo_url ? (
+            <Image source={{ uri: currentBox.logo_url }} style={S.boxLogo} />
+          ) : null}
         </View>
 
         {/* Hero: ELO + Level + Rank */}
@@ -445,9 +447,9 @@ function createStyles(t: AppTheme) {
       borderBottomWidth: isDark ? 1 : 0, borderBottomColor: t.border,
       ...(isDark ? {} : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 }),
     },
-    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-    greeting: { fontSize: 14, fontWeight: '500', color: t.textMuted, letterSpacing: 0.2 },
-    username: { fontSize: 26, fontWeight: '900', color: t.text, letterSpacing: -0.5, marginTop: 2 },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+    username: { fontSize: 26, fontWeight: '900', color: t.text, letterSpacing: -0.5 },
+    boxLogo: { width: 44, height: 44, borderRadius: 12, backgroundColor: t.surface },
     headerActions: { flexDirection: 'row', gap: 8, paddingTop: 4 },
     iconBtn: {
       width: 42, height: 42, borderRadius: 14,

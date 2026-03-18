@@ -1,12 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Target } from 'lucide-react-native';
+import { ArrowLeft, Target, ChevronDown, ChevronUp, Dumbbell } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
+
+const PR_MOVEMENTS = [
+  'Back Squat', 'Front Squat', 'Deadlift', 'Bench Press',
+  'Strict Press', 'Push Press', 'Push Jerk', 'Split Jerk',
+  'Squat Clean', 'Power Clean', 'Hang Power Clean', 'Hang Squat Clean',
+  'Squat Snatch', 'Power Snatch', 'Hang Power Snatch', 'Hang Squat Snatch',
+  'Clean & Jerk', 'Overhead Squat', 'Thruster',
+];
 
 const ZONES: Array<{
   pct: number;
@@ -41,9 +51,42 @@ function round(val: number, step: number): number {
 export default function OneRMCalculatorScreen() {
   const navigation = useNavigation();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const S = createStyles(theme);
   const [input, setInput] = useState('');
   const [isLbs, setIsLbs] = useState(false);
+  const [selectedMovement, setSelectedMovement] = useState<string | null>(null);
+  const [prData, setPrData] = useState<Record<string, string>>({});
+  const [showPRList, setShowPRList] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('personal_records')
+        .eq('id', user.id)
+        .single();
+      if (data?.personal_records && typeof data.personal_records === 'object') {
+        setPrData(data.personal_records as Record<string, string>);
+      }
+    })();
+  }, [user?.id]);
+
+  const savedPRs = PR_MOVEMENTS
+    .map(name => {
+      const key = `Haltérophilie_${name}`;
+      const val = prData[key];
+      const num = parseFloat(val ?? '');
+      return { name, key, value: val, num };
+    })
+    .filter(pr => pr.value && !isNaN(pr.num) && pr.num > 0);
+
+  function selectPR(pr: { name: string; num: number; value: string }) {
+    setSelectedMovement(pr.name);
+    setInput(pr.value);
+    setShowPRList(false);
+  }
 
   const unit = isLbs ? 'lbs' : 'kg';
   const step = isLbs ? 5 : 2.5;
@@ -65,14 +108,53 @@ export default function OneRMCalculatorScreen() {
 
       <ScrollView style={S.scroll} contentContainerStyle={S.scrollContent} showsVerticalScrollIndicator={false}>
 
+        {/* PR Quick Select */}
+        {savedPRs.length > 0 && (
+          <View style={S.prSection}>
+            <TouchableOpacity
+              style={S.prToggle}
+              onPress={() => setShowPRList(!showPRList)}
+              activeOpacity={0.7}
+            >
+              <Dumbbell color={theme.accent} size={16} />
+              <Text style={S.prToggleText}>
+                {selectedMovement ?? 'Choisir un mouvement (mes PR)'}
+              </Text>
+              {showPRList
+                ? <ChevronUp color={theme.textMuted} size={16} />
+                : <ChevronDown color={theme.textMuted} size={16} />}
+            </TouchableOpacity>
+
+            {showPRList && (
+              <View style={S.prList}>
+                {savedPRs.map(pr => (
+                  <TouchableOpacity
+                    key={pr.key}
+                    style={[S.prItem, selectedMovement === pr.name && S.prItemActive]}
+                    onPress={() => selectPR(pr)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[S.prItemName, selectedMovement === pr.name && { color: theme.accent }]}>
+                      {pr.name}
+                    </Text>
+                    <Text style={S.prItemValue}>{pr.value} kg</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Input */}
         <View style={S.inputCard}>
-          <Text style={S.inputLabel}>TON 1RM</Text>
+          <Text style={S.inputLabel}>
+            {selectedMovement ? `1RM — ${selectedMovement}` : 'TON 1RM'}
+          </Text>
           <View style={S.inputRow}>
             <TextInput
               style={S.input}
               value={input}
-              onChangeText={setInput}
+              onChangeText={(v) => { setInput(v); setSelectedMovement(null); }}
               keyboardType="decimal-pad"
               placeholder="ex: 100"
               placeholderTextColor={theme.textMuted}
@@ -184,4 +266,31 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   repsTxt: { fontSize: 10, fontWeight: '600', color: theme.textSecondary },
   footer: { marginTop: 20, paddingHorizontal: 4 },
   footerTxt: { fontSize: 11, color: theme.textMuted, lineHeight: 18, textAlign: 'center' },
+  prSection: { marginTop: 20, marginBottom: 0 },
+  prToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: theme.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: `${theme.accent}30`,
+  },
+  prToggleText: {
+    flex: 1, fontSize: 14, fontWeight: '700', color: theme.text,
+  },
+  prList: {
+    backgroundColor: theme.card, borderRadius: 14, marginTop: 6,
+    borderWidth: 1, borderColor: theme.border, overflow: 'hidden',
+  },
+  prItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 13,
+    borderBottomWidth: 1, borderBottomColor: theme.border,
+  },
+  prItemActive: {
+    backgroundColor: `${theme.accent}12`,
+  },
+  prItemName: {
+    fontSize: 14, fontWeight: '700', color: theme.text,
+  },
+  prItemValue: {
+    fontSize: 14, fontWeight: '900', color: theme.success,
+  },
 }); }
