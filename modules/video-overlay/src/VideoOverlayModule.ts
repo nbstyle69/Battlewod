@@ -11,10 +11,14 @@ export interface OverlayOptions {
   timestamp?: string;
 }
 
-const NativeVideoOverlay = requireNativeModule('VideoOverlay');
-
-export async function burnOverlays(options: OverlayOptions): Promise<string> {
-  return await NativeVideoOverlay.burnOverlays(options);
+let _native: any = null;
+function getNative() {
+  if (!_native) _native = requireNativeModule('VideoOverlay');
+  return _native;
 }
 
-export default NativeVideoOverlay;
+export async function burnOverlays(options: OverlayOptions): Promise<string> {
+  return await getNative().burnOverlays(options);
+}
+
+export default { burnOverlays };

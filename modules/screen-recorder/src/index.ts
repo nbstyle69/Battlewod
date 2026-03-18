@@ -4,14 +4,18 @@ export type ScreenRecorderResult =
   | { status: 'success'; uri: string }
   | { status: 'error'; message: string };
 
-const NativeScreenRecorder = requireNativeModule('ScreenRecorder');
+let _native: any = null;
+function getNative() {
+  if (!_native) _native = requireNativeModule('ScreenRecorder');
+  return _native;
+}
 
 const ScreenRecorder = {
   startRecording(): Promise<void> {
-    return NativeScreenRecorder.startRecording();
+    return getNative().startRecording();
   },
   stopRecording(): Promise<ScreenRecorderResult> {
-    return NativeScreenRecorder.stopRecording();
+    return getNative().stopRecording();
   },
 };
 
