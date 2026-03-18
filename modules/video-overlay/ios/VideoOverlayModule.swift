@@ -4,6 +4,14 @@ import UIKit
 import QuartzCore
 
 public class VideoOverlayModule: Module {
+
+  private func resolveURL(_ path: String) -> URL {
+    if path.hasPrefix("file://") {
+      return URL(string: path) ?? URL(fileURLWithPath: path)
+    }
+    return URL(fileURLWithPath: path)
+  }
+
   public func definition() -> ModuleDefinition {
     Name("VideoOverlay")
 
@@ -48,8 +56,11 @@ public class VideoOverlayModule: Module {
     timestamp: String?,
     promise: Promise
   ) {
-    let inputURL = URL(fileURLWithPath: inputPath)
-    let outputURL = URL(fileURLWithPath: outputPath)
+    let inputURL = resolveURL(inputPath)
+    let outputURL = resolveURL(outputPath)
+    print("[VideoOverlay] inputURL: \(inputURL)")
+    print("[VideoOverlay] outputURL: \(outputURL)")
+    print("[VideoOverlay] input exists: \(FileManager.default.fileExists(atPath: inputURL.path))")
 
     // Remove existing output file
     try? FileManager.default.removeItem(at: outputURL)
@@ -65,6 +76,7 @@ public class VideoOverlayModule: Module {
     let transform = videoTrack.preferredTransform
     let isPortrait = transform.a == 0 && transform.d == 0
     let renderSize = isPortrait ? CGSize(width: videoSize.height, height: videoSize.width) : videoSize
+    print("[VideoOverlay] duration: \(duration)s, size: \(videoSize), portrait: \(isPortrait), render: \(renderSize)")
 
     // Create composition
     let composition = AVMutableComposition()
@@ -309,12 +321,17 @@ public class VideoOverlayModule: Module {
     exporter.exportAsynchronously {
       switch exporter.status {
       case .completed:
+        let exists = FileManager.default.fileExists(atPath: outputURL.path)
+        print("[VideoOverlay] Export completed, output exists: \(exists)")
         promise.resolve(outputPath)
       case .failed:
+        print("[VideoOverlay] Export FAILED: \(exporter.error?.localizedDescription ?? "unknown")")
         promise.reject("ERR", exporter.error?.localizedDescription ?? "Export failed")
       case .cancelled:
+        print("[VideoOverlay] Export cancelled")
         promise.reject("ERR", "Export cancelled")
       default:
+        print("[VideoOverlay] Export unknown status: \(exporter.status.rawValue)")
         promise.reject("ERR", "Export unknown status")
       }
     }

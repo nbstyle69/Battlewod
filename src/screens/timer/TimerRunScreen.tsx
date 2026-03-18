@@ -283,6 +283,7 @@ export default function TimerRunScreen() {
   const [sessionMeta, setSessionMeta] = useState<{
     videoURL: string; title: string; recordedAt: string;
     timerStartOffset: number; timerStopOffset: number; countdownDuration: number;
+    overlaysBurned: boolean;
   } | null>(null);
   const [savingCard, setSavingCard] = useState(false);
   const [cardSaved, setCardSaved] = useState(false);
@@ -469,6 +470,7 @@ export default function TimerRunScreen() {
         // Burn overlays into video using native module
         const overlayOutputPath = (FileSystem.cacheDirectory ?? '') + `bwod_overlay_${videoStartTimeRef.current}.mp4`;
         let finalVideoPath = permanentPath;
+        let overlayDidBurn = false;
         try {
           finalVideoPath = await burnOverlays({
             inputPath: permanentPath,
@@ -480,6 +482,7 @@ export default function TimerRunScreen() {
             videoTitle: videoTitle || undefined,
             timestamp: recordedAtISO,
           });
+          overlayDidBurn = true;
           console.log('🔥 overlay burned:', finalVideoPath);
         } catch (overlayErr) {
           console.warn('⚠️ Native overlay failed, saving raw video:', overlayErr);
@@ -505,6 +508,7 @@ export default function TimerRunScreen() {
           timerStartOffset: timerStartOffsetRef.current ?? 0,
           timerStopOffset: timerStopOffsetRef.current ?? 0,
           countdownDuration: countdown,
+          overlaysBurned: overlayDidBurn,
         };
         console.log('📦 meta:', JSON.stringify(meta));
         setSessionMeta(meta);
@@ -963,7 +967,7 @@ export default function TimerRunScreen() {
                 timerStartOffset: sessionMeta.timerStartOffset,
                 timerStopOffset: sessionMeta.timerStopOffset,
                 countdownDuration: sessionMeta.countdownDuration,
-                overlaysBurned: true,
+                overlaysBurned: sessionMeta.overlaysBurned ?? false,
               })}
               style={styles.playbackBtn}
               activeOpacity={0.85}
