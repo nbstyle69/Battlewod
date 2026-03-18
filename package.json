@@ -48,7 +48,8 @@
     "react-native-web": "^0.21.0",
     "react-native-webview": "^13.12.5",
     "react-native-worklets": "0.5.1",
-    "screen-recorder": "file:./modules/screen-recorder"
+    "screen-recorder": "file:./modules/screen-recorder",
+    "video-overlay": "file:./modules/video-overlay"
   },
   "devDependencies": {
     "@types/react": "~19.1.10",

@@ -15,6 +15,7 @@ import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings,
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
+import { burnOverlays } from 'video-overlay';
 
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
@@ -463,18 +464,38 @@ export default function TimerRunScreen() {
         await FileSystem.copyAsync({ from: video.uri, to: permanentPath });
         console.log('📁 copied to:', permanentPath);
 
-        // Save raw video to the phone gallery
+        const recordedAtISO = new Date(videoStartTimeRef.current).toISOString();
+
+        // Burn overlays into video using native module
+        const overlayOutputPath = (FileSystem.cacheDirectory ?? '') + `bwod_overlay_${videoStartTimeRef.current}.mp4`;
+        let finalVideoPath = permanentPath;
         try {
-          await MediaLibrary.saveToLibraryAsync(permanentPath);
+          finalVideoPath = await burnOverlays({
+            inputPath: permanentPath,
+            outputPath: overlayOutputPath,
+            timerType,
+            timerStartOffsetMs: timerStartOffsetRef.current ?? 0,
+            timerStopOffsetMs: timerStopOffsetRef.current ?? 0,
+            countdownDuration: countdown,
+            videoTitle: videoTitle || undefined,
+            timestamp: recordedAtISO,
+          });
+          console.log('🔥 overlay burned:', finalVideoPath);
+        } catch (overlayErr) {
+          console.warn('⚠️ Native overlay failed, saving raw video:', overlayErr);
+        }
+
+        // Save processed (or raw fallback) video to phone gallery
+        try {
+          await MediaLibrary.saveToLibraryAsync(finalVideoPath);
           console.log('✅ saved to library');
         } catch (libErr) {
           console.warn('⚠️ MediaLibrary save failed:', libErr);
         }
-        setSavedUri(permanentPath);
+        setSavedUri(finalVideoPath);
 
-        const recordedAtISO = new Date(videoStartTimeRef.current).toISOString();
         const meta = {
-          videoURL: permanentPath,
+          videoURL: finalVideoPath,
           title: videoTitle ?? '',
           recordedAt: recordedAtISO,
           timerType,
@@ -942,7 +963,7 @@ export default function TimerRunScreen() {
                 timerStartOffset: sessionMeta.timerStartOffset,
                 timerStopOffset: sessionMeta.timerStopOffset,
                 countdownDuration: sessionMeta.countdownDuration,
-                overlaysBurned: false,
+                overlaysBurned: true,
               })}
               style={styles.playbackBtn}
               activeOpacity={0.85}
