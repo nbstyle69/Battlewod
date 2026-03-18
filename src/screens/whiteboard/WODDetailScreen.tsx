@@ -400,11 +400,7 @@ export default function WODDetailScreen() {
             <View style={[S.typeBadge, { backgroundColor: `${color}18` }]}>
               <Text style={[S.typeBadgeText, { color }]}>{(wod.wod_type ?? 'custom').toUpperCase()}</Text>
             </View>
-            {wod.block_name && (
-              <View style={S.blockBadge}>
-                <Text style={S.blockBadgeText}>Block {wod.block_name}</Text>
-              </View>
-            )}
+            
             {wod.time_cap_seconds && (
               <View style={S.timeCap}>
                 <Clock color={theme.textMuted} size={12} />

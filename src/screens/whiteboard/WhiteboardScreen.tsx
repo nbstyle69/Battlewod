@@ -330,11 +330,7 @@ export default function WhiteboardScreen() {
                   >
                     <View style={S.wodCardTop}>
                       <WodTypeBadge type={wod.wod_type} />
-                      {wod.block_name && (
-                        <View style={S.blockBadge}>
-                          <Text style={S.blockBadgeText}>Block {wod.block_name}</Text>
-                        </View>
-                      )}
+                      
                       {wod.time_cap_seconds != null && (
                         <View style={S.timeCap}>
                           <Clock color={theme.textMuted} size={12} />
