@@ -7,7 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle } from 'react-native-svg';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
-import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { RealtimeRecorderView, updateOverlayState, startRecording as nativeStartRec, stopRecording as nativeStopRec } from 'realtime-recorder';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
@@ -15,7 +16,6 @@ import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings,
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
-import { burnOverlays } from 'video-overlay';
 
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
@@ -290,6 +290,7 @@ export default function TimerRunScreen() {
   const cardRef = useRef<ViewShot>(null);
   const recordingCdRef = useRef(0);
   const videoStartTimeRef = useRef<number>(0);
+  const mainTimeRef = useRef('00:00');
   const timerStartOffsetRef = useRef<number | null>(null);
   const timerStopOffsetRef = useRef<number | null>(null);
 
@@ -307,6 +308,25 @@ export default function TimerRunScreen() {
   }, [withTimestamp]);
   const [facing, setFacing] = useState<'front' | 'back'>('back');
 
+  // Sync overlay state to native module on every render tick
+  useEffect(() => {
+    if (!withCamera || !isRecordingActive) return;
+    const id = setInterval(() => {
+      try {
+        updateOverlayState({
+          timerType: timerType,
+          timerDisplay: mainTimeRef.current,
+          title: videoTitle || '',
+          timestamp: clockStr,
+          isRecording: true,
+          countdownValue: phase === 'countdown' ? countdownVal : 0,
+          showTimer: phase === 'running' || phase === 'stopped',
+        });
+      } catch {}
+    }, 33); // ~30fps
+    return () => clearInterval(id);
+  }, [withCamera, isRecordingActive, timerType, videoTitle, clockStr, phase, countdownVal]);
+
   async function saveCard() {
     if (savingCard || cardSaved) return;
     try {
@@ -322,7 +342,7 @@ export default function TimerRunScreen() {
   }
 
   const intervalRef       = useRef<ReturnType<typeof setInterval> | null>(null);
-  const cameraRef         = useRef<CameraView>(null);
+  const cameraRef         = useRef<any>(null);
   const recordingActiveRef = useRef(false);
   const soundReadyRef     = useRef(false);
   const sndTickRef        = useRef<Audio.Sound[]>([]);
@@ -444,86 +464,71 @@ export default function TimerRunScreen() {
   }
 
   function handleStartRecording() {
-    if (!isCameraReady || !cameraRef.current) return;
+    if (!isCameraReady) return;
     videoStartTimeRef.current = Date.now();
     timerStartOffsetRef.current = null;
     timerStopOffsetRef.current = null;
     recordingActiveRef.current = true;
     setIsRecordingActive(true);
-    startRecording();
+
+    // Start native realtime recording (overlays burned on each frame)
+    const outputPath = (FileSystem.documentDirectory ?? '') + `bwod_video_${videoStartTimeRef.current}.mp4`;
+    nativeStartRec({ outputPath, facing }).catch((err: any) => {
+      console.warn('❌ nativeStartRec error:', err);
+      recordingActiveRef.current = false;
+      setIsRecordingActive(false);
+    });
+    console.log('🎬 realtime recording started');
   }
 
-  async function startRecording() {
-    if (!cameraRef.current || !recordingActiveRef.current) return;
+  async function stopVideoAndFinish() {
+    if (!recordingActiveRef.current) return;
+    recordingActiveRef.current = false;
+    setIsRecordingActive(false);
+    setSaving(true);
+
     try {
-      console.log('🎬 recordAsync start...');
-      const video = await cameraRef.current.recordAsync({});
-      console.log('🎬 recordAsync done, uri:', video?.uri);
-      if (video?.uri) {
-        setSaving(true);
-        const permanentPath = (FileSystem.documentDirectory ?? '') + `bwod_video_${videoStartTimeRef.current}.mp4`;
-        await FileSystem.copyAsync({ from: video.uri, to: permanentPath });
-        console.log('📁 copied to:', permanentPath);
+      const videoPath = await nativeStopRec();
+      console.log('🎬 recording stopped, path:', videoPath);
 
-        const recordedAtISO = new Date(videoStartTimeRef.current).toISOString();
+      // Resolve the file path (strip file:// if needed for MediaLibrary)
+      const localPath = videoPath.startsWith('file://') ? videoPath.replace('file://', '') : videoPath;
+      const finalVideoPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
 
-        // Burn overlays into video using native module
-        const overlayOutputPath = (FileSystem.cacheDirectory ?? '') + `bwod_overlay_${videoStartTimeRef.current}.mp4`;
-        let finalVideoPath = permanentPath;
-        let overlayDidBurn = false;
-        try {
-          finalVideoPath = await burnOverlays({
-            inputPath: permanentPath,
-            outputPath: overlayOutputPath,
-            timerType,
-            timerStartOffsetMs: timerStartOffsetRef.current ?? 0,
-            timerStopOffsetMs: timerStopOffsetRef.current ?? 0,
-            countdownDuration: countdown,
-            videoTitle: videoTitle || undefined,
-            timestamp: recordedAtISO,
-          });
-          overlayDidBurn = true;
-          console.log('🔥 overlay burned:', finalVideoPath);
-        } catch (overlayErr: any) {
-          console.warn('⚠️ Native overlay failed, saving raw video:', overlayErr);
-        }
-
-        // Save processed (or raw fallback) video to phone gallery
-        try {
-          await MediaLibrary.saveToLibraryAsync(finalVideoPath);
-          console.log('✅ saved to library');
-        } catch (libErr: any) {
-          console.warn('⚠️ MediaLibrary save failed:', libErr);
-        }
-        setSavedUri(finalVideoPath);
-
-        const meta = {
-          videoURL: finalVideoPath,
-          title: videoTitle ?? '',
-          recordedAt: recordedAtISO,
-          timerType,
-          timerDuration: timerStopOffsetRef.current != null && timerStartOffsetRef.current != null
-            ? Math.round((timerStopOffsetRef.current - timerStartOffsetRef.current) / 1000)
-            : timerValRef.current,
-          timerStartOffset: timerStartOffsetRef.current ?? 0,
-          timerStopOffset: timerStopOffsetRef.current ?? 0,
-          countdownDuration: countdown,
-          overlaysBurned: overlayDidBurn,
-        };
-        console.log('📦 meta:', JSON.stringify(meta));
-        setSessionMeta(meta);
-        const metaPath = (FileSystem.documentDirectory ?? '') + `bwod_${videoStartTimeRef.current}.json`;
-        await FileSystem.writeAsStringAsync(metaPath, JSON.stringify(meta, null, 2));
-        setPhase('done');
-      } else {
-        console.warn('⚠️ video.uri est null');
+      // Save to phone gallery
+      try {
+        await MediaLibrary.saveToLibraryAsync(localPath);
+        console.log('✅ saved to library');
+      } catch (libErr: any) {
+        console.warn('⚠️ MediaLibrary save failed:', libErr);
       }
-    } catch (e) { console.warn('❌ startRecording error:', e); }
-    finally { recordingActiveRef.current = false; setIsRecordingActive(false); setSaving(false); }
-  }
 
-  function stopVideoAndFinish() {
-    cameraRef.current?.stopRecording();
+      setSavedUri(finalVideoPath);
+
+      const recordedAtISO = new Date(videoStartTimeRef.current).toISOString();
+      const meta = {
+        videoURL: finalVideoPath,
+        title: videoTitle ?? '',
+        recordedAt: recordedAtISO,
+        timerType,
+        timerDuration: timerStopOffsetRef.current != null && timerStartOffsetRef.current != null
+          ? Math.round((timerStopOffsetRef.current - timerStartOffsetRef.current) / 1000)
+          : timerValRef.current,
+        timerStartOffset: timerStartOffsetRef.current ?? 0,
+        timerStopOffset: timerStopOffsetRef.current ?? 0,
+        countdownDuration: countdown,
+        overlaysBurned: true,
+      };
+      setSessionMeta(meta);
+      const metaPath = (FileSystem.documentDirectory ?? '') + `bwod_${videoStartTimeRef.current}.json`;
+      await FileSystem.writeAsStringAsync(metaPath, JSON.stringify(meta, null, 2));
+      setPhase('done');
+    } catch (e) {
+      console.warn('❌ stopRecording error:', e);
+      setPhase('done');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function resetInnerState() {
@@ -767,7 +772,7 @@ export default function TimerRunScreen() {
 
   function handleReset() {
     clearTimer();
-    if (withCamera && recordingActiveRef.current) { cameraRef.current?.stopRecording(); }
+    if (withCamera && recordingActiveRef.current) { nativeStopRec().catch(() => {}); recordingActiveRef.current = false; setIsRecordingActive(false); }
     setIsCameraReady(false);
     setCountdownVal(countdown);
     setSavedUri(null); setSaving(false);
@@ -779,7 +784,7 @@ export default function TimerRunScreen() {
 
   function handleClose() {
     clearTimer();
-    if (withCamera && recordingActiveRef.current) { cameraRef.current?.stopRecording(); }
+    if (withCamera && recordingActiveRef.current) { nativeStopRec().catch(() => {}); recordingActiveRef.current = false; setIsRecordingActive(false); }
     navigation.goBack();
   }
 
@@ -815,6 +820,7 @@ export default function TimerRunScreen() {
     }
     return formatTime(timerVal);
   })();
+  mainTimeRef.current = mainTime;
 
   const arcProgress = (() => {
     if (phase === 'ready') return 0;
@@ -1146,8 +1152,12 @@ export default function TimerRunScreen() {
       <View style={styles.container}>
         <StatusBar hidden />
         {camPermission?.granted
-          ? <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} mode="video"
-              onCameraReady={() => setIsCameraReady(true)} />
+          ? <RealtimeRecorderView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing={facing}
+              onReady={() => setIsCameraReady(true)}
+            />
           : <View style={[StyleSheet.absoluteFill, styles.noCamera]}><Text style={styles.noCameraText}>Caméra non disponible</Text></View>
         }
         <View style={[StyleSheet.absoluteFill, styles.cameraDim]} />
