@@ -309,14 +309,15 @@ export default function TimerRunScreen() {
   const [facing, setFacing] = useState<'front' | 'back'>('back');
 
   // Fallback: if onReady never fires from native, force isCameraReady after 2s
+  const camGranted = camPermission?.granted ?? false;
   useEffect(() => {
-    if (!withCamera || isCameraReady || !camPermission?.granted) return;
+    if (!withCamera || isCameraReady || !camGranted) return;
     const t = setTimeout(() => {
       console.log('⚠️ onReady fallback — forcing isCameraReady');
       setIsCameraReady(true);
     }, 2000);
     return () => clearTimeout(t);
-  }, [withCamera, isCameraReady, camPermission]);
+  }, [withCamera, isCameraReady, camGranted]);
 
   // Sync overlay state to native module on every render tick
   useEffect(() => {
