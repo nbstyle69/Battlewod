@@ -7,6 +7,12 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('box-logos', 'box-logos', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- Drop existing policies if any
+DROP POLICY IF EXISTS "owner_upload_logo" ON storage.objects;
+DROP POLICY IF EXISTS "owner_update_logo" ON storage.objects;
+DROP POLICY IF EXISTS "owner_delete_logo" ON storage.objects;
+DROP POLICY IF EXISTS "public_read_logos" ON storage.objects;
+
 -- Allow box owners to upload/update their logo
 CREATE POLICY "owner_upload_logo" ON storage.objects
   FOR INSERT WITH CHECK (

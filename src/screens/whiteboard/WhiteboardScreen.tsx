@@ -296,7 +296,7 @@ export default function WhiteboardScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={S.rankBtn}
-              onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id })}
+              onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id, scrollToLeaderboard: true })}
               activeOpacity={0.85}
             >
               <Trophy size={18} color={theme.accent} />

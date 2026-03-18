@@ -276,7 +276,7 @@ export type CompetitionStackParamList = {
 
 export type WhiteboardStackParamList = {
   WhiteboardMain: undefined;
-  WODDetail: { wodId: string };
+  WODDetail: { wodId: string; scrollToLeaderboard?: boolean };
   PublicProfile: { userId: string };
   Messages: undefined;
   Documents: undefined;

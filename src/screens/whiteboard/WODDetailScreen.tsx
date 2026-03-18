@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, KeyboardAvoidingView, Platform,
@@ -133,8 +133,10 @@ export default function WODDetailScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { wodId } = route.params;
+  const { wodId, scrollToLeaderboard } = route.params;
   const S = createStyles(theme);
+  const scrollRef = useRef<ScrollView>(null);
+  const leaderboardY = useRef(0);
 
   const [wod,         setWod]         = useState<BoxWOD | null>(null);
   const [scores,      setScores]      = useState<WODScore[]>([]);
@@ -171,7 +173,7 @@ export default function WODDetailScreen() {
     if (w) {
       const { data: scoreData } = await supabase
         .from('wod_scores')
-        .select('*, profile:profiles(id, username, avatar_url, level)')
+        .select('*, profile:profiles(id, username, avatar_url, level, elo)')
         .eq('wod_id', w.id)
         .order('score_value', { ascending: w.wod_type === 'for-time' });
 
@@ -199,6 +201,22 @@ export default function WODDetailScreen() {
   }, [wodId, user?.id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-scroll to leaderboard when coming from "Classement" button
+  useEffect(() => {
+    if (scrollToLeaderboard && !loading && scores.length > 0) {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: leaderboardY.current, animated: true });
+      }, 300);
+    }
+  }, [scrollToLeaderboard, loading, scores.length]);
+
+  // Midnight cutoff: disable score submission after the WOD's scheduled date
+  const isExpired = wod ? new Date() >= new Date(wod.scheduled_date + 'T00:00:00') && new Date() >= (() => {
+    const d = new Date(wod.scheduled_date + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return d;
+  })() : false;
 
   async function submitScore() {
     if (!wod || !user || !currentBox) return;
@@ -229,7 +247,7 @@ export default function WODDetailScreen() {
     // Reload scores then compute ELO
     const { data: updatedScores } = await supabase
       .from('wod_scores')
-      .select('*, profile:profiles(id, username, avatar_url, level)')
+      .select('*, profile:profiles(id, username, avatar_url, level, elo)')
       .eq('wod_id', wod.id)
       .order('score_value', { ascending: wod.wod_type === 'for-time' });
 
@@ -372,6 +390,7 @@ export default function WODDetailScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
       >
@@ -420,10 +439,17 @@ export default function WODDetailScreen() {
                   <Text style={[S.myRankText, myRank <= 3 && { color: theme.gold }]}>#{myRank}</Text>
                 </View>
               )}
-              <TouchableOpacity style={S.editScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.7}>
-                <RotateCcw color={theme.accent} size={14} />
-                <Text style={S.editScoreBtnText}>Modifier</Text>
-              </TouchableOpacity>
+              {!isExpired && (
+                <TouchableOpacity style={S.editScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.7}>
+                  <RotateCcw color={theme.accent} size={14} />
+                  <Text style={S.editScoreBtnText}>Modifier</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : isExpired ? (
+            <View style={S.expiredBanner}>
+              <Clock color={theme.textMuted} size={14} />
+              <Text style={S.expiredText}>Soumission de score terminée (minuit passé)</Text>
             </View>
           ) : (
             <TouchableOpacity style={S.enterScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.85}>
@@ -435,12 +461,16 @@ export default function WODDetailScreen() {
 
         {/* Leaderboard */}
         {scores.length > 0 && wod.leaderboard_enabled !== false && (
-          <View style={S.section}>
+          <View
+            style={S.section}
+            onLayout={e => { leaderboardY.current = e.nativeEvent.layout.y; }}
+          >
             <Text style={S.sectionTitle}>Classement · {scores.length} score{scores.length > 1 ? 's' : ''}</Text>
             <View style={S.leaderboard}>
               {scores.map((sc, i) => {
                 const isMe = sc.member_id === user?.id;
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+                const elo = (sc.profile as any)?.elo ?? 1000;
                 return (
                   <TouchableOpacity
                     key={sc.id}
@@ -459,7 +489,7 @@ export default function WODDetailScreen() {
                         {(sc.profile as any)?.username ?? 'Athlète'}{isMe ? ' (moi)' : ''}
                       </Text>
                       <View style={S.leaderSubRow}>
-                        <Text style={S.leaderRxTag}>{sc.rx ? 'RX' : 'Scaled'}</Text>
+                        <Text style={S.leaderElo}>{elo} ELO</Text>
                         {(scoreMeta[sc.id]?.reactions ?? 0) > 0 && (
                           <View style={S.leaderMetaChip}>
                             <Heart color="#EC4899" size={10} fill="#EC4899" />
@@ -800,6 +830,12 @@ function createStyles(theme: AppTheme) {
     gap: 6, backgroundColor: theme.accent, borderRadius: 14, padding: 14, marginTop: 4,
   },
   enterScoreBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  expiredBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: theme.surface, borderRadius: 12, padding: 12, marginTop: 4,
+    borderWidth: 1, borderColor: theme.border,
+  },
+  expiredText: { fontSize: 12, color: theme.textMuted, fontWeight: '600', flex: 1 },
   section: { paddingHorizontal: 16, marginTop: 8 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
   leaderboard: {
@@ -818,7 +854,7 @@ function createStyles(theme: AppTheme) {
   leaderAvatarText: { fontSize: 13, fontWeight: '700', color: theme.text },
   leaderMid: { flex: 1 },
   leaderName: { fontSize: 13, fontWeight: '700', color: theme.text },
-  leaderRxTag: { fontSize: 10, color: theme.textMuted, fontWeight: '600' },
+  leaderElo: { fontSize: 10, color: theme.textSecondary, fontWeight: '700' },
   leaderSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   leaderMetaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: theme.surface, borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
   leaderMetaCount: { fontSize: 10, fontWeight: '700', color: theme.textMuted },
