@@ -102,7 +102,7 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       print("[RealtimeRecorder] Session started, facing: \(self.currentFacing == .back ? "back" : "front")")
 
       DispatchQueue.main.async {
-        self.hostView?.onReady?([:])
+        self.hostView?.markReady()
       }
     }
   }
@@ -330,13 +330,28 @@ public class RealtimeRecorderModule: Module {
 // MARK: - Host View
 
 public class RealtimeRecorderHostView: ExpoView {
-  var onReady: (([String: Any]) -> Void)?
   private var currentPreview: AVCaptureVideoPreviewLayer?
+  private var sessionIsReady = false
+
+  // Expo sets this closure AFTER the view is created.
+  // If the session finished setup before Expo wired the event, fire it now.
+  var onReady: (([String: Any]) -> Void)? {
+    didSet {
+      if sessionIsReady, let cb = onReady {
+        cb([:])
+      }
+    }
+  }
+
+  /// Called by RecorderEngine when the capture session is running.
+  func markReady() {
+    sessionIsReady = true
+    onReady?([:])
+  }
 
   public override func didMoveToWindow() {
     super.didMoveToWindow()
     if window != nil {
-      // Register with the shared engine and start the session
       RecorderEngine.shared.hostView = self
       RecorderEngine.shared.setupSession()
     }
