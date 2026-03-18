@@ -15,6 +15,7 @@ import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings,
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
+import { burnOverlays } from '../../utils/videoOverlay';
 
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
@@ -462,13 +463,35 @@ export default function TimerRunScreen() {
         const permanentPath = (FileSystem.documentDirectory ?? '') + `bwod_video_${videoStartTimeRef.current}.mp4`;
         await FileSystem.copyAsync({ from: video.uri, to: permanentPath });
         console.log('📁 copied to:', permanentPath);
-        await MediaLibrary.saveToLibraryAsync(permanentPath);
+
+        // Burn overlays (timer, countdown, REC, title, timestamp) into video via FFmpeg
+        const recordedAtISO = new Date(videoStartTimeRef.current).toISOString();
+        let overlayPath = permanentPath;
+        try {
+          overlayPath = await burnOverlays({
+            inputPath: permanentPath,
+            timerType,
+            timerStartOffsetMs: timerStartOffsetRef.current ?? 0,
+            timerStopOffsetMs: timerStopOffsetRef.current ?? 0,
+            countdownDuration: countdown,
+            videoTitle: videoTitle || undefined,
+            withTimestamp,
+            recordedAt: recordedAtISO,
+          });
+          console.log('🔥 overlay burned:', overlayPath);
+        } catch (ffErr) {
+          console.warn('⚠️ FFmpeg overlay failed, saving raw video:', ffErr);
+        }
+
+        // Save the overlay video to the phone gallery
+        await MediaLibrary.saveToLibraryAsync(overlayPath);
         console.log('✅ saved to library');
-        setSavedUri(permanentPath);
+        setSavedUri(overlayPath);
+
         const meta = {
-          videoURL: permanentPath,
+          videoURL: overlayPath,
           title: videoTitle ?? '',
-          recordedAt: new Date(videoStartTimeRef.current).toISOString(),
+          recordedAt: recordedAtISO,
           timerType,
           timerDuration: timerStopOffsetRef.current != null && timerStartOffsetRef.current != null
             ? Math.round((timerStopOffsetRef.current - timerStartOffsetRef.current) / 1000)
@@ -934,6 +957,7 @@ export default function TimerRunScreen() {
                 timerStartOffset: sessionMeta.timerStartOffset,
                 timerStopOffset: sessionMeta.timerStopOffset,
                 countdownDuration: sessionMeta.countdownDuration,
+                overlaysBurned: true,
               })}
               style={styles.playbackBtn}
               activeOpacity={0.85}

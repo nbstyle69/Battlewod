@@ -34,7 +34,7 @@ function formatRecordedAt(iso: string): string {
 export default function VideoPlaybackScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { videoURL, title, recordedAt, timerStartOffset = 0, timerStopOffset = 0, countdownDuration = 0 } = route.params;
+  const { videoURL, title, recordedAt, timerStartOffset = 0, timerStopOffset = 0, countdownDuration = 0, overlaysBurned = false } = route.params;
 
   const [currentMs, setCurrentMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -116,8 +116,8 @@ export default function VideoPlaybackScreen() {
         {/* TOP — titre + timestamp + bouton fermer */}
         <View style={styles.topRow} pointerEvents="box-none">
           <View style={styles.topLeft} pointerEvents="none">
-            {title ? <Text style={styles.titleText} numberOfLines={2}>{title}</Text> : null}
-            {recordedAt ? <Text style={styles.timestampText}>{formatRecordedAt(recordedAt)}</Text> : null}
+            {!overlaysBurned && title ? <Text style={styles.titleText} numberOfLines={2}>{title}</Text> : null}
+            {!overlaysBurned && recordedAt ? <Text style={styles.timestampText}>{formatRecordedAt(recordedAt)}</Text> : null}
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
             <X color="#fff" size={22} />
@@ -125,7 +125,7 @@ export default function VideoPlaybackScreen() {
         </View>
 
         {/* DÉCOMPTE — centré, visible avant le chrono */}
-        {countdownVisible && (
+        {!overlaysBurned && countdownVisible && (
           <View style={styles.countdownOverlay} pointerEvents="none">
             <Text style={styles.countdownBigText}>{countdownValue}</Text>
           </View>
@@ -147,17 +147,19 @@ export default function VideoPlaybackScreen() {
 
         {/* BAS — chrono + logo */}
         <View style={styles.bottomRow} pointerEvents="none">
-          {chronoVisible && <Text style={styles.chronoText}>{chronoDisplay}</Text>}
+          {!overlaysBurned && chronoVisible && <Text style={styles.chronoText}>{chronoDisplay}</Text>}
         </View>
 
         {/* LOGO — coin bas-droite, toujours visible */}
-        <View style={styles.logoWrap} pointerEvents="none">
-          <Image
-            source={require('../../../assets/logo.png')}
-            style={styles.logoImg}
-            resizeMode="contain"
-          />
-        </View>
+        {!overlaysBurned && (
+          <View style={styles.logoWrap} pointerEvents="none">
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={styles.logoImg}
+              resizeMode="contain"
+            />
+          </View>
+        )}
 
       </View>
     </View>

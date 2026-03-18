@@ -151,6 +151,7 @@ export type HomeStackParamList = {
     timerStartOffset?: number;
     timerStopOffset?: number;
     countdownDuration?: number;
+    overlaysBurned?: boolean;
   };
   TimerRun: {
     timerType: TimerType;
@@ -241,6 +242,7 @@ export type CompetitionStackParamList = {
     timerStartOffset?: number;
     timerStopOffset?: number;
     countdownDuration?: number;
+    overlaysBurned?: boolean;
   };
   TournamentWOD: {
     tournamentId: string;

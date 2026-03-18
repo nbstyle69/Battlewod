@@ -6,20 +6,26 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "android": {
+        "buildType": "app-bundle"
+      },
       "ios": {
         "simulator": false
       }
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "app-bundle"
+      },
       "ios": {
         "simulator": false
-      },
-      "android": {
-        "buildType": "apk"
       }
     },
     "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
       "ios": {
         "simulator": false
       }

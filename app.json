@@ -69,7 +69,8 @@
         }
       ],
       "expo-notifications",
-      "expo-av"
+      "expo-av",
+      "./plugins/withFFmpeg"
     ],
     "extra": {
       "eas": {
