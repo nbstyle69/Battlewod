@@ -17,7 +17,7 @@ const RealtimeRecorderView = React.forwardRef<any, RealtimeRecorderViewProps>(
         ref={ref}
         facing={facing}
         style={style}
-        onReady={onReady}
+        onReady={onReady ? () => onReady() : undefined}
       />
     );
   }

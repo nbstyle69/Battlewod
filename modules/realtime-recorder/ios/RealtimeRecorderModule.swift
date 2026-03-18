@@ -331,22 +331,13 @@ public class RealtimeRecorderModule: Module {
 
 public class RealtimeRecorderHostView: ExpoView {
   private var currentPreview: AVCaptureVideoPreviewLayer?
-  private var sessionIsReady = false
 
-  // Expo sets this closure AFTER the view is created.
-  // If the session finished setup before Expo wired the event, fire it now.
-  var onReady: (([String: Any]) -> Void)? {
-    didSet {
-      if sessionIsReady, let cb = onReady {
-        cb([:])
-      }
-    }
-  }
+  // Expo Modules EventDispatcher — automatically bridged to JS onReady prop
+  let onReady = EventDispatcher()
 
   /// Called by RecorderEngine when the capture session is running.
   func markReady() {
-    sessionIsReady = true
-    onReady?([:])
+    onReady()
   }
 
   public override func didMoveToWindow() {
