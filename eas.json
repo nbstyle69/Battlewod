@@ -5,7 +5,6 @@
   "build": {
     "development": {
       "distribution": "internal",
-      "prebuildCommand": "npx expo prebuild --clean && node scripts/fix-dev-launcher.js",
       "android": {
         "buildType": "app-bundle"
       },
@@ -15,7 +14,6 @@
     },
     "preview": {
       "distribution": "internal",
-      "prebuildCommand": "npx expo prebuild --clean && node scripts/fix-dev-launcher.js",
       "android": {
         "buildType": "app-bundle"
       },
@@ -24,7 +22,6 @@
       }
     },
     "production": {
-      "prebuildCommand": "npx expo prebuild --clean && node scripts/fix-dev-launcher.js",
       "android": {
         "buildType": "app-bundle"
       },
