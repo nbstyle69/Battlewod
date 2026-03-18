@@ -15,7 +15,6 @@ import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings,
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
-import { burnOverlays } from '../../utils/videoOverlay';
 
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
@@ -464,32 +463,18 @@ export default function TimerRunScreen() {
         await FileSystem.copyAsync({ from: video.uri, to: permanentPath });
         console.log('📁 copied to:', permanentPath);
 
-        // Burn overlays (timer, countdown, REC, title, timestamp) into video via FFmpeg
-        const recordedAtISO = new Date(videoStartTimeRef.current).toISOString();
-        let overlayPath = permanentPath;
+        // Save raw video to the phone gallery
         try {
-          overlayPath = await burnOverlays({
-            inputPath: permanentPath,
-            timerType,
-            timerStartOffsetMs: timerStartOffsetRef.current ?? 0,
-            timerStopOffsetMs: timerStopOffsetRef.current ?? 0,
-            countdownDuration: countdown,
-            videoTitle: videoTitle || undefined,
-            withTimestamp,
-            recordedAt: recordedAtISO,
-          });
-          console.log('🔥 overlay burned:', overlayPath);
-        } catch (ffErr) {
-          console.warn('⚠️ FFmpeg overlay failed, saving raw video:', ffErr);
+          await MediaLibrary.saveToLibraryAsync(permanentPath);
+          console.log('✅ saved to library');
+        } catch (libErr) {
+          console.warn('⚠️ MediaLibrary save failed:', libErr);
         }
+        setSavedUri(permanentPath);
 
-        // Save the overlay video to the phone gallery
-        await MediaLibrary.saveToLibraryAsync(overlayPath);
-        console.log('✅ saved to library');
-        setSavedUri(overlayPath);
-
+        const recordedAtISO = new Date(videoStartTimeRef.current).toISOString();
         const meta = {
-          videoURL: overlayPath,
+          videoURL: permanentPath,
           title: videoTitle ?? '',
           recordedAt: recordedAtISO,
           timerType,
@@ -957,7 +942,7 @@ export default function TimerRunScreen() {
                 timerStartOffset: sessionMeta.timerStartOffset,
                 timerStopOffset: sessionMeta.timerStopOffset,
                 countdownDuration: sessionMeta.countdownDuration,
-                overlaysBurned: true,
+                overlaysBurned: false,
               })}
               style={styles.playbackBtn}
               activeOpacity={0.85}

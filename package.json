@@ -33,7 +33,6 @@
     "expo-status-bar": "~3.0.9",
     "expo-video": "~3.0.16",
     "expo-web-browser": "^55.0.10",
-    "ffmpeg-kit-react-native": "^6.0.2",
     "lucide-react-native": "^0.460.0",
     "react": "19.1.0",
     "react-dom": "^19.1.0",
