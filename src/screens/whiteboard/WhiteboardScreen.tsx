@@ -282,7 +282,7 @@ export default function WhiteboardScreen() {
 
       {/* Quick action buttons when a WOD block exists */}
       {(() => {
-        const mainWod = dayWODs.find(w => w.block_name === 'wod');
+        const mainWod = dayWODs.find(w => w.block_name === 'wod') ?? dayWODs[0];
         if (!mainWod) return null;
         return (
           <View style={S.quickActions}>
