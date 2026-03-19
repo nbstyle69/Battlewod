@@ -98,29 +98,35 @@ final class OverlayRenderer {
                fontSize: 28, bold: true, color: .white, alignment: .center, shadow: true)
     }
 
-    // ─── 2. Box logo (top right) ───
+    // ─── 2. Box logo (top right — rounded square, app style) ───
     if let boxImg = cachedBoxLogo {
-      let logoH: CGFloat = 50
-      let logoW = logoH * (boxImg.size.width / boxImg.size.height)
-      let logoRect = CGRect(x: size.width - logoW - margin, y: safeTop, width: logoW, height: logoH)
+      let logoSize: CGFloat = 120
+      let logoRect = CGRect(x: size.width - logoSize - margin, y: safeTop, width: logoSize, height: logoSize)
+      let cornerRadius: CGFloat = 24
       UIGraphicsPushContext(context)
-      boxImg.draw(in: logoRect)
+      context.saveGState()
+      let path = UIBezierPath(roundedRect: logoRect, cornerRadius: cornerRadius)
+      path.addClip()
+      UIColor.white.withAlphaComponent(0.9).setFill()
+      path.fill()
+      boxImg.draw(in: logoRect.insetBy(dx: 8, dy: 8))
+      context.restoreGState()
       UIGraphicsPopContext()
     }
 
-    // ─── 3. Countdown (center, large — same style as React) ───
+    // ─── 3. Countdown (center, large, bold) ───
     if state.countdownValue > 0 {
       let cdStr = "\(state.countdownValue)"
       drawText(context: context, text: cdStr,
-               rect: CGRect(x: 0, y: (size.height - 160) / 2, width: size.width, height: 160),
-               fontSize: 140, bold: false, color: .white, alignment: .center, weight: .ultraLight)
+               rect: CGRect(x: 0, y: (size.height - 220) / 2, width: size.width, height: 220),
+               fontSize: 180, bold: true, color: .white, alignment: .center, weight: .bold)
     }
 
     // ─── 4. Timestamp (centered, above timer) ───
     if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
       drawText(context: context, text: state.timestamp,
-               rect: CGRect(x: 0, y: size.height - 170, width: size.width, height: 26),
-               fontSize: 18, bold: false, color: UIColor.white.withAlphaComponent(0.7),
+               rect: CGRect(x: 0, y: size.height - 180, width: size.width, height: 32),
+               fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
                alignment: .center, shadow: true)
     }
 
@@ -132,11 +138,11 @@ final class OverlayRenderer {
                weight: .medium, shadow: true, monospace: true)
     }
 
-    // ─── 6. ATHLEX logo (bottom right) ───
+    // ─── 6. ATHLEX logo (bottom right — 4x bigger) ───
     if let atlImg = cachedAthlexLogo {
-      let logoH: CGFloat = 40
+      let logoH: CGFloat = 160
       let logoW = logoH * (atlImg.size.width / atlImg.size.height)
-      let logoRect = CGRect(x: size.width - logoW - margin, y: size.height - 55, width: logoW, height: logoH)
+      let logoRect = CGRect(x: size.width - logoW - margin, y: size.height - logoH - 16, width: logoW, height: logoH)
       UIGraphicsPushContext(context)
       atlImg.draw(in: logoRect)
       UIGraphicsPopContext()
