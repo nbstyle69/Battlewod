@@ -151,47 +151,50 @@ final class OverlayRenderer {
     }
 
     // ════════════════════════════════════════════
-    //  BOTTOM ZONE — right side: timer + logo stacked
-    //                left side:  "AthleX" branded text
+    //  BOTTOM ROW — same line:
+    //    left:   "AthleX" (Black Ops One)
+    //    center: timer
+    //    right:  ATHLEX logo
+    //  Timestamp centered above timer
     // ════════════════════════════════════════════
     let safeBottom: CGFloat = 40
-    let atlLogoH: CGFloat = 160
+    let rowH: CGFloat = 160  // height of the bottom row (matches logo height)
+    let rowY = size.height - safeBottom - rowH
 
     // ─── 4. ATHLEX logo (bottom right) ───
-    var atlLogoW: CGFloat = atlLogoH  // fallback square
     if let atlImg = cachedAthlexLogo {
-      atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
+      let atlLogoW = rowH * (atlImg.size.width / atlImg.size.height)
       let logoRect = CGRect(x: size.width - atlLogoW - margin,
-                            y: size.height - safeBottom - atlLogoH,
-                            width: atlLogoW, height: atlLogoH)
+                            y: rowY,
+                            width: atlLogoW, height: rowH)
       UIGraphicsPushContext(context)
       atlImg.draw(in: logoRect)
       UIGraphicsPopContext()
     }
 
-    // ─── 5. Timer display (right-aligned, above logo) ───
-    let timerH: CGFloat = 110
-    let timerY = size.height - safeBottom - atlLogoH - 8 - timerH
-    let rightZoneW = max(atlLogoW, 400)  // right zone width for alignment
-    let rightZoneX = size.width - rightZoneW - margin
+    // ─── 5. Timer display (bottom center, vertically centered in row) ───
     if state.showTimer && state.countdownValue <= 0 {
+      let timerH: CGFloat = 110
+      let timerY = rowY + (rowH - timerH) / 2  // vertically center in row
       drawText(context: context, text: state.timerDisplay,
-               rect: CGRect(x: rightZoneX, y: timerY, width: rightZoneW, height: timerH),
+               rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
                fontSize: 90, bold: false, color: .white, alignment: .center,
                weight: .medium, shadow: true, monospace: true)
     }
 
-    // ─── 6. Timestamp (right zone, above timer) ───
+    // ─── 6. Timestamp (centered, above bottom row) ───
     if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
       drawText(context: context, text: state.timestamp,
-               rect: CGRect(x: rightZoneX, y: timerY - 38, width: rightZoneW, height: 34),
+               rect: CGRect(x: 0, y: rowY - 38, width: size.width, height: 34),
                fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
                alignment: .center, shadow: true)
     }
 
-    // ─── 7. "AthleX" branded text (bottom left, Black Ops One) ───
+    // ─── 7. "AthleX" branded text (bottom left, vertically centered in row) ───
+    let brandH: CGFloat = 60
+    let brandY = rowY + (rowH - brandH) / 2
     drawBrandText(context: context,
-                  rect: CGRect(x: margin, y: size.height - safeBottom - 60, width: 300, height: 60),
+                  rect: CGRect(x: margin, y: brandY, width: 300, height: brandH),
                   fontSize: 48, color: .white, shadow: true)
   }
 
