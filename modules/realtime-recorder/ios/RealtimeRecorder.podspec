@@ -13,5 +13,5 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
 
   s.source_files = '**/*.{h,m,mm,swift}'
-  s.resource_bundles = { 'RealtimeRecorderResources' => ['Resources/**/*.{png,jpg}'] }
+  s.resource_bundles = { 'RealtimeRecorderResources' => ['Resources/**/*.{png,jpg,ttf}'] }
 end

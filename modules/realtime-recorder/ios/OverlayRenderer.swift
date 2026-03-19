@@ -1,6 +1,7 @@
 import UIKit
 import CoreGraphics
 import CoreMedia
+import CoreText
 
 /// Holds the current overlay state pushed from JS
 struct OverlayState {
@@ -22,9 +23,11 @@ final class OverlayRenderer {
   private var cachedBoxLogo: UIImage?
   private var cachedBoxLogoUrl: String = ""
   private var boxLogoLoading = false
+  private var blackOpsFont: UIFont?
 
   init() {
     loadAthlexLogo()
+    loadBlackOpsFont()
   }
 
   // MARK: - Logo loading
@@ -40,6 +43,31 @@ final class OverlayRenderer {
     // Fallback: main bundle
     else if let img = UIImage(named: "logo") ?? UIImage(named: "logo.png") {
       cachedAthlexLogo = img
+    }
+  }
+
+  private func loadBlackOpsFont() {
+    let bundleName = "RealtimeRecorderResources"
+    guard let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
+          let resBundle = Bundle(url: bundleURL),
+          let fontURL = resBundle.url(forResource: "BlackOpsOne", withExtension: "ttf") else {
+      print("[OverlayRenderer] BlackOpsOne.ttf not found in resource bundle")
+      return
+    }
+    var errorRef: Unmanaged<CFError>?
+    CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &errorRef)
+    if let err = errorRef?.takeRetainedValue() {
+      // Already registered is OK
+      let desc = CFErrorGetDomain(err) as String
+      if !desc.contains("already registered") {
+        print("[OverlayRenderer] Font registration error: \(err)")
+      }
+    }
+    // PostScript name for Black Ops One is "BlackOpsOne-Regular"
+    if let font = UIFont(name: "BlackOpsOne-Regular", size: 48) {
+      blackOpsFont = font
+    } else {
+      print("[OverlayRenderer] BlackOpsOne-Regular font not available after registration")
     }
   }
 
@@ -98,18 +126,18 @@ final class OverlayRenderer {
                fontSize: 28, bold: true, color: .white, alignment: .center, shadow: true)
     }
 
-    // ─── 2. Box logo (top right — rounded square, app style) ───
+    // ─── 2. Box logo (top right — rounded square, app style, x2) ───
     if let boxImg = cachedBoxLogo {
-      let logoSize: CGFloat = 120
+      let logoSize: CGFloat = 240
       let logoRect = CGRect(x: size.width - logoSize - margin, y: safeTop, width: logoSize, height: logoSize)
-      let cornerRadius: CGFloat = 24
+      let cornerRadius: CGFloat = 40
       UIGraphicsPushContext(context)
       context.saveGState()
       let path = UIBezierPath(roundedRect: logoRect, cornerRadius: cornerRadius)
       path.addClip()
       UIColor.white.withAlphaComponent(0.9).setFill()
       path.fill()
-      boxImg.draw(in: logoRect.insetBy(dx: 8, dy: 8))
+      boxImg.draw(in: logoRect.insetBy(dx: 16, dy: 16))
       context.restoreGState()
       UIGraphicsPopContext()
     }
@@ -122,13 +150,17 @@ final class OverlayRenderer {
                fontSize: 180, bold: true, color: .white, alignment: .center, weight: .bold)
     }
 
-    // ── Bottom zone (stacked from bottom up) ──
+    // ════════════════════════════════════════════
+    //  BOTTOM ZONE — right side: timer + logo stacked
+    //                left side:  "AthleX" branded text
+    // ════════════════════════════════════════════
     let safeBottom: CGFloat = 40
     let atlLogoH: CGFloat = 160
 
     // ─── 4. ATHLEX logo (bottom right) ───
+    var atlLogoW: CGFloat = atlLogoH  // fallback square
     if let atlImg = cachedAthlexLogo {
-      let atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
+      atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
       let logoRect = CGRect(x: size.width - atlLogoW - margin,
                             y: size.height - safeBottom - atlLogoH,
                             width: atlLogoW, height: atlLogoH)
@@ -137,23 +169,67 @@ final class OverlayRenderer {
       UIGraphicsPopContext()
     }
 
-    // ─── 5. Timer display (bottom center, above logo zone) ───
+    // ─── 5. Timer display (right-aligned, above logo) ───
     let timerH: CGFloat = 110
     let timerY = size.height - safeBottom - atlLogoH - 8 - timerH
+    let rightZoneW = max(atlLogoW, 400)  // right zone width for alignment
+    let rightZoneX = size.width - rightZoneW - margin
     if state.showTimer && state.countdownValue <= 0 {
       drawText(context: context, text: state.timerDisplay,
-               rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
+               rect: CGRect(x: rightZoneX, y: timerY, width: rightZoneW, height: timerH),
                fontSize: 90, bold: false, color: .white, alignment: .center,
                weight: .medium, shadow: true, monospace: true)
     }
 
-    // ─── 6. Timestamp (centered, above timer) ───
+    // ─── 6. Timestamp (right zone, above timer) ───
     if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
       drawText(context: context, text: state.timestamp,
-               rect: CGRect(x: 0, y: timerY - 38, width: size.width, height: 34),
+               rect: CGRect(x: rightZoneX, y: timerY - 38, width: rightZoneW, height: 34),
                fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
                alignment: .center, shadow: true)
     }
+
+    // ─── 7. "AthleX" branded text (bottom left, Black Ops One) ───
+    drawBrandText(context: context,
+                  rect: CGRect(x: margin, y: size.height - safeBottom - 60, width: 300, height: 60),
+                  fontSize: 48, color: .white, shadow: true)
+  }
+
+  // MARK: - Brand text (Black Ops One)
+
+  private func drawBrandText(
+    context: CGContext,
+    rect: CGRect,
+    fontSize: CGFloat,
+    color: UIColor,
+    shadow: Bool
+  ) {
+    let font: UIFont = blackOpsFont?.withSize(fontSize)
+      ?? UIFont.boldSystemFont(ofSize: fontSize) // fallback
+
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.alignment = .left
+    paragraphStyle.lineBreakMode = .byClipping
+
+    var attributes: [NSAttributedString.Key: Any] = [
+      .font: font,
+      .foregroundColor: color,
+      .paragraphStyle: paragraphStyle,
+    ]
+
+    if shadow {
+      let s = NSShadow()
+      s.shadowColor = UIColor.black.withAlphaComponent(0.7)
+      s.shadowOffset = CGSize(width: 2, height: 2)
+      s.shadowBlurRadius = 6
+      attributes[.shadow] = s
+    }
+
+    let attrString = NSAttributedString(string: "AthleX", attributes: attributes)
+
+    UIGraphicsPushContext(context)
+    attrString.draw(in: rect)
+    UIGraphicsPopContext()
   }
 
   // MARK: - Text drawing helper
