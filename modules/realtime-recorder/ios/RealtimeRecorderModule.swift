@@ -254,6 +254,7 @@ public class RealtimeRecorderModule: Module {
       if let v = dict["isRecording"] as? Bool    { self.engine.overlayState.isRecording = v }
       if let v = dict["countdownValue"] as? Int  { self.engine.overlayState.countdownValue = v }
       if let v = dict["showTimer"] as? Bool      { self.engine.overlayState.showTimer = v }
+      if let v = dict["boxLogoUrl"] as? String  { self.engine.overlayState.boxLogoUrl = v }
       self.engine.stateLock.unlock()
     }
 

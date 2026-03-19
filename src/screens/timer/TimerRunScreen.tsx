@@ -16,6 +16,7 @@ import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings,
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
+import { useAuth } from '../../context/AuthContext';
 
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
@@ -245,6 +246,7 @@ function TimerSettingsModal({ opts, onUpdate, onClose }: {
 export default function TimerRunScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
+  const { currentBox } = useAuth();
   const { timerType, countdown, totalSeconds, maxTime, interval, rounds, workTime, restTime, withCamera, sequence, videoTitle, withTimestamp } = route.params;
 
   const [camPermission, requestCamPermission] = useCameraPermissions();
@@ -291,6 +293,7 @@ export default function TimerRunScreen() {
   const recordingCdRef = useRef(0);
   const videoStartTimeRef = useRef<number>(0);
   const mainTimeRef = useRef('00:00');
+  const lastTickTimeRef = useRef<number>(Date.now());
   const timerStartOffsetRef = useRef<number | null>(null);
   const timerStopOffsetRef = useRef<number | null>(null);
 
@@ -314,19 +317,26 @@ export default function TimerRunScreen() {
     if (!withCamera || !isRecordingActive) return;
     const id = setInterval(() => {
       try {
+        // Compute precise timer with hundredths
+        const baseDisplay = mainTimeRef.current; // e.g. "02:35"
+        const msSinceTick = Date.now() - lastTickTimeRef.current;
+        const hundredths = Math.min(99, Math.floor(msSinceTick / 10));
+        const preciseDisplay = `${baseDisplay}.${String(hundredths).padStart(2, '0')}`;
+
         updateOverlayState({
           timerType: timerType,
-          timerDisplay: mainTimeRef.current,
+          timerDisplay: preciseDisplay,
           title: videoTitle || '',
           timestamp: clockStr,
           isRecording: true,
           countdownValue: phase === 'countdown' ? countdownVal : 0,
           showTimer: phase === 'running' || phase === 'stopped',
+          boxLogoUrl: currentBox?.logo_url || '',
         });
       } catch {}
     }, 33); // ~30fps
     return () => clearInterval(id);
-  }, [withCamera, isRecordingActive, timerType, videoTitle, clockStr, phase, countdownVal]);
+  }, [withCamera, isRecordingActive, timerType, videoTitle, clockStr, phase, countdownVal, currentBox]);
 
   async function saveCard() {
     if (savingCard || cardSaved) return;
@@ -569,7 +579,9 @@ export default function TimerRunScreen() {
     if (phase === 'running') {
       if (countdown === 0) playBeep('go');
 
+      lastTickTimeRef.current = Date.now();
       intervalRef.current = setInterval(() => {
+        lastTickTimeRef.current = Date.now();
         switch (timerType) {
 
           case 'for-time':

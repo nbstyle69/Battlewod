@@ -8,6 +8,7 @@ export interface OverlayState {
   isRecording: boolean;
   countdownValue: number;
   showTimer: boolean;
+  boxLogoUrl: string;
 }
 
 interface RealtimeRecorderNative {
