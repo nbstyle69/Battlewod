@@ -620,7 +620,7 @@ export default function TimerRunScreen() {
                 setCurrentRound(next);
                 roundTimeLeftRef.current = interval * 60;
                 setRoundTimeLeft(interval * 60);
-                playBeep('tick');
+                playBeep('go');
               }
             } else if (roundTimeLeftRef.current <= 3) {
               playBeep('tick');
@@ -649,7 +649,7 @@ export default function TimerRunScreen() {
                   setInnerPhase('work');
                   roundTimeLeftRef.current = workTime;
                   setRoundTimeLeft(workTime);
-                  playBeep('tick');
+                  playBeep('go');
                 }
               }
             } else if (roundTimeLeftRef.current <= 3) {
@@ -669,7 +669,7 @@ export default function TimerRunScreen() {
                 setInnerPhase('work');
                 ywyrWorkRef.current = 0;
                 timerValRef.current = 0;
-                playBeep('tick');
+                playBeep('go');
               } else if (timerValRef.current <= 3) {
                 playBeep('tick');
               }
@@ -702,14 +702,14 @@ export default function TimerRunScreen() {
                 if (roundTimeLeftRef.current <= 0) {
                   const nxt = currentRoundRef.current + 1;
                   if (nxt > blk.emomRounds) seqBlockDone();
-                  else { currentRoundRef.current = nxt; setCurrentRound(nxt); roundTimeLeftRef.current = blk.emomInterval * 60; setRoundTimeLeft(blk.emomInterval * 60); playBeep('tick'); }
+                  else { currentRoundRef.current = nxt; setCurrentRound(nxt); roundTimeLeftRef.current = blk.emomInterval * 60; setRoundTimeLeft(blk.emomInterval * 60); playBeep('go'); }
                 } else if (roundTimeLeftRef.current <= 3) { playBeep('tick'); }
                 break;
               case 'tabata':
                 roundTimeLeftRef.current -= 1; setRoundTimeLeft(roundTimeLeftRef.current);
                 if (roundTimeLeftRef.current <= 0) {
                   if (innerPhaseRef.current === 'work') { innerPhaseRef.current = 'rest'; setInnerPhase('rest'); roundTimeLeftRef.current = blk.restSec; setRoundTimeLeft(blk.restSec); playBeep('go'); }
-                  else { const nxt = currentRoundRef.current + 1; if (nxt > blk.tabRounds) seqBlockDone(); else { currentRoundRef.current = nxt; setCurrentRound(nxt); innerPhaseRef.current = 'work'; setInnerPhase('work'); roundTimeLeftRef.current = blk.workSec; setRoundTimeLeft(blk.workSec); playBeep('tick'); } }
+                  else { const nxt = currentRoundRef.current + 1; if (nxt > blk.tabRounds) seqBlockDone(); else { currentRoundRef.current = nxt; setCurrentRound(nxt); innerPhaseRef.current = 'work'; setInnerPhase('work'); roundTimeLeftRef.current = blk.workSec; setRoundTimeLeft(blk.workSec); playBeep('go'); } }
                 } else if (roundTimeLeftRef.current <= 3) { playBeep('tick'); }
                 break;
               case 'ywyr':

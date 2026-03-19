@@ -91,6 +91,15 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       self.videoOutput = vOutput
       self.audioOutput = aOutput
 
+      // Configure audio session for simultaneous playback (beeps) + recording (mic)
+      let audioSession = AVAudioSession.sharedInstance()
+      do {
+        try audioSession.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers])
+        try audioSession.setActive(true)
+      } catch {
+        print("[RealtimeRecorder] Audio session config error: \(error)")
+      }
+
       // Attach preview on main thread
       DispatchQueue.main.async {
         let preview = AVCaptureVideoPreviewLayer(session: session)

@@ -122,30 +122,37 @@ final class OverlayRenderer {
                fontSize: 180, bold: true, color: .white, alignment: .center, weight: .bold)
     }
 
-    // ─── 4. Timestamp (centered, above timer) ───
-    if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
-      drawText(context: context, text: state.timestamp,
-               rect: CGRect(x: 0, y: size.height - 180, width: size.width, height: 32),
-               fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
-               alignment: .center, shadow: true)
-    }
+    // ── Bottom zone (stacked from bottom up) ──
+    let safeBottom: CGFloat = 40
+    let atlLogoH: CGFloat = 160
 
-    // ─── 5. Timer display (bottom center, large monospace with hundredths) ───
-    if state.showTimer && state.countdownValue <= 0 {
-      drawText(context: context, text: state.timerDisplay,
-               rect: CGRect(x: 0, y: size.height - 140, width: size.width, height: 80),
-               fontSize: 64, bold: false, color: .white, alignment: .center,
-               weight: .medium, shadow: true, monospace: true)
-    }
-
-    // ─── 6. ATHLEX logo (bottom right — 4x bigger) ───
+    // ─── 4. ATHLEX logo (bottom right) ───
     if let atlImg = cachedAthlexLogo {
-      let logoH: CGFloat = 160
-      let logoW = logoH * (atlImg.size.width / atlImg.size.height)
-      let logoRect = CGRect(x: size.width - logoW - margin, y: size.height - logoH - 16, width: logoW, height: logoH)
+      let atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
+      let logoRect = CGRect(x: size.width - atlLogoW - margin,
+                            y: size.height - safeBottom - atlLogoH,
+                            width: atlLogoW, height: atlLogoH)
       UIGraphicsPushContext(context)
       atlImg.draw(in: logoRect)
       UIGraphicsPopContext()
+    }
+
+    // ─── 5. Timer display (bottom center, above logo zone) ───
+    let timerH: CGFloat = 110
+    let timerY = size.height - safeBottom - atlLogoH - 8 - timerH
+    if state.showTimer && state.countdownValue <= 0 {
+      drawText(context: context, text: state.timerDisplay,
+               rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
+               fontSize: 90, bold: false, color: .white, alignment: .center,
+               weight: .medium, shadow: true, monospace: true)
+    }
+
+    // ─── 6. Timestamp (centered, above timer) ───
+    if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
+      drawText(context: context, text: state.timestamp,
+               rect: CGRect(x: 0, y: timerY - 38, width: size.width, height: 34),
+               fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
+               alignment: .center, shadow: true)
     }
   }
 
