@@ -1092,11 +1092,13 @@ export default function TimerRunScreen() {
               {videoTitle ? (
                 <Text style={styles.sessionTitle} numberOfLines={2}>{videoTitle}</Text>
               ) : null}
-              <Text style={styles.sessionDate}>{clockStr}</Text>
-              <View style={styles.sessionQRWrap}>
-                <QRCode value={qrData} size={96} color="#111111" backgroundColor="#FFFFFF" />
-                <Text style={styles.sessionQRHint}>Scanner pour les détails</Text>
-              </View>
+              {withCamera && <Text style={styles.sessionDate}>{clockStr}</Text>}
+              {withCamera && (
+                <View style={styles.sessionQRWrap}>
+                  <QRCode value={qrData} size={96} color="#111111" backgroundColor="#FFFFFF" />
+                  <Text style={styles.sessionQRHint}>Scanner pour les détails</Text>
+                </View>
+              )}
             </View>
           </ViewShot>
 
@@ -1129,19 +1131,23 @@ export default function TimerRunScreen() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity onPress={saveCard} style={styles.saveCardBtn} activeOpacity={0.85}>
-            {savingCard
-              ? <ActivityIndicator color="#fff" size="small" />
-              : cardSaved
-                ? <><CheckCircle color="#4ADE80" size={18} /><Text style={[styles.saveCardBtnText, { color: '#4ADE80' }]}>Carte sauvegardée ✓</Text></>
-                : <><Download color="#fff" size={18} /><Text style={styles.saveCardBtnText}>Sauvegarder la carte</Text></>}
-          </TouchableOpacity>
+          {withCamera && (
+            <TouchableOpacity onPress={saveCard} style={styles.saveCardBtn} activeOpacity={0.85}>
+              {savingCard
+                ? <ActivityIndicator color="#fff" size="small" />
+                : cardSaved
+                  ? <><CheckCircle color="#4ADE80" size={18} /><Text style={[styles.saveCardBtnText, { color: '#4ADE80' }]}>Carte sauvegardée ✓</Text></>
+                  : <><Download color="#fff" size={18} /><Text style={styles.saveCardBtnText}>Sauvegarder la carte</Text></>}
+            </TouchableOpacity>
+          )}
 
-          {/* YouTube share */}
-          <TouchableOpacity style={styles.ytBtn} activeOpacity={0.85} onPress={() => setShowYT(true)}>
-            <Youtube color="#fff" size={18} />
-            <Text style={styles.ytBtnTxt}>Partager sur YouTube</Text>
-          </TouchableOpacity>
+          {/* YouTube share — only in camera mode */}
+          {withCamera && (
+            <TouchableOpacity style={styles.ytBtn} activeOpacity={0.85} onPress={() => setShowYT(true)}>
+              <Youtube color="#fff" size={18} />
+              <Text style={styles.ytBtnTxt}>Partager sur YouTube</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.doneRow}>
             <TouchableOpacity onPress={handleReset} style={styles.resetBtn} activeOpacity={0.8}>
