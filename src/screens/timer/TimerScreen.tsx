@@ -408,7 +408,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
     backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
   },
-  seqTypeChipActive: { backgroundColor: theme.text, borderColor: theme.text },
+  seqTypeChipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
   seqTypeText: { fontSize: 10, fontWeight: '800', color: theme.textMuted },
   seqTypeTextActive: { color: '#fff' },
   seqTypeBadge: {
