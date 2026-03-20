@@ -1216,8 +1216,8 @@ export default function TimerRunScreen() {
             </View>
           )}
 
-          {/* INFOBAR — titre/timestamp, jamais pendant countdown */}
-          {(videoTitle || withTimestamp) && phase === 'running' && (!withCamera || camState >= 2) && (
+          {/* INFOBAR — titre/timestamp, uniquement en mode caméra */}
+          {withCamera && (videoTitle || withTimestamp) && phase === 'running' && camState >= 2 && (
             <View style={styles.infoBar}>
               {videoTitle ? <Text style={styles.infoTitle} numberOfLines={1}>{videoTitle}</Text> : null}
               {withTimestamp ? <Text style={styles.infoTimestamp}>{clockStr}</Text> : null}
