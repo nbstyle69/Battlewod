@@ -130,9 +130,9 @@ const PHASE_COLORS = {
 };
 
 // ─── ARC clock (SVG) ─────────────────────────────────────────────────────────
-function ArcTimer({ time, progress, color, strokeColor }: { time: string; progress: number; color: string; strokeColor?: string }) {
+function ArcTimer({ time, progress, color, strokeColor, landscape }: { time: string; progress: number; color: string; strokeColor?: string; landscape?: boolean }) {
   const { width: aw, height: ah } = useWindowDimensions();
-  const size = Math.min(Math.min(aw, ah) * 0.76, 280);
+  const size = landscape ? Math.min(ah * 0.75, aw * 0.45) : Math.min(Math.min(aw, ah) * 0.76, 280);
   const r    = size / 2 - 18;
   const circ = 2 * Math.PI * r;
   const dash = circ * (1 - Math.max(0, Math.min(1, progress)));
@@ -153,17 +153,18 @@ function ArcTimer({ time, progress, color, strokeColor }: { time: string; progre
 }
 
 // ─── BAR clock ──────────────────────────────────────────────────────────────
-function BarTimer({ time, progress, color, fontSize, strokeColor }: { time: string; progress: number; color: string; fontSize: number; strokeColor?: string }) {
+function BarTimer({ time, progress, color, fontSize, strokeColor, landscape }: { time: string; progress: number; color: string; fontSize: number; strokeColor?: string; landscape?: boolean }) {
   const { width: bw, height: bh } = useWindowDimensions();
   const isLandscapeBar = bw > bh;
   const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
   const sc = strokeColor || color;
+  const fs = landscape ? Math.max(fontSize, Math.round(bh * 0.35)) : fontSize;
   return (
     <View style={{ alignItems: 'center', gap: 20 }}>
-      <View style={{ width: isLandscapeBar ? bw * 0.38 : bw * 0.75, height: 14, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 7, overflow: 'hidden', position: 'relative' }}>
-        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%` as `${number}%`, backgroundColor: sc, borderRadius: 7 }} />
+      <View style={{ width: isLandscapeBar ? bw * 0.45 : bw * 0.75, height: landscape ? 18 : 14, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 9, overflow: 'hidden', position: 'relative' }}>
+        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%` as `${number}%`, backgroundColor: sc, borderRadius: 9 }} />
       </View>
-      <Text style={{ fontSize, fontWeight: '200', color, letterSpacing: -2,
+      <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
         textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 }}>
         {time}
       </Text>
@@ -172,9 +173,11 @@ function BarTimer({ time, progress, color, fontSize, strokeColor }: { time: stri
 }
 
 // ─── DIGITS clock ───────────────────────────────────────────────────────────
-function DigitsTimer({ time, color, fontSize }: { time: string; color: string; fontSize: number }) {
+function DigitsTimer({ time, color, fontSize, landscape }: { time: string; color: string; fontSize: number; landscape?: boolean }) {
+  const { height: dh } = useWindowDimensions();
+  const fs = landscape ? Math.max(fontSize, Math.round(dh * 0.4)) : fontSize;
   return (
-    <Text style={{ fontSize, fontWeight: '200', color, letterSpacing: -2,
+    <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
       textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 14 }}>
       {time}
     </Text>
@@ -1165,9 +1168,101 @@ export default function TimerRunScreen() {
             </View>
           )}
 
-          <View style={isLandscape
-            ? { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 }
-            : { flex: 1, justifyContent: 'flex-end' }}>
+          {/* ── LANDSCAPE LAYOUT ─────────────────────────────────── */}
+          {isLandscape ? (
+            <View style={{ flex: 1 }}>
+              {/* Timer centered */}
+              {phase !== 'countdown' && (!withCamera || camState >= 1) && (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                  {!!phaseLabel && phase === 'running' && (
+                    <Text style={[styles.phaseLabelGiant, { fontSize: 18, marginBottom: 2, color: ensureContrast(phaseColor, currentBg),
+                      textShadowColor: phaseColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>
+                      {phaseLabel}
+                    </Text>
+                  )}
+                  {timerType === 'libre' && seqBlockLabel ? (
+                    <Text style={[styles.seqSubLabel, { fontSize: 11, marginBottom: 2 }]}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
+                  ) : null}
+
+                  {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} strokeColor={phaseColor} landscape />}
+                  {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />}
+                  {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} landscape />}
+
+                  {/* Round info inline */}
+                  {hasRounds && phase === 'running' && !seqPausing && (
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4, letterSpacing: 2 }}>
+                      ROUND {currentRound} / {currentRound + roundsLeft}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Landscape bottom corners — FIN DU BLOC left, Stop right */}
+              {phase !== 'countdown' && phase !== 'ready' && !withCamera && (
+                <View style={{ position: 'absolute', bottom: 10, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }} pointerEvents="box-none">
+                  <View>
+                    {showEndWorkBtn && (
+                      <TouchableOpacity onPress={ywyrEndWork} style={[styles.ywyrBtn, { paddingHorizontal: 18, paddingVertical: 10 }]} activeOpacity={0.8}>
+                        <Text style={[styles.ywyrBtnText, { fontSize: 12 }]}>FIN DU TRAVAIL</Text>
+                      </TouchableOpacity>
+                    )}
+                    {showEndBlockBtn && (
+                      <TouchableOpacity onPress={libreEndForTimeBlock} style={[styles.ywyrBtn, { paddingHorizontal: 18, paddingVertical: 10 }]} activeOpacity={0.8}>
+                        <Text style={[styles.ywyrBtnText, { fontSize: 12 }]}>FIN DU BLOC</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {(showNormalStop || showEndWorkBtn || showEndBlockBtn) && (
+                    <TouchableOpacity onPress={handleStop} style={styles.stopBtnSmall} activeOpacity={0.8}>
+                      <Square color="rgba(255,255,255,0.6)" size={22} fill="rgba(255,255,255,0.6)" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {/* Landscape ready — play centered */}
+              {phase === 'ready' && !withCamera && (
+                <View style={{ position: 'absolute', bottom: 16, left: 0, right: 0, alignItems: 'center' }}>
+                  <View style={styles.ctrlGroup}>
+                    <View>
+                      <TouchableOpacity onPress={handleStart} style={styles.playBtn} activeOpacity={0.8}>
+                        <Play color="#fff" size={36} fill="#fff" />
+                      </TouchableOpacity>
+                      {countdown > 0 && (
+                        <View style={styles.countdownBadge}>
+                          <Text style={styles.countdownBadgeText}>{countdown}s</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.actionLabel}>Démarrer</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Landscape camera controls */}
+              {withCamera && (
+                <View style={{ position: 'absolute', bottom: 10, left: 0, right: 0, alignItems: 'center' }}>
+                  <TouchableOpacity
+                    onPress={camPrimaryAction}
+                    disabled={camState === 0 && !isCameraReady}
+                    style={[
+                      styles.camPrimaryBtn,
+                      camState === 0 && !isCameraReady && { opacity: 0.4 },
+                      camState === 1 && styles.camPrimaryBtnGo,
+                      (camState === 2 || camState === 3) && styles.camPrimaryBtnStop,
+                    ]}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.camPrimaryBtnText}>
+                      {camState === 0 && !isCameraReady ? 'Initialisation…' : camPrimaryLabel}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ) : (
+          /* ── PORTRAIT LAYOUT ──────────────────────────────────── */
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
           {/* TIMER — visible seulement hors countdown */}
           {phase !== 'countdown' && (!withCamera || camState >= 1) && (
             <View style={styles.timerCenter}>
@@ -1224,8 +1319,7 @@ export default function TimerRunScreen() {
             </View>
           )}
 
-
-          <View style={[styles.controls, isLandscape && { paddingBottom: 0, justifyContent: 'center' }]}>
+          <View style={styles.controls}>
             {withCamera ? (
               /* ── SINGLE BUTTON (camera mode) ─────────────────────── */
               <>
@@ -1305,6 +1399,7 @@ export default function TimerRunScreen() {
             )}
           </View>
           </View>
+          )}
         </>
       )}
     </View>
