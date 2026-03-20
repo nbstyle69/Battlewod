@@ -100,8 +100,30 @@ const DEFAULT_DISPLAY: TimerDisplayOpts = {
   clockStyle: 'arc', fontSize: Math.round(SW * 0.22), digitColor: '#FFFFFF',
   bgCountdown: '#2a2a2a', bgRunning: '#111111', bgDone: '#0d2a18', bipsEnabled: true,
 };
-const COLOR_PRESETS = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC', '#000000'];
-const BG_PRESETS    = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC', '#000000'];
+const COLOR_PRESETS = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC'];
+const BG_PRESETS    = ['#000000', '#111111', '#1a1a2e', '#0d2a18', '#2a1a1a', '#1a1a2a', '#2a2a2a'];
+
+// Ensure digit color contrasts with background — returns safe color
+function ensureContrast(digitColor: string, bgColor: string): string {
+  const lum = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  };
+  const diff = Math.abs(lum(digitColor) - lum(bgColor));
+  if (diff < 60) return lum(bgColor) > 128 ? '#000000' : '#FFFFFF';
+  return digitColor;
+}
+
+// Phase-specific accent colors for visual feedback
+const PHASE_COLORS = {
+  prepare: '#38BDF8',  // cyan-blue
+  work:    '#4ADE80',  // green
+  rest:    '#F87171',  // coral-red
+  done:    '#FACC15',  // gold
+  ready:   '#FFFFFF',  // white
+};
 
 // ─── ARC clock (SVG) ─────────────────────────────────────────────────────────
 function ArcTimer({ time, progress, color }: { time: string; progress: number; color: string }) {
@@ -869,7 +891,68 @@ export default function TimerRunScreen() {
     }
     return 0;
   })();
-  const accentColor = displayOpts.digitColor;
+  // Phase-aware accent color
+  const phaseColor = phase === 'countdown' ? PHASE_COLORS.prepare
+    : phase === 'running' && seqPausing ? PHASE_COLORS.rest
+    : phase === 'running' && innerPhase === 'rest' ? PHASE_COLORS.rest
+    : phase === 'running' ? PHASE_COLORS.work
+    : phase === 'done' ? PHASE_COLORS.done
+    : PHASE_COLORS.ready;
+  const currentBg = phase === 'countdown' ? displayOpts.bgCountdown
+    : (phase === 'running' || phase === 'stopped') ? displayOpts.bgRunning
+    : phase === 'done' ? displayOpts.bgDone : '#0A0A0A';
+  const rawAccent = (phase === 'ready' || phase === 'done') ? displayOpts.digitColor : phaseColor;
+  const accentColor = ensureContrast(rawAccent, currentBg);
+
+  // Phase label text
+  const phaseLabel = phase === 'countdown' ? 'PRÉPARER'
+    : phase === 'running' && seqPausing ? 'PAUSE'
+    : phase === 'running' && innerPhase === 'rest' ? 'REPOS'
+    : phase === 'running' ? 'TRAVAIL'
+    : '';
+
+  // Total WOD time for progress bar
+  const totalWodSeconds = (() => {
+    if (timerType === 'for-time') return maxTime;
+    if (timerType === 'amrap') return totalSeconds;
+    if (timerType === 'emom') return interval * 60 * rounds;
+    if (timerType === 'tabata') return (workTime + restTime) * rounds;
+    if (timerType === 'libre') {
+      return seqBlocksRef.current.reduce((acc, blk) => {
+        if (blk.type === 'amrap' || blk.type === 'for-time') return acc + blk.durationMin * 60;
+        if (blk.type === 'emom') return acc + blk.emomInterval * 60 * blk.emomRounds;
+        if (blk.type === 'tabata') return acc + (blk.workSec + blk.restSec) * blk.tabRounds;
+        return acc;
+      }, 0);
+    }
+    return 0;
+  })();
+
+  const totalElapsed = (() => {
+    if (phase === 'ready' || phase === 'countdown') return 0;
+    if (timerType === 'for-time') return timerVal;
+    if (timerType === 'amrap') return totalSeconds - roundTimeLeft;
+    if (timerType === 'emom') return (currentRound - 1) * interval * 60 + (interval * 60 - roundTimeLeft);
+    if (timerType === 'tabata') {
+      const roundDur = workTime + restTime;
+      const inRound = innerPhase === 'work' ? workTime - roundTimeLeft : workTime + (restTime - roundTimeLeft);
+      return (currentRound - 1) * roundDur + inRound;
+    }
+    return timerVal;
+  })();
+
+  const totalProgress = totalWodSeconds > 0 ? Math.min(1, Math.max(0, totalElapsed / totalWodSeconds)) : 0;
+  const totalRemaining = Math.max(0, totalWodSeconds - totalElapsed);
+
+  // Round info
+  const hasRounds = timerType === 'emom' || timerType === 'tabata'
+    || (timerType === 'libre' && curBlk && (curBlk.type === 'emom' || curBlk.type === 'tabata'));
+  const curTotalRounds = timerType === 'emom' ? rounds
+    : timerType === 'tabata' ? rounds
+    : curBlk?.type === 'emom' ? curBlk.emomRounds
+    : curBlk?.type === 'tabata' ? curBlk.tabRounds
+    : 0;
+  const roundsLeft = Math.max(0, curTotalRounds - currentRound);
 
   const showEndWorkBtn = phase === 'running' && innerPhase === 'work' && !seqPausing &&
     (timerType === 'ywyr' || (timerType === 'libre' && curBlk?.type === 'ywyr'));
@@ -1022,9 +1105,10 @@ export default function TimerRunScreen() {
       ) : (
         /* ── RUNNING / COUNTDOWN ─────────────────────────── */
         <>
-          {/* DÉCOMPTE — non-caméra uniquement (caméra = top-level) */}
+          {/* DÉCOMPTE — non-caméra uniquement */}
           {!withCamera && phase === 'countdown' && countdownVal > 0 && (
             <View style={styles.countdownOverlay} pointerEvents="none">
+              <Text style={[styles.phaseLabelGiant, { color: ensureContrast(phaseColor, currentBg) }]}>PRÉPARER</Text>
               <Text style={[styles.countdownBig, {
                 color: accentColor,
                 textShadowColor: accentColor,
@@ -1040,28 +1124,47 @@ export default function TimerRunScreen() {
           {/* TIMER — visible seulement hors countdown */}
           {phase !== 'countdown' && (!withCamera || camState >= 1) && (
             <View style={styles.timerCenter}>
-              {timerType === 'libre' && seqBlockLabel ? (
-                <Text style={styles.seqSubLabel}>{seqPausing ? '⏸ REPOS' : seqBlockLabel}</Text>
-              ) : null}
-              {!seqPausing && (timerType === 'tabata' || timerType === 'ywyr' ||
-                (timerType === 'libre' && (curBlk?.type === 'tabata' || curBlk?.type === 'ywyr'))) &&
-                phase === 'running' && (
-                <Text style={[styles.innerPhaseLabel, innerPhase === 'work' ? styles.workColor : styles.restColor]}>
-                  {innerPhase === 'work' ? '💪 TRAVAIL' : '😮‍💨 REPOS'}
+              {/* Phase label giant */}
+              {!!phaseLabel && phase === 'running' && (
+                <Text style={[styles.phaseLabelGiant, { color: ensureContrast(phaseColor, currentBg),
+                  textShadowColor: phaseColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>
+                  {phaseLabel}
                 </Text>
               )}
-              {(timerType === 'emom' || timerType === 'tabata') && phase === 'running' && (
-                <Text style={styles.roundLabel}>ROUND {currentRound} / {rounds}</Text>
-              )}
-              {timerType === 'libre' && !seqPausing && phase === 'running' && curBlk &&
-                (curBlk.type === 'emom' || curBlk.type === 'tabata') && (
-                <Text style={styles.roundLabel}>ROUND {currentRound} / {curBlk.type === 'emom' ? curBlk.emomRounds : curBlk.tabRounds}</Text>
-              )}
+              {/* Libre bloc sub-label */}
+              {timerType === 'libre' && seqBlockLabel ? (
+                <Text style={styles.seqSubLabel}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
+              ) : null}
+
               {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} />}
               {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} />}
               {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} />}
-              {timerType === 'amrap' && phase === 'running' && (
-                <Text style={styles.subLabel}>compte à rebours</Text>
+
+              {/* Total progress bar */}
+              {totalWodSeconds > 0 && phase === 'running' && (
+                <View style={styles.totalBarWrap}>
+                  <View style={styles.totalBarTrack}>
+                    <View style={[styles.totalBarFill, { width: `${Math.round(totalProgress * 100)}%` as any, backgroundColor: phaseColor }]} />
+                  </View>
+                  <Text style={[styles.totalBarLabel, { color: phaseColor }]}>
+                    TOTAL  {formatTime(totalRemaining)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Round badges */}
+              {hasRounds && phase === 'running' && !seqPausing && (
+                <View style={styles.roundBadgesRow}>
+                  <View style={styles.roundBadge}>
+                    <Text style={[styles.roundBadgeNum, { color: phaseColor }]}>{currentRound}</Text>
+                    <Text style={styles.roundBadgeSub}>ROUND</Text>
+                  </View>
+                  <View style={[styles.roundBadgeDivider, { backgroundColor: phaseColor + '30' }]} />
+                  <View style={styles.roundBadge}>
+                    <Text style={[styles.roundBadgeNum, { color: 'rgba(255,255,255,0.7)' }]}>{roundsLeft}</Text>
+                    <Text style={styles.roundBadgeSub}>RESTANTS</Text>
+                  </View>
+                </View>
               )}
             </View>
           )}
@@ -1178,6 +1281,7 @@ export default function TimerRunScreen() {
         {/* Overlay décompte — top-level pour éviter z-index/elevation Android */}
         {phase === 'countdown' && countdownVal > 0 && (
           <View style={[StyleSheet.absoluteFill, styles.camCdOverlay]} pointerEvents="none">
+            <Text style={[styles.phaseLabelGiant, { color: phaseColor, marginBottom: 16 }]}>PRÉPARER</Text>
             <View style={[styles.camCdCircle, { borderColor: `${accentColor}50` }]}>
               <Text style={[styles.camCdNum, {
                 color: accentColor,
@@ -1510,4 +1614,38 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 14, padding: 6,
   },
   recLogoImg: { width: 48, height: 48, opacity: 0.85 },
+  // ── Phase label giant
+  phaseLabelGiant: {
+    fontSize: 28, fontWeight: '900', letterSpacing: 6, textTransform: 'uppercase',
+  },
+  // ── Total progress bar
+  totalBarWrap: {
+    width: '80%', alignItems: 'center', gap: 6, marginTop: 8,
+  },
+  totalBarTrack: {
+    width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 3, overflow: 'hidden',
+  },
+  totalBarFill: {
+    height: '100%', borderRadius: 3,
+  },
+  totalBarLabel: {
+    fontSize: 11, fontWeight: '700', letterSpacing: 2,
+  },
+  // ── Round badges
+  roundBadgesRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 12,
+  },
+  roundBadge: {
+    alignItems: 'center', gap: 2,
+  },
+  roundBadgeNum: {
+    fontSize: 36, fontWeight: '200', letterSpacing: -1,
+  },
+  roundBadgeSub: {
+    fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.4)', letterSpacing: 2,
+  },
+  roundBadgeDivider: {
+    width: 1, height: 40, borderRadius: 1,
+  },
 });

@@ -89,25 +89,19 @@ export default function WhiteboardScreen() {
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
 
-    // 1. Fetch user's group memberships + visibility modes
+    // 1. Fetch user's group memberships (via members uuid[] array on message_groups)
     const { data: myGroupRows } = user
-      ? await supabase.from('message_group_members').select('group_id').eq('member_id', user.id)
+      ? await supabase.from('message_groups').select('id, wod_visibility_mode').eq('box_id', currentBox.id).contains('members', [user.id])
       : { data: [] };
-    const myGroupIds = new Set((myGroupRows ?? []).map((r: any) => r.group_id));
+    const myGroupIds = new Set((myGroupRows ?? []).map((r: any) => r.id));
 
-    // Fetch visibility mode for each group the user belongs to
+    // Build visibility mode map from the same query (already fetched wod_visibility_mode)
     const groupVisibility: Record<string, string> = {};
-    if (myGroupIds.size > 0) {
-      const { data: grpModes } = await supabase
-        .from('message_groups')
-        .select('id, wod_visibility_mode')
-        .in('id', [...myGroupIds]);
-      for (const g of (grpModes ?? []) as any[]) {
-        groupVisibility[g.id] = g.wod_visibility_mode ?? 'weekly';
-      }
+    for (const g of (myGroupRows ?? []) as any[]) {
+      groupVisibility[g.id] = g.wod_visibility_mode ?? 'weekly';
     }
 
-    const todayISO = new Date().toISOString().slice(0, 10);
+    const todayISO = toISO(new Date());
     const isFutureDate = selectedDate > todayISO;
 
     const { data: dayData } = await supabase

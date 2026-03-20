@@ -66,16 +66,16 @@ export default function MessagesScreen() {
   const load = useCallback(async () => {
     if (!currentBox || !user) { setLoading(false); setRefreshing(false); return; }
 
-    // 1. Groupes du membre (pour les onglets)
+    // 1. Groupes du membre (via members uuid[] array sur message_groups)
     const { data: memberGroups } = await supabase
-      .from('message_group_members')
-      .select('group_id, message_groups(id, name, color)')
-      .eq('member_id', user.id);
+      .from('message_groups')
+      .select('id, name, color')
+      .eq('box_id', currentBox.id)
+      .contains('members', [user.id]);
 
-    const userGroups: Group[] = (memberGroups ?? []).map((mg: any) => {
-      const g = Array.isArray(mg.message_groups) ? mg.message_groups[0] : mg.message_groups;
-      return g ? { id: g.id, name: g.name, color: g.color } : null;
-    }).filter(Boolean) as Group[];
+    const userGroups: Group[] = (memberGroups ?? []).map((g: any) =>
+      g ? { id: g.id, name: g.name, color: g.color } : null
+    ).filter(Boolean) as Group[];
     setGroups(userGroups);
 
     // 2. Messages du chat membre
