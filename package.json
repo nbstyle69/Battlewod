@@ -49,7 +49,7 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-view-shot": "^4.0.3",
     "react-native-web": "^0.21.0",
-    "react-native-webview": "^13.12.5",
+    "react-native-webview": "13.15.0",
     "react-native-worklets": "0.5.1",
     "realtime-recorder": "file:./modules/realtime-recorder",
     "screen-recorder": "file:./modules/screen-recorder",
