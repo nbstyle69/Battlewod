@@ -127,17 +127,18 @@ const PHASE_COLORS = {
 };
 
 // ─── ARC clock (SVG) ─────────────────────────────────────────────────────────
-function ArcTimer({ time, progress, color }: { time: string; progress: number; color: string }) {
+function ArcTimer({ time, progress, color, strokeColor }: { time: string; progress: number; color: string; strokeColor?: string }) {
   const { width: aw, height: ah } = useWindowDimensions();
   const size = Math.min(Math.min(aw, ah) * 0.76, 280);
   const r    = size / 2 - 18;
   const circ = 2 * Math.PI * r;
   const dash = circ * (1 - Math.max(0, Math.min(1, progress)));
+  const sc = strokeColor || color;
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', width: size, height: size }}>
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
         <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={14} />
-        <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={14}
+        <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={sc} strokeWidth={14}
           strokeLinecap="round" strokeDasharray={`${circ} ${circ}`} strokeDashoffset={dash} />
       </Svg>
       <Text style={{ fontSize: Math.round(size * 0.2), fontWeight: '200', color, letterSpacing: -2,
@@ -149,14 +150,15 @@ function ArcTimer({ time, progress, color }: { time: string; progress: number; c
 }
 
 // ─── BAR clock ──────────────────────────────────────────────────────────────
-function BarTimer({ time, progress, color, fontSize }: { time: string; progress: number; color: string; fontSize: number }) {
+function BarTimer({ time, progress, color, fontSize, strokeColor }: { time: string; progress: number; color: string; fontSize: number; strokeColor?: string }) {
   const { width: bw, height: bh } = useWindowDimensions();
   const isLandscapeBar = bw > bh;
   const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
+  const sc = strokeColor || color;
   return (
     <View style={{ alignItems: 'center', gap: 20 }}>
       <View style={{ width: isLandscapeBar ? bw * 0.38 : bw * 0.75, height: 14, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 7, overflow: 'hidden', position: 'relative' }}>
-        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%` as `${number}%`, backgroundColor: color, borderRadius: 7 }} />
+        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%` as `${number}%`, backgroundColor: sc, borderRadius: 7 }} />
       </View>
       <Text style={{ fontSize, fontWeight: '200', color, letterSpacing: -2,
         textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 }}>
@@ -1152,8 +1154,8 @@ export default function TimerRunScreen() {
                 <Text style={styles.seqSubLabel}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
               ) : null}
 
-              {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} />}
-              {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} />}
+              {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} strokeColor={phaseColor} />}
+              {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} />}
               {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} />}
 
               {/* Total progress bar */}
