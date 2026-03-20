@@ -3,7 +3,7 @@
     "name": "AthleX",
     "slug": "TheHub",
     "version": "1.0.13",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/logoapp.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -70,6 +70,7 @@
       ],
       "expo-notifications",
       "expo-av",
+      "expo-screen-orientation",
       "./plugins/withNoDevLauncher"
     ],
     "extra": {

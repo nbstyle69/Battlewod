@@ -12,7 +12,8 @@ import { RealtimeRecorderView, updateOverlayState, startRecording as nativeStart
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
-import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings, Youtube, Copy, ExternalLink } from 'lucide-react-native';
+import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings, Youtube, Copy, ExternalLink, RotateCw } from 'lucide-react-native';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
@@ -95,11 +96,13 @@ type ClockStyle = 'arc' | 'bar' | 'digits';
 interface TimerDisplayOpts {
   clockStyle: ClockStyle; fontSize: number; digitColor: string;
   bgCountdown: string; bgRunning: string; bgDone: string; bipsEnabled: boolean;
+  allowRotation: boolean;
 }
 const DISPLAY_OPTS_KEY = 'bwod_timer_display_opts';
 const DEFAULT_DISPLAY: TimerDisplayOpts = {
   clockStyle: 'arc', fontSize: Math.round(SW * 0.22), digitColor: '#FFFFFF',
   bgCountdown: '#2a2a2a', bgRunning: '#111111', bgDone: '#0d2a18', bipsEnabled: true,
+  allowRotation: false,
 };
 const COLOR_PRESETS = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC'];
 const BG_PRESETS    = ['#000000', '#111111', '#1a1a2e', '#0d2a18', '#2a1a1a', '#1a1a2a', '#2a2a2a'];
@@ -255,6 +258,17 @@ function TimerSettingsModal({ opts, onUpdate, onClose }: {
             <Text style={{ fontSize: 20 }}>{opts.bipsEnabled ? '🔊' : '🔇'}</Text>
             <Text style={{ color: opts.bipsEnabled ? '#00ff88' : '#555', fontWeight: '700', fontSize: 14 }}>
               {opts.bipsEnabled ? 'Bips activés' : 'Bips désactivés'}
+            </Text>
+          </TouchableOpacity>
+
+          <SLabel label="Rotation écran" />
+          <TouchableOpacity onPress={() => onUpdate({ allowRotation: !opts.allowRotation })}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, marginBottom: 24,
+              backgroundColor: opts.allowRotation ? '#1b4232' : '#1e1e1e',
+              borderWidth: 1, borderColor: opts.allowRotation ? '#00ff88' : '#2a2a2a' }}>
+            <RotateCw size={20} color={opts.allowRotation ? '#00ff88' : '#555'} />
+            <Text style={{ color: opts.allowRotation ? '#00ff88' : '#555', fontWeight: '700', fontSize: 14 }}>
+              {opts.allowRotation ? 'Rotation activée' : 'Rotation verrouillée'}
             </Text>
           </TouchableOpacity>
 
@@ -480,6 +494,18 @@ export default function TimerRunScreen() {
       if (v) try { setDisplayOptsRaw({ ...DEFAULT_DISPLAY, ...JSON.parse(v) }); } catch {}
     });
   }, []);
+
+  // Screen orientation lock/unlock
+  useEffect(() => {
+    if (displayOpts.allowRotation) {
+      ScreenOrientation.unlockAsync().catch(() => {});
+    } else {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    }
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    };
+  }, [displayOpts.allowRotation]);
 
   function setDisplayOpts(update: Partial<TimerDisplayOpts>) {
     setDisplayOptsRaw(prev => {
@@ -919,14 +945,17 @@ export default function TimerRunScreen() {
   const currentBg = phase === 'countdown' ? displayOpts.bgCountdown
     : (phase === 'running' || phase === 'stopped') ? displayOpts.bgRunning
     : phase === 'done' ? displayOpts.bgDone : '#0A0A0A';
-  const rawAccent = (phase === 'ready' || phase === 'done') ? displayOpts.digitColor : phaseColor;
-  const accentColor = ensureContrast(rawAccent, currentBg);
+  // accentColor = toujours la couleur choisie par l'utilisateur (digits)
+  // phaseColor = uniquement pour labels, arc stroke, badges, total bar
+  const accentColor = ensureContrast(displayOpts.digitColor, currentBg);
 
-  // Phase label text
+  // Phase label text — only show TRAVAIL/REPOS for types with work/rest phases
+  const hasWorkRest = timerType === 'tabata' || timerType === 'ywyr'
+    || (timerType === 'libre' && curBlk && (curBlk.type === 'tabata' || curBlk.type === 'ywyr'));
   const phaseLabel = phase === 'countdown' ? 'PRÉPARER'
     : phase === 'running' && seqPausing ? 'PAUSE'
-    : phase === 'running' && innerPhase === 'rest' ? 'REPOS'
-    : phase === 'running' ? 'TRAVAIL'
+    : phase === 'running' && hasWorkRest && innerPhase === 'rest' ? 'REPOS'
+    : phase === 'running' && hasWorkRest ? 'TRAVAIL'
     : '';
 
   // Total WOD time for progress bar
