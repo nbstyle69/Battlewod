@@ -86,13 +86,7 @@
         "@sentry/react-native/expo",
         {
           "organization": "nbs-innovation",
-          "project": "athlex-mobile",
-          "android": {
-            "autoUploadSourceMap": false
-          },
-          "ios": {
-            "autoUploadSourceMap": false
-          }
+          "project": "athlex-mobile"
         }
       ],
       "expo-build-properties"
