@@ -1,15 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Linking,
+  TextInput, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Shield, CheckCircle, XCircle, Video, Clock, Users, Trophy, LogOut, Youtube, AlertTriangle, Zap } from 'lucide-react-native';
+import { Shield, CheckCircle, XCircle, Video, Clock, Users, Trophy, LogOut, Youtube, AlertTriangle, Zap, Plus, Trash2, Megaphone } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { supabase } from '../../lib/supabase';
+import { formatScoreValue } from '../../utils/scoreFormat';
 
-const TABS = ['Scores', 'Matchs', 'Tournois', 'Daily WOD'];
+const TABS = ['Scores', 'Matchs', 'Tournois', 'Daily WOD', 'Changelog'];
+
+interface ChangelogItem {
+  id: string;
+  title: string;
+  body: string;
+  type: 'fix' | 'feature' | 'update';
+  created_at: string;
+}
+
+const CL_TYPES: { key: 'fix' | 'feature' | 'update'; label: string; icon: string }[] = [
+  { key: 'feature', label: 'Nouveauté', icon: '✨' },
+  { key: 'fix',     label: 'Correction', icon: '🐛' },
+  { key: 'update',  label: 'Mise à jour', icon: '🔄' },
+];
 
 interface PendingScore {
   id: string;
@@ -45,6 +61,14 @@ export default function AdminScreen() {
   const [loadingScores, setLoadingScores] = useState(true);
   const [contestedDailies, setContestedDailies] = useState<ContestedDaily[]>([]);
   const [loadingDailies, setLoadingDailies] = useState(true);
+  // Changelog
+  const [changelogItems, setChangelogItems] = useState<ChangelogItem[]>([]);
+  const [loadingChangelog, setLoadingChangelog] = useState(true);
+  const [clModal, setClModal]     = useState(false);
+  const [clTitle, setClTitle]     = useState('');
+  const [clBody, setClBody]       = useState('');
+  const [clType, setClType]       = useState<'fix' | 'feature' | 'update'>('feature');
+  const [clSaving, setClSaving]   = useState(false);
 
   const loadScores = useCallback(async () => {
     setLoadingScores(true);
@@ -103,7 +127,18 @@ export default function AdminScreen() {
     setLoadingDailies(false);
   }, []);
 
-  useEffect(() => { loadScores(); loadDailies(); }, [loadScores, loadDailies]);
+  const loadChangelog = useCallback(async () => {
+    setLoadingChangelog(true);
+    const { data } = await supabase
+      .from('app_changelog')
+      .select('id, title, body, type, created_at')
+      .order('created_at', { ascending: false })
+      .limit(30);
+    setChangelogItems((data ?? []) as ChangelogItem[]);
+    setLoadingChangelog(false);
+  }, []);
+
+  useEffect(() => { loadScores(); loadDailies(); loadChangelog(); }, [loadScores, loadDailies, loadChangelog]);
 
   async function handleValidate(id: string) {
     Alert.alert('Valider le score', 'Confirmer la validation de ce score ?', [
@@ -139,6 +174,36 @@ export default function AdminScreen() {
             .eq('tournament_id', item.tournament_id)
             .eq('user_id', item.athlete_id);
           setContestedDailies(prev => prev.filter(d => d.id !== item.id));
+        },
+      },
+    ]);
+  }
+
+  async function handleCreateChangelog() {
+    if (!clTitle.trim()) { Alert.alert('Titre requis'); return; }
+    setClSaving(true);
+    const { error } = await supabase.from('app_changelog').insert({
+      title: clTitle.trim(),
+      body: clBody.trim(),
+      type: clType,
+      created_by: user?.id,
+    });
+    setClSaving(false);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    setClModal(false);
+    setClTitle('');
+    setClBody('');
+    setClType('feature');
+    loadChangelog();
+  }
+
+  async function handleDeleteChangelog(id: string) {
+    Alert.alert('Supprimer', 'Supprimer cette entrée changelog ?', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer', style: 'destructive', onPress: async () => {
+          await supabase.from('app_changelog').delete().eq('id', id);
+          setChangelogItems(prev => prev.filter(c => c.id !== id));
         },
       },
     ]);
@@ -357,7 +422,7 @@ export default function AdminScreen() {
                       <Text style={S.scoreWod}>Score soumis</Text>
                       <Text style={S.dailyScoreDetail}>{item.rx ? 'RX' : 'Scaled'}</Text>
                     </View>
-                    <Text style={S.scoreValue}>{item.score_value}</Text>
+                    <Text style={S.scoreValue}>{formatScoreValue(item.score_value, item.score_mode)}</Text>
                   </View>
 
                   {item.contest_reason ? (
@@ -401,8 +466,105 @@ export default function AdminScreen() {
           </>
         )}
 
+        {activeTab === 4 && (
+          <>
+            <TouchableOpacity
+              style={[S.validateButton, { marginBottom: 16, alignSelf: 'stretch' }]}
+              onPress={() => setClModal(true)}
+              activeOpacity={0.8}
+            >
+              <Plus color="#fff" size={18} />
+              <Text style={S.validateText}>Nouvelle entrée</Text>
+            </TouchableOpacity>
+
+            {loadingChangelog ? (
+              <View style={S.emptyState}>
+                <ActivityIndicator size="large" color={theme.accent} />
+              </View>
+            ) : changelogItems.length === 0 ? (
+              <View style={S.emptyState}>
+                <Megaphone color={theme.textMuted} size={48} />
+                <Text style={S.emptyTitle}>Aucune entrée</Text>
+                <Text style={S.emptySub}>Publie une nouveauté pour tes utilisateurs.</Text>
+              </View>
+            ) : (
+              changelogItems.map(item => {
+                const meta = CL_TYPES.find(t => t.key === item.type) ?? CL_TYPES[2];
+                return (
+                  <View key={item.id} style={S.scoreCard}>
+                    <View style={S.scoreHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, color: theme.textMuted }}>
+                          {meta.icon} {meta.label} · {new Date(item.created_at).toLocaleDateString('fr-FR')}
+                        </Text>
+                        <Text style={[S.athleteName, { marginTop: 4 }]}>{item.title}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => handleDeleteChangelog(item.id)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                        <Trash2 color={theme.error} size={18} />
+                      </TouchableOpacity>
+                    </View>
+                    {item.body ? <Text style={{ fontSize: 13, color: theme.textSecondary, marginTop: 6 }}>{item.body}</Text> : null}
+                  </View>
+                );
+              })
+            )}
+          </>
+        )}
+
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Changelog create modal */}
+      <Modal visible={clModal} transparent animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={S.modalOverlay}>
+          <View style={S.modalCard}>
+            <Text style={S.modalTitle}>Nouvelle entrée changelog</Text>
+
+            <View style={S.clTypeRow}>
+              {CL_TYPES.map(t => (
+                <TouchableOpacity
+                  key={t.key}
+                  onPress={() => setClType(t.key)}
+                  style={[S.clTypeBtn, clType === t.key && { backgroundColor: theme.accent }]}
+                >
+                  <Text style={[S.clTypeBtnText, clType === t.key && { color: '#fff' }]}>
+                    {t.icon} {t.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={S.clInput}
+              placeholder="Titre"
+              placeholderTextColor={theme.textMuted}
+              value={clTitle}
+              onChangeText={setClTitle}
+            />
+            <TextInput
+              style={[S.clInput, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Description (optionnel)"
+              placeholderTextColor={theme.textMuted}
+              value={clBody}
+              onChangeText={setClBody}
+              multiline
+            />
+
+            <View style={S.actionRow}>
+              <TouchableOpacity onPress={() => setClModal(false)} style={S.rejectButton}>
+                <Text style={S.rejectText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleCreateChangelog} activeOpacity={0.8} style={{ flex: 1 }}>
+                <LinearGradient colors={[theme.accent, theme.accentDark ?? theme.accent]} style={S.validateButton}>
+                  {clSaving ? <ActivityIndicator color="#fff" size="small" /> : (
+                    <><Plus color="#fff" size={18} /><Text style={S.validateText}>Publier</Text></>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -514,4 +676,22 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   contestReasonLabel: { fontSize: 11, fontWeight: '800', color: theme.warning, marginBottom: 2 },
   contestReasonText: { fontSize: 13, color: theme.text, fontWeight: '600' },
+  // Changelog modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalCard: {
+    backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: theme.text, marginBottom: 16 },
+  clTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  clTypeBtn: {
+    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+  },
+  clTypeBtnText: { fontSize: 12, fontWeight: '700', color: theme.text },
+  clInput: {
+    backgroundColor: theme.surface, borderRadius: 12, padding: 14,
+    fontSize: 15, color: theme.text, marginBottom: 12,
+    borderWidth: 1, borderColor: theme.border,
+  },
 }); }

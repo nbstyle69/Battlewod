@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { GenderTarget } from '../../types';
 
 type Nav = NativeStackNavigationProp<any>;
 
@@ -64,6 +65,7 @@ export default function DailyTournamentsScreen() {
   const [formLevel, setFormLevel] = useState('rx');
   const [formMovements, setFormMovements] = useState('');
   const [formScoreMode, setFormScoreMode] = useState('time');
+  const [formGender, setFormGender] = useState<GenderTarget>('mix');
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -100,6 +102,21 @@ export default function DailyTournamentsScreen() {
 
   async function handleJoin(tournamentId: string) {
     if (!user) return;
+    // Gender check
+    const t = tournaments.find(x => x.id === tournamentId);
+    const gt = (t as any)?.gender_target;
+    if (gt && gt !== 'mix') {
+      const { data: profile } = await supabase.from('profiles').select('gender').eq('id', user.id).single();
+      if (profile?.gender && profile.gender !== gt) {
+        const label = gt === 'male' ? 'hommes' : 'femmes';
+        Alert.alert('Accès restreint', `Ce tournoi est réservé aux ${label}.`);
+        return;
+      }
+      if (!profile?.gender) {
+        Alert.alert('Genre non renseigné', 'Renseigne ton genre dans ton profil pour rejoindre ce tournoi.');
+        return;
+      }
+    }
     const { error } = await supabase.from('daily_tournament_participants').upsert({
       tournament_id: tournamentId,
       user_id: user.id,
@@ -120,6 +137,7 @@ export default function DailyTournamentsScreen() {
       level: formLevel,
       movements: formMovements.trim(),
       score_mode: formScoreMode,
+      gender_target: formGender,
       status: 'open',
       ends_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
     }).select().single();
@@ -147,6 +165,7 @@ export default function DailyTournamentsScreen() {
     setFormLevel('rx');
     setFormMovements('');
     setFormScoreMode('time');
+    setFormGender('mix');
   }
 
   function timeLeft(endsAt: string): string {
@@ -328,6 +347,16 @@ export default function DailyTournamentsScreen() {
                   <TouchableOpacity key={m.key} onPress={() => setFormScoreMode(m.key)} activeOpacity={0.7}
                     style={[S.chip, formScoreMode === m.key && S.chipSel]}>
                     <Text style={[S.chipTxt, formScoreMode === m.key && S.chipTxtSel]}>{m.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={S.label}>Genre cible</Text>
+              <View style={S.chipRow}>
+                {([['mix', 'Mix'], ['male', 'Homme'], ['female', 'Femme']] as [GenderTarget, string][]).map(([val, lbl]) => (
+                  <TouchableOpacity key={val} onPress={() => setFormGender(val)} activeOpacity={0.7}
+                    style={[S.chip, formGender === val && S.chipSel]}>
+                    <Text style={[S.chipTxt, formGender === val && S.chipTxtSel]}>{lbl}</Text>
                   </TouchableOpacity>
                 ))}
               </View>

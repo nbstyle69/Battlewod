@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Image,
 } from 'react-native';
-import { Zap, Trophy, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History } from 'lucide-react-native';
+import { Zap, Trophy, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History, Bell } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +10,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
 import { supabase } from '../../lib/supabase';
+import { formatScoreValue } from '../../utils/scoreFormat';
+import { getStreak, StreakInfo } from '../../services/gamification';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
 
@@ -40,8 +42,9 @@ export default function HomeScreen() {
   const [competitions,   setCompetitions]   = useState<CompetitionSummary[]>([]);
   const [recentScores,   setRecentScores]   = useState<RecentScore[]>([]);
   const [rank,           setRank]           = useState<number | null>(null);
-  const [streak,         setStreak]         = useState(0);
+  const [streak,         setStreak]         = useState<StreakInfo>({ current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '' });
   const [pendingFriends, setPendingFriends] = useState(0);
+  const [unreadChangelog, setUnreadChangelog] = useState(0);
 
   // Progression stats
   const [totalWods,       setTotalWods]       = useState(0);
@@ -61,25 +64,16 @@ export default function HomeScreen() {
       .gt('elo', user.elo ?? 0);
     setRank((count ?? 0) + 1);
 
-    // Streak: count consecutive days with wod_scores
-    const { data: scoresDays } = await supabase
-      .from('wod_scores')
-      .select('created_at')
-      .eq('athlete_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(60);
-    if (scoresDays && scoresDays.length > 0) {
-      const days = [...new Set(scoresDays.map((s: any) => s.created_at.slice(0, 10)))];
-      let s = 0;
-      const today = new Date();
-      for (let i = 0; i < days.length; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        if (days[i] === d.toISOString().slice(0, 10)) s++;
-        else break;
-      }
-      setStreak(s);
-    }
+    // Streak from gamification service
+    const streakData = await getStreak(user.id);
+    setStreak(streakData);
+
+    // Unread changelog count
+    const [{ count: totalCl }, { count: readCl }] = await Promise.all([
+      supabase.from('app_changelog').select('id', { count: 'exact', head: true }),
+      supabase.from('changelog_reads').select('changelog_id', { count: 'exact', head: true }).eq('user_id', user.id),
+    ]);
+    setUnreadChangelog(Math.max(0, (totalCl ?? 0) - (readCl ?? 0)));
 
     // Competitions: from current box if member, else global open ones
     const boxFilter = currentBox?.id;
@@ -178,9 +172,7 @@ export default function HomeScreen() {
       });
       setBestScores(Object.entries(byType).map(([, v]) => ({
         name: v.name,
-        value: v.type === 'time'
-          ? `${String(Math.floor(v.value / 60)).padStart(2, '0')}:${String(Math.round(v.value % 60)).padStart(2, '0')}`
-          : `${v.value}`,
+        value: formatScoreValue(v.value, v.type),
         type: v.type === 'time' ? '⏱' : v.type === 'reps' ? '🔄' : v.type === 'weight' ? '🏋️' : '🔁',
       })).slice(0, 4));
     }
@@ -238,6 +230,14 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }}>
             <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
           </View>
+          <TouchableOpacity onPress={() => navigation.navigate('Changelog' as never)} activeOpacity={0.7} style={{ position: 'relative', marginRight: currentBox?.logo_url ? 12 : 0 }}>
+            <Bell size={22} color={theme.text} />
+            {unreadChangelog > 0 && (
+              <View style={S.bellBadge}>
+                <Text style={S.bellBadgeText}>{unreadChangelog > 9 ? '9+' : unreadChangelog}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
           {currentBox?.logo_url ? (
             <Image source={{ uri: currentBox.logo_url }} style={S.boxLogo} />
           ) : null}
@@ -245,10 +245,10 @@ export default function HomeScreen() {
 
         {/* Hero: ELO + Level + Rank */}
         <View style={S.heroRow}>
-          <View style={S.heroElo}>
+          <TouchableOpacity style={S.heroElo} onPress={() => navigation.navigate('EloHistory' as never)} activeOpacity={0.6}>
             <Text style={S.heroEloNum}>{user?.elo ?? 1000}</Text>
-            <Text style={S.heroEloLabel}>ELO</Text>
-          </View>
+            <Text style={S.heroEloLabel}>ELO ›</Text>
+          </TouchableOpacity>
           <View style={S.heroDivider} />
           <View style={S.heroStat}>
             <Text style={S.heroStatNum}>{rank !== null ? `#${rank}` : '—'}</Text>
@@ -256,8 +256,8 @@ export default function HomeScreen() {
           </View>
           <View style={S.heroDivider} />
           <View style={S.heroStat}>
-            <Text style={S.heroStatNum}>{streak}</Text>
-            <Text style={S.heroStatLabel}>Streak</Text>
+            <Text style={S.heroStatNum}>🔥 {streak.current_streak}</Text>
+            <Text style={S.heroStatLabel}>{streak.week_session_count}/3 sem.</Text>
           </View>
           <View style={S.heroDivider} />
           <View style={S.heroStat}>
@@ -472,6 +472,13 @@ function createStyles(t: AppTheme) {
       paddingHorizontal: 3, borderWidth: 2, borderColor: t.card,
     },
     notifDotTxt: { fontSize: 9, fontWeight: '900', color: '#fff' },
+    bellBadge: {
+      position: 'absolute', top: -5, right: -6,
+      backgroundColor: t.error, borderRadius: 9,
+      minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center',
+      paddingHorizontal: 3, borderWidth: 2, borderColor: t.card,
+    },
+    bellBadgeText: { fontSize: 9, fontWeight: '900', color: '#fff' },
 
     // ── Hero stats ──
     heroRow: {

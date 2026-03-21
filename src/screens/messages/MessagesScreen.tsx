@@ -4,8 +4,8 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, RefreshControl,
   Image, Modal, Pressable, Dimensions,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { Send, Megaphone, ImagePlus, X, Search } from 'lucide-react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Send, Megaphone, ImagePlus, X, Search, ChevronLeft } from 'lucide-react-native';
 
 const TENOR_API_KEY = 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ'; // Free public Tenor key
 interface GifResult { id: string; url: string; preview: string; }
@@ -13,6 +13,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { sendNewMessageNotification } from '../../services/notifications';
+import { incrementCounter } from '../../services/gamification';
 import { MessageType } from '../../types';
 
 const REACTION_EMOJIS = ['❤️', '🔥', '💪', '😂', '👏', '👀'];
@@ -45,6 +47,8 @@ interface Group { id: string; name: string; color: string | null; }
 export default function MessagesScreen() {
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
+  const navigation = useNavigation();
+  const canGoBack = navigation.canGoBack();
   const S = createStyles(theme);
   const [messages,   setMessages]   = useState<MsgRow[]>([]);
   const [groups,     setGroups]     = useState<Group[]>([]);
@@ -408,6 +412,10 @@ export default function MessagesScreen() {
         content: text || (attachmentUrl ? '📷 Image' : ''),
         ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
       });
+      const grp = groups.find(g => g.id === activeTab);
+      if (grp) {
+        sendNewMessageNotification(activeTab, grp.name, user.id, user.username, text || '📷 Image').catch(() => {});
+      }
     } else {
       await supabase.from('messages').insert({
         box_id: currentBox.id,
@@ -418,6 +426,7 @@ export default function MessagesScreen() {
         ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
       });
     }
+    if (user) incrementCounter(user.id, 'total_messages_sent').catch(() => {});
     setSending(false);
   }
 
@@ -482,9 +491,16 @@ export default function MessagesScreen() {
     >
       {/* Header */}
       <View style={S.header}>
-        <View>
-          <Text style={S.headerTitle}>Messages</Text>
-          <Text style={S.headerSub}>{currentBox.name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {canGoBack && (
+            <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
+              <ChevronLeft color={theme.text} size={22} />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={S.headerTitle}>Messages</Text>
+            <Text style={S.headerSub}>{currentBox.name}</Text>
+          </View>
         </View>
       </View>
 

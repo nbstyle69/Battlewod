@@ -9,6 +9,8 @@ import { HomeStackParamList } from '../navigation';
 import { AthleteLevel } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { incrementCounter } from '../services/gamification';
+import { cancelTodayScoreReminder } from '../services/notifications';
 
 const HYROX_ORANGE = '#F97316';
 type Sport = 'functional' | 'hybrid';
@@ -907,6 +909,8 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     });
     setSubmitting(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
+    incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
+    cancelTodayScoreReminder().catch(() => {});
     setScoreModal(false);
     setScoreInput('');
     setScoreNotes('');
@@ -956,6 +960,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       setHyroxWod(null);
     }
     setLoading(false);
+    if (user) incrementCounter(user.id, 'total_wods_generated').catch(() => {});
   }
 
   return (

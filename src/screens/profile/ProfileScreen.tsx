@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { Colors, LevelColors } from '../../theme/colors';
+import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
@@ -89,52 +90,17 @@ const PR_CATEGORIES = [
   },
 ];
 
-const BADGE_CATEGORIES = [
-  {
-    label: 'Compétition',
-    badges: [
-      { id: 'b1', name: 'Premier Sang', desc: '1er match remporté', icon: '⚔️', earned: true },
-      { id: 'b2', name: '10 Victoires', desc: '10 matchs gagnés', icon: '🏅', earned: true },
-      { id: 'b3', name: 'Série de Feu', desc: '5 victoires consécutives', icon: '🔥', earned: true },
-      { id: 'b4', name: 'Centurion', desc: '100 matchs disputés', icon: '🛡️', earned: false },
-      { id: 'b5', name: 'Invaincu', desc: '10 matchs sans défaite', icon: '💎', earned: false },
-      { id: 'b6', name: 'Champion', desc: 'Remporter un tournoi', icon: '🏆', earned: false },
-    ],
-  },
-  {
-    label: 'Performance',
-    badges: [
-      { id: 'b7', name: 'Elite RX', desc: 'Atteindre le niveau RX', icon: '⭐', earned: true },
-      { id: 'b8', name: 'Sub-4 Fran', desc: 'Fran en moins de 4 min', icon: '⚡', earned: true },
-      { id: 'b9', name: 'Barbell King', desc: '100kg+ au Snatch', icon: '🏋️', earned: false },
-      { id: 'b10', name: 'Iron Man', desc: '200kg+ au Deadlift', icon: '�', earned: false },
-      { id: 'b11', name: 'Murph Club', desc: 'Murph en moins de 40min', icon: '🦅', earned: false },
-      { id: 'b12', name: 'Muscle-up King', desc: '10 Ring MU en série', icon: '🤸', earned: false },
-    ],
-  },
-  {
-    label: 'Régularité',
-    badges: [
-      { id: 'b13', name: 'WOD Machine', desc: '50 WOD générés', icon: '🤖', earned: true },
-      { id: 'b14', name: 'Semaine Parfaite', desc: '7 jours de suite actif', icon: '📅', earned: true },
-      { id: 'b15', name: 'Mois de Feu', desc: '30 WOD dans le mois', icon: '🗓️', earned: false },
-      { id: 'b16', name: 'Vétéran', desc: '1 an d\'activité', icon: '🎖️', earned: false },
-      { id: 'b17', name: 'Maître Zen', desc: '100 WOD générés', icon: '🧘', earned: false },
-    ],
-  },
-  {
-    label: 'Communauté',
-    badges: [
-      { id: 'b18', name: 'Capitaine', desc: 'Créer une équipe', icon: '👑', earned: false },
-      { id: 'b19', name: 'Recruteur', desc: 'Inviter 5 membres', icon: '🤝', earned: false },
-      { id: 'b20', name: 'Légende', desc: 'Atteindre 2000 ELO', icon: '🌟', earned: false },
-      { id: 'b21', name: 'Ambassadeur', desc: 'Parrainer une salle', icon: '🏠', earned: false },
-    ],
-  },
-];
+const BADGE_CATEGORY_MAP: Record<string, string> = {
+  activity: 'Régularité',
+  tournament: 'Compétition',
+  social: 'Communauté',
+  wod: 'Entraînement',
+  elo: 'Classement',
+};
+const CATEGORY_ORDER = ['activity', 'tournament', 'wod', 'elo', 'social'];
 
 export default function ProfileScreen() {
-  const { user, signOut, currentBox, joinBox, leaveBox, updateUser } = useAuth();
+  const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser } = useAuth();
   const { theme, mode, toggleTheme } = useTheme();
   const navigation = useNavigation<Nav>();
   const S = createStyles(theme);
@@ -145,6 +111,10 @@ export default function ProfileScreen() {
   const [referralCode, setReferralCode] = useState<string>('');
   // ── WOD count
   const [wodCount, setWodCount] = useState<number>(0);
+  // ── Badges & streaks
+  const [badgesCatalog, setBadgesCatalog] = useState<BadgeDef[]>([]);
+  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]);
+  const [streak, setStreak] = useState<StreakInfo>({ current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '' });
   // ── Friends
   const [friends, setFriends] = useState<Array<{ id: string; username: string; level: string; avatar_url?: string }>>([]);
   // ── PR editing
@@ -169,7 +139,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadReferralCode();
-    if (user?.id) { loadWodCount(); loadFriends(); loadPRs(); }
+    if (user?.id) { loadWodCount(); loadFriends(); loadPRs(); loadBadges(); }
   }, [user?.id]);
 
   async function loadPRs() {
@@ -314,6 +284,41 @@ export default function ProfileScreen() {
     ]);
   }
 
+  const [deleting, setDeleting] = useState(false);
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      '⚠️ Supprimer ton compte ?',
+      'Toutes tes données seront définitivement supprimées : scores, PR, messages, historique ELO, badges…\n\nCette action est irréversible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer définitivement',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Dernière confirmation',
+              'Es-tu vraiment sûr ? Il n\'y a aucun moyen de récupérer ton compte.',
+              [
+                { text: 'Non, annuler', style: 'cancel' },
+                {
+                  text: 'Oui, supprimer',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeleting(true);
+                    const { error } = await deleteAccount();
+                    setDeleting(false);
+                    if (error) Alert.alert('Erreur', error);
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  }
+
   const levelColor = LevelColors[user?.level ?? 'scaled'];
 
   const roleLabel = user?.role === 'box_owner'  ? 'Gérant de box'
@@ -333,20 +338,28 @@ export default function ProfileScreen() {
     });
   }
 
-  // ── Auto PR badge logic
-  const hasPR = Object.values(prValues).some(v => parseFloat(v) > 0);
-  const prImproved3 = Object.values(prValues).filter(v => parseFloat(v) >= 100).length >= 3;
-  const COMPUTED_BADGES = BADGE_CATEGORIES.map(cat => ({
-    ...cat,
-    badges: cat.badges.map(b => ({
-      ...b,
-      earned: b.id === 'b1' ? hasPR
-        : b.id === 'b2' ? prImproved3
-        : b.earned,
-    })),
-  }));
-  const earnedCount = COMPUTED_BADGES.flatMap(c => c.badges).filter(b => b.earned).length;
-  const totalBadges = COMPUTED_BADGES.flatMap(c => c.badges).length;
+  async function loadBadges() {
+    if (!user) return;
+    const [catalog, earned, streakData] = await Promise.all([
+      getBadgesCatalog(),
+      getEarnedBadges(user.id),
+      getStreak(user.id),
+    ]);
+    setBadgesCatalog(catalog);
+    setEarnedBadges(earned);
+    setStreak(streakData);
+  }
+
+  const earnedKeys = new Set(earnedBadges.map(b => b.badge_key));
+  const earnedCount = earnedBadges.length;
+  const totalBadges = badgesCatalog.length;
+
+  // Group badges by category
+  const badgesByCategory = CATEGORY_ORDER.map(cat => ({
+    key: cat,
+    label: BADGE_CATEGORY_MAP[cat] ?? cat,
+    badges: badgesCatalog.filter(b => b.category === cat),
+  })).filter(c => c.badges.length > 0);
 
   return (
     <View style={S.container}>
@@ -375,13 +388,17 @@ export default function ProfileScreen() {
         </View>
 
         <View style={S.statsRow}>
+          <TouchableOpacity onPress={() => navigation.navigate('EloHistory' as never)}
+            style={[S.statPill, S.statPillBorder]} activeOpacity={0.6}>
+            <Text style={S.statPillValue}>{user?.elo ?? 1000}</Text>
+            <Text style={S.statPillLabel}>ELO ›</Text>
+          </TouchableOpacity>
           {[
-            { label: 'ELO', value: user?.elo ?? 1000 },
             { label: 'Victoires', value: user?.wins ?? 0 },
             { label: 'Matchs', value: user?.total_matches ?? 0 },
             { label: 'Win Rate', value: `${winRate}%` },
           ].map((s, i) => (
-            <View key={s.label} style={[S.statPill, i < 3 && S.statPillBorder]}>
+            <View key={s.label} style={[S.statPill, i < 2 && S.statPillBorder]}>
               <Text style={S.statPillValue}>{s.value}</Text>
               <Text style={S.statPillLabel}>{s.label}</Text>
             </View>
@@ -513,20 +530,35 @@ export default function ProfileScreen() {
                 <Text style={{ fontWeight: '900' }}>{totalBadges}</Text>
               </Text>
             </View>
-            {COMPUTED_BADGES.map((cat) => (
-              <View key={cat.label} style={S.badgeCategoryBlock}>
+            {/* Streak widget */}
+            <View style={S.streakWidget}>
+              <Text style={S.streakFire}>🔥</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={S.streakTitle}>Semaine {streak.current_streak}</Text>
+                <Text style={S.streakSub}>{streak.week_session_count}/3 sessions cette semaine</Text>
+                <View style={S.streakBar}>
+                  <View style={[S.streakBarFill, { width: `${Math.min(100, (streak.week_session_count / 3) * 100)}%` }]} />
+                </View>
+              </View>
+            </View>
+
+            {badgesByCategory.map((cat) => (
+              <View key={cat.key} style={S.badgeCategoryBlock}>
                 <Text style={S.badgeCategoryTitle}>{cat.label}</Text>
                 <View style={S.badgesGrid}>
-                  {cat.badges.map((badge) => (
-                    <View key={badge.id} style={[S.badgeCard, !badge.earned && S.badgeCardLocked]}>
-                      <Text style={S.badgeIcon}>{badge.earned ? badge.icon : '🔒'}</Text>
-                      <Text style={[S.badgeName, !badge.earned && { color: theme.textMuted }]}>
-                        {badge.name}
-                      </Text>
-                      <Text style={S.badgeDesc}>{badge.desc}</Text>
-                      {badge.earned && <View style={S.earnedBar} />}
-                    </View>
-                  ))}
+                  {cat.badges.map((badge) => {
+                    const earned = earnedKeys.has(badge.badge_key);
+                    return (
+                      <View key={badge.badge_key} style={[S.badgeCard, !earned && S.badgeCardLocked]}>
+                        <Text style={S.badgeIcon}>{earned ? badge.icon : '🔒'}</Text>
+                        <Text style={[S.badgeName, !earned && { color: theme.textMuted }]}>
+                          {badge.title}
+                        </Text>
+                        <Text style={S.badgeDesc}>{badge.description}</Text>
+                        {earned && <View style={S.earnedBar} />}
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
             ))}
@@ -696,6 +728,18 @@ export default function ProfileScreen() {
               )}
             </View>
 
+            {/* ── CGU + Confidentialité ──────────────── */}
+            <TouchableOpacity
+              style={S.compteCard}
+              onPress={() => navigation.navigate('Legal' as never)}
+              activeOpacity={0.8}
+            >
+              <View style={S.themeRow}>
+                <Text style={S.compteCardTitle}>CGU & Confidentialité</Text>
+                <ChevronRight color={theme.textMuted} size={16} />
+              </View>
+            </TouchableOpacity>
+
             {/* ── Apparence ───────────────────────────── */}
             <View style={S.compteCard}>
               <Text style={S.compteCardTitle}>Apparence</Text>
@@ -749,6 +793,26 @@ export default function ProfileScreen() {
                   <Text style={[S.referralBtnText, { color: theme.background }]}>Partager</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {/* ── Supprimer le compte ───────────────────── */}
+            <View style={S.compteCard}>
+              <Text style={S.compteCardTitle}>Zone dangereuse</Text>
+              <Text style={{ fontSize: 12, color: theme.textMuted, lineHeight: 18 }}>
+                La suppression de ton compte est définitive. Toutes tes données (scores, PR, messages, ELO, badges) seront supprimées.
+              </Text>
+              <TouchableOpacity
+                style={S.deleteAccountBtn}
+                onPress={handleDeleteAccount}
+                disabled={deleting}
+                activeOpacity={0.8}
+              >
+                {deleting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={S.deleteAccountText}>Supprimer mon compte</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -882,6 +946,18 @@ function createStyles(t: AppTheme) {
   prDate: { fontSize: 10, color: t.textMuted, marginRight: 12 },
   prValue: { fontSize: 15, fontWeight: '900', color: t.text },
   prUnit: { fontSize: 11, color: t.textMuted, fontWeight: '400' },
+  streakWidget: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: isDark ? t.surface : t.card, borderRadius: 14,
+    padding: 16, marginBottom: 20,
+    borderWidth: 1, borderColor: t.border,
+    ...cardShadow,
+  },
+  streakFire: { fontSize: 36 },
+  streakTitle: { fontSize: 16, fontWeight: '900', color: t.text },
+  streakSub: { fontSize: 12, color: t.textMuted, marginTop: 2, marginBottom: 6 },
+  streakBar: { height: 6, backgroundColor: t.border, borderRadius: 3, overflow: 'hidden' as const },
+  streakBarFill: { height: 6, backgroundColor: t.accent, borderRadius: 3 },
   badgeSummary: { marginBottom: 16 },
   badgeSummaryText: { fontSize: 13, color: t.textSecondary },
   badgeCategoryBlock: { marginBottom: 24 },
@@ -1033,4 +1109,9 @@ function createStyles(t: AppTheme) {
   roleBadgeText: { fontSize: 12, fontWeight: '700' as const, color: t.textSecondary },
   inviteCodeRow: { flexDirection: 'row' as const, alignItems: 'center' as const },
   inviteCodeText: { fontSize: 14, fontWeight: '700' as const, letterSpacing: 2, color: t.text },
+  deleteAccountBtn: {
+    backgroundColor: '#EF4444', borderRadius: 14, padding: 14,
+    alignItems: 'center' as const, justifyContent: 'center' as const,
+  },
+  deleteAccountText: { color: '#fff', fontSize: 14, fontWeight: '700' as const },
 }); }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as Sentry from '@sentry/react-native';
 import { useFonts,
   Inter_400Regular, Inter_500Medium, Inter_600SemiBold,
   Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
@@ -12,6 +13,15 @@ import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import AppNavigator from './src/navigation';
 
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
+  debug: __DEV__,
+  enabled: !__DEV__,
+  tracesSampleRate: 0.2,
+  attachScreenshot: true,
+  enableAutoSessionTracking: true,
+});
+
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { error: string | null }
@@ -21,8 +31,9 @@ class ErrorBoundary extends React.Component<
     this.state = { error: null };
   }
 
-  componentDidCatch(error: Error) {
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
     this.setState({ error: error.message });
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
   }
 
   render() {
@@ -45,7 +56,7 @@ class ErrorBoundary extends React.Component<
 (Text as any).defaultProps = (Text as any).defaultProps ?? {};
 (Text as any).defaultProps.style = [{ fontFamily: 'Inter_400Regular' }];
 
-export default function App() {
+function App() {
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -69,3 +80,5 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+export default Sentry.wrap(App);

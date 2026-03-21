@@ -10,9 +10,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { BoxWOD, WODScore, ScoreType } from '../../types';
+import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
-import { sendScoreNotification } from '../../services/notifications';
+import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScoreReminder } from '../../services/notifications';
+import { incrementCounter } from '../../services/gamification';
+import { formatScoreValue, DNF_BASE } from '../../utils/scoreFormat';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -34,14 +36,7 @@ function allowedScoreTypes(wodType?: string | null): { types: ScoreType[]; defau
 }
 
 function formatScore(score: WODScore): string {
-  if (score.score_type === 'time') {
-    const total = Math.round(score.score_value);
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  const units: Record<ScoreType, string> = { time: 's', reps: ' reps', weight: ' kg', rounds: ' rounds' };
-  return `${score.score_value}${units[score.score_type] ?? ''}`;
+  return formatScoreValue(score.score_value, score.score_type);
 }
 
 // ── ELO Calculation ──────────────────────────────────────────────────────
@@ -148,8 +143,13 @@ export default function WODDetailScreen() {
   // Score form
   const [scoreType,  setScoreType]  = useState<ScoreType>('reps');
   const [scoreInput, setScoreInput] = useState('');
+  const [timeMin,    setTimeMin]    = useState('');
+  const [timeSec,    setTimeSec]    = useState('');
+  const secRef = useRef<TextInput>(null);
   const [isRx,       setIsRx]       = useState(true);
   const [noteInput,  setNoteInput]  = useState('');
+  const [dnf,        setDnf]        = useState(false);
+  const [capReps,    setCapReps]    = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Score detail modal
@@ -164,6 +164,7 @@ export default function WODDetailScreen() {
 
   // Reaction/comment counts per score
   const [scoreMeta, setScoreMeta] = useState<Record<string, { reactions: number; comments: number }>>({});
+  const [genderFilter, setGenderFilter] = useState<GenderTarget>('mix');
 
   const load = useCallback(async () => {
     const { data: wodData } = await supabase.from('box_wods').select('*').eq('id', wodId).single();
@@ -173,7 +174,7 @@ export default function WODDetailScreen() {
     if (w) {
       const { data: scoreData } = await supabase
         .from('wod_scores')
-        .select('*, profile:profiles(id, username, avatar_url, level, elo)')
+        .select('*, profile:profiles(id, username, avatar_url, level, elo, gender)')
         .eq('wod_id', w.id)
         .order('score_value', { ascending: w.wod_type === 'for-time' });
 
@@ -221,10 +222,14 @@ export default function WODDetailScreen() {
   async function submitScore() {
     if (!wod || !user || !currentBox) return;
     let value = 0;
-    if (scoreType === 'time') {
-      const parts = scoreInput.split(':');
-      if (parts.length === 2) value = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-      else value = parseInt(scoreInput);
+    if (scoreType === 'time' && dnf) {
+      const reps = parseInt(capReps) || 0;
+      if (reps <= 0) { Alert.alert('Score invalide', 'Entre le nombre de répétitions complétées.'); return; }
+      value = DNF_BASE + reps;
+    } else if (scoreType === 'time') {
+      const m = parseInt(timeMin) || 0;
+      const s = parseInt(timeSec) || 0;
+      value = m * 60 + s;
     } else {
       value = parseFloat(scoreInput);
     }
@@ -243,6 +248,11 @@ export default function WODDetailScreen() {
     }, { onConflict: 'wod_id,member_id' });
 
     if (error) { setSubmitting(false); Alert.alert('Erreur', error.message); return; }
+    incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
+    cancelTodayScoreReminder().catch(() => {});
+
+    // Snapshot old rankings before reload
+    const oldScores = [...scores];
 
     // Reload scores then compute ELO
     const { data: updatedScores } = await supabase
@@ -252,6 +262,22 @@ export default function WODDetailScreen() {
       .order('score_value', { ascending: wod.wod_type === 'for-time' });
 
     const list = (updatedScores ?? []) as WODScore[];
+
+    // Detect overtaken users: users who were ranked above my new position before
+    const myNewIdx = list.findIndex(s => s.member_id === user.id);
+    if (myNewIdx >= 0 && oldScores.length > 0) {
+      const overtaken = list
+        .slice(myNewIdx + 1)
+        .filter(s => {
+          const oldIdx = oldScores.findIndex(os => os.member_id === s.member_id);
+          return oldIdx >= 0 && oldIdx < oldScores.findIndex(os => os.member_id === user.id);
+        })
+        .map(s => s.member_id)
+        .filter(id => id !== user.id);
+      if (overtaken.length > 0) {
+        sendScoreOvertakenNotification(overtaken, user.username, wod.title).catch(() => {});
+      }
+    }
     setScores(list);
     setMyScore(list.find(sc => sc.member_id === user.id) ?? null);
 
@@ -263,7 +289,11 @@ export default function WODDetailScreen() {
     setSubmitting(false);
     setModalOpen(false);
     setScoreInput('');
+    setTimeMin('');
+    setTimeSec('');
     setNoteInput('');
+    setDnf(false);
+    setCapReps('');
   }
 
   async function openScoreDetail(sc: WODScore) {
@@ -462,8 +492,20 @@ export default function WODDetailScreen() {
             onLayout={e => { leaderboardY.current = e.nativeEvent.layout.y; }}
           >
             <Text style={S.sectionTitle}>Classement · {scores.length} score{scores.length > 1 ? 's' : ''}</Text>
+            <View style={S.genderFilterRow}>
+              {([['mix', 'Tous'], ['male', 'Homme'], ['female', 'Femme']] as [GenderTarget, string][]).map(([val, lbl]) => (
+                <TouchableOpacity
+                  key={val}
+                  style={[S.genderChip, genderFilter === val && S.genderChipActive]}
+                  onPress={() => setGenderFilter(val)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[S.genderChipText, genderFilter === val && S.genderChipTextActive]}>{lbl}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <View style={S.leaderboard}>
-              {scores.map((sc, i) => {
+              {scores.filter(sc => genderFilter === 'mix' || (sc.profile as any)?.gender === genderFilter).map((sc, i) => {
                 const isMe = sc.member_id === user?.id;
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
                 const elo = (sc.profile as any)?.elo ?? 1000;
@@ -560,18 +602,78 @@ export default function WODDetailScreen() {
                 );
               })()}
 
-              <Text style={S.modalLabel}>
-                {scoreType === 'time' ? 'TEMPS (MM:SS)' : scoreType === 'weight' ? 'POIDS (kg)' : scoreType === 'reps' ? 'REPS' : 'ROUNDS'}
-              </Text>
-              <TextInput
-                style={S.scoreInput}
-                placeholder={scoreType === 'time' ? '14:32' : '150'}
-                placeholderTextColor={theme.textMuted}
-                value={scoreInput}
-                onChangeText={setScoreInput}
-                keyboardType={scoreType === 'time' ? 'default' : 'numeric'}
-                autoFocus
-              />
+              {scoreType === 'time' && (
+                <TouchableOpacity
+                  style={S.dnfRow}
+                  onPress={() => { setDnf(!dnf); setScoreInput(''); setCapReps(''); }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[S.dnfCheck, dnf && S.dnfCheckActive]}>
+                    {dnf && <Text style={S.dnfCheckMark}>✓</Text>}
+                  </View>
+                  <Text style={S.dnfLabel}>WOD pas fini (CAP)</Text>
+                </TouchableOpacity>
+              )}
+
+              {scoreType === 'time' && dnf ? (
+                <>
+                  <Text style={S.modalLabel}>NOMBRE DE RÉPÉTITIONS COMPLÉTÉES</Text>
+                  <TextInput
+                    style={S.scoreInput}
+                    placeholder="Ex: 87"
+                    placeholderTextColor={theme.textMuted}
+                    value={capReps}
+                    onChangeText={setCapReps}
+                    keyboardType="number-pad"
+                    autoFocus
+                  />
+                </>
+              ) : (
+                <>
+                  <Text style={S.modalLabel}>
+                    {scoreType === 'time' ? 'TEMPS (MM:SS)' : scoreType === 'weight' ? 'POIDS (kg)' : scoreType === 'reps' ? 'REPS' : 'ROUNDS'}
+                  </Text>
+                  {scoreType === 'time' ? (
+                    <View style={S.timeRow}>
+                      <TextInput
+                        style={[S.scoreInput, S.timeInput]}
+                        placeholder="MM"
+                        placeholderTextColor={theme.textMuted}
+                        value={timeMin}
+                        onChangeText={(t) => {
+                          const d = t.replace(/\D/g, '').slice(0, 2);
+                          setTimeMin(d);
+                          if (d.length === 2) secRef.current?.focus();
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        autoFocus
+                      />
+                      <Text style={S.timeColon}>:</Text>
+                      <TextInput
+                        ref={secRef}
+                        style={[S.scoreInput, S.timeInput]}
+                        placeholder="SS"
+                        placeholderTextColor={theme.textMuted}
+                        value={timeSec}
+                        onChangeText={(t) => setTimeSec(t.replace(/\D/g, '').slice(0, 2))}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                      />
+                    </View>
+                  ) : (
+                    <TextInput
+                      style={S.scoreInput}
+                      placeholder="150"
+                      placeholderTextColor={theme.textMuted}
+                      value={scoreInput}
+                      onChangeText={setScoreInput}
+                      keyboardType="number-pad"
+                      autoFocus
+                    />
+                  )}
+                </>
+              )}
 
               <Text style={S.modalLabel}>NIVEAU</Text>
               <View style={S.rxRow}>
@@ -594,9 +696,9 @@ export default function WODDetailScreen() {
               />
 
               <TouchableOpacity
-                style={[S.submitBtn, (!scoreInput.trim() || submitting) && S.submitBtnDisabled]}
+                style={[S.submitBtn, (!(dnf ? capReps.trim() : scoreInput.trim()) || submitting) && S.submitBtnDisabled]}
                 onPress={submitScore}
-                disabled={!scoreInput.trim() || submitting}
+                disabled={!(dnf ? capReps.trim() : scoreInput.trim()) || submitting}
                 activeOpacity={0.85}
               >
                 {submitting
@@ -834,6 +936,14 @@ function createStyles(theme: AppTheme) {
   expiredText: { fontSize: 12, color: theme.textMuted, fontWeight: '600', flex: 1 },
   section: { paddingHorizontal: 16, marginTop: 8 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
+  genderFilterRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  genderChip: {
+    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8,
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+  },
+  genderChipActive: { backgroundColor: `${theme.accent}15`, borderColor: theme.accent },
+  genderChipText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
+  genderChipTextActive: { color: theme.accent },
   leaderboard: {
     backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16,
     borderWidth: 1, borderColor: theme.border, overflow: 'hidden',
@@ -882,6 +992,17 @@ function createStyles(theme: AppTheme) {
     paddingHorizontal: 14, paddingVertical: 13,
     fontSize: 18, color: theme.text, fontWeight: '700',
   },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  timeInput: { flex: 1, textAlign: 'center', fontSize: 22 },
+  timeColon: { fontSize: 24, fontWeight: '700', color: theme.text },
+  dnfRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: 4 },
+  dnfCheck: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: theme.border,
+    justifyContent: 'center', alignItems: 'center', backgroundColor: theme.surface,
+  },
+  dnfCheckActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+  dnfCheckMark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  dnfLabel: { fontSize: 14, fontWeight: '600', color: theme.text },
   rxRow: { flexDirection: 'row', gap: 10 },
   rxChip: {
     flex: 1, paddingVertical: 12, borderRadius: 12,

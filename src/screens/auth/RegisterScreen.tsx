@@ -4,13 +4,13 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Zap, ChevronLeft, Building2, Dumbbell } from 'lucide-react-native';
+import { Zap, ChevronLeft, Building2, Dumbbell, User as UserIcon } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { AuthStackParamList } from '../../navigation';
-import { AthleteLevel } from '../../types';
+import { AthleteLevel, Gender } from '../../types';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'> };
 
@@ -31,14 +31,17 @@ export default function RegisterScreen({ navigation }: Props) {
   const [username,    setUsername]    = useState('');
   const [password,    setPassword]    = useState('');
   const [level,       setLevel]       = useState<AthleteLevel>('scaled');
+  const [gender,      setGender]      = useState<Gender>('male');
   const [asBoxOwner,  setAsBoxOwner]  = useState(false);
   const [loading,     setLoading]     = useState(false);
+  const [acceptedCGU, setAcceptedCGU] = useState(false);
 
   async function handleRegister() {
     if (!email || !password || !username) { Alert.alert('Erreur', 'Remplis tous les champs'); return; }
     if (password.length < 6) { Alert.alert('Erreur', 'Mot de passe trop court (6 caractères min)'); return; }
+    if (!acceptedCGU) { Alert.alert('CGU requises', 'Tu dois accepter les Conditions Générales d\'Utilisation pour t\'inscrire.'); return; }
     setLoading(true);
-    const { error } = await signUp(email.trim(), password, username.trim(), level, asBoxOwner);
+    const { error } = await signUp(email.trim(), password, username.trim(), level, asBoxOwner, gender);
     setLoading(false);
     if (error === 'CONFIRM_EMAIL') {
       Alert.alert(
@@ -112,6 +115,28 @@ export default function RegisterScreen({ navigation }: Props) {
             </View>
 
             <View style={S.inputContainer}>
+              <Text style={S.label}>Genre</Text>
+              <View style={S.roleRow}>
+                <TouchableOpacity
+                  style={[S.roleCard, gender === 'male' && S.roleCardActive]}
+                  onPress={() => setGender('male')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 22 }}>♂</Text>
+                  <Text style={[S.roleLabel, gender === 'male' && S.roleLabelActive]}>Homme</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[S.roleCard, gender === 'female' && S.roleCardActive]}
+                  onPress={() => setGender('female')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 22 }}>♀</Text>
+                  <Text style={[S.roleLabel, gender === 'female' && S.roleLabelActive]}>Femme</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={S.inputContainer}>
               <Text style={S.label}>Tu es…</Text>
               <View style={S.roleRow}>
                 <TouchableOpacity
@@ -156,8 +181,18 @@ export default function RegisterScreen({ navigation }: Props) {
               </View>
             </View>
 
-            <TouchableOpacity onPress={handleRegister} disabled={loading} activeOpacity={0.8}>
-              <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
+            <View style={S.cguRow}>
+              <TouchableOpacity onPress={() => setAcceptedCGU(!acceptedCGU)} style={S.cguCheckbox}>
+                {acceptedCGU && <View style={S.cguChecked} />}
+              </TouchableOpacity>
+              <Text style={S.cguText}>
+                J'accepte les{' '}
+                <Text style={S.cguLink} onPress={() => navigation.navigate('Legal' as never)}>CGU et la Politique de Confidentialité</Text>
+              </Text>
+            </View>
+
+            <TouchableOpacity onPress={handleRegister} disabled={loading || !acceptedCGU} activeOpacity={0.8}>
+              <LinearGradient colors={[theme.accent, theme.accentDark]} style={[S.button, !acceptedCGU && { opacity: 0.5 }]}>
                 {loading
                   ? <ActivityIndicator color="#fff" />
                   : <Text style={S.buttonText}>REJOINDRE LA BATAILLE</Text>}
@@ -220,4 +255,12 @@ function createStyles(theme: AppTheme) {
   levelDesc: { fontSize: 11, color: theme.textMuted },
   button: { borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  cguRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12 },
+  cguCheckbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    borderColor: theme.accent, justifyContent: 'center', alignItems: 'center', marginTop: 1,
+  },
+  cguChecked: { width: 12, height: 12, borderRadius: 3, backgroundColor: theme.accent },
+  cguText: { flex: 1, fontSize: 12, color: theme.textMuted, lineHeight: 18 },
+  cguLink: { color: theme.accent, fontWeight: '700', textDecorationLine: 'underline' },
 }); }

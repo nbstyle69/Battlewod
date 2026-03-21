@@ -3,8 +3,8 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, Alert, Modal, FlatList,
 } from 'react-native';
-import { CalendarClock, ChevronLeft, ChevronRight, Users, Check, Clock, Dumbbell, Timer, X } from 'lucide-react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { CalendarClock, ChevronLeft, ChevronRight, Users, Check, Clock, Dumbbell, Timer, X, CalendarCheck } from 'lucide-react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -67,6 +67,7 @@ const WOD_TYPE_LABELS: Record<string, string> = {
 export default function ReservationScreen() {
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
+  const navigation = useNavigation<any>();
   const S = createStyles(theme);
 
   const [schedules,  setSchedules]  = useState<ClassSchedule[]>([]);
@@ -277,9 +278,26 @@ export default function ReservationScreen() {
   return (
     <View style={S.container}>
       <View style={S.header}>
-        <Text style={S.headerTitle}>Réservation</Text>
-        <Text style={S.headerSub}>{currentBox.name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
+            <ChevronLeft color={theme.text} size={22} />
+          </TouchableOpacity>
+          <View>
+            <Text style={S.headerTitle}>Réservation</Text>
+            <Text style={S.headerSub}>{currentBox.name}</Text>
+          </View>
+        </View>
       </View>
+
+      <TouchableOpacity
+        style={S.myResBtn}
+        onPress={() => navigation.navigate('MyReservations')}
+        activeOpacity={0.8}
+      >
+        <CalendarCheck size={16} color={theme.accent} />
+        <Text style={S.myResBtnText}>Mes réservations</Text>
+        <ChevronRight size={16} color={theme.accent} />
+      </TouchableOpacity>
 
       <WeekDayPicker
         weekOffset={weekOffset}
@@ -524,6 +542,15 @@ function createStyles(t: AppTheme) {
     emptyContainer:     { flex: 1, backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, gap: 12 },
     emptyTitle:         { fontSize: 20, fontWeight: '800', color: t.text },
     emptySubtitle:      { fontSize: 14, color: t.textMuted, textAlign: 'center' },
+
+    myResBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      marginHorizontal: 20, marginTop: 8, marginBottom: 4,
+      backgroundColor: `${t.accent}15`,
+      borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+      borderWidth: 1, borderColor: `${t.accent}25`,
+    },
+    myResBtnText: { fontSize: 13, fontWeight: '700' as const, color: t.accent },
 
     header:             { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
     headerTitle:        { fontSize: 26, fontWeight: '900', color: t.text, letterSpacing: -0.5 },

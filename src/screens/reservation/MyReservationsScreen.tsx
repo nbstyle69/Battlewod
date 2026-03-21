@@ -1,0 +1,213 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  ActivityIndicator, RefreshControl,
+} from 'react-native';
+import { ChevronLeft, Calendar, Clock, Check, Timer, X as XIcon } from 'lucide-react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
+
+interface ReservationRow {
+  id: string;
+  schedule_id: string;
+  status: 'confirmed' | 'waiting';
+  created_at: string;
+  schedule: {
+    title: string;
+    scheduled_date: string;
+    start_time: string;
+    end_time: string;
+    coach: string | null;
+  } | null;
+}
+
+export default function MyReservationsScreen() {
+  const { user, currentBox } = useAuth();
+  const { theme } = useTheme();
+  const navigation = useNavigation();
+  const S = createStyles(theme);
+
+  const [reservations, setReservations] = useState<ReservationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
+
+  const todayISO = new Date().toISOString().slice(0, 10);
+
+  const load = useCallback(async () => {
+    if (!user || !currentBox) { setLoading(false); return; }
+
+    const { data } = await supabase
+      .from('class_reservations')
+      .select('id, schedule_id, status, created_at, schedule:class_schedules(title, scheduled_date, start_time, end_time, coach)')
+      .eq('member_id', user.id)
+      .eq('box_id', currentBox.id)
+      .order('created_at', { ascending: false });
+
+    setReservations((data ?? []).map((r: any) => ({
+      ...r,
+      schedule: Array.isArray(r.schedule) ? r.schedule[0] ?? null : r.schedule,
+    })));
+    setLoading(false);
+    setRefreshing(false);
+  }, [user, currentBox]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const upcoming = reservations.filter(r => r.schedule && r.schedule.scheduled_date >= todayISO);
+  const past = reservations.filter(r => r.schedule && r.schedule.scheduled_date < todayISO);
+  const displayed = tab === 'upcoming' ? upcoming : past;
+
+  function formatDate(dateStr: string) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  return (
+    <View style={S.container}>
+      <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={S.back}>
+          <ChevronLeft color={theme.text} size={22} />
+        </TouchableOpacity>
+        <View>
+          <Text style={S.headerTitle}>Mes réservations</Text>
+          <Text style={S.headerSub}>{upcoming.length} en cours · {past.length} passées</Text>
+        </View>
+      </View>
+
+      {/* Tabs */}
+      <View style={S.tabs}>
+        <TouchableOpacity
+          style={[S.tab, tab === 'upcoming' && S.tabActive]}
+          onPress={() => setTab('upcoming')}
+        >
+          <Text style={[S.tabText, tab === 'upcoming' && S.tabTextActive]}>
+            En cours ({upcoming.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[S.tab, tab === 'past' && S.tabActive]}
+          onPress={() => setTab('past')}
+        >
+          <Text style={[S.tabText, tab === 'past' && S.tabTextActive]}>
+            Passées ({past.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 60 }} size="large" color={theme.accent} />
+      ) : (
+        <FlatList
+          data={displayed}
+          keyExtractor={r => r.id}
+          contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.accent} />
+          }
+          ListEmptyComponent={
+            <View style={S.empty}>
+              <Calendar color={theme.textMuted} size={40} strokeWidth={1.5} />
+              <Text style={S.emptyTitle}>
+                {tab === 'upcoming' ? 'Aucune réservation à venir' : 'Aucune réservation passée'}
+              </Text>
+              <Text style={S.emptySub}>
+                {tab === 'upcoming' ? 'Réserve un créneau depuis le calendrier.' : 'Ton historique apparaîtra ici.'}
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const s = item.schedule;
+            if (!s) return null;
+            const isPast = s.scheduled_date < todayISO;
+            const isConfirmed = item.status === 'confirmed';
+
+            return (
+              <View style={[S.card, isPast && S.cardPast]}>
+                <View style={[S.statusDot, { backgroundColor: isConfirmed ? theme.accent : '#f59e0b' }]} />
+                <View style={S.cardBody}>
+                  <View style={S.cardTop}>
+                    <Text style={S.cardTitle}>{s.title}</Text>
+                    <View style={[S.statusBadge, isConfirmed ? S.statusConfirmed : S.statusWaiting]}>
+                      {isConfirmed ? <Check color="#C9A227" size={11} /> : <Timer color="#f59e0b" size={11} />}
+                      <Text style={[S.statusText, isConfirmed ? { color: '#C9A227' } : { color: '#f59e0b' }]}>
+                        {isConfirmed ? 'Confirmé' : 'Attente'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={S.cardDetails}>
+                    <View style={S.detailRow}>
+                      <Calendar color={theme.textMuted} size={12} />
+                      <Text style={S.detailText}>{formatDate(s.scheduled_date)}</Text>
+                    </View>
+                    <View style={S.detailRow}>
+                      <Clock color={theme.textMuted} size={12} />
+                      <Text style={S.detailText}>{s.start_time} – {s.end_time}</Text>
+                    </View>
+                  </View>
+                  {s.coach && <Text style={S.coach}>Coach : {s.coach}</Text>}
+                </View>
+              </View>
+            );
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+function createStyles(t: AppTheme) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.background },
+    header: {
+      paddingTop: 56, paddingHorizontal: 16, paddingBottom: 16,
+      backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border,
+      flexDirection: 'row', alignItems: 'flex-end', gap: 10,
+    },
+    back: { paddingBottom: 2 },
+    headerTitle: { fontSize: 22, fontWeight: '900', color: t.text },
+    headerSub: { fontSize: 12, color: t.textMuted, marginTop: 1 },
+
+    tabs: {
+      flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 8,
+    },
+    tab: {
+      flex: 1, alignItems: 'center', paddingVertical: 10,
+      borderRadius: 12, backgroundColor: t.surface,
+      borderWidth: 1, borderColor: t.border,
+    },
+    tabActive: {
+      backgroundColor: `${t.accent}15`, borderColor: `${t.accent}40`,
+    },
+    tabText: { fontSize: 13, fontWeight: '700', color: t.textMuted },
+    tabTextActive: { color: t.accent },
+
+    empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
+    emptyTitle: { fontSize: 16, fontWeight: '800', color: t.text },
+    emptySub: { fontSize: 13, color: t.textMuted, textAlign: 'center', paddingHorizontal: 32 },
+
+    card: {
+      flexDirection: 'row', alignItems: 'stretch',
+      backgroundColor: t.card, borderRadius: 14,
+      borderWidth: 1, borderColor: t.border, overflow: 'hidden',
+    },
+    cardPast: { opacity: 0.55 },
+    statusDot: { width: 4, borderTopLeftRadius: 14, borderBottomLeftRadius: 14 },
+    cardBody: { flex: 1, padding: 14 },
+    cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+    cardTitle: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1 },
+    statusBadge: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+    },
+    statusConfirmed: { backgroundColor: 'rgba(201,162,39,0.12)' },
+    statusWaiting: { backgroundColor: 'rgba(245,158,11,0.12)' },
+    statusText: { fontSize: 11, fontWeight: '700' },
+    cardDetails: { flexDirection: 'row', gap: 16 },
+    detailRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    detailText: { fontSize: 12, color: t.textMuted, fontWeight: '600' },
+    coach: { fontSize: 12, color: t.textSecondary, marginTop: 4 },
+  });
+}

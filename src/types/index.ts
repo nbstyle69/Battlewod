@@ -161,9 +161,10 @@ export type UserRole_B2B = 'super_admin' | 'box_owner' | 'member';
 
 export type WODType = 'AMRAP' | 'For Time' | 'EMOM' | 'Tabata' | 'Max Reps' | 'Chipper' | 'Ladder' | 'Couplet' | 'Death By';
 
-export type MatchStatus = 'pending' | 'active' | 'completed' | 'cancelled';
-
 export type TournamentStatus = 'open' | 'active' | 'completed';
+
+export type Gender = 'male' | 'female';
+export type GenderTarget = 'male' | 'female' | 'mix';
 
 export interface User {
   id: string;
@@ -174,6 +175,7 @@ export interface User {
   bio?: string;
   level: AthleteLevel;
   role: UserRole;
+  gender?: Gender;
   elo: number;
   total_matches: number;
   wins: number;
@@ -203,24 +205,6 @@ export interface Movement {
   notes?: string;
 }
 
-export interface Match {
-  id: string;
-  athlete1_id: string;
-  athlete2_id: string;
-  athlete1?: User;
-  athlete2?: User;
-  wod_id: string;
-  wod?: WOD;
-  status: MatchStatus;
-  winner_id?: string;
-  athlete1_score?: number;
-  athlete2_score?: number;
-  athlete1_video_url?: string;
-  athlete2_video_url?: string;
-  elo_change?: number;
-  created_at: string;
-}
-
 export interface Tournament {
   id: string;
   name: string;
@@ -239,7 +223,6 @@ export interface Score {
   id: string;
   athlete_id: string;
   wod_id: string;
-  match_id?: string;
   value: number;
   unit: 'reps' | 'time' | 'kg';
   video_url?: string;

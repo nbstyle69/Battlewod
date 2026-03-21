@@ -12,6 +12,7 @@ import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { HomeStackParamList } from '../../navigation';
 import { AthleteLevel } from '../../types';
+import { formatScoreValue } from '../../utils/scoreFormat';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -46,14 +47,7 @@ interface WODScore {
 type FilterType = 'all' | 'favorites' | 'benchmark';
 
 function formatScore(score: WODScore): string {
-  if (score.score_type === 'time') {
-    const total = Math.round(score.score_value);
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  const units: Record<string, string> = { time: '', reps: ' reps', weight: ' kg', rounds: ' rnds' };
-  return `${score.score_value}${units[score.score_type] ?? ''}`;
+  return formatScoreValue(score.score_value, score.score_type);
 }
 
 function formatDate(iso: string): string {

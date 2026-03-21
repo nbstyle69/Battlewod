@@ -7,6 +7,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { WODStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { incrementCounter } from '../../services/gamification';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WODType } from '../../types';
 
@@ -839,6 +841,7 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
 export default function WODGeneratorScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<WODStackParamList>>();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const S = createStyles(theme);
 
   const [sport,        setSport]        = useState<Sport>('functional');
@@ -883,6 +886,7 @@ export default function WODGeneratorScreen() {
       setGeneratedHyrox(null);
     }
     setLoading(false);
+    if (user) incrementCounter(user.id, 'total_wods_generated').catch(() => {});
   }
 
   return (

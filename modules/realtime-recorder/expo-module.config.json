@@ -1,6 +1,9 @@
 {
-  "platforms": ["ios"],
+  "platforms": ["ios", "android"],
   "ios": {
     "modules": ["RealtimeRecorderModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.realtimerecorder.RealtimeRecorderModule"]
   }
 }

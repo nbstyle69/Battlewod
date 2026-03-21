@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
   ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, Linking,
@@ -13,6 +13,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { incrementCounter } from '../../services/gamification';
+import { cancelTodayScoreReminder } from '../../services/notifications';
+import { formatScoreValue } from '../../utils/scoreFormat';
 
 import { HomeStackParamList, TimerType } from '../../navigation';
 
@@ -47,17 +50,11 @@ interface TournamentDetail {
   starts_at: string;
   ends_at: string;
   created_at: string;
+  gender_target?: string;
 }
 
 function formatScore(value: number, mode: string): string {
-  if (mode === 'time') {
-    const total = Math.round(value);
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  const units: Record<string, string> = { reps: ' reps', weight: ' kg', rounds: ' rnds' };
-  return `${value}${units[mode] ?? ''}`;
+  return formatScoreValue(value, mode);
 }
 
 export default function DailyTournamentDetailScreen() {
@@ -79,6 +76,9 @@ export default function DailyTournamentDetailScreen() {
   // Score modal
   const [scoreModal, setScoreModal] = useState(false);
   const [scoreInput, setScoreInput] = useState('');
+  const [timeMin, setTimeMin] = useState('');
+  const [timeSec, setTimeSec] = useState('');
+  const secRef = useRef<TextInput>(null);
   const [scoreRx, setScoreRx] = useState(true);
   const [scoreNotes, setScoreNotes] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -188,6 +188,19 @@ export default function DailyTournamentDetailScreen() {
 
   async function handleJoin() {
     if (!user) return;
+    // Gender check
+    if (tournament?.gender_target && tournament.gender_target !== 'mix') {
+      const { data: profile } = await supabase.from('profiles').select('gender').eq('id', user.id).single();
+      if (profile?.gender && profile.gender !== tournament.gender_target) {
+        const label = tournament.gender_target === 'male' ? 'hommes' : 'femmes';
+        Alert.alert('Accès restreint', `Ce tournoi est réservé aux ${label}.`);
+        return;
+      }
+      if (!profile?.gender) {
+        Alert.alert('Genre non renseigné', 'Renseigne ton genre dans ton profil pour rejoindre ce tournoi.');
+        return;
+      }
+    }
     setJoining(true);
     const { error } = await supabase.from('daily_tournament_participants').upsert({
       tournament_id: tournamentId,
@@ -199,14 +212,17 @@ export default function DailyTournamentDetailScreen() {
   }
 
   async function handleSubmitScore() {
-    if (!user || !scoreInput.trim()) return;
+    const hasInput = tournament?.score_mode === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim();
+    if (!user || !hasInput) return;
     setSubmitting(true);
 
-    let value = parseFloat(scoreInput);
-    // If time mode and input is MM:SS format
-    if (tournament?.score_mode === 'time' && scoreInput.includes(':')) {
-      const [m, s] = scoreInput.split(':').map(Number);
-      value = (m || 0) * 60 + (s || 0);
+    let value = 0;
+    if (tournament?.score_mode === 'time') {
+      const m = parseInt(timeMin) || 0;
+      const s = parseInt(timeSec) || 0;
+      value = m * 60 + s;
+    } else {
+      value = parseFloat(scoreInput);
     }
 
     if (isNaN(value) || value <= 0) {
@@ -227,6 +243,8 @@ export default function DailyTournamentDetailScreen() {
 
     setSubmitting(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
+    incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
+    cancelTodayScoreReminder().catch(() => {});
 
     setScoreModal(false);
     setScoreInput('');
@@ -363,6 +381,13 @@ export default function DailyTournamentDetailScreen() {
               {isCompleted ? 'TERMINÉ' : timeLeft()}
             </Text>
           </View>
+          {tournament.gender_target && tournament.gender_target !== 'mix' && (
+            <View style={[S.badge, { backgroundColor: tournament.gender_target === 'male' ? '#3B82F620' : '#EC489920' }]}>
+              <Text style={[S.badgeTxt, { color: tournament.gender_target === 'male' ? '#3B82F6' : '#EC4899' }]}>
+                {tournament.gender_target === 'male' ? '♂ Homme' : '♀ Femme'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Reward */}
@@ -531,24 +556,45 @@ export default function DailyTournamentDetailScreen() {
                tournament.score_mode === 'reps' ? 'NOMBRE DE REPS' :
                tournament.score_mode === 'rounds' ? 'NOMBRE DE ROUNDS' : 'POIDS (KG)'}
             </Text>
-            <TextInput
-              style={S.modalInput}
-              value={scoreInput}
-              onChangeText={(raw) => {
-                if (tournament.score_mode === 'time') {
-                  const digits = raw.replace(/\D/g, '').slice(0, 4);
-                  if (digits.length <= 2) setScoreInput(digits);
-                  else setScoreInput(`${digits.slice(0, 2)}:${digits.slice(2)}`);
-                } else {
-                  setScoreInput(raw);
-                }
-              }}
-              keyboardType="number-pad"
-              placeholder={tournament.score_mode === 'time' ? '12:30' : '150'}
-              placeholderTextColor={theme.textMuted}
-              maxLength={tournament.score_mode === 'time' ? 5 : undefined}
-              autoFocus
-            />
+            {tournament.score_mode === 'time' ? (
+              <View style={S.timeRow}>
+                <TextInput
+                  style={[S.modalInput, S.timeInput]}
+                  placeholder="MM"
+                  placeholderTextColor={theme.textMuted}
+                  value={timeMin}
+                  onChangeText={(t) => {
+                    const d = t.replace(/\D/g, '').slice(0, 2);
+                    setTimeMin(d);
+                    if (d.length === 2) secRef.current?.focus();
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  autoFocus
+                />
+                <Text style={S.timeColon}>:</Text>
+                <TextInput
+                  ref={secRef}
+                  style={[S.modalInput, S.timeInput]}
+                  placeholder="SS"
+                  placeholderTextColor={theme.textMuted}
+                  value={timeSec}
+                  onChangeText={(t) => setTimeSec(t.replace(/\D/g, '').slice(0, 2))}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                />
+              </View>
+            ) : (
+              <TextInput
+                style={S.modalInput}
+                value={scoreInput}
+                onChangeText={setScoreInput}
+                keyboardType="number-pad"
+                placeholder="150"
+                placeholderTextColor={theme.textMuted}
+                autoFocus
+              />
+            )}
 
             <View style={S.rxRow}>
               <TouchableOpacity onPress={() => setScoreRx(true)} style={[S.rxBtn, scoreRx && S.rxBtnSel]}>
@@ -583,9 +629,9 @@ export default function DailyTournamentDetailScreen() {
             </View>
 
             <TouchableOpacity
-              style={[S.submitBtn, (!scoreInput.trim() || submitting) && { opacity: 0.5 }]}
+              style={[S.submitBtn, (!(tournament?.score_mode === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting) && { opacity: 0.5 }]}
               onPress={handleSubmitScore}
-              disabled={!scoreInput.trim() || submitting}
+              disabled={!(tournament?.score_mode === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting}
               activeOpacity={0.85}
             >
               {submitting ? <ActivityIndicator color="#fff" size="small" /> : (
@@ -717,6 +763,9 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     backgroundColor: t.surface, borderRadius: 10, borderWidth: 1, borderColor: t.border,
     padding: 12, fontSize: 16, fontWeight: '700', color: t.text,
   },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  timeInput: { flex: 1, textAlign: 'center', fontSize: 22 },
+  timeColon: { fontSize: 24, fontWeight: '700', color: t.text },
   rxRow: { flexDirection: 'row', gap: 8 },
   rxBtn: {
     flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10,

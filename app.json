@@ -71,7 +71,14 @@
       "expo-notifications",
       "expo-av",
       "expo-screen-orientation",
-      "./plugins/withNoDevLauncher"
+      "./plugins/withNoDevLauncher",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "nbs-innovation",
+          "project": "athlex-mobile"
+        }
+      ]
     ],
     "extra": {
       "eas": {

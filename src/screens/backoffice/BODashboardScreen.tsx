@@ -7,6 +7,7 @@ import { Users, ClipboardList, Trophy, Copy, LogOut } from 'lucide-react-native'
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { formatScoreValue } from '../../utils/scoreFormat';
 
 interface Stats {
   memberCount: number;
@@ -163,9 +164,7 @@ export default function BODashboardScreen({ navigation }: any) {
                   </View>
                   <View style={S.scoreRight}>
                     <Text style={S.scoreValue}>
-                      {sc.score_type === 'time'
-                        ? `${Math.floor(sc.score_value / 60)}:${String(Math.round(sc.score_value % 60)).padStart(2, '0')}`
-                        : `${sc.score_value} ${sc.score_type}`}
+                      {formatScoreValue(sc.score_value, sc.score_type)}
                     </Text>
                     <Text style={[S.rxTag, { color: sc.rx ? theme.success : theme.warning }]}>
                       {sc.rx ? 'RX' : 'Scaled'}

@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
-import { Swords, Trophy, Users, Clock, Zap, ChevronRight, Plus, MapPin, Flame, Globe2 } from 'lucide-react-native';
+import { Trophy, Users, Clock, Zap, ChevronRight, ChevronLeft, Plus, MapPin, Flame, Globe2 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -16,11 +16,6 @@ type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'CompetitionList
 
 const TABS = ['Tournois', 'Mini-Tournoi', 'Compétition Physique', 'Inter-box'];
 
-const MOCK_MATCHES = [
-  { id: '1', opponent: 'FlexKing42', elo: 1312, level: 'rx', status: 'pending', wod: 'Grace Sprint' },
-  { id: '2', opponent: 'IronJane', elo: 1198, level: 'inter', status: 'pending', wod: 'Cindy Modified' },
-  { id: '3', opponent: 'MaxPower', elo: 1445, level: 'rx+', status: 'active', wod: 'Fran Modified' },
-];
 
 
 interface MiniTournament {
@@ -150,8 +145,15 @@ export default function CompetitionScreen() {
   return (
     <View style={S.container}>
       <View style={S.header}>
-        <Text style={S.headerTitle}>Compétitions</Text>
-        <Text style={S.headerSub}>Bats-toi. Grimpe. Domine.</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
+            <ChevronLeft color={theme.text} size={22} />
+          </TouchableOpacity>
+          <View>
+            <Text style={S.headerTitle}>Compétitions</Text>
+            <Text style={S.headerSub}>Bats-toi. Grimpe. Domine.</Text>
+          </View>
+        </View>
       </View>
 
       <View style={S.tabs}>
@@ -394,26 +396,14 @@ function createStyles(theme: AppTheme) {
     backgroundColor: theme.accent,
   },
   createText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  matchCard: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: isDark ? theme.card : theme.card, borderRadius: 14, padding: 14,
-    marginBottom: 10, borderWidth: 1, borderColor: theme.border,
-    ...cardShadow,
-  },
-  matchLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   vsAvatar: {
     width: 46, height: 46, borderRadius: 16,
     backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: theme.accent,
   },
   vsAvatarText: { fontSize: 18, fontWeight: '900', color: theme.text },
-  matchOpponent: { fontSize: 15, fontWeight: '700', color: theme.text },
-  matchMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
-  matchElo: { fontSize: 12, color: theme.textMuted },
-  matchWod: { fontSize: 11, color: theme.textSecondary, marginTop: 2 },
   levelPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
   levelPillText: { fontSize: 10, fontWeight: '700' },
-  matchRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   statusText: { fontSize: 11, fontWeight: '700' },
   tournamentCard: {

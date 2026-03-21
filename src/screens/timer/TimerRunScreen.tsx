@@ -19,6 +19,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { incrementCounter } from '../../services/gamification';
 
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
@@ -288,7 +289,7 @@ function TimerSettingsModal({ opts, onUpdate, onClose }: {
 export default function TimerRunScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { currentBox } = useAuth();
+  const { currentBox, user } = useAuth();
   const { timerType, countdown, totalSeconds, maxTime, interval, rounds, workTime, restTime, withCamera, sequence, videoTitle, withTimestamp } = route.params;
 
   const [camPermission, requestCamPermission] = useCameraPermissions();
@@ -539,6 +540,7 @@ export default function TimerRunScreen() {
       timerStopOffsetRef.current = Date.now() - videoStartTimeRef.current;
       setPhase('stopped');
     } else {
+      if (user) incrementCounter(user.id, 'total_timer_sessions').catch(() => {});
       setPhase('done');
     }
   }

@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { scheduleTournamentReminder } from '../../services/notifications';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel } from '../../types';
 import { CompetitionStackParamList } from '../../navigation';
@@ -147,6 +148,9 @@ export default function TournamentScreen() {
       // Persist registration locally so cold-restart survives RLS
       await AsyncStorage.setItem(`@athlex:registered:${user.id}:${tournamentId}`, 'true');
       setIsRegistered(true);
+      if (tournament?.start_date) {
+        scheduleTournamentReminder(tournamentId, tournament.name, tournament.start_date).catch(() => {});
+      }
       setParticipants(prev =>
         prev.some(p => p.athlete_id === user.id)
           ? prev

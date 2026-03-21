@@ -9,6 +9,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { sendFriendRequestNotification, sendFriendAcceptedNotification } from '../../services/notifications';
+import { incrementCounter } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
@@ -113,12 +115,20 @@ export default function FriendsScreen() {
       else Alert.alert('Erreur', error.message);
       return;
     }
+    sendFriendRequestNotification(targetId, user.username).catch(() => {});
     Alert.alert('✅', 'Invitation envoyée !');
     load();
   }
 
   async function handleAccept(requestId: string) {
     await supabase.from('friendships').update({ status: 'accepted' }).eq('id', requestId);
+    // Notify the requester
+    const req = pendingReceived.find(r => r.id === requestId);
+    if (req && user) {
+      sendFriendAcceptedNotification(req.requester_id, user.username).catch(() => {});
+      incrementCounter(user.id, 'total_friends').catch(() => {});
+      incrementCounter(req.requester_id, 'total_friends').catch(() => {});
+    }
     load();
   }
 

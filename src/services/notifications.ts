@@ -212,3 +212,317 @@ export async function sendScoreNotification(
     console.error('Error sending score notification:', err);
   }
 }
+
+// ── Helper: envoyer des push via Expo Push API ──────────────────────
+async function sendPush(
+  tokens: { token: string }[],
+  title: string,
+  body: string,
+  data?: Record<string, any>,
+) {
+  if (!tokens.length) return;
+  const messages = tokens.map(t => ({
+    to: t.token,
+    sound: 'default' as const,
+    title,
+    body,
+    data: data ?? {},
+  }));
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(messages),
+    });
+  } catch (err) {
+    console.error('Push send error:', err);
+  }
+}
+
+// ── #1 WOD publié → notifier les membres de la box ─────────────────
+export async function sendWodPublishedNotification(
+  boxId: string,
+  wodTitle: string,
+  senderUserId: string,
+) {
+  // Get all active box members except the sender
+  const { data: members } = await supabase
+    .from('box_members')
+    .select('member_id')
+    .eq('box_id', boxId)
+    .eq('status', 'active')
+    .neq('member_id', senderUserId);
+  if (!members || members.length === 0) return;
+
+  const memberIds = members.map(m => m.member_id);
+
+  // Get tokens for all members in one query
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token, user_id')
+    .in('user_id', memberIds);
+  if (!tokens || tokens.length === 0) return;
+
+  await sendPush(
+    tokens,
+    '💪 Nouveau WOD !',
+    `${wodTitle} — C'est parti !`,
+    { type: 'wod_published', boxId },
+  );
+}
+
+// ── #2 Demande d'ami envoyée ────────────────────────────────────────
+export async function sendFriendRequestNotification(
+  targetUserId: string,
+  senderUsername: string,
+) {
+  const prefs = await getNotificationPrefs(targetUserId);
+  if (!prefs.friend_requests) return;
+
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('user_id', targetUserId);
+  if (!tokens || tokens.length === 0) return;
+
+  await sendPush(
+    tokens,
+    '👋 Demande d\'ami',
+    `${senderUsername} veut t'ajouter en ami !`,
+    { type: 'friend_request', senderUsername },
+  );
+}
+
+// ── #3 Demande d'ami acceptée ───────────────────────────────────────
+export async function sendFriendAcceptedNotification(
+  targetUserId: string,
+  accepterUsername: string,
+) {
+  const prefs = await getNotificationPrefs(targetUserId);
+  if (!prefs.friend_requests) return;
+
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('user_id', targetUserId);
+  if (!tokens || tokens.length === 0) return;
+
+  await sendPush(
+    tokens,
+    '✅ Ami ajouté',
+    `${accepterUsername} a accepté ta demande d'ami !`,
+    { type: 'friend_accepted', accepterUsername },
+  );
+}
+
+// ── #4 Tournoi clôturé → notifier les participants ──────────────────
+export async function sendTournamentClosedNotification(
+  tournamentId: string,
+  tournamentName: string,
+  eloChanges: { athleteId: string; change: number }[],
+) {
+  if (eloChanges.length === 0) return;
+
+  const athleteIds = eloChanges.map(e => e.athleteId);
+
+  // Check prefs + get tokens in batch
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token, user_id')
+    .in('user_id', athleteIds);
+  if (!tokens || tokens.length === 0) return;
+
+  // Group tokens by user for personalized messages
+  const tokensByUser: Record<string, string[]> = {};
+  tokens.forEach(t => {
+    if (!tokensByUser[t.user_id]) tokensByUser[t.user_id] = [];
+    tokensByUser[t.user_id].push(t.token);
+  });
+
+  const messages: any[] = [];
+  for (const ec of eloChanges) {
+    const userTokens = tokensByUser[ec.athleteId];
+    if (!userTokens) continue;
+
+    const sign = ec.change >= 0 ? '+' : '';
+    for (const token of userTokens) {
+      messages.push({
+        to: token,
+        sound: 'default',
+        title: `🏆 ${tournamentName} terminé !`,
+        body: `Ton ELO : ${sign}${ec.change} points`,
+        data: { type: 'tournament_closed', tournamentId },
+      });
+    }
+  }
+
+  if (messages.length === 0) return;
+  try {
+    // Expo Push API accepts max 100 per request
+    for (let i = 0; i < messages.length; i += 100) {
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(messages.slice(i, i + 100)),
+      });
+    }
+  } catch (err) {
+    console.error('Tournament notification error:', err);
+  }
+}
+
+// ── #5 Nouveau message dans un groupe ───────────────────────────────
+export async function sendNewMessageNotification(
+  groupId: string,
+  groupName: string,
+  senderUserId: string,
+  senderUsername: string,
+  messagePreview: string,
+) {
+  // Get group members
+  const { data: group } = await supabase
+    .from('message_groups')
+    .select('members')
+    .eq('id', groupId)
+    .single();
+  if (!group?.members || group.members.length === 0) return;
+
+  // Exclude sender
+  const recipientIds = (group.members as string[]).filter(id => id !== senderUserId);
+  if (recipientIds.length === 0) return;
+
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .in('user_id', recipientIds);
+  if (!tokens || tokens.length === 0) return;
+
+  const preview = messagePreview.length > 60
+    ? messagePreview.substring(0, 57) + '…'
+    : messagePreview;
+
+  await sendPush(
+    tokens,
+    `💬 ${senderUsername} dans ${groupName}`,
+    preview,
+    { type: 'new_message', groupId },
+  );
+}
+
+// ── #6 Score dépassé → "X t'a dépassé !" ────────────────────────────
+export async function sendScoreOvertakenNotification(
+  overtakenUserIds: string[],
+  senderUsername: string,
+  wodTitle: string,
+) {
+  if (overtakenUserIds.length === 0) return;
+
+  // Check prefs + get tokens
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token, user_id')
+    .in('user_id', overtakenUserIds);
+  if (!tokens || tokens.length === 0) return;
+
+  // Filter by user prefs
+  const messages: any[] = [];
+  for (const uid of overtakenUserIds) {
+    const prefs = await getNotificationPrefs(uid);
+    if (!prefs.score_updates) continue;
+    const userTokens = tokens.filter(t => t.user_id === uid);
+    for (const t of userTokens) {
+      messages.push({
+        to: t.token,
+        sound: 'default',
+        title: '📊 Tu as été dépassé !',
+        body: `${senderUsername} t'a dépassé sur "${wodTitle}"`,
+        data: { type: 'score_overtaken' },
+      });
+    }
+  }
+
+  if (messages.length === 0) return;
+  try {
+    for (let i = 0; i < messages.length; i += 100) {
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(messages.slice(i, i + 100)),
+      });
+    }
+  } catch (err) {
+    console.error('Overtaken notification error:', err);
+  }
+}
+
+// ── #7 Rappel tournoi J-1 (notification locale planifiée) ───────────
+export async function scheduleTournamentReminder(
+  tournamentId: string,
+  tournamentName: string,
+  startDate: string,
+) {
+  const start = new Date(startDate);
+  const reminderDate = new Date(start.getTime() - 24 * 60 * 60 * 1000); // J-1
+  const now = new Date();
+  if (reminderDate <= now) return; // already past
+
+  // Cancel existing reminder for this tournament
+  await cancelTournamentReminder(tournamentId);
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🏆 Tournoi demain !',
+      body: `"${tournamentName}" commence demain — prépare-toi !`,
+      sound: 'default',
+      data: { type: 'tournament_reminder', tournamentId },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: reminderDate,
+    },
+  });
+}
+
+export async function cancelTournamentReminder(tournamentId: string) {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const notif of scheduled) {
+    if (notif.content.data?.type === 'tournament_reminder' && notif.content.data?.tournamentId === tournamentId) {
+      await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+    }
+  }
+}
+
+// ── #8 Rappel 18h "Tu n'as pas soumis ton score" ────────────────────
+export async function scheduleScoreReminder() {
+  await cancelScoreReminder();
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '💪 WOD du jour',
+      body: 'Tu n\'as pas encore soumis ton score aujourd\'hui !',
+      sound: 'default',
+      data: { type: 'score_reminder' },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: 18,
+      minute: 0,
+    },
+  });
+}
+
+export async function cancelScoreReminder() {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const notif of scheduled) {
+    if (notif.content.data?.type === 'score_reminder') {
+      await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+    }
+  }
+}
+
+// Cancel today's score reminder (called after submitting a score)
+export async function cancelTodayScoreReminder() {
+  await cancelScoreReminder();
+  // Re-schedule for tomorrow (it's daily, so re-scheduling restarts the cycle)
+  await scheduleScoreReminder();
+}

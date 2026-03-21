@@ -27,11 +27,6 @@ import HomeWODGeneratorScreen from '../components/WodGeneratorCard';
 import OneRMCalculatorScreen from '../screens/home/OneRMCalculatorScreen';
 import CompetitionScreen from '../screens/competition/CompetitionScreen';
 import PhysicalCompetitionScreen from '../screens/competition/PhysicalCompetitionScreen';
-import MatchScreen from '../screens/competition/MatchScreen';
-import MatchmakingScreen from '../screens/competition/MatchmakingScreen';
-import MatchWODScreen from '../screens/competition/MatchWODScreen';
-import MatchCameraScreen from '../screens/competition/MatchCameraScreen';
-import MatchScoreScreen from '../screens/competition/MatchScoreScreen';
 import TournamentScreen from '../screens/competition/TournamentScreen';
 import TournamentWODScreen from '../screens/competition/TournamentWODScreen';
 import BOTournamentScreen from '../screens/backoffice/BOTournamentScreen';
@@ -54,11 +49,15 @@ import NotificationSettingsScreen from '../screens/settings/NotificationSettings
 import DailyTournamentsScreen from '../screens/tournament/DailyTournamentsScreen';
 import DailyTournamentDetailScreen from '../screens/tournament/DailyTournamentDetailScreen';
 import ReservationScreen from '../screens/reservation/ReservationScreen';
+import MyReservationsScreen from '../screens/reservation/MyReservationsScreen';
 import InterCompetitionListScreen from '../screens/competition/InterCompetitionListScreen';
 import InterCompetitionDetailScreen from '../screens/competition/InterCompetitionDetailScreen';
 import InterScoreSubmitScreen from '../screens/competition/InterScoreSubmitScreen';
 import InterTeamScreen from '../screens/competition/InterTeamScreen';
 import DocumentsScreen from '../screens/documents/DocumentsScreen';
+import EloHistoryScreen from '../screens/profile/EloHistoryScreen';
+import LegalScreen from '../screens/documents/LegalScreen';
+import ChangelogScreen from '../screens/home/ChangelogScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -82,6 +81,14 @@ export type BoxOwnerTabParamList = {
   BOProfile: undefined;
 };
 
+export type BOProfileStackParamList = {
+  ProfileMain: undefined;
+  EloHistory: undefined;
+  Legal: undefined;
+  PublicProfile: { userId: string };
+  NotificationSettings: undefined;
+};
+
 export type BODashboardStackParamList = {
   Dashboard: undefined;
   WODs: undefined;
@@ -93,6 +100,7 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  Legal: undefined;
 };
 
 export type MainTabParamList = {
@@ -132,6 +140,7 @@ export type CompetitionSummary = {
 
 export type HomeStackParamList = {
   HomeList: undefined;
+  Changelog: undefined;
   WODGenerator: undefined;
   WodHistory: undefined;
   NotificationSettings: undefined;
@@ -141,6 +150,8 @@ export type HomeStackParamList = {
   Timer: undefined;
   Leaderboard: undefined;
   Profile: undefined;
+  EloHistory: undefined;
+  Legal: undefined;
   Friends: undefined;
   CompetitionDetail: { competition: CompetitionSummary };
   PublicProfile: { userId: string };
@@ -193,34 +204,6 @@ export type CompetitionStackParamList = {
     sequence: string;
     videoTitle: string;
     withTimestamp: boolean;
-  };
-  Matchmaking: undefined;
-  Match: { matchId: string };
-  MatchWOD: {
-    matchId: string;
-    opponentName: string;
-    opponentElo: number;
-    opponentLevel: string;
-    wodTitle: string;
-    wodType: string;
-    wodDuration: number;
-    wodMovements: string;
-    wodScoring: string;
-  };
-  MatchCamera: {
-    matchId: string;
-    wodTitle: string;
-    wodType: string;
-    wodDuration: number;
-    wodMovements: string;
-    wodScoring: string;
-  };
-  MatchScore: {
-    matchId: string;
-    recordedSeconds: number;
-    wodTitle: string;
-    wodType: string;
-    wodScoring: string;
   };
   Tournament: { tournamentId: string };
   InterCompetitionList: undefined;
@@ -289,6 +272,11 @@ export type CommunityStackParamList = {
   PublicProfile: { userId: string };
 };
 
+export type ReservationStackParamList = {
+  ReservationMain: undefined;
+  MyReservations: undefined;
+};
+
 const RootStack       = createNativeStackNavigator<RootStackParamList>();
 const AuthStack       = createNativeStackNavigator<AuthStackParamList>();
 const OnbStack        = createNativeStackNavigator<OnboardingStackParamList>();
@@ -300,6 +288,8 @@ const CompStack       = createNativeStackNavigator<CompetitionStackParamList>();
 const HomeStack       = createNativeStackNavigator<HomeStackParamList>();
 const WhiteboardStack  = createNativeStackNavigator<WhiteboardStackParamList>();
 const CommunityStack   = createNativeStackNavigator<CommunityStackParamList>();
+const ResStack          = createNativeStackNavigator<ReservationStackParamList>();
+const BOProfileStack    = createNativeStackNavigator<BOProfileStackParamList>();
 
 function AuthNavigator() {
   return (
@@ -307,6 +297,7 @@ function AuthNavigator() {
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="Legal" component={LegalScreen} />
     </AuthStack.Navigator>
   );
 }
@@ -326,6 +317,7 @@ function HomeNavigator() {
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="HomeList" component={HomeScreen} />
+      <HomeStack.Screen name="Changelog" component={ChangelogScreen} />
       <HomeStack.Screen name="WODGenerator" component={HomeWODGeneratorScreen} />
       <HomeStack.Screen name="OneRMCalculator" component={OneRMCalculatorScreen} />
       <HomeStack.Screen name="Timer" component={TimerScreen} />
@@ -340,6 +332,8 @@ function HomeNavigator() {
       <HomeStack.Screen name="Profile" component={user?.role === 'admin' || user?.role === 'super_admin' ? AdminScreen : ProfileScreen} />
       <HomeStack.Screen name="CompetitionDetail" component={CompetitionDetailScreen} />
       <HomeStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <HomeStack.Screen name="EloHistory" component={EloHistoryScreen} />
+      <HomeStack.Screen name="Legal" component={LegalScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -375,17 +369,21 @@ function CommunityNavigator() {
   );
 }
 
+function ReservationNavigator() {
+  return (
+    <ResStack.Navigator screenOptions={{ headerShown: false }}>
+      <ResStack.Screen name="ReservationMain" component={ReservationScreen} />
+      <ResStack.Screen name="MyReservations" component={MyReservationsScreen} />
+    </ResStack.Navigator>
+  );
+}
+
 function CompetitionNavigator() {
   return (
     <CompStack.Navigator screenOptions={{ headerShown: false }}>
       <CompStack.Screen name="CompetitionList"    component={CompetitionScreen} />
       <CompStack.Screen name="PhysicalCompetition" component={PhysicalCompetitionScreen} />
       <CompStack.Screen name="TimerRun"            component={TimerRunScreen} />
-      <CompStack.Screen name="Matchmaking" component={MatchmakingScreen} />
-      <CompStack.Screen name="Match" component={MatchScreen} />
-      <CompStack.Screen name="MatchWOD" component={MatchWODScreen} />
-      <CompStack.Screen name="MatchCamera" component={MatchCameraScreen} />
-      <CompStack.Screen name="MatchScore" component={MatchScoreScreen} />
       <CompStack.Screen name="Tournament" component={TournamentScreen} />
       <CompStack.Screen name="TournamentWOD" component={TournamentWODScreen} />
       <CompStack.Screen name="VideoPlayback" component={VideoPlaybackScreen} />
@@ -447,8 +445,21 @@ function BoxOwnerTabs() {
       <BOTab.Screen name="BOSchedule"  component={BOScheduleScreen}      options={{ tabBarLabel: 'Horaires' }} />
       <BOTab.Screen name="BOMembers"   component={BOMembersScreen}       options={{ tabBarLabel: 'Membres' }} />
       <BOTab.Screen name="BOMessages"  component={MessagesScreen}        options={{ tabBarLabel: 'Messages' }} />
-      <BOTab.Screen name="BOProfile"   component={ProfileScreen}         options={{ tabBarLabel: 'Profil' }} />
+      <BOTab.Screen name="BOProfile"   component={BOProfileNavigator}    options={{ tabBarLabel: 'Profil' }} />
     </BOTab.Navigator>
+  );
+}
+
+function BOProfileNavigator() {
+  const { user } = useAuth();
+  return (
+    <BOProfileStack.Navigator screenOptions={{ headerShown: false }}>
+      <BOProfileStack.Screen name="ProfileMain" component={user?.role === 'admin' || user?.role === 'super_admin' ? AdminScreen : ProfileScreen} />
+      <BOProfileStack.Screen name="EloHistory" component={EloHistoryScreen} />
+      <BOProfileStack.Screen name="Legal" component={LegalScreen} />
+      <BOProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <BOProfileStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+    </BOProfileStack.Navigator>
   );
 }
 
@@ -499,7 +510,7 @@ function MainTabs() {
       <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compétitions' }} />
       <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: 'Accueil' }} />
       <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Ma Box' }} />
-      <Tab.Screen name="Reservation"  component={ReservationScreen}     options={{ tabBarLabel: 'Réservation' }} />
+      <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: 'Réservation' }} />
     </Tab.Navigator>
   );
 }

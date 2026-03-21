@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { User, Box } from '../types';
 import { Session } from '@supabase/supabase-js';
-import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, getNotificationPrefs } from '../services/notifications';
+import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
+import { setUserContext, clearUserContext } from '../lib/sentry';
+import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackBoxCreate, trackDeleteAccount } from '../lib/analytics';
 
 const BOX_SKIPPED_KEY = '@athlex:boxSkipped';
 
@@ -13,8 +15,9 @@ interface AuthContextType {
   currentBox: Box | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, username: string, level: string, asBoxOwner?: boolean) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, username: string, level: string, asBoxOwner?: boolean, gender?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updateUser: (updates: Partial<User>) => void;
   boxSkipped: boolean;
@@ -88,6 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) {
       setUser(data as User);
+      setUserContext(data.id, data.email, data.username);
+      identifyUser(data.id, { email: data.email, username: data.username, role: data.role, level: data.level });
       await fetchBox(userId, data.role);
       // Register push token silently
       registerForPushNotifications().then(token => {
@@ -97,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       getNotificationPrefs(userId).then(prefs => {
         if (prefs.daily_reminder) scheduleDailyReminder(prefs.reminder_hour);
       }).catch(() => {});
+      scheduleScoreReminder().catch(() => {});
     }
     setLoading(false);
   }
@@ -123,10 +129,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) trackLogin();
     return { error: error?.message ?? null };
   }
 
-  async function signUp(email: string, password: string, username: string, level: string, asBoxOwner = false) {
+  async function signUp(email: string, password: string, username: string, level: string, asBoxOwner = false, gender?: string) {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
     if (data.user) {
@@ -137,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         username,
         level,
         role,
+        gender: gender || null,
         elo: 1000,
         total_matches: 0,
         wins: 0,
@@ -144,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (profileError) return { error: `Profil: ${profileError.message}` };
       if (!data.session) return { error: 'CONFIRM_EMAIL' };
+      trackSignUp('email', role, level);
       // Profile is now in DB — explicitly refresh user state so navigation triggers
       await fetchProfile(data.user.id);
     }
@@ -170,6 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: joinErr.message };
     }
     setCurrentBox(box as Box);
+    trackBoxJoin();
     // Clear skip flag now that user has a box
     setBoxSkipped(false);
     await AsyncStorage.removeItem(BOX_SKIPPED_KEY);
@@ -216,6 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('profiles').update({ role: 'box_owner' }).eq('id', user.id);
     updateUser({ role: 'box_owner' });
     setCurrentBox(box as Box);
+    trackBoxCreate();
     return { error: null, box: box as Box };
   }
 
@@ -226,10 +237,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     if (user) removePushToken(user.id).catch(() => {});
+    clearUserContext();
+    resetUser();
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setCurrentBox(null);
+  }
+
+  async function deleteAccount(): Promise<{ error: string | null }> {
+    try {
+      if (user) removePushToken(user.id).catch(() => {});
+      const { error } = await supabase.rpc('delete_user_account');
+      if (error) return { error: error.message };
+      trackDeleteAccount();
+      clearUserContext();
+      resetUser();
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      setCurrentBox(null);
+      return { error: null };
+    } catch (e: any) {
+      return { error: e.message ?? 'Erreur inconnue' };
+    }
   }
 
   function updateUser(updates: Partial<User>) {
@@ -239,7 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, user, currentBox, loading,
-      signIn, signUp, signOut, resetPassword, updateUser,
+      signIn, signUp, signOut, deleteAccount, resetPassword, updateUser,
       boxSkipped, skipBox, leaveBox,
       joinBox, createBox, refreshBox,
     }}>

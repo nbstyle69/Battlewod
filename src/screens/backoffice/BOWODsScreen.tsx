@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { sendWodPublishedNotification } from '../../services/notifications';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, BoxWODType } from '../../types';
 
@@ -131,12 +132,19 @@ export default function BOWODsScreen({ navigation }: any) {
       : await supabase.from('box_wods').insert(payload);
     setSubmitting(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
+    if (published && currentBox && user) {
+      sendWodPublishedNotification(currentBox.id, title.trim(), user.id).catch(() => {});
+    }
     setModalOpen(false);
     load();
   }
 
   async function togglePublish(wod: BoxWOD) {
-    await supabase.from('box_wods').update({ is_published: !wod.is_published }).eq('id', wod.id);
+    const newPublished = !wod.is_published;
+    await supabase.from('box_wods').update({ is_published: newPublished }).eq('id', wod.id);
+    if (newPublished && currentBox && user) {
+      sendWodPublishedNotification(currentBox.id, wod.title, user.id).catch(() => {});
+    }
     load();
   }
 

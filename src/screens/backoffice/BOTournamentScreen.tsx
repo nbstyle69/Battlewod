@@ -12,6 +12,8 @@ import {
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { sendTournamentClosedNotification } from '../../services/notifications';
+import { incrementCounter, checkAndAwardBadges } from '../../services/gamification';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -327,6 +329,31 @@ Réponds en français, sois concis et factuel.`;
           }
           await supabase.from('tournaments').update({ status: 'completed' }).eq('id', selectedId);
           setClosingTourn(false);
+
+          // Send push notifications to all participants
+          const tournName = selectedTourn?.name ?? 'Tournoi';
+          sendTournamentClosedNotification(
+            selectedId!,
+            tournName,
+            tpWithProfile.map((p: any, i: number) => ({ athleteId: p.athlete_id, change: eloChanges[i].change })),
+          ).catch(() => {});
+
+          // Gamification: increment counters + award badges
+          for (let i = 0; i < tpWithProfile.length; i++) {
+            const p = tpWithProfile[i];
+            const rank = i + 1;
+            const newElo = (getProfile(p)?.elo ?? 1000) + eloChanges[i].change;
+            incrementCounter(p.athlete_id, 'total_tournaments').catch(() => {});
+            if (rank === 1) incrementCounter(p.athlete_id, 'total_tournament_wins').catch(() => {});
+            if (rank <= 3) {
+              // Award podium badge
+              supabase.from('athlete_badges').upsert(
+                { athlete_id: p.athlete_id, badge_key: 'podium' },
+                { onConflict: 'athlete_id,badge_key' },
+              ).then(() => {});
+            }
+            checkAndAwardBadges(p.athlete_id, { elo: newElo }).catch(() => {});
+          }
 
           const recap = eloChanges.slice(0, 5).map(e =>
             `${e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : e.rank === 3 ? '🥉' : `#${e.rank}`} ${e.name}: ${e.change >= 0 ? '+' : ''}${e.change} ELO`
