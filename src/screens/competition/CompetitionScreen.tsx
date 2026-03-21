@@ -145,14 +145,9 @@ export default function CompetitionScreen() {
   return (
     <View style={S.container}>
       <View style={S.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
-            <ChevronLeft color={theme.text} size={22} />
-          </TouchableOpacity>
-          <View>
-            <Text style={S.headerTitle}>Compétitions</Text>
-            <Text style={S.headerSub}>Bats-toi. Grimpe. Domine.</Text>
-          </View>
+        <View>
+          <Text style={S.headerTitle}>Compétitions</Text>
+          <Text style={S.headerSub}>Bats-toi. Grimpe. Domine.</Text>
         </View>
       </View>
 

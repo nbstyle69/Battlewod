@@ -13,8 +13,9 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
 import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScoreReminder } from '../../services/notifications';
-import { incrementCounter } from '../../services/gamification';
+import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { formatScoreValue, DNF_BASE } from '../../utils/scoreFormat';
+import { computeCompletedMovements } from '../../utils/movementParser';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -250,6 +251,14 @@ export default function WODDetailScreen() {
     if (error) { setSubmitting(false); Alert.alert('Erreur', error.message); return; }
     incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
     cancelTodayScoreReminder().catch(() => {});
+
+    // Log movement reps for badges (parse description as movement lines)
+    if (wod.description) {
+      const lines = wod.description.split('\n').filter(Boolean);
+      const wodFormat = wod.wod_type === 'for-time' ? 'For Time' : wod.wod_type === 'amrap' ? 'AMRAP' : wod.wod_type === 'emom' ? 'EMOM' : wod.wod_type ?? 'For Time';
+      const completed = computeCompletedMovements(lines, wodFormat, value, scoreType);
+      logMovementReps(user.id, completed, 'whiteboard', wod.id).catch(() => {});
+    }
 
     // Snapshot old rankings before reload
     const oldScores = [...scores];

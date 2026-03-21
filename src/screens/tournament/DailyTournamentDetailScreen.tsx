@@ -13,8 +13,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { incrementCounter } from '../../services/gamification';
+import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { cancelTodayScoreReminder } from '../../services/notifications';
+import { computeCompletedMovements } from '../../utils/movementParser';
 import { formatScoreValue } from '../../utils/scoreFormat';
 
 import { HomeStackParamList, TimerType } from '../../navigation';
@@ -245,6 +246,14 @@ export default function DailyTournamentDetailScreen() {
     if (error) { Alert.alert('Erreur', error.message); return; }
     incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
     cancelTodayScoreReminder().catch(() => {});
+
+    // Log movement reps for badges
+    if (tournament?.movements) {
+      const lines = tournament.movements.split('\n').filter(Boolean);
+      const sType = tournament.score_mode === 'time' ? 'time' : 'reps';
+      const completed = computeCompletedMovements(lines, tournament.wod_type, value, sType);
+      logMovementReps(user.id, completed, 'daily', tournamentId).catch(() => {});
+    }
 
     setScoreModal(false);
     setScoreInput('');

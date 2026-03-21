@@ -230,7 +230,10 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }}>
             <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Changelog' as never)} activeOpacity={0.7} style={{ position: 'relative', marginRight: currentBox?.logo_url ? 12 : 0 }}>
+          {currentBox?.logo_url ? (
+            <Image source={{ uri: currentBox.logo_url }} style={S.boxLogo} />
+          ) : null}
+          <TouchableOpacity onPress={() => navigation.navigate('Changelog' as never)} activeOpacity={0.7} style={{ position: 'relative', marginLeft: 12 }}>
             <Bell size={22} color={theme.text} />
             {unreadChangelog > 0 && (
               <View style={S.bellBadge}>
@@ -238,9 +241,6 @@ export default function HomeScreen() {
               </View>
             )}
           </TouchableOpacity>
-          {currentBox?.logo_url ? (
-            <Image source={{ uri: currentBox.logo_url }} style={S.boxLogo} />
-          ) : null}
         </View>
 
         {/* Hero: ELO + Level + Rank */}

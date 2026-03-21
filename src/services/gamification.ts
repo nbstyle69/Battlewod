@@ -280,3 +280,208 @@ function checkStreakBadges(streak: number): string[] {
   if (streak >= 26) badges.push('streak_26w');
   return badges;
 }
+
+// ── Movement rep tracking ───────────────────────────────────────────
+
+export interface MovementEntry {
+  name: string;
+  reps: number;
+  weight_kg?: number;
+}
+
+/**
+ * Log movement reps after a WOD completion and check movement badges.
+ * @param userId  - athlete id
+ * @param movements - array of { name, reps, weight_kg? }
+ * @param sourceType - 'wod' | 'tournament' | 'daily' | 'whiteboard'
+ * @param sourceId - optional wod or tournament id
+ */
+export async function logMovementReps(
+  userId: string,
+  movements: MovementEntry[],
+  sourceType: 'wod' | 'tournament' | 'daily' | 'whiteboard' = 'wod',
+  sourceId?: string,
+): Promise<string[]> {
+  if (!movements.length) return [];
+  const newBadges: string[] = [];
+
+  // 1. Insert individual logs
+  const logs = movements.map(m => ({
+    user_id: userId,
+    movement: normalizeMovement(m.name),
+    total_reps: m.reps,
+    weight_kg: m.weight_kg ?? null,
+    source_type: sourceType,
+    source_id: sourceId ?? null,
+  }));
+  try { await supabase.from('movement_logs').insert(logs); } catch {}
+
+  // 2. Increment cumulative stats via RPC
+  for (const m of movements) {
+    const normalized = normalizeMovement(m.name);
+    try {
+      await supabase.rpc('increment_movement_stats', {
+        p_user_id: userId,
+        p_movement: normalized,
+        p_reps: m.reps,
+        p_weight: m.weight_kg ?? null,
+      });
+    } catch {}
+  }
+
+  // 3. Check movement badges
+  const { data: stats } = await supabase
+    .from('user_movement_stats')
+    .select('movement, total_reps')
+    .eq('user_id', userId);
+
+  if (stats) {
+    const statsMap = new Map<string, number>();
+    let totalAllReps = 0;
+    for (const s of stats) {
+      statsMap.set(s.movement, s.total_reps);
+      totalAllReps += s.total_reps;
+    }
+
+    // Grouped movements (combine variants)
+    const groups: Record<string, string[]> = {
+      clean: ['clean', 'power_clean', 'squat_clean', 'hang_clean', 'hang_squat_clean', 'hang_power_clean'],
+      snatch: ['snatch', 'power_snatch', 'squat_snatch', 'hang_snatch'],
+      squat: ['front_squats', 'back_squats', 'air_squats', 'goblet_squats', 'overhead_squat', 'jumping_squats'],
+      press: ['strict_press', 'push_press', 'push_jerk', 'shoulder_to_overhead'],
+      cj: ['clean_and_jerk', 'hang_clean_and_jerk', 'hang_squat_clean_and_jerk'],
+      pullup: ['pull_ups', 'kipping_pull_ups'],
+      lunge: ['lunges', 'db_lunges', 'db_walking_lunge', 'db_oh_walking_lunge', 'kb_walking_lunge', 'kb_oh_walking_lunge'],
+      burpee: ['burpees', 'burpee_over_the_bar', 'bar_facing_burpee', 'burpee_over_the_db', 'burpee_box_jump', 'burpee_box_jump_over'],
+      hspu: ['hspu_stricts', 'wall_facing_hspu'],
+    };
+
+    function groupTotal(keys: string[]): number {
+      return keys.reduce((sum, k) => sum + (statsMap.get(k) ?? 0), 0);
+    }
+
+    // Individual movement badges
+    const mvBadgeChecks: [() => number, string, number][] = [
+      // Barbell
+      [() => statsMap.get('thrusters') ?? 0, 'mv_thrusters', 0],
+      [() => statsMap.get('deadlifts') ?? 0, 'mv_deadlifts', 0],
+      [() => groupTotal(groups.clean), 'mv_clean', 0],
+      [() => groupTotal(groups.snatch), 'mv_snatch', 0],
+      [() => groupTotal(groups.squat), 'mv_squat', 0],
+      [() => groupTotal(groups.press), 'mv_press', 0],
+      [() => groupTotal(groups.cj), 'mv_cj', 0],
+      [() => statsMap.get('overhead_squat') ?? 0, 'mv_ohs', 0],
+      // DB
+      [() => (statsMap.get('db_snatch') ?? 0) + (statsMap.get('db_hang_snatch') ?? 0) + (statsMap.get('db_squat_snatch') ?? 0), 'mv_db_snatch', 0],
+      [() => statsMap.get('db_thrusters') ?? 0, 'mv_db_thruster', 0],
+      [() => statsMap.get('devil_press') ?? 0, 'mv_devil_press', 0],
+      [() => groupTotal(groups.lunge), 'mv_db_lunge', 0],
+      [() => (statsMap.get('db_clean_and_jerk') ?? 0) + (statsMap.get('db_hang_clean_and_jerk') ?? 0), 'mv_db_cj', 0],
+      [() => statsMap.get('db_push_press') ?? 0, 'mv_db_push_press', 0],
+      // KB
+      [() => statsMap.get('kb_swings') ?? 0, 'mv_kb_swing', 0],
+      [() => statsMap.get('goblet_squats') ?? 0, 'mv_goblet_squat', 0],
+      [() => (statsMap.get('kb_snatch') ?? 0) + (statsMap.get('double_kb_snatch') ?? 0), 'mv_kb_snatch', 0],
+      [() => (statsMap.get('kb_clean_and_jerk') ?? 0) + (statsMap.get('double_kb_clean_and_jerk') ?? 0), 'mv_kb_cj', 0],
+      [() => statsMap.get('turkish_get_up') ?? 0, 'mv_turkish_gu', 0],
+      [() => statsMap.get('kb_thruster') ?? 0, 'mv_kb_thruster', 0],
+      // Box
+      [() => (statsMap.get('box_jump') ?? 0) + (statsMap.get('box_jump_over') ?? 0) + (statsMap.get('box_step_ups') ?? 0) + (statsMap.get('box_jump_step_overs') ?? 0), 'mv_box_jump', 0],
+      [() => (statsMap.get('burpee_box_jump') ?? 0) + (statsMap.get('burpee_box_jump_over') ?? 0), 'mv_burpee_bj', 0],
+      // Rope
+      [() => statsMap.get('double_unders') ?? 0, 'mv_du', 0],
+      [() => statsMap.get('single_unders') ?? 0, 'mv_su', 0],
+      // Pull-up bar
+      [() => groupTotal(groups.pullup), 'mv_pullup', 0],
+      [() => statsMap.get('chest_to_bar') ?? 0, 'mv_c2b', 0],
+      [() => statsMap.get('toes_to_bar') ?? 0, 'mv_t2b', 0],
+      [() => statsMap.get('knees_to_elbows') ?? 0, 'mv_k2e', 0],
+      [() => statsMap.get('bar_muscle_ups') ?? 0, 'mv_bmu', 0],
+      [() => statsMap.get('pull_over') ?? 0, 'mv_pullover', 0],
+      // Rings
+      [() => statsMap.get('ring_muscle_ups') ?? 0, 'mv_ring_mu', 0],
+      [() => statsMap.get('ring_dips') ?? 0, 'mv_ring_dip', 0],
+      [() => statsMap.get('ring_rows') ?? 0, 'mv_ring_row', 0],
+      // BW
+      [() => groupTotal(groups.burpee), 'mv_burpee', 0],
+      [() => statsMap.get('air_squats') ?? 0, 'mv_air_squat', 0],
+      [() => statsMap.get('push_ups') ?? 0, 'mv_pushup', 0],
+      [() => statsMap.get('sit_ups') ?? 0, 'mv_situp', 0],
+      [() => statsMap.get('mountain_climbers') ?? 0, 'mv_mtclimber', 0],
+      [() => statsMap.get('pistol_squats') ?? 0, 'mv_pistol', 0],
+      [() => groupTotal(groups.hspu), 'mv_hspu', 0],
+      [() => (statsMap.get('wall_walks') ?? 0) + (statsMap.get('wall_walks_partiels') ?? 0), 'mv_wallwalk', 0],
+      [() => statsMap.get('v_ups') ?? 0, 'mv_vup', 0],
+      [() => statsMap.get('hollow_rocks') ?? 0, 'mv_hollow', 0],
+      // Wall Ball
+      [() => statsMap.get('wall_balls_cible_3m_kg') ?? 0, 'mv_wallball', 0],
+      [() => statsMap.get('mb_slams_kg') ?? 0, 'mv_mb_slam', 0],
+      // Erg
+      [() => (statsMap.get('row') ?? 0) + (statsMap.get('cal_rameur') ?? 0), 'mv_row', 0],
+      [() => (statsMap.get('assault_bike') ?? 0) + (statsMap.get('echo_bike') ?? 0) + (statsMap.get('cal_assault_bike') ?? 0), 'mv_bike', 0],
+      [() => (statsMap.get('ski_erg') ?? 0) + (statsMap.get('cal_ski_erg') ?? 0), 'mv_ski', 0],
+    ];
+
+    // Standard paliers per badge prefix
+    const PALIERS: Record<string, number[]> = {};
+    // Most movements: 100, 500, 1000 (some with 5000)
+    const p4 = [100, 500, 1000, 5000];
+    const p3 = [100, 500, 1000];
+    const p2 = [100, 500];
+    const ergP = [500, 2000, 5000];
+    const ergP2 = [500, 2000];
+    const duP = [500, 2000, 5000, 10000];
+    const suP = [1000, 5000];
+    const rmuP = [50, 200, 500];
+
+    // Assign paliers
+    for (const prefix of ['mv_thrusters', 'mv_deadlifts', 'mv_clean', 'mv_snatch', 'mv_squat', 'mv_press', 'mv_cj', 'mv_pullup', 'mv_burpee', 'mv_air_squat', 'mv_pushup', 'mv_wallball', 'mv_kb_swing']) PALIERS[prefix] = p4;
+    for (const prefix of ['mv_db_snatch', 'mv_db_thruster', 'mv_devil_press', 'mv_db_lunge', 'mv_db_cj', 'mv_c2b', 'mv_t2b', 'mv_hspu', 'mv_situp', 'mv_lunge']) PALIERS[prefix] = p3;
+    for (const prefix of ['mv_ohs', 'mv_db_push_press', 'mv_goblet_squat', 'mv_kb_snatch', 'mv_kb_cj', 'mv_turkish_gu', 'mv_kb_thruster', 'mv_k2e', 'mv_pullover', 'mv_ring_dip', 'mv_ring_row', 'mv_wallwalk', 'mv_vup', 'mv_hollow', 'mv_mtclimber', 'mv_pistol', 'mv_burpee_bj', 'mv_bmu', 'mv_mb_slam']) PALIERS[prefix] = p2;
+    PALIERS['mv_box_jump'] = p3;
+    PALIERS['mv_du'] = duP;
+    PALIERS['mv_su'] = suP;
+    PALIERS['mv_row'] = ergP;
+    PALIERS['mv_bike'] = ergP2;
+    PALIERS['mv_ski'] = ergP2;
+    PALIERS['mv_ring_mu'] = rmuP;
+
+    for (const [getValue, prefix] of mvBadgeChecks) {
+      const val = getValue();
+      const thresholds = PALIERS[prefix] ?? p3;
+      for (const t of thresholds) {
+        if (val >= t) {
+          const awarded = await awardBadge(userId, `${prefix}_${t}`);
+          if (awarded) newBadges.push(`${prefix}_${t}`);
+        }
+      }
+    }
+
+    // Meta badges: polyvalent (movements with 100+ reps)
+    const mvWith100 = Array.from(statsMap.values()).filter(v => v >= 100).length;
+    if (mvWith100 >= 5) { const a = await awardBadge(userId, 'mv_polyvalent_5'); if (a) newBadges.push('mv_polyvalent_5'); }
+    if (mvWith100 >= 10) { const a = await awardBadge(userId, 'mv_polyvalent_10'); if (a) newBadges.push('mv_polyvalent_10'); }
+    if (mvWith100 >= 20) { const a = await awardBadge(userId, 'mv_polyvalent_20'); if (a) newBadges.push('mv_polyvalent_20'); }
+
+    // Total reps badges
+    if (totalAllReps >= 10000) { const a = await awardBadge(userId, 'mv_total_10k'); if (a) newBadges.push('mv_total_10k'); }
+    if (totalAllReps >= 50000) { const a = await awardBadge(userId, 'mv_total_50k'); if (a) newBadges.push('mv_total_50k'); }
+    if (totalAllReps >= 100000) { const a = await awardBadge(userId, 'mv_total_100k'); if (a) newBadges.push('mv_total_100k'); }
+  }
+
+  return newBadges;
+}
+
+/**
+ * Normalize a movement name to a snake_case key for DB storage.
+ * e.g. "Clean & Jerk" → "clean_and_jerk", "DB Snatches alt." → "db_snatches_alt"
+ */
+function normalizeMovement(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[().,]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}

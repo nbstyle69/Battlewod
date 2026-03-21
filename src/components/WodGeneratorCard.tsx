@@ -9,8 +9,9 @@ import { HomeStackParamList } from '../navigation';
 import { AthleteLevel } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { incrementCounter } from '../services/gamification';
+import { incrementCounter, logMovementReps } from '../services/gamification';
 import { cancelTodayScoreReminder } from '../services/notifications';
+import { computeCompletedMovements } from '../utils/movementParser';
 
 const HYROX_ORANGE = '#F97316';
 type Sport = 'functional' | 'hybrid';
@@ -911,6 +912,12 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     if (error) { Alert.alert('Erreur', error.message); return; }
     incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
     cancelTodayScoreReminder().catch(() => {});
+    // Log movement reps for badges
+    if (wod) {
+      const lines = wod.movements.split('\n').filter(Boolean);
+      const completed = computeCompletedMovements(lines, wod.type, value, scoreType);
+      logMovementReps(user.id, completed, 'wod', savedWodId ?? undefined).catch(() => {});
+    }
     setScoreModal(false);
     setScoreInput('');
     setScoreNotes('');

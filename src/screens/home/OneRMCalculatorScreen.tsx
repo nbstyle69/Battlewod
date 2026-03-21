@@ -9,6 +9,9 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const STORAGE_KEY = '@athlex:1rm_calc';
 
 const PR_MOVEMENTS = [
   'Back Squat', 'Front Squat', 'Deadlift', 'Bench Press',
@@ -58,6 +61,28 @@ export default function OneRMCalculatorScreen() {
   const [selectedMovement, setSelectedMovement] = useState<string | null>(null);
   const [prData, setPrData] = useState<Record<string, string>>({});
   const [showPRList, setShowPRList] = useState(false);
+
+  // Restore persisted values on mount
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then(json => {
+      if (!json) return;
+      try {
+        const saved = JSON.parse(json);
+        if (saved.input) setInput(saved.input);
+        if (saved.movement) setSelectedMovement(saved.movement);
+        if (saved.isLbs !== undefined) setIsLbs(saved.isLbs);
+      } catch {}
+    });
+  }, []);
+
+  // Persist on change
+  useEffect(() => {
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
+      input,
+      movement: selectedMovement,
+      isLbs,
+    })).catch(() => {});
+  }, [input, selectedMovement, isLbs]);
 
   useEffect(() => {
     if (!user?.id) return;
