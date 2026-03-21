@@ -10,18 +10,18 @@ if (expoModulesCorePlugin.exists()) {
   applyKotlinExpoModulesCorePlugin()
 }
 
-buildFeatures {
-  buildConfig true
-}
-
 android {
   namespace "expo.modules.realtimerecorder"
 
-  compileSdkVersion safeExtGet("compileSdkVersion", 34)
+  compileSdkVersion safeExtGet("compileSdkVersion", 36)
 
   defaultConfig {
     minSdkVersion safeExtGet("minSdkVersion", 24)
-    targetSdkVersion safeExtGet("targetSdkVersion", 34)
+    targetSdkVersion safeExtGet("targetSdkVersion", 36)
+  }
+
+  buildFeatures {
+    buildConfig true
   }
 
   publishing {

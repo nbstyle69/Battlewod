@@ -51,6 +51,16 @@
       "bundler": "metro"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 24
+          }
+        }
+      ],
       "expo-font",
       "expo-video",
       [
@@ -78,7 +88,8 @@
           "organization": "nbs-innovation",
           "project": "athlex-mobile"
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {
