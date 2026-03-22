@@ -42,6 +42,7 @@ import BOScheduleScreen from '../screens/backoffice/BOScheduleScreen';
 import BOStatsScreen from '../screens/backoffice/BOStatsScreen';
 import BOReportScreen from '../screens/backoffice/BOReportScreen';
 import BONotificationsScreen from '../screens/backoffice/BONotificationsScreen';
+import BOGamificationScreen from '../screens/backoffice/BOGamificationScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import CommunityScreen from '../screens/community/CommunityScreen';
 import CompetitionDetailScreen from '../screens/competition/CompetitionDetailScreen';
@@ -100,6 +101,7 @@ export type BODashboardStackParamList = {
   BOStats: undefined;
   BOReport: undefined;
   BONotifications: undefined;
+  BOGamification: undefined;
 };
 
 export type AuthStackParamList = {
@@ -413,6 +415,7 @@ function BODashboardNavigator() {
       <BODashStack.Screen name="BOStats"        component={BOStatsScreen} />
       <BODashStack.Screen name="BOReport"       component={BOReportScreen} />
       <BODashStack.Screen name="BONotifications" component={BONotificationsScreen} />
+      <BODashStack.Screen name="BOGamification" component={BOGamificationScreen} />
     </BODashStack.Navigator>
   );
 }

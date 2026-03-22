@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Share, Alert,
 } from 'react-native';
-import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell } from 'lucide-react-native';
+import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -199,7 +199,8 @@ export default function BODashboardScreen({ navigation }: any) {
           <View style={S.quickActions}>
             {[
               { label: 'Statistiques',   icon: BarChart3, onPress: () => navigation.navigate('BOStats') },
-              { label: 'Rapport mensuel', icon: FileText,  onPress: () => navigation.navigate('BOReport') },
+              { label: 'Gamification',   icon: Award,      onPress: () => navigation.navigate('BOGamification') },
+              { label: 'Rapport',        icon: FileText,   onPress: () => navigation.navigate('BOReport') },
               { label: 'Notifications',  icon: Bell,       onPress: () => navigation.navigate('BONotifications') },
             ].map(({ label, icon: Icon, onPress }) => (
               <TouchableOpacity key={label} style={S.quickBtn} onPress={onPress} activeOpacity={0.8}>
