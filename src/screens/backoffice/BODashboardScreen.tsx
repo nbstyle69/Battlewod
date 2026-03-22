@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Share, Alert,
 } from 'react-native';
-import { Users, ClipboardList, Trophy, Copy, LogOut } from 'lucide-react-native';
+import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -184,6 +184,23 @@ export default function BODashboardScreen({ navigation }: any) {
               { label: 'Créer un WOD',      icon: ClipboardList, onPress: () => navigation.navigate('WODs') },
               { label: 'Gérer les membres', icon: Users,         onPress: () => navigation.navigate('Members') },
               { label: 'Tournois & Scores', icon: Trophy,        onPress: () => navigation.navigate('BOTournament') },
+            ].map(({ label, icon: Icon, onPress }) => (
+              <TouchableOpacity key={label} style={S.quickBtn} onPress={onPress} activeOpacity={0.8}>
+                <Icon color={theme.accent} size={18} />
+                <Text style={S.quickBtnText}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Analytics & Tools */}
+        <View style={S.section}>
+          <Text style={S.sectionTitle}>Analytics & Outils</Text>
+          <View style={S.quickActions}>
+            {[
+              { label: 'Statistiques',   icon: BarChart3, onPress: () => navigation.navigate('BOStats') },
+              { label: 'Rapport mensuel', icon: FileText,  onPress: () => navigation.navigate('BOReport') },
+              { label: 'Notifications',  icon: Bell,       onPress: () => navigation.navigate('BONotifications') },
             ].map(({ label, icon: Icon, onPress }) => (
               <TouchableOpacity key={label} style={S.quickBtn} onPress={onPress} activeOpacity={0.8}>
                 <Icon color={theme.accent} size={18} />
