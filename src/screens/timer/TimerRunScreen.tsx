@@ -545,8 +545,27 @@ export default function TimerRunScreen() {
     }
   }
 
-  function handleStartRecording() {
+  async function handleStartRecording() {
     if (!isCameraReady) return;
+
+    // Ensure microphone permission is granted before recording (fixes silent videos)
+    if (!micPermission?.granted) {
+      const result = await requestMicPermission();
+      if (!result.granted) {
+        Alert.alert('Permission requise', 'Le micro est nécessaire pour enregistrer le son de la vidéo.');
+        return;
+      }
+    }
+
+    // Re-activate audio session right before recording to prevent conflicts with expo-av
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+    } catch {}
+
     videoStartTimeRef.current = Date.now();
     timerStartOffsetRef.current = null;
     timerStopOffsetRef.current = null;

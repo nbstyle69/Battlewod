@@ -4,6 +4,7 @@ import {
   TouchableOpacity, TextInput, Image, KeyboardAvoidingView, Platform, FlatList,
 } from 'react-native';
 import { Newspaper, Heart, MessageCircle, Send, Trash2, ArrowLeft } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -29,6 +30,7 @@ interface Comment {
 }
 
 export default function ArticlesScreen() {
+  const navigation = useNavigation();
   const { currentBox, user } = useAuth();
   const { theme } = useTheme();
   const S = styles(theme);
@@ -254,6 +256,9 @@ export default function ArticlesScreen() {
   return (
     <View style={S.container}>
       <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <ArrowLeft color={theme.text} size={22} />
+        </TouchableOpacity>
         <Newspaper color={theme.accent} size={22} />
         <Text style={S.headerTitle}>Actualités</Text>
       </View>

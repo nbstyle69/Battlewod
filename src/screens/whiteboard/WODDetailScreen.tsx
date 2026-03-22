@@ -4,7 +4,10 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl, FlatList,
 } from 'react-native';
-import { ChevronLeft, Clock, Plus, RotateCcw, MessageSquare, Trophy, Heart, Send, X, Smile } from 'lucide-react-native';
+import { ChevronLeft, Clock, Plus, RotateCcw, MessageSquare, Trophy, Heart, Send, X, Smile, Share2 } from 'lucide-react-native';
+import ViewShot from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
+import ShareScoreCard from '../../components/ShareScoreCard';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -167,6 +170,9 @@ export default function WODDetailScreen() {
   const [scoreMeta, setScoreMeta] = useState<Record<string, { reactions: number; comments: number }>>({});
   const [genderFilter, setGenderFilter] = useState<GenderTarget>('mix');
   const [eloDeltas, setEloDeltas] = useState<Record<string, number>>({});
+  const [shareModal, setShareModal] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const viewShotRef = useRef<ViewShot>(null);
 
   const load = useCallback(async () => {
     const { data: wodData } = await supabase.from('box_wods').select('*').eq('id', wodId).single();
@@ -229,6 +235,23 @@ export default function WODDetailScreen() {
     d.setDate(d.getDate() + 1);
     return d;
   })() : false;
+
+  async function handleShare() {
+    if (!viewShotRef.current?.capture) return;
+    setSharing(true);
+    try {
+      const uri = await viewShotRef.current.capture();
+      const available = await Sharing.isAvailableAsync();
+      if (!available) { Alert.alert('Partage non disponible sur cet appareil'); return; }
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Partager ma performance' });
+    } catch (e: any) {
+      if (!e?.message?.includes('cancel')) {
+        Alert.alert('Erreur', 'Impossible de partager la card.');
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
 
   async function submitScore() {
     if (!wod || !user || !currentBox) return;
@@ -313,6 +336,7 @@ export default function WODDetailScreen() {
     setNoteInput('');
     setDnf(false);
     setCapReps('');
+    setShareModal(true);
   }
 
   async function openScoreDetail(sc: WODScore) {
@@ -484,6 +508,10 @@ export default function WODDetailScreen() {
                   <Text style={[S.myRankText, myRank <= 3 && { color: theme.gold }]}>#{myRank}</Text>
                 </View>
               )}
+              <TouchableOpacity style={S.shareScoreBtn} onPress={() => setShareModal(true)} activeOpacity={0.7}>
+                <Share2 color={theme.accent} size={14} />
+                <Text style={S.editScoreBtnText}>Partager</Text>
+              </TouchableOpacity>
               {!isExpired && (
                 <TouchableOpacity style={S.editScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.7}>
                   <RotateCcw color={theme.accent} size={14} />
@@ -734,6 +762,60 @@ export default function WODDetailScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Share Modal */}
+      <Modal visible={shareModal} animationType="fade" transparent onRequestClose={() => setShareModal(false)}>
+        <View style={S.shareOverlay}>
+          <View style={S.shareContainer}>
+            <View style={S.shareHeader}>
+              <Text style={S.shareTitle}>Partager ma perf 📸</Text>
+              <TouchableOpacity onPress={() => setShareModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X color={theme.textMuted} size={22} />
+              </TouchableOpacity>
+            </View>
+
+            {myScore && wod && (
+              <>
+                <View style={S.sharePreview}>
+                  <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
+                    <ShareScoreCard
+                      wodTitle={wod.title}
+                      wodType={wod.wod_type ?? null}
+                      score={myScore.score_value}
+                      scoreType={myScore.score_type}
+                      rx={myScore.rx}
+                      rank={myRank}
+                      totalParticipants={scores.length}
+                      username={user?.username ?? 'Athlète'}
+                      boxName={currentBox?.name ?? 'Ma Box'}
+                      date={wod.scheduled_date}
+                    />
+                  </ViewShot>
+                </View>
+
+                <TouchableOpacity
+                  style={S.shareCTA}
+                  onPress={handleShare}
+                  disabled={sharing}
+                  activeOpacity={0.85}
+                >
+                  {sharing
+                    ? <ActivityIndicator color="#fff" />
+                    : <>
+                        <Share2 color="#fff" size={18} />
+                        <Text style={S.shareCTAText}>Partager ma performance</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              </>
+            )}
+
+            <TouchableOpacity onPress={() => setShareModal(false)} style={S.shareSkip} activeOpacity={0.7}>
+              <Text style={S.shareSkipText}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Score Detail Modal */}
       <Modal visible={!!selectedScore} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelectedScore(null)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -946,6 +1028,7 @@ function createStyles(theme: AppTheme) {
   myRankBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 8 },
   myRankText: { fontSize: 16, fontWeight: '900', color: theme.text },
   editScoreBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  shareScoreBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 8 },
   editScoreBtnText: { fontSize: 12, color: theme.accent, fontWeight: '700' },
   enterScoreBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -1150,4 +1233,35 @@ function createStyles(theme: AppTheme) {
     width: 40, height: 40, borderRadius: 14, backgroundColor: theme.accent,
     justifyContent: 'center', alignItems: 'center',
   },
+
+  // ── Share Modal ──
+  shareOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center', alignItems: 'center', padding: 20,
+  },
+  shareContainer: {
+    width: '100%', maxWidth: 400, backgroundColor: theme.card,
+    borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: theme.border,
+  },
+  shareHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderBottomWidth: 1, borderBottomColor: theme.border,
+  },
+  shareTitle: { fontSize: 18, fontWeight: '800', color: theme.text },
+  sharePreview: {
+    alignItems: 'center', justifyContent: 'center', padding: 16,
+    transform: [{ scale: 0.28 }],
+    height: 1920 * 0.28 + 32,
+    marginTop: -1920 * 0.36 + 200,
+    marginBottom: -1920 * 0.36 + 200,
+  },
+  shareCTA: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: theme.accent, marginHorizontal: 20,
+    borderRadius: 14, padding: 16,
+  },
+  shareCTAText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  shareSkip: { alignItems: 'center', paddingVertical: 16 },
+  shareSkipText: { fontSize: 13, color: theme.textMuted, fontWeight: '600' },
 }); }

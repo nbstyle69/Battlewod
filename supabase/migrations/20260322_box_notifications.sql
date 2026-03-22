@@ -15,11 +15,13 @@ CREATE TABLE IF NOT EXISTS public.box_notifications (
 ALTER TABLE public.box_notifications ENABLE ROW LEVEL SECURITY;
 
 -- Box owner can do everything on their box's notifications
+DROP POLICY IF EXISTS "box_notifs_owner" ON public.box_notifications;
 CREATE POLICY "box_notifs_owner"
   ON public.box_notifications FOR ALL
   USING (is_box_owner(box_id));
 
 -- Members can read notifications targeted to them or to 'all'
+DROP POLICY IF EXISTS "box_notifs_member_read" ON public.box_notifications;
 CREATE POLICY "box_notifs_member_read"
   ON public.box_notifications FOR SELECT
   USING (

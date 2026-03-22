@@ -144,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) return { error: error.message };
     if (data.user) {
       const role = asBoxOwner ? 'box_owner' : 'member';
+      const referral_code = Math.random().toString(36).substring(2, 8).toUpperCase();
       const { error: profileError } = await supabase.from('profiles').insert({
         id: data.user.id,
         email,
@@ -155,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         total_matches: 0,
         wins: 0,
         losses: 0,
+        referral_code,
       });
       if (profileError) return { error: `Profil: ${profileError.message}` };
       if (!data.session) return { error: 'CONFIRM_EMAIL' };
