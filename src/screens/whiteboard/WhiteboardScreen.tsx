@@ -4,7 +4,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { Clock, ChevronRight, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles } from 'lucide-react-native';
+import { Clock, ChevronRight, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -256,14 +256,24 @@ export default function WhiteboardScreen() {
             <Text style={S.membersBtnText}>Messages</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[S.membersBtn, { marginHorizontal: 20, marginTop: 8, marginBottom: 4 }]}
-          onPress={() => navigation.navigate('Documents')}
-          activeOpacity={0.8}
-        >
-          <Upload size={16} color={theme.accent} />
-          <Text style={S.membersBtnText}>Importation WOD</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8, marginHorizontal: 20, marginTop: 8, marginBottom: 4 }}>
+          <TouchableOpacity
+            style={[S.membersBtn, { flex: 1 }]}
+            onPress={() => navigation.navigate('Documents')}
+            activeOpacity={0.8}
+          >
+            <Upload size={16} color={theme.accent} />
+            <Text style={S.membersBtnText}>Import WOD</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[S.membersBtn, { flex: 1 }]}
+            onPress={() => navigation.navigate('Articles')}
+            activeOpacity={0.8}
+          >
+            <Newspaper size={16} color={theme.accent} />
+            <Text style={S.membersBtnText}>Actualités</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <WeekDayPicker

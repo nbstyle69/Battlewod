@@ -17,14 +17,7 @@ ALTER TABLE public.box_notifications ENABLE ROW LEVEL SECURITY;
 -- Box owner can do everything on their box's notifications
 CREATE POLICY "box_notifs_owner"
   ON public.box_notifications FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.box_members
-      WHERE box_members.box_id = box_notifications.box_id
-        AND box_members.member_id = auth.uid()
-        AND box_members.role = 'owner'
-    )
-  );
+  USING (is_box_owner(box_id));
 
 -- Members can read notifications targeted to them or to 'all'
 CREATE POLICY "box_notifs_member_read"

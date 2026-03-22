@@ -43,6 +43,8 @@ import BOStatsScreen from '../screens/backoffice/BOStatsScreen';
 import BOReportScreen from '../screens/backoffice/BOReportScreen';
 import BONotificationsScreen from '../screens/backoffice/BONotificationsScreen';
 import BOGamificationScreen from '../screens/backoffice/BOGamificationScreen';
+import BOArticlesScreen from '../screens/backoffice/BOArticlesScreen';
+import ArticlesScreen from '../screens/whiteboard/ArticlesScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import CommunityScreen from '../screens/community/CommunityScreen';
 import CompetitionDetailScreen from '../screens/competition/CompetitionDetailScreen';
@@ -102,6 +104,7 @@ export type BODashboardStackParamList = {
   BOReport: undefined;
   BONotifications: undefined;
   BOGamification: undefined;
+  BOArticles: undefined;
 };
 
 export type AuthStackParamList = {
@@ -273,6 +276,7 @@ export type WhiteboardStackParamList = {
   PublicProfile: { userId: string };
   Messages: undefined;
   Documents: undefined;
+  Articles: undefined;
 };
 
 export type CommunityStackParamList = {
@@ -364,6 +368,7 @@ function WhiteboardNavigator() {
       <WhiteboardStack.Screen name="PublicProfile"  component={PublicProfileScreen} />
       <WhiteboardStack.Screen name="Messages"       component={MessagesScreen} />
       <WhiteboardStack.Screen name="Documents"      component={DocumentsScreen} />
+      <WhiteboardStack.Screen name="Articles"        component={ArticlesScreen} />
     </WhiteboardStack.Navigator>
   );
 }
@@ -416,6 +421,7 @@ function BODashboardNavigator() {
       <BODashStack.Screen name="BOReport"       component={BOReportScreen} />
       <BODashStack.Screen name="BONotifications" component={BONotificationsScreen} />
       <BODashStack.Screen name="BOGamification" component={BOGamificationScreen} />
+      <BODashStack.Screen name="BOArticles" component={BOArticlesScreen} />
     </BODashStack.Navigator>
   );
 }
