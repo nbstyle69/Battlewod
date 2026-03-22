@@ -88,13 +88,14 @@ class RealtimeRecorderModule : Module() {
     }
 
     Function("switchCamera") {
-      val context = appContext.currentActivity ?: appContext.reactContext ?: return@Function
+      val context = appContext.currentActivity ?: appContext.reactContext ?: return@Function null
       engine.currentFacing = if (engine.currentFacing == CameraSelector.LENS_FACING_BACK) {
         CameraSelector.LENS_FACING_FRONT
       } else {
         CameraSelector.LENS_FACING_BACK
       }
       engine.setupSession(context)
+      null
     }
 
     View(RealtimeRecorderHostView::class) {
