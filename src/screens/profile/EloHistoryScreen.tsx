@@ -4,14 +4,14 @@ import {
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell } from 'lucide-react-native';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Zap } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
 interface EloEntry {
   id: string;
-  type: 'wod' | 'tournament';
+  type: 'wod' | 'tournament' | 'daily';
   label: string;
   delta: number;
   eloBefore: number;
@@ -23,7 +23,8 @@ interface EloEntry {
 export default function EloHistoryScreen() {
   const nav = useNavigation();
   const { user } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === 'dark';
   const S = createStyles(theme, isDark);
 
   const [entries, setEntries] = useState<EloEntry[]>([]);
@@ -71,6 +72,28 @@ export default function EloHistoryScreen() {
         type: 'tournament',
         label: tourn?.name ?? 'Tournoi',
         delta: h.elo_change,
+        eloBefore: h.elo_before,
+        eloAfter: h.elo_after,
+        rank: h.final_rank,
+        date: h.calculated_at,
+      });
+    }
+
+    // 3. Daily tournament elo_history
+    const { data: dailyHistory } = await supabase
+      .from('daily_tournament_elo_history')
+      .select('id, tournament_id, elo_before, elo_after, elo_delta, final_rank, calculated_at, daily_tournaments(wod_name)')
+      .eq('user_id', user.id)
+      .order('calculated_at', { ascending: false })
+      .limit(100);
+
+    for (const h of dailyHistory ?? []) {
+      const dt = Array.isArray(h.daily_tournaments) ? h.daily_tournaments[0] : h.daily_tournaments;
+      results.push({
+        id: h.id,
+        type: 'daily',
+        label: dt?.wod_name ?? 'Mini-Tournoi',
+        delta: h.elo_delta,
         eloBefore: h.elo_before,
         eloAfter: h.elo_after,
         rank: h.final_rank,
@@ -154,9 +177,11 @@ export default function EloHistoryScreen() {
             <Text style={S.sectionTitle}>HISTORIQUE ({entries.length})</Text>
             {entries.map((entry) => (
               <View key={entry.id} style={S.row}>
-                <View style={[S.rowIcon, { backgroundColor: entry.type === 'tournament' ? '#8b5cf620' : `${theme.accent}20` }]}>
+                <View style={[S.rowIcon, { backgroundColor: entry.type === 'tournament' ? '#8b5cf620' : entry.type === 'daily' ? '#ef444420' : `${theme.accent}20` }]}>
                   {entry.type === 'tournament'
                     ? <Trophy color="#8b5cf6" size={18} />
+                    : entry.type === 'daily'
+                    ? <Zap color="#ef4444" size={18} />
                     : <Dumbbell color={theme.accent} size={18} />
                   }
                 </View>

@@ -166,6 +166,7 @@ export default function WODDetailScreen() {
   // Reaction/comment counts per score
   const [scoreMeta, setScoreMeta] = useState<Record<string, { reactions: number; comments: number }>>({});
   const [genderFilter, setGenderFilter] = useState<GenderTarget>('mix');
+  const [eloDeltas, setEloDeltas] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     const { data: wodData } = await supabase.from('box_wods').select('*').eq('id', wodId).single();
@@ -197,6 +198,15 @@ export default function WODDetailScreen() {
         (cmtData ?? []).forEach((c: any) => { if (meta[c.score_id]) meta[c.score_id].comments++; });
         setScoreMeta(meta);
       }
+
+      // Load ELO deltas for this WOD
+      const { data: eloHist } = await supabase
+        .from('elo_history')
+        .select('member_id, elo_delta')
+        .eq('wod_id', w.id);
+      const dMap: Record<string, number> = {};
+      (eloHist ?? []).forEach((h: any) => { dMap[h.member_id] = h.elo_delta; });
+      setEloDeltas(dMap);
     }
     setLoading(false);
     setRefreshing(false);
@@ -537,6 +547,11 @@ export default function WODDetailScreen() {
                       </Text>
                       <View style={S.leaderSubRow}>
                         <Text style={S.leaderElo}>{elo} ELO</Text>
+                        {eloDeltas[sc.member_id] != null && (
+                          <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[sc.member_id] > 0 ? '#22c55e' : eloDeltas[sc.member_id] < 0 ? '#ef4444' : theme.textMuted }}>
+                            {eloDeltas[sc.member_id] > 0 ? '+' : ''}{eloDeltas[sc.member_id]}
+                          </Text>
+                        )}
                         {(scoreMeta[sc.id]?.reactions ?? 0) > 0 && (
                           <View style={S.leaderMetaChip}>
                             <Heart color="#EC4899" size={10} fill="#EC4899" />
