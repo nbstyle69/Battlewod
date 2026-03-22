@@ -4,7 +4,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl, Switch,
 } from 'react-native';
-import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Eye, EyeOff, Upload } from 'lucide-react-native';
+import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Eye, EyeOff, Upload, Clock } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../../lib/supabase';
@@ -67,6 +67,9 @@ export default function BOWODsScreen({ navigation }: any) {
   const [notes,       setNotes]       = useState('');
   const [blockName,   setBlockName]   = useState('');
   const [published,   setPublished]   = useState(true);
+  const [publishMode,  setPublishMode] = useState<'now' | 'scheduled'>('now');
+  const [publishHour,  setPublishHour] = useState('06');
+  const [publishMin,   setPublishMin]  = useState('00');
   const [submitting,  setSubmitting]  = useState(false);
 
   const weekDates = getWeekDates(weekOffset);
@@ -94,6 +97,7 @@ export default function BOWODsScreen({ navigation }: any) {
     setTitle(''); setDescription(''); setWodType('amrap');
     setDate(selectedDate); setTimeCap(''); setRounds('');
     setNotes(''); setBlockName(''); setPublished(true);
+    setPublishMode('now'); setPublishHour('06'); setPublishMin('00');
     setModalOpen(true);
   }
 
@@ -108,6 +112,14 @@ export default function BOWODsScreen({ navigation }: any) {
     setNotes(wod.notes ?? '');
     setBlockName(wod.block_name ?? '');
     setPublished(wod.is_published);
+    if ((wod as any).publish_at) {
+      const pa = new Date((wod as any).publish_at);
+      setPublishMode('scheduled');
+      setPublishHour(String(pa.getHours()).padStart(2, '0'));
+      setPublishMin(String(pa.getMinutes()).padStart(2, '0'));
+    } else {
+      setPublishMode('now'); setPublishHour('06'); setPublishMin('00');
+    }
     setModalOpen(true);
   }
 
@@ -126,13 +138,17 @@ export default function BOWODsScreen({ navigation }: any) {
       notes: notes.trim() || null,
       block_name: blockName.trim() || null,
       is_published: published,
+      publish_at: (published && publishMode === 'scheduled' && date)
+        ? `${date}T${publishHour.padStart(2, '0')}:${publishMin.padStart(2, '0')}:00`
+        : null,
     };
     const { error } = editWOD
       ? await supabase.from('box_wods').update(payload).eq('id', editWOD.id)
       : await supabase.from('box_wods').insert(payload);
     setSubmitting(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
-    if (published && currentBox && user) {
+    // Only send notification if publishing now (no future schedule)
+    if (published && publishMode === 'now' && currentBox && user) {
       sendWodPublishedNotification(currentBox.id, title.trim(), user.id).catch(() => {});
     }
     setModalOpen(false);
@@ -340,6 +356,11 @@ export default function BOWODsScreen({ navigation }: any) {
                             <Text style={S.wodRowType}>{(wod.wod_type ?? 'WOD').toUpperCase()}</Text>
                             <Text style={S.wodRowTitle}>{wod.title}</Text>
                             {!wod.is_published && <Text style={S.draftTag}>Brouillon</Text>}
+                            {wod.is_published && (wod as any).publish_at && new Date((wod as any).publish_at) > new Date() && (
+                              <Text style={[S.draftTag, { color: theme.accent }]}>
+                                Programmé {new Date((wod as any).publish_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                              </Text>
+                            )}
                           </View>
                           <View style={S.wodRowActions}>
                             <TouchableOpacity onPress={() => togglePublish(wod)} style={S.iconBtn}>
@@ -431,9 +452,53 @@ export default function BOWODsScreen({ navigation }: any) {
               />
 
               <View style={S.publishRow}>
-                <Text style={S.publishLabel}>Publier maintenant</Text>
+                <Text style={S.publishLabel}>Publier</Text>
                 <Switch value={published} onValueChange={setPublished} trackColor={{ true: theme.success }} />
               </View>
+
+              {published && (
+                <View style={{ gap: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      style={[S.typeChip, publishMode === 'now' && { backgroundColor: theme.success, borderColor: theme.success }]}
+                      onPress={() => setPublishMode('now')}
+                    >
+                      <Text style={[S.typeChipText, publishMode === 'now' && { color: '#fff' }]}>Maintenant</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[S.typeChip, publishMode === 'scheduled' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                      onPress={() => setPublishMode('scheduled')}
+                    >
+                      <Clock size={12} color={publishMode === 'scheduled' ? '#fff' : theme.textSecondary} />
+                      <Text style={[S.typeChipText, publishMode === 'scheduled' && { color: '#fff' }]}> Programmer</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {publishMode === 'scheduled' && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={S.mLabel}>HEURE</Text>
+                      <TextInput
+                        style={[S.mInput, { width: 50, textAlign: 'center' }]}
+                        value={publishHour}
+                        onChangeText={t => setPublishHour(t.replace(/[^0-9]/g, '').slice(0, 2))}
+                        keyboardType="numeric"
+                        maxLength={2}
+                        placeholder="06"
+                        placeholderTextColor={theme.textMuted}
+                      />
+                      <Text style={{ color: theme.text, fontWeight: '800', fontSize: 16 }}>:</Text>
+                      <TextInput
+                        style={[S.mInput, { width: 50, textAlign: 'center' }]}
+                        value={publishMin}
+                        onChangeText={t => setPublishMin(t.replace(/[^0-9]/g, '').slice(0, 2))}
+                        keyboardType="numeric"
+                        maxLength={2}
+                        placeholder="00"
+                        placeholderTextColor={theme.textMuted}
+                      />
+                    </View>
+                  )}
+                </View>
+              )}
 
               <TouchableOpacity
                 style={[S.saveBtn, (!title.trim() || submitting) && S.saveBtnDisabled]}
