@@ -21,7 +21,7 @@ CREATE POLICY "box_notifs_owner"
     EXISTS (
       SELECT 1 FROM public.box_members
       WHERE box_members.box_id = box_notifications.box_id
-        AND box_members.user_id = auth.uid()
+        AND box_members.member_id = auth.uid()
         AND box_members.role = 'owner'
     )
   );
@@ -33,7 +33,7 @@ CREATE POLICY "box_notifs_member_read"
     EXISTS (
       SELECT 1 FROM public.box_members
       WHERE box_members.box_id = box_notifications.box_id
-        AND box_members.user_id = auth.uid()
+        AND box_members.member_id = auth.uid()
         AND box_members.status = 'active'
     )
     AND (target = 'all' OR target = auth.uid()::text)

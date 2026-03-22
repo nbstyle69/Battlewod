@@ -32,7 +32,7 @@ export default function BONotificationsScreen() {
 
     const [{ data: mbrs }, { data: notifs }] = await Promise.all([
       supabase.from('box_members')
-        .select('user_id, profiles(username)')
+        .select('member_id, profiles(username)')
         .eq('box_id', currentBox.id).eq('status', 'active'),
       supabase.from('box_notifications')
         .select('*')
@@ -42,7 +42,7 @@ export default function BONotificationsScreen() {
     ]);
 
     setMembers((mbrs ?? []).map((m: any) => ({
-      user_id: m.user_id,
+      user_id: m.member_id,
       username: m.profiles?.username ?? '?',
     })));
     setHistory(notifs ?? []);

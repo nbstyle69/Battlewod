@@ -9,7 +9,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 
 interface WeeklyParticipation { week: string; count: number }
 interface TopAthlete { username: string; score_count: number; user_id: string }
-interface PopularWOD { title: string; score_count: number; wod_type: string }
+interface PopularWOD { title: string; count: number; wod_type: string }
 interface InactiveMember { username: string; last_active: string | null; user_id: string }
 
 export default function BOStatsScreen() {
@@ -109,7 +109,7 @@ export default function BOStatsScreen() {
     // ── Inactive members (no score in 14+ days) ──
     const { data: members } = await supabase
       .from('box_members')
-      .select('user_id, profiles(username)')
+      .select('member_id, profiles(username)')
       .eq('box_id', boxId).eq('status', 'active');
 
     const inactive: InactiveMember[] = [];
@@ -117,7 +117,7 @@ export default function BOStatsScreen() {
       const { data: lastScore } = await supabase
         .from('wod_scores')
         .select('submitted_at')
-        .eq('athlete_id', (m as any).user_id)
+        .eq('athlete_id', (m as any).member_id)
         .eq('box_id', boxId)
         .order('submitted_at', { ascending: false })
         .limit(1);
@@ -126,7 +126,7 @@ export default function BOStatsScreen() {
       const daysSince = lastDate ? Math.floor((now.getTime() - new Date(lastDate).getTime()) / 86400000) : 999;
       if (daysSince >= 14) {
         inactive.push({
-          user_id: (m as any).user_id,
+          user_id: (m as any).member_id,
           username: (m as any).profiles?.username ?? '?',
           last_active: lastDate,
         });

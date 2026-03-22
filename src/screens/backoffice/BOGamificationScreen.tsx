@@ -58,12 +58,12 @@ export default function BOGamificationScreen() {
     // Get box member user_ids
     const { data: members } = await supabase
       .from('box_members')
-      .select('user_id, profiles(username)')
+      .select('member_id, profiles(username)')
       .eq('box_id', boxId).eq('status', 'active');
 
-    const memberIds = (members ?? []).map((m: any) => m.user_id);
+    const memberIds = (members ?? []).map((m: any) => m.member_id);
     const nameMap = new Map<string, string>();
-    (members ?? []).forEach((m: any) => nameMap.set(m.user_id, m.profiles?.username ?? '?'));
+    (members ?? []).forEach((m: any) => nameMap.set(m.member_id, m.profiles?.username ?? '?'));
 
     if (memberIds.length === 0) {
       setLoading(false);
