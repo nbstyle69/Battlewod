@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { User, Box } from '../types';
+import { User, Box, BoxMemberRole } from '../types';
 import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
 import { setUserContext, clearUserContext } from '../lib/sentry';
@@ -13,6 +13,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   currentBox: Box | null;
+  boxRole: BoxMemberRole | 'owner' | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, username: string, level: string, asBoxOwner?: boolean, gender?: string) => Promise<{ error: string | null }>;
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession]       = useState<Session | null>(null);
   const [user, setUser]             = useState<User | null>(null);
   const [currentBox, setCurrentBox] = useState<Box | null>(null);
+  const [boxRole, setBoxRole]       = useState<BoxMemberRole | 'owner' | null>(null);
   const [boxSkipped, setBoxSkipped] = useState(false);
   const [loading, setLoading]       = useState(true);
 
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) fetchProfile(session.user.id);
-      else { setUser(null); setCurrentBox(null); setLoading(false); }
+      else { setUser(null); setCurrentBox(null); setBoxRole(null); setLoading(false); }
     });
 
     return () => { subscription.unsubscribe(); };
@@ -80,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         (payload) => {
           if (payload.new.status === 'banned') {
             setCurrentBox(null);
+            setBoxRole(null);
           }
         }
       )
@@ -111,15 +114,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (role === 'box_owner') {
       const { data } = await supabase
         .from('boxes').select('*').eq('owner_id', userId).maybeSingle();
-      if (data) setCurrentBox(data as Box);
+      if (data) { setCurrentBox(data as Box); setBoxRole('owner'); }
     } else {
       const { data } = await supabase
         .from('box_members')
-        .select('box_id, boxes(*)')
+        .select('box_id, role, boxes(*)')
         .eq('member_id', userId)
         .eq('status', 'active')
         .maybeSingle();
-      if (data?.boxes) setCurrentBox(data.boxes as unknown as Box);
+      if (data?.boxes) {
+        setCurrentBox(data.boxes as unknown as Box);
+        setBoxRole((data.role as BoxMemberRole) ?? 'member');
+      }
     }
   }
 
@@ -200,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .eq('box_id', currentBox.id);
     if (error) return { error: error.message };
     setCurrentBox(null);
+    setBoxRole(null);
     setBoxSkipped(false);
     await AsyncStorage.removeItem(BOX_SKIPPED_KEY);
     return { error: null };
@@ -243,6 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setSession(null);
     setCurrentBox(null);
+    setBoxRole(null);
   }
 
   async function deleteAccount(): Promise<{ error: string | null }> {
@@ -257,6 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setSession(null);
       setCurrentBox(null);
+      setBoxRole(null);
       return { error: null };
     } catch (e: any) {
       return { error: e.message ?? 'Erreur inconnue' };
@@ -269,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user, currentBox, loading,
+      session, user, currentBox, boxRole, loading,
       signIn, signUp, signOut, deleteAccount, resetPassword, updateUser,
       boxSkipped, skipBox, leaveBox,
       joinBox, createBox, refreshBox,

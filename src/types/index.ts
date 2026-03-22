@@ -4,6 +4,7 @@ export type UserRole = 'super_admin' | 'box_owner' | 'member' | 'athlete' | 'adm
 
 export type BoxWODType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'strength' | 'custom';
 export type ScoreType  = 'time' | 'reps' | 'weight' | 'rounds';
+export type BoxMemberRole = 'member' | 'coach';
 export type MemberStatus = 'active' | 'banned';
 export type MessageType = 'general' | 'group' | 'direct';
 export type EventRegStatus = 'registered' | 'waitlist' | 'cancelled';

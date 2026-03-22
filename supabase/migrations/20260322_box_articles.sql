@@ -32,15 +32,18 @@ ALTER TABLE public.box_article_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.box_article_likes ENABLE ROW LEVEL SECURITY;
 
 -- ── box_articles policies ──
+DROP POLICY IF EXISTS "articles_owner_all" ON public.box_articles;
 CREATE POLICY "articles_owner_all"
   ON public.box_articles FOR ALL
   USING (is_box_owner(box_id));
 
+DROP POLICY IF EXISTS "articles_member_read" ON public.box_articles;
 CREATE POLICY "articles_member_read"
   ON public.box_articles FOR SELECT
   USING (box_id = get_user_box_id());
 
 -- ── box_article_comments policies ──
+DROP POLICY IF EXISTS "comments_member_read" ON public.box_article_comments;
 CREATE POLICY "comments_member_read"
   ON public.box_article_comments FOR SELECT
   USING (
@@ -51,14 +54,17 @@ CREATE POLICY "comments_member_read"
     )
   );
 
+DROP POLICY IF EXISTS "comments_member_insert" ON public.box_article_comments;
 CREATE POLICY "comments_member_insert"
   ON public.box_article_comments FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "comments_own_delete" ON public.box_article_comments;
 CREATE POLICY "comments_own_delete"
   ON public.box_article_comments FOR DELETE
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "comments_owner_delete" ON public.box_article_comments;
 CREATE POLICY "comments_owner_delete"
   ON public.box_article_comments FOR DELETE
   USING (
@@ -70,6 +76,7 @@ CREATE POLICY "comments_owner_delete"
   );
 
 -- ── box_article_likes policies ──
+DROP POLICY IF EXISTS "likes_member_read" ON public.box_article_likes;
 CREATE POLICY "likes_member_read"
   ON public.box_article_likes FOR SELECT
   USING (
@@ -80,10 +87,12 @@ CREATE POLICY "likes_member_read"
     )
   );
 
+DROP POLICY IF EXISTS "likes_member_toggle" ON public.box_article_likes;
 CREATE POLICY "likes_member_toggle"
   ON public.box_article_likes FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "likes_member_remove" ON public.box_article_likes;
 CREATE POLICY "likes_member_remove"
   ON public.box_article_likes FOR DELETE
   USING (user_id = auth.uid());

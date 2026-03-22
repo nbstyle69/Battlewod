@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Alert, Modal, ScrollView,
 } from 'react-native';
-import { UserX, UserCheck, ChevronLeft, ChevronRight, X, Calendar, Clock, Check, Timer } from 'lucide-react-native';
+import { UserX, UserCheck, ChevronLeft, ChevronRight, X, Calendar, Clock, Check, Timer, ShieldCheck } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -15,6 +15,7 @@ interface MemberRow {
   member_id: string;
   joined_at: string;
   status: 'active' | 'banned';
+  role: 'member' | 'coach';
   profile: { username: string; email: string; level: string; elo: number; avatar_url?: string };
 }
 
@@ -48,7 +49,7 @@ export default function BOMembersScreen({ navigation }: any) {
     if (!currentBox) { setLoading(false); return; }
     const { data } = await supabase
       .from('box_members')
-      .select('*, profile:profiles(id, username, email, level, elo, avatar_url)')
+      .select('*, role, profile:profiles(id, username, email, level, elo, avatar_url)')
       .eq('box_id', currentBox.id)
       .order('joined_at', { ascending: false });
     setMembers((data ?? []) as MemberRow[]);
@@ -74,6 +75,28 @@ export default function BOMembersScreen({ navigation }: any) {
       schedule: Array.isArray(r.schedule) ? r.schedule[0] ?? null : r.schedule,
     })));
     setResLoading(false);
+  }
+
+  async function toggleCoach(member: MemberRow) {
+    const newRole = member.role === 'coach' ? 'member' : 'coach';
+    const label = newRole === 'coach' ? 'Promouvoir coach' : 'Retirer le rôle coach';
+    Alert.alert(
+      `${label} ?`,
+      newRole === 'coach'
+        ? `${member.profile.username} pourra créer et gérer les WODs.`
+        : `${member.profile.username} redeviendra un membre classique.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: label,
+          onPress: async () => {
+            await supabase.from('box_members').update({ role: newRole }).eq('id', member.id);
+            load();
+            setSelectedMember(null);
+          },
+        },
+      ]
+    );
   }
 
   async function toggleBan(member: MemberRow) {
@@ -143,6 +166,11 @@ export default function BOMembersScreen({ navigation }: any) {
             <View style={S.mid}>
               <View style={S.nameRow}>
                 <Text style={[S.name, m.status === 'banned' && S.nameBanned]}>{m.profile.username}</Text>
+                {m.role === 'coach' && (
+                  <View style={[S.levelPill, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
+                    <Text style={[S.levelText, { color: '#3B82F6' }]}>COACH</Text>
+                  </View>
+                )}
                 <View style={[S.levelPill, { backgroundColor: `${LevelColors[m.profile.level] ?? theme.surface}18` }]}>
                   <Text style={[S.levelText, { color: LevelColors[m.profile.level] ?? theme.textMuted }]}>
                     {m.profile.level?.toUpperCase()}
@@ -186,7 +214,19 @@ export default function BOMembersScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            {/* Ban/Unban action */}
+            {/* Coach promote/demote + Ban/Unban actions */}
+            {selectedMember && selectedMember.status === 'active' && (
+              <TouchableOpacity
+                style={[S.banBtn, { backgroundColor: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.25)' }]}
+                onPress={() => toggleCoach(selectedMember)}
+                activeOpacity={0.8}
+              >
+                <ShieldCheck color="#3B82F6" size={15} />
+                <Text style={[S.banBtnText, { color: '#3B82F6' }]}>
+                  {selectedMember.role === 'coach' ? 'Retirer le rôle coach' : 'Promouvoir coach'}
+                </Text>
+              </TouchableOpacity>
+            )}
             {selectedMember && (
               <TouchableOpacity
                 style={[S.banBtn, selectedMember.status === 'banned' && S.unbanBtn]}

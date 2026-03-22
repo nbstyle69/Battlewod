@@ -71,6 +71,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
   BoxOwner: undefined;
+  Coach: undefined;
 };
 
 export type OnboardingStackParamList = {
@@ -86,6 +87,14 @@ export type BoxOwnerTabParamList = {
   BOMembers: undefined;
   BOMessages: undefined;
   BOProfile: undefined;
+};
+
+export type CoachTabParamList = {
+  CoachWODs: undefined;
+  CoachSchedule: undefined;
+  CoachWhiteboard: undefined;
+  CoachMessages: undefined;
+  CoachProfile: undefined;
 };
 
 export type BOProfileStackParamList = {
@@ -304,6 +313,7 @@ const WhiteboardStack  = createNativeStackNavigator<WhiteboardStackParamList>();
 const CommunityStack   = createNativeStackNavigator<CommunityStackParamList>();
 const ResStack          = createNativeStackNavigator<ReservationStackParamList>();
 const BOProfileStack    = createNativeStackNavigator<BOProfileStackParamList>();
+const CoachTab          = createBottomTabNavigator<CoachTabParamList>();
 
 function AuthNavigator() {
   return (
@@ -484,6 +494,46 @@ function BOProfileNavigator() {
   );
 }
 
+function CoachTabs() {
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const tabStyle = {
+    backgroundColor: theme.tabBar,
+    borderTopColor: theme.tabBarBorder,
+    borderTopWidth: 1,
+    height: 60 + insets.bottom,
+    paddingBottom: 10 + insets.bottom,
+    paddingTop: 8,
+  };
+  return (
+    <CoachTab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: tabStyle,
+        tabBarActiveTintColor: theme.tabBarActive,
+        tabBarInactiveTintColor: theme.tabBarInactive,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarIcon: ({ color, size }) => {
+          const icons: Record<string, React.ReactNode> = {
+            CoachWODs:       <ClipboardList color={color} size={size} />,
+            CoachSchedule:   <CalendarClock color={color} size={size} />,
+            CoachWhiteboard: <Layout color={color} size={size} />,
+            CoachMessages:   <MessageCircle color={color} size={size} />,
+            CoachProfile:    <User color={color} size={size} />,
+          };
+          return icons[route.name] ?? null;
+        },
+      })}
+    >
+      <CoachTab.Screen name="CoachWODs"       component={BOWODsScreen}       options={{ tabBarLabel: 'WODs' }} />
+      <CoachTab.Screen name="CoachSchedule"   component={BOScheduleScreen}   options={{ tabBarLabel: 'Horaires' }} />
+      <CoachTab.Screen name="CoachWhiteboard" component={WhiteboardNavigator} options={{ tabBarLabel: 'Whiteboard' }} />
+      <CoachTab.Screen name="CoachMessages"   component={MessagesScreen}     options={{ tabBarLabel: 'Messages' }} />
+      <CoachTab.Screen name="CoachProfile"    component={BOProfileNavigator} options={{ tabBarLabel: 'Profil' }} />
+    </CoachTab.Navigator>
+  );
+}
+
 function MainTabs() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -537,7 +587,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { session, user, currentBox, loading, boxSkipped } = useAuth();
+  const { session, user, currentBox, boxRole, loading, boxSkipped } = useAuth();
   const { theme } = useTheme();
   const [splashDone, setSplashDone] = React.useState(false);
 
@@ -561,6 +611,7 @@ export default function AppNavigator() {
   const isAuthenticated = !!session && !!user;
   const isSuperAdmin    = user?.role === 'super_admin' || user?.role === 'admin';
   const isBoxOwner      = user?.role === 'box_owner';
+  const isCoach         = boxRole === 'coach';
   const isB2BUser       = user?.role === 'member' || user?.role === 'box_owner';
   // Legacy 'athlete' users bypass onboarding — only new B2B roles require a box
   // boxSkipped = user explicitly chose to continue without a box
@@ -578,6 +629,9 @@ export default function AppNavigator() {
         ) : isBoxOwner ? (
           // ── Box owner with their box ───────────────────
           <RootStack.Screen name="BoxOwner" component={BoxOwnerTabs} />
+        ) : isCoach && currentBox ? (
+          // ── Coach with their box ────────────────────────
+          <RootStack.Screen name="Coach" component={CoachTabs} />
         ) : (
           // ── Member / athlete / super_admin ─────────────
           <RootStack.Screen name="Main" component={MainTabs} />
