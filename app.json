@@ -43,7 +43,8 @@
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "package": "com.athlex.app"
+      "package": "com.athlex.app",
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/favicon.png",
