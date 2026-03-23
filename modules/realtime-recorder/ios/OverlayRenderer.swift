@@ -13,6 +13,7 @@ struct OverlayState {
   var countdownValue: Int = 0         // >0 means countdown is visible
   var showTimer: Bool = false         // true when chrono is running/frozen
   var boxLogoUrl: String = ""         // URL of the box logo (empty = no box)
+  var competitionLogoUrl: String = "" // URL of competition logo (top-left overlay)
 }
 
 /// Draws overlay graphics directly onto a CVPixelBuffer using Core Graphics
@@ -23,6 +24,9 @@ final class OverlayRenderer {
   private var cachedBoxLogo: UIImage?
   private var cachedBoxLogoUrl: String = ""
   private var boxLogoLoading = false
+  private var cachedCompLogo: UIImage?
+  private var cachedCompLogoUrl: String = ""
+  private var compLogoLoading = false
   private var blackOpsFont: UIFont?
 
   init() {
@@ -88,6 +92,23 @@ final class OverlayRenderer {
     }
   }
 
+  private func loadCompLogoIfNeeded(url: String) {
+    guard !url.isEmpty, url != cachedCompLogoUrl, !compLogoLoading else { return }
+    compLogoLoading = true
+    cachedCompLogoUrl = url
+
+    DispatchQueue.global(qos: .utility).async { [weak self] in
+      guard let self = self, let imgURL = URL(string: url),
+            let data = try? Data(contentsOf: imgURL),
+            let img = UIImage(data: data) else {
+        self?.compLogoLoading = false
+        return
+      }
+      self.cachedCompLogo = img
+      self.compLogoLoading = false
+    }
+  }
+
   // MARK: - Main render
 
   /// Draw all overlays onto the given pixel buffer. Thread-safe — called from capture queue.
@@ -113,16 +134,35 @@ final class OverlayRenderer {
     context.translateBy(x: 0, y: size.height)
     context.scaleBy(x: 1, y: -1)
 
-    // Load box logo in background if URL changed
+    // Load logos in background if URL changed
     loadBoxLogoIfNeeded(url: state.boxLogoUrl)
+    loadCompLogoIfNeeded(url: state.competitionLogoUrl)
 
     let margin: CGFloat = 24
     let safeTop: CGFloat = 60  // safe area for notch
 
+    // ─── 0. Competition logo (top left — rounded square) ───
+    if let compImg = cachedCompLogo {
+      let logoSize: CGFloat = 200
+      let logoRect = CGRect(x: margin, y: safeTop, width: logoSize, height: logoSize)
+      let cornerRadius: CGFloat = 32
+      UIGraphicsPushContext(context)
+      context.saveGState()
+      let path = UIBezierPath(roundedRect: logoRect, cornerRadius: cornerRadius)
+      path.addClip()
+      UIColor.white.withAlphaComponent(0.9).setFill()
+      path.fill()
+      compImg.draw(in: logoRect.insetBy(dx: 12, dy: 12))
+      context.restoreGState()
+      UIGraphicsPopContext()
+    }
+
     // ─── 1. Title (top center) ───
     if !state.title.isEmpty {
+      let titleX = cachedCompLogo != nil ? (margin + 200 + 12) : margin
+      let titleW = size.width - titleX - (cachedBoxLogo != nil ? (240 + margin + 12) : margin)
       drawText(context: context, text: state.title,
-               rect: CGRect(x: margin, y: safeTop, width: size.width - margin * 2, height: 40),
+               rect: CGRect(x: titleX, y: safeTop, width: titleW, height: 40),
                fontSize: 28, bold: true, color: .white, alignment: .center, shadow: true)
     }
 

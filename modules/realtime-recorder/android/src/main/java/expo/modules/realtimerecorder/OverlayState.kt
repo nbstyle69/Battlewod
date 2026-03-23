@@ -8,5 +8,6 @@ data class OverlayState(
   var isRecording: Boolean = false,
   var countdownValue: Int = 0,
   var showTimer: Boolean = false,
-  var boxLogoUrl: String = ""
+  var boxLogoUrl: String = "",
+  var competitionLogoUrl: String = ""
 )

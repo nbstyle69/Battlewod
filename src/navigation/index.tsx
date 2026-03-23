@@ -199,6 +199,7 @@ export type HomeStackParamList = {
     sequence: string;     // JSON SeqBlock[] for 'libre' mode, else '[]'
     videoTitle: string;   // optional title overlay ('' = none)
     withTimestamp: boolean;
+    competitionLogoUrl?: string; // physical competition logo overlay (top-left)
   };
 };
 
@@ -226,6 +227,7 @@ export type CompetitionStackParamList = {
     sequence: string;
     videoTitle: string;
     withTimestamp: boolean;
+    competitionLogoUrl?: string; // physical competition logo overlay (top-left)
   };
   Tournament: { tournamentId: string };
   InterCompetitionList: undefined;

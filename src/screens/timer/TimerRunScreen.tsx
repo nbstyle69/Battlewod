@@ -290,7 +290,7 @@ export default function TimerRunScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { currentBox, user } = useAuth();
-  const { timerType, countdown, totalSeconds, maxTime, interval, rounds, workTime, restTime, withCamera, sequence, videoTitle, withTimestamp } = route.params;
+  const { timerType, countdown, totalSeconds, maxTime, interval, rounds, workTime, restTime, withCamera, sequence, videoTitle, withTimestamp, competitionLogoUrl } = route.params;
 
   const [camPermission, requestCamPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
@@ -375,11 +375,12 @@ export default function TimerRunScreen() {
           countdownValue: phase === 'countdown' ? countdownVal : 0,
           showTimer: phase === 'running' || phase === 'stopped',
           boxLogoUrl: currentBox?.logo_url || '',
+          competitionLogoUrl: competitionLogoUrl || '',
         });
       } catch {}
     }, 33); // ~30fps
     return () => clearInterval(id);
-  }, [withCamera, isRecordingActive, timerType, videoTitle, clockStr, phase, countdownVal, currentBox]);
+  }, [withCamera, isRecordingActive, timerType, videoTitle, clockStr, phase, countdownVal, currentBox, competitionLogoUrl]);
 
   async function saveCard() {
     if (savingCard || cardSaved) return;

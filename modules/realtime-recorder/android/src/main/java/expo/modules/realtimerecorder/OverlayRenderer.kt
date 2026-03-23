@@ -27,6 +27,9 @@ class OverlayRenderer(private val context: Context) {
   private var cachedBoxLogo: Bitmap? = null
   private var cachedBoxLogoUrl: String = ""
   @Volatile private var boxLogoLoading = false
+  private var cachedCompLogo: Bitmap? = null
+  private var cachedCompLogoUrl: String = ""
+  @Volatile private var compLogoLoading = false
   private var blackOpsTypeface: Typeface? = null
 
   init {
@@ -79,6 +82,24 @@ class OverlayRenderer(private val context: Context) {
     }.start()
   }
 
+  private fun loadCompLogoIfNeeded(url: String) {
+    if (url.isEmpty() || url == cachedCompLogoUrl || compLogoLoading) return
+    compLogoLoading = true
+    cachedCompLogoUrl = url
+
+    Thread {
+      try {
+        val stream = URL(url).openStream()
+        val bmp = BitmapFactory.decodeStream(stream)
+        stream.close()
+        cachedCompLogo = bmp
+      } catch (_: Exception) {
+      } finally {
+        compLogoLoading = false
+      }
+    }.start()
+  }
+
   // MARK: - Main render
 
   /**
@@ -90,16 +111,43 @@ class OverlayRenderer(private val context: Context) {
     val height = bitmap.height.toFloat()
 
     loadBoxLogoIfNeeded(state.boxLogoUrl)
+    loadCompLogoIfNeeded(state.competitionLogoUrl)
 
     val margin = 24f * (width / 1080f) // Scale margin to resolution
     val safeTop = 60f * (height / 1920f)
     val scale = width / 1080f // Reference: 1080x1920
 
-    // ─── 1. Title (top center) ───
+    // ─── 0. Competition logo (top left — rounded square) ───
+    cachedCompLogo?.let { compImg ->
+      val logoSize = 200f * scale
+      val logoRect = RectF(margin, safeTop, margin + logoSize, safeTop + logoSize)
+      val cornerRadius = 32f * scale
+
+      val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(230, 255, 255, 255)
+        style = Paint.Style.FILL
+      }
+      canvas.drawRoundRect(logoRect, cornerRadius, cornerRadius, bgPaint)
+
+      val inset = 12f * scale
+      val logoInsetRect = RectF(
+        logoRect.left + inset, logoRect.top + inset,
+        logoRect.right - inset, logoRect.bottom - inset
+      )
+      canvas.save()
+      val clipPath = Path().apply { addRoundRect(logoRect, cornerRadius, cornerRadius, Path.Direction.CW) }
+      canvas.clipPath(clipPath)
+      canvas.drawBitmap(compImg, null, logoInsetRect, Paint(Paint.FILTER_BITMAP_FLAG))
+      canvas.restore()
+    }
+
+    // ─── 1. Title (top center, adjusted for logos) ───
     if (state.title.isNotEmpty()) {
+      val titleLeft = if (cachedCompLogo != null) margin + 200f * scale + 12f * scale else margin
+      val titleRight = if (cachedBoxLogo != null) width - 240f * scale - margin - 12f * scale else width - margin
       drawText(
         canvas, state.title,
-        RectF(margin, safeTop, width - margin, safeTop + 40f * scale),
+        RectF(titleLeft, safeTop, titleRight, safeTop + 40f * scale),
         fontSize = 28f * scale, bold = true, color = Color.WHITE,
         alignment = Layout.Alignment.ALIGN_CENTER, shadow = true
       )

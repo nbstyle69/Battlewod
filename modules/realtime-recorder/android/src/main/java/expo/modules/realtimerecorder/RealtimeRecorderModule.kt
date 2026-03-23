@@ -27,6 +27,7 @@ class RealtimeRecorderModule : Module() {
         (dict["countdownValue"] as? Double)?.let { engine.overlayState.countdownValue = it.toInt() }
         (dict["showTimer"] as? Boolean)?.let { engine.overlayState.showTimer = it }
         (dict["boxLogoUrl"] as? String)?.let { engine.overlayState.boxLogoUrl = it }
+        (dict["competitionLogoUrl"] as? String)?.let { engine.overlayState.competitionLogoUrl = it }
       }
     }
 

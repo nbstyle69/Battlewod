@@ -9,6 +9,7 @@ export interface OverlayState {
   countdownValue: number;
   showTimer: boolean;
   boxLogoUrl: string;
+  competitionLogoUrl: string;
 }
 
 interface RealtimeRecorderNative {
