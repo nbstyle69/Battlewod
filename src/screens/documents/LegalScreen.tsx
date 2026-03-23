@@ -43,7 +43,7 @@ function CGUContent({ theme, S }: { theme: AppTheme; S: any }) {
   return (
     <>
       <Text style={S.h1}>Conditions Générales d'Utilisation</Text>
-      <Text style={S.subtitle}>Dernière mise à jour : 21 mars 2026</Text>
+      <Text style={S.subtitle}>Dernière mise à jour : 23 mars 2026</Text>
 
       <Text style={S.h2}>1. Objet</Text>
       <Text style={S.p}>
@@ -64,6 +64,9 @@ function CGUContent({ theme, S }: { theme: AppTheme; S: any }) {
       <Text style={S.li}>• Système de classement ELO</Text>
       <Text style={S.li}>• Participation à des tournois et compétitions</Text>
       <Text style={S.li}>• Minuteur vidéo pour l'enregistrement de WODs</Text>
+      <Text style={S.li}>• Partage de scores sur les réseaux sociaux (Instagram, WhatsApp, etc.)</Text>
+      <Text style={S.li}>• Système de badges et gamification</Text>
+      <Text style={S.li}>• Code de parrainage pour inviter d'autres athlètes</Text>
       <Text style={S.li}>• Messagerie et communication entre membres d'une box</Text>
       <Text style={S.li}>• Gestion de box pour les gérants</Text>
 
@@ -138,6 +141,7 @@ function PrivacyContent({ theme, S }: { theme: AppTheme; S: any }) {
       <Text style={S.li}>• Données de compétition : participations, résultats</Text>
       <Text style={S.li}>• Communications : messages dans les chats de box</Text>
       <Text style={S.li}>• Données techniques : type d'appareil, OS, token push</Text>
+      <Text style={S.li}>• Données de gamification : badges obtenus, streaks, compteurs d'activité</Text>
 
       <Text style={S.h2}>3. Utilisation des données</Text>
       <Text style={S.li}>• Fournir et améliorer les fonctionnalités</Text>
@@ -145,6 +149,8 @@ function PrivacyContent({ theme, S }: { theme: AppTheme; S: any }) {
       <Text style={S.li}>• Calculer et afficher les classements ELO</Text>
       <Text style={S.li}>• Permettre la participation aux compétitions</Text>
       <Text style={S.li}>• Envoyer des notifications push (si autorisées)</Text>
+      <Text style={S.li}>• Attribuer des badges et suivre votre progression</Text>
+      <Text style={S.li}>• Analyser l'usage de l'application de manière anonyme</Text>
 
       <Text style={S.h2}>4. Stockage et sécurité</Text>
       <Text style={S.p}>
@@ -168,21 +174,33 @@ function PrivacyContent({ theme, S }: { theme: AppTheme; S: any }) {
         Nous ne vendons jamais vos données. Sont visibles par les membres de votre box :
         pseudo, niveau, scores, classement. Le gérant a accès aux données de ses membres.
       </Text>
+      <Text style={S.p}>
+        Lorsque vous partagez un score via la fonctionnalité de partage, une image contenant votre pseudo,
+        score et nom de box est générée localement et partagée via le système natif de votre appareil.
+        Aucune donnée n'est envoyée à nos serveurs lors du partage.
+      </Text>
 
-      <Text style={S.h2}>8. Vos droits (RGPD)</Text>
+      <Text style={S.h2}>8. Services tiers</Text>
+      <Text style={S.p}>Nous utilisons les services tiers suivants :</Text>
+      <Text style={S.li}>• Supabase : hébergement des données et authentification</Text>
+      <Text style={S.li}>• Mixpanel : statistiques d'usage anonymisées</Text>
+      <Text style={S.li}>• Sentry : détection et correction des erreurs techniques (données anonymisées)</Text>
+      <Text style={S.li}>• Expo : distribution des mises à jour de l'application</Text>
+
+      <Text style={S.h2}>9. Vos droits (RGPD)</Text>
       <Text style={S.li}>• Accéder à vos données personnelles</Text>
       <Text style={S.li}>• Rectifier vos informations via votre profil</Text>
       <Text style={S.li}>• Supprimer votre compte et toutes vos données</Text>
       <Text style={S.li}>• Exporter vos données sur demande</Text>
       <Text style={S.li}>• Retirer votre consentement aux notifications</Text>
 
-      <Text style={S.h2}>9. Conservation</Text>
+      <Text style={S.h2}>10. Conservation</Text>
       <Text style={S.p}>
         Vos données sont conservées tant que votre compte est actif. En cas de suppression,
         vos données sont effacées immédiatement.
       </Text>
 
-      <Text style={S.h2}>10. Contact</Text>
+      <Text style={S.h2}>11. Contact</Text>
       <Text style={S.p}>
         Pour toute question : contact@athlex.app
       </Text>
