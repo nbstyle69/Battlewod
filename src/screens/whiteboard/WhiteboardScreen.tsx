@@ -104,7 +104,7 @@ export default function WhiteboardScreen() {
     const todayISO = toISO(new Date());
     const isFutureDate = selectedDate > todayISO;
 
-    const isStaff = boxRole === 'owner' || boxRole === 'coach';
+    const isStaff = boxRole === 'owner' || boxRole === 'coach' || user?.id === currentBox.owner_id;
     let query = supabase
       .from('box_wods')
       .select('*')
@@ -112,8 +112,7 @@ export default function WhiteboardScreen() {
       .eq('scheduled_date', selectedDate)
       .order('block_name');
     if (!isStaff) query = query.eq('is_published', true);
-    const { data: dayData, error: dayError } = await query;
-    console.log('[WB] date=', selectedDate, 'box=', currentBox.id, 'role=', boxRole, 'rows=', (dayData ?? []).length, 'err=', dayError);
+    const { data: dayData } = await query;
 
     const allWodIds = (dayData ?? []).map((w: any) => w.id);
 
@@ -132,7 +131,7 @@ export default function WhiteboardScreen() {
 
     // 3. Filter by group access + visibility mode
     function canSee(wod: any): boolean {
-      if (boxRole === 'owner' || boxRole === 'coach') return true;
+      if (isStaff) return true;
       const restricted = accessMap[wod.id];
       // No group restriction → visible to all
       if (!restricted || restricted.length === 0) return true;
