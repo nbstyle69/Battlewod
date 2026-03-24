@@ -160,82 +160,76 @@ final class OverlayRenderer {
     // ─── 1. Title (top center) ───
     if !state.title.isEmpty {
       let titleX = cachedCompLogo != nil ? (margin + 200 + 12) : margin
-      let titleW = size.width - titleX - (cachedBoxLogo != nil ? (240 + margin + 12) : margin)
+      let titleW = size.width - titleX - (cachedBoxLogo != nil ? (200 + margin + 12) : margin)
       drawText(context: context, text: state.title,
                rect: CGRect(x: titleX, y: safeTop, width: titleW, height: 40),
                fontSize: 28, bold: true, color: .white, alignment: .center, shadow: true)
     }
 
-    // ─── 2. Box logo (top right — rounded square, app style, x2) ───
+    // ─── 2. Box logo (top right — circle, 200px) ───
     if let boxImg = cachedBoxLogo {
-      let logoSize: CGFloat = 240
+      let logoSize: CGFloat = 200
       let logoRect = CGRect(x: size.width - logoSize - margin, y: safeTop, width: logoSize, height: logoSize)
-      let cornerRadius: CGFloat = 40
+      let cornerRadius: CGFloat = logoSize / 2  // circle
       UIGraphicsPushContext(context)
       context.saveGState()
       let path = UIBezierPath(roundedRect: logoRect, cornerRadius: cornerRadius)
       path.addClip()
       UIColor.white.withAlphaComponent(0.9).setFill()
       path.fill()
-      boxImg.draw(in: logoRect.insetBy(dx: 16, dy: 16))
+      boxImg.draw(in: logoRect.insetBy(dx: 12, dy: 12))
       context.restoreGState()
       UIGraphicsPopContext()
     }
 
-    // ─── 3. Countdown (center, large, bold) ───
+    // ─── 3. Countdown (center, extra large, bold) ───
     if state.countdownValue > 0 {
       let cdStr = "\(state.countdownValue)"
       drawText(context: context, text: cdStr,
-               rect: CGRect(x: 0, y: (size.height - 220) / 2, width: size.width, height: 220),
-               fontSize: 180, bold: true, color: .white, alignment: .center, weight: .bold)
+               rect: CGRect(x: 0, y: (size.height - 320) / 2, width: size.width, height: 320),
+               fontSize: 260, bold: true, color: .white, alignment: .center, weight: .bold)
     }
 
-    // ════════════════════════════════════════════
-    //  BOTTOM ROW — same line:
-    //    left:   "AthleX" (Black Ops One)
-    //    center: timer
-    //    right:  ATHLEX logo
-    //  Timestamp centered above timer
-    // ════════════════════════════════════════════
-    let safeBottom: CGFloat = 40
-    let rowH: CGFloat = 160  // height of the bottom row (matches logo height)
-    let rowY = size.height - safeBottom - rowH
-
-    // ─── 4. ATHLEX logo (bottom right) ───
-    if let atlImg = cachedAthlexLogo {
-      let atlLogoW = rowH * (atlImg.size.width / atlImg.size.height)
-      let logoRect = CGRect(x: size.width - atlLogoW - margin,
-                            y: rowY,
-                            width: atlLogoW, height: rowH)
-      UIGraphicsPushContext(context)
-      atlImg.draw(in: logoRect)
-      UIGraphicsPopContext()
-    }
-
-    // ─── 5. Timer display (bottom center, vertically centered in row) ───
+    // ─── 4. Timer display (center screen, slightly below center, MM:SS) ───
     if state.showTimer && state.countdownValue <= 0 {
       let timerH: CGFloat = 110
-      let timerY = rowY + (rowH - timerH) / 2  // vertically center in row
+      let timerY = (size.height - timerH) / 2 + 60  // slightly below center
       drawText(context: context, text: state.timerDisplay,
                rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
                fontSize: 90, bold: false, color: .white, alignment: .center,
                weight: .medium, shadow: true, monospace: true)
     }
 
-    // ─── 6. Timestamp (centered, above bottom row) ───
-    if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
-      drawText(context: context, text: state.timestamp,
-               rect: CGRect(x: 0, y: rowY - 38, width: size.width, height: 34),
-               fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
-               alignment: .center, shadow: true)
+    // ════════════════════════════════════════════
+    //  BOTTOM — left: AthleX logo + text   right: timestamp
+    // ════════════════════════════════════════════
+    let safeBottom: CGFloat = 40
+
+    // ─── 5. ATHLEX logo (bottom left) ───
+    let atlLogoH: CGFloat = 120
+    let atlLogoY = size.height - safeBottom - atlLogoH
+    if let atlImg = cachedAthlexLogo {
+      let atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
+      let logoRect = CGRect(x: margin, y: atlLogoY, width: atlLogoW, height: atlLogoH)
+      UIGraphicsPushContext(context)
+      atlImg.draw(in: logoRect)
+      UIGraphicsPopContext()
     }
 
-    // ─── 7. "AthleX" branded text (bottom left, vertically centered in row) ───
-    let brandH: CGFloat = 60
-    let brandY = rowY + (rowH - brandH) / 2
+    // ─── 6. "AthleX" branded text (below logo, bottom left) ───
+    let brandH: CGFloat = 50
+    let brandY = atlLogoY + atlLogoH + 4
     drawBrandText(context: context,
-                  rect: CGRect(x: margin, y: brandY, width: 300, height: brandH),
-                  fontSize: 48, color: .white, shadow: true)
+                  rect: CGRect(x: margin, y: brandY, width: 280, height: brandH),
+                  fontSize: 40, color: .white, shadow: true)
+
+    // ─── 7. Timestamp (bottom right) ───
+    if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
+      drawText(context: context, text: state.timestamp,
+               rect: CGRect(x: size.width - 260 - margin, y: size.height - safeBottom - 34, width: 260, height: 34),
+               fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
+               alignment: .right, shadow: true)
+    }
   }
 
   // MARK: - Brand text (Black Ops One)

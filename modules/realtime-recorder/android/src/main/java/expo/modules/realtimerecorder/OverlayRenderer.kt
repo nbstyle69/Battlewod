@@ -144,7 +144,7 @@ class OverlayRenderer(private val context: Context) {
     // ─── 1. Title (top center, adjusted for logos) ───
     if (state.title.isNotEmpty()) {
       val titleLeft = if (cachedCompLogo != null) margin + 200f * scale + 12f * scale else margin
-      val titleRight = if (cachedBoxLogo != null) width - 240f * scale - margin - 12f * scale else width - margin
+      val titleRight = if (cachedBoxLogo != null) width - 200f * scale - margin - 12f * scale else width - margin
       drawText(
         canvas, state.title,
         RectF(titleLeft, safeTop, titleRight, safeTop + 40f * scale),
@@ -153,24 +153,22 @@ class OverlayRenderer(private val context: Context) {
       )
     }
 
-    // ─── 2. Box logo (top right — rounded square) ───
+    // ─── 2. Box logo (top right — circle, 200px) ───
     cachedBoxLogo?.let { boxImg ->
-      val logoSize = 240f * scale
+      val logoSize = 200f * scale
       val logoRect = RectF(
         width - logoSize - margin, safeTop,
         width - margin, safeTop + logoSize
       )
-      val cornerRadius = 40f * scale
+      val cornerRadius = logoSize / 2f  // circle
 
-      // White background rounded rect
       val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(230, 255, 255, 255) // 0.9 alpha
+        color = Color.argb(230, 255, 255, 255)
         style = Paint.Style.FILL
       }
       canvas.drawRoundRect(logoRect, cornerRadius, cornerRadius, bgPaint)
 
-      // Draw logo inside with inset
-      val inset = 16f * scale
+      val inset = 12f * scale
       val logoInsetRect = RectF(
         logoRect.left + inset, logoRect.top + inset,
         logoRect.right - inset, logoRect.bottom - inset
@@ -182,44 +180,24 @@ class OverlayRenderer(private val context: Context) {
       canvas.restore()
     }
 
-    // ─── 3. Countdown (center, large, bold) ───
+    // ─── 3. Countdown (center, extra large, bold) ───
     if (state.countdownValue > 0) {
       val cdStr = "${state.countdownValue}"
-      val cdFontSize = 180f * scale
-      val cdY = (height - 220f * scale) / 2f
+      val cdFontSize = 260f * scale
+      val cdH = 320f * scale
+      val cdY = (height - cdH) / 2f
       drawText(
         canvas, cdStr,
-        RectF(0f, cdY, width, cdY + 220f * scale),
+        RectF(0f, cdY, width, cdY + cdH),
         fontSize = cdFontSize, bold = true, color = Color.WHITE,
         alignment = Layout.Alignment.ALIGN_CENTER
       )
     }
 
-    // ════════════════════════════════════════════
-    //  BOTTOM ROW — same line:
-    //    left:   "AthleX" (Black Ops One)
-    //    center: timer
-    //    right:  ATHLEX logo
-    //  Timestamp centered above timer
-    // ════════════════════════════════════════════
-    val safeBottom = 40f * scale
-    val rowH = 160f * scale
-    val rowY = height - safeBottom - rowH
-
-    // ─── 4. ATHLEX logo (bottom right) ───
-    cachedAthlexLogo?.let { atlImg ->
-      val atlLogoW = rowH * (atlImg.width.toFloat() / atlImg.height.toFloat())
-      val logoRect = RectF(
-        width - atlLogoW - margin, rowY,
-        width - margin, rowY + rowH
-      )
-      canvas.drawBitmap(atlImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
-    }
-
-    // ─── 5. Timer display (bottom center, vertically centered in row) ───
+    // ─── 4. Timer display (center screen, slightly below center, MM:SS) ───
     if (state.showTimer && state.countdownValue <= 0) {
       val timerH = 110f * scale
-      val timerY = rowY + (rowH - timerH) / 2f
+      val timerY = (height - timerH) / 2f + 60f * scale  // slightly below center
       drawText(
         canvas, state.timerDisplay,
         RectF(0f, timerY, width, timerY + timerH),
@@ -229,27 +207,42 @@ class OverlayRenderer(private val context: Context) {
       )
     }
 
-    // ─── 6. Timestamp (centered, above bottom row) ───
-    if (state.timestamp.isNotEmpty() && state.showTimer && state.countdownValue <= 0) {
-      val tsH = 34f * scale
-      val tsY = rowY - 38f * scale
-      drawText(
-        canvas, state.timestamp,
-        RectF(0f, tsY, width, tsY + tsH),
-        fontSize = 24f * scale, bold = false,
-        color = Color.argb(204, 255, 255, 255), // 0.8 alpha
-        alignment = Layout.Alignment.ALIGN_CENTER, shadow = true
-      )
+    // ════════════════════════════════════════════
+    //  BOTTOM — left: AthleX logo + text   right: timestamp
+    // ════════════════════════════════════════════
+    val safeBottom = 40f * scale
+
+    // ─── 5. ATHLEX logo (bottom left) ───
+    val atlLogoH = 120f * scale
+    val atlLogoY = height - safeBottom - atlLogoH
+    cachedAthlexLogo?.let { atlImg ->
+      val atlLogoW = atlLogoH * (atlImg.width.toFloat() / atlImg.height.toFloat())
+      val logoRect = RectF(margin, atlLogoY, margin + atlLogoW, atlLogoY + atlLogoH)
+      canvas.drawBitmap(atlImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
     }
 
-    // ─── 7. "AthleX" branded text (bottom left, vertically centered in row) ───
-    val brandH = 60f * scale
-    val brandY = rowY + (rowH - brandH) / 2f
+    // ─── 6. "AthleX" branded text (below logo, bottom left) ───
+    val brandH = 50f * scale
+    val brandY = atlLogoY + atlLogoH + 4f * scale
     drawBrandText(
       canvas,
-      RectF(margin, brandY, margin + 300f * scale, brandY + brandH),
-      fontSize = 48f * scale, color = Color.WHITE, shadow = true
+      RectF(margin, brandY, margin + 280f * scale, brandY + brandH),
+      fontSize = 40f * scale, color = Color.WHITE, shadow = true
     )
+
+    // ─── 7. Timestamp (bottom right) ───
+    if (state.timestamp.isNotEmpty() && state.showTimer && state.countdownValue <= 0) {
+      val tsW = 260f * scale
+      val tsH = 34f * scale
+      val tsY = height - safeBottom - tsH
+      drawText(
+        canvas, state.timestamp,
+        RectF(width - tsW - margin, tsY, width - margin, tsY + tsH),
+        fontSize = 24f * scale, bold = false,
+        color = Color.argb(204, 255, 255, 255),
+        alignment = Layout.Alignment.ALIGN_OPPOSITE, shadow = true
+      )
+    }
   }
 
   // MARK: - Brand text (Black Ops One)

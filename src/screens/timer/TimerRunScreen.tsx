@@ -368,7 +368,7 @@ export default function TimerRunScreen() {
 
         updateOverlayState({
           timerType: timerType,
-          timerDisplay: preciseDisplay,
+          timerDisplay: baseDisplay,
           title: videoTitle || '',
           timestamp: clockStr,
           isRecording: true,
