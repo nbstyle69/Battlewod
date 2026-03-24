@@ -104,13 +104,16 @@ export default function WhiteboardScreen() {
     const todayISO = toISO(new Date());
     const isFutureDate = selectedDate > todayISO;
 
-    const { data: dayData } = await supabase
+    const isStaff = boxRole === 'owner' || boxRole === 'coach';
+    let query = supabase
       .from('box_wods')
       .select('*')
       .eq('box_id', currentBox.id)
       .eq('scheduled_date', selectedDate)
-      .eq('is_published', true)
       .order('block_name');
+    if (!isStaff) query = query.eq('is_published', true);
+    const { data: dayData, error: dayError } = await query;
+    console.log('[WB] date=', selectedDate, 'box=', currentBox.id, 'role=', boxRole, 'rows=', (dayData ?? []).length, 'err=', dayError);
 
     const allWodIds = (dayData ?? []).map((w: any) => w.id);
 
