@@ -3,7 +3,8 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Image,
 } from 'react-native';
 import { Zap, Trophy, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History, Bell } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const [rank,           setRank]           = useState<number | null>(null);
   const [streak,         setStreak]         = useState<StreakInfo>({ current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '' });
   const [pendingFriends, setPendingFriends] = useState(0);
+  const [unreadAccepted, setUnreadAccepted] = useState(0);
   const [unreadChangelog, setUnreadChangelog] = useState(0);
 
   // Progression stats
@@ -107,6 +109,20 @@ export default function HomeScreen() {
       .eq('addressee_id', user.id)
       .eq('status', 'pending');
     setPendingFriends(friendCount ?? 0);
+
+    // Unread accepted friend requests (my sent requests that were accepted since last seen)
+    const lastSeen = await AsyncStorage.getItem(`lastSeenFriends_${user.id}`);
+    if (lastSeen) {
+      const { count: acceptedCount } = await supabase
+        .from('friendships')
+        .select('id', { count: 'exact', head: true })
+        .eq('requester_id', user.id)
+        .eq('status', 'accepted')
+        .gt('updated_at', lastSeen);
+      setUnreadAccepted(acceptedCount ?? 0);
+    } else {
+      await AsyncStorage.setItem(`lastSeenFriends_${user.id}`, new Date().toISOString());
+    }
 
     // ── Progression stats (generated_wods) ──
     const sevenDaysAgo = new Date();
@@ -199,25 +215,37 @@ export default function HomeScreen() {
   // Realtime: refresh badge when a new friend request targets this user
   useEffect(() => {
     if (!user) return;
+    const refreshCounts = async () => {
+      const [{ count: pending }, lastSeen] = await Promise.all([
+        supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('addressee_id', user.id).eq('status', 'pending'),
+        AsyncStorage.getItem(`lastSeenFriends_${user.id}`),
+      ]);
+      setPendingFriends(pending ?? 0);
+      if (lastSeen) {
+        const { count: accepted } = await supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('requester_id', user.id).eq('status', 'accepted').gt('updated_at', lastSeen);
+        setUnreadAccepted(accepted ?? 0);
+      }
+    };
     const channel = supabase
       .channel(`friend-notif-${user.id}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'friendships',
-        filter: `addressee_id=eq.${user.id}`,
-      }, () => {
-        // Re-count pending requests
-        supabase
-          .from('friendships')
-          .select('id', { count: 'exact', head: true })
-          .eq('addressee_id', user.id)
-          .eq('status', 'pending')
-          .then(({ count }) => setPendingFriends(count ?? 0));
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships', filter: `addressee_id=eq.${user.id}` }, refreshCounts)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'friendships', filter: `requester_id=eq.${user.id}` }, refreshCounts)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
+
+  // Reset unread count when returning to Home after visiting Friends
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      AsyncStorage.getItem(`lastSeenFriends_${user.id}`).then(async (lastSeen) => {
+        if (lastSeen) {
+          const { count: accepted } = await supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('requester_id', user.id).eq('status', 'accepted').gt('updated_at', lastSeen);
+          setUnreadAccepted(accepted ?? 0);
+        }
+      });
+    }, [user])
+  );
 
   const levelColor = LevelColors[level] ?? theme.text;
 
@@ -278,9 +306,9 @@ export default function HomeScreen() {
           <TouchableOpacity style={S.actionBtn} onPress={() => navigation.navigate('Friends')} activeOpacity={0.75}>
             <View style={{ position: 'relative' }}>
               <Users size={17} color={theme.text} />
-              {pendingFriends > 0 && (
+              {(pendingFriends + unreadAccepted) > 0 && (
                 <View style={S.notifDot}>
-                  <Text style={S.notifDotTxt}>{pendingFriends > 9 ? '9+' : pendingFriends}</Text>
+                  <Text style={S.notifDotTxt}>{(pendingFriends + unreadAccepted) > 9 ? '9+' : (pendingFriends + unreadAccepted)}</Text>
                 </View>
               )}
             </View>

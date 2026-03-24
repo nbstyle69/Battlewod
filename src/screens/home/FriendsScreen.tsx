@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { ChevronLeft, UserPlus, Check, X, Search, UserCheck } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -89,6 +90,11 @@ export default function FriendsScreen() {
   }, [user]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Mark friends as seen → resets badge on HomeScreen
+  useEffect(() => {
+    if (user) AsyncStorage.setItem(`lastSeenFriends_${user.id}`, new Date().toISOString());
+  }, [user]);
 
   async function handleSearch() {
     if (!searchQuery.trim() || !user) return;
