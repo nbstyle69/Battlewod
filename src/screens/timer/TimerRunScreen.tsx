@@ -1029,7 +1029,7 @@ export default function TimerRunScreen() {
   const showEndWorkBtn = phase === 'running' && innerPhase === 'work' && !seqPausing &&
     (timerType === 'ywyr' || (timerType === 'libre' && curBlk?.type === 'ywyr'));
   const showEndBlockBtn = phase === 'running' && !seqPausing &&
-    timerType === 'libre' && curBlk?.type === 'for-time' && innerPhase === 'work';
+    timerType === 'libre' && curBlk?.type === 'for-time' && innerPhase === 'work' && seqBlocksRef.current.length > 1;
   const showNormalStop = isActive && !showEndWorkBtn && !showEndBlockBtn;
 
   const qrData = JSON.stringify({
@@ -1183,18 +1183,7 @@ export default function TimerRunScreen() {
       ) : (
         /* ── RUNNING / COUNTDOWN ─────────────────────────── */
         <>
-          {/* DÉCOMPTE — non-caméra uniquement */}
-          {!withCamera && phase === 'countdown' && countdownVal > 0 && (
-            <View style={styles.countdownOverlay} pointerEvents="none">
-              <Text style={[styles.phaseLabelGiant, { color: ensureContrast(phaseColor, currentBg) }]}>PRÉPARER</Text>
-              <Text style={[styles.countdownBig, {
-                color: accentColor,
-                textShadowColor: accentColor,
-                textShadowOffset: { width: 0, height: 0 },
-                textShadowRadius: 18,
-              }]}>{countdownVal}</Text>
-            </View>
-          )}
+          {/* DÉCOMPTE non-caméra: rendu dans le portrait layout via timerCenter */}
 
           {/* ── LANDSCAPE LAYOUT ─────────────────────────────────── */}
           {isLandscape ? (
@@ -1291,6 +1280,18 @@ export default function TimerRunScreen() {
           ) : (
           /* ── PORTRAIT LAYOUT ──────────────────────────────────── */
           <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          {/* DÉCOMPTE PORTRAIT — dans le même conteneur que le timer */}
+          {!withCamera && phase === 'countdown' && countdownVal > 0 && (
+            <View style={styles.timerCenter} pointerEvents="none">
+              <Text style={[styles.phaseLabelGiant, { color: ensureContrast(phaseColor, currentBg) }]}>PRÉPARER</Text>
+              <Text style={[styles.countdownBig, {
+                color: accentColor,
+                textShadowColor: accentColor,
+                textShadowOffset: { width: 0, height: 0 },
+                textShadowRadius: 18,
+              }]}>{countdownVal}</Text>
+            </View>
+          )}
           {/* TIMER — visible seulement hors countdown */}
           {phase !== 'countdown' && (!withCamera || camState >= 1) && (
             <View style={styles.timerCenter}>
