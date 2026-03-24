@@ -51,7 +51,7 @@ function WodTypeBadge({ type }: { type?: string }) {
 }
 
 export default function WhiteboardScreen() {
-  const { user, currentBox, joinBox } = useAuth();
+  const { user, currentBox, boxRole, joinBox } = useAuth();
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const S = createStyles(theme);
@@ -129,6 +129,7 @@ export default function WhiteboardScreen() {
 
     // 3. Filter by group access + visibility mode
     function canSee(wod: any): boolean {
+      if (boxRole === 'owner' || boxRole === 'coach') return true;
       const restricted = accessMap[wod.id];
       // No group restriction → visible to all
       if (!restricted || restricted.length === 0) return true;
@@ -147,7 +148,7 @@ export default function WhiteboardScreen() {
     setDayWODs((dayData ?? []).filter(canSee) as BoxWOD[]);
     setLoading(false);
     setRefreshing(false);
-  }, [currentBox, selectedDate, user]);
+  }, [currentBox, selectedDate, user, boxRole]);
 
   useEffect(() => { load(); }, [load]);
 
