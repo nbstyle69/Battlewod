@@ -256,7 +256,7 @@ export default function WhiteboardScreen() {
             <Text style={S.membersBtnText}>Messages</Text>
           </TouchableOpacity>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, marginHorizontal: 20, marginTop: 8, marginBottom: 4 }}>
+        <View style={[S.headerBtns, { marginTop: 8 }]}>
           <TouchableOpacity
             style={[S.membersBtn, { flex: 1 }]}
             onPress={() => navigation.navigate('Documents')}

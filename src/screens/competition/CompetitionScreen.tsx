@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
-import { Trophy, Users, Clock, Zap, ChevronRight, ChevronLeft, Plus, MapPin, Flame, Globe2 } from 'lucide-react-native';
+import { Trophy, Users, Clock, Zap, ChevronRight, ChevronLeft, Plus, MapPin, Flame, Globe2, Info } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -319,20 +319,37 @@ export default function CompetitionScreen() {
           </>
         )}
         {activeTab === 2 && (
-          <>
+          <View style={{ gap: 12 }}>
             <TouchableOpacity
-              activeOpacity={0.85}
-              style={[S.createButton, S.createGradient, { backgroundColor: '#8B5CF6' }]}
-              onPress={() => navigation.navigate('PhysicalCompetition')}
+              activeOpacity={0.8}
+              style={S.physModeCard}
+              onPress={() => navigation.navigate('PhysicalCompetition', { mode: 'qualification' })}
             >
-              <MapPin color="#fff" size={20} />
-              <Text style={S.createText}>Voir les compétitions physiques</Text>
+              <View style={[S.physModeIcon, { backgroundColor: '#8B5CF620' }]}>
+                <Zap color="#8B5CF6" size={22} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.physModeTitle}>Qualification en Ligne</Text>
+                <Text style={S.physModeDesc}>WODs avec caméra · Score en ligne</Text>
+              </View>
+              <ChevronRight color={theme.textMuted} size={18} />
             </TouchableOpacity>
-            <View style={S.physInfoBox}>
-              <Text style={S.physInfoTitle}>🏟️ Compétitions en présentiel</Text>
-              <Text style={S.physInfoText}>{"Les admins configurent les WODs et la caméra à l'avance.\nTu n'as qu'à choisir ton épreuve et partir !"}</Text>
-            </View>
-          </>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={S.physModeCard}
+              onPress={() => navigation.navigate('PhysicalCompetition', { mode: 'info' })}
+            >
+              <View style={[S.physModeIcon, { backgroundColor: '#3B82F620' }]}>
+                <Info color="#3B82F6" size={22} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.physModeTitle}>Sans Qualification</Text>
+                <Text style={S.physModeDesc}>Événements · Inscription externe</Text>
+              </View>
+              <ChevronRight color={theme.textMuted} size={18} />
+            </TouchableOpacity>
+          </View>
         )}
 
         {activeTab === 3 && (
@@ -452,4 +469,16 @@ function createStyles(theme: AppTheme) {
   },
   physInfoTitle: { fontSize: 15, fontWeight: '700', color: '#8B5CF6', marginBottom: 6 },
   physInfoText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 19 },
+  physModeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: theme.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: theme.border,
+    ...cardShadow,
+  },
+  physModeIcon: {
+    width: 42, height: 42, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  physModeTitle: { fontSize: 15, fontWeight: '800', color: theme.text },
+  physModeDesc:  { fontSize: 12, color: theme.textMuted, marginTop: 2 },
 }); }
