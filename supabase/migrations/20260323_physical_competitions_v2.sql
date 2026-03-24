@@ -2,17 +2,42 @@
 -- PHYSICAL COMPETITIONS V2: mode qualification / info
 -- ============================================
 
--- Add new columns to physical_competitions
-ALTER TABLE public.physical_competitions
-  ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'qualification'
-    CHECK (mode IN ('qualification', 'info')),
-  ADD COLUMN IF NOT EXISTS logo_url text,
-  ADD COLUMN IF NOT EXISTS registration_url text,
-  ADD COLUMN IF NOT EXISTS format text DEFAULT 'individual'
-    CHECK (format IN ('individual', 'team')),
-  ADD COLUMN IF NOT EXISTS price text;
+-- Create physical_competitions table (if not exists)
+CREATE TABLE IF NOT EXISTS public.physical_competitions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text DEFAULT '',
+  date text,
+  location text DEFAULT '',
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'active', 'closed')),
+  mode text NOT NULL DEFAULT 'qualification' CHECK (mode IN ('qualification', 'info')),
+  logo_url text,
+  registration_url text,
+  format text DEFAULT 'individual' CHECK (format IN ('individual', 'team')),
+  price text,
+  created_by uuid REFERENCES auth.users(id),
+  created_at timestamptz DEFAULT now()
+);
 
--- RLS policies (if not already set)
+-- Create physical_wods table (if not exists)
+CREATE TABLE IF NOT EXISTS public.physical_wods (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  competition_id uuid NOT NULL REFERENCES public.physical_competitions(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  description text DEFAULT '',
+  timer_type text NOT NULL DEFAULT 'for-time',
+  total_seconds integer NOT NULL DEFAULT 900,
+  max_time integer DEFAULT 0,
+  interval_seconds integer DEFAULT 0,
+  rounds integer DEFAULT 3,
+  work_time integer DEFAULT 40,
+  rest_time integer DEFAULT 20,
+  with_camera boolean DEFAULT true,
+  order_index integer DEFAULT 1,
+  created_at timestamptz DEFAULT now()
+);
+
+-- RLS
 ALTER TABLE public.physical_competitions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.physical_wods ENABLE ROW LEVEL SECURITY;
 

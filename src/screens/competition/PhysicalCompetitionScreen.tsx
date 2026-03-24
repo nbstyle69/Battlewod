@@ -73,6 +73,7 @@ export default function PhysicalCompetitionScreen() {
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
   const [selected,     setSelected]     = useState<PhysComp | null>(null);
+  const [modeFilter,   setModeFilter]   = useState<'qualification' | 'info' | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -203,7 +204,7 @@ export default function PhysicalCompetitionScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={S.wodName}>{wod.name}</Text>
-                  {wod.description ? <Text style={S.wodDescText} numberOfLines={2}>{wod.description}</Text> : null}
+                  {wod.description ? <Text style={S.wodDescText}>{wod.description}</Text> : null}
                 </View>
               </View>
               <View style={S.wodMeta}>
@@ -235,16 +236,80 @@ export default function PhysicalCompetitionScreen() {
     );
   }
 
-  // ── List view
+  const filteredComps = modeFilter ? competitions.filter(c => c.mode === modeFilter) : [];
+
+  // ── Mode selection view (no filter selected)
+  if (!modeFilter) {
+    return (
+      <View style={S.container}>
+        <View style={S.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn} activeOpacity={0.7}>
+            <ChevronLeft color={theme.text} size={24} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={S.headerTitle}>Compétitions Physiques</Text>
+            <Text style={S.headerSub}>Choisis ton type de compétition</Text>
+          </View>
+        </View>
+
+        <View style={S.modeCardsWrap}>
+          <TouchableOpacity
+            style={[S.modeCard, { borderColor: '#8B5CF640' }]}
+            onPress={() => setModeFilter('qualification')}
+            activeOpacity={0.8}
+          >
+            <View style={[S.modeIconWrap, { backgroundColor: '#8B5CF620' }]}>
+              <Zap color="#8B5CF6" size={24} />
+            </View>
+            <Text style={S.modeCardTitle}>Qualification en Ligne</Text>
+            <Text style={S.modeCardDesc}>
+              Fais le WOD dans l'app avec la caméra et soumets ton score. Le logo de la compétition apparaît en overlay sur la vidéo.
+            </Text>
+            <View style={S.modeTagsRow}>
+              <View style={[S.modeTag, { borderColor: '#8B5CF650' }]}><Text style={[S.modeTagTxt, { color: '#8B5CF6' }]}>TIMER + CAMÉRA</Text></View>
+              <View style={[S.modeTag, { borderColor: '#8B5CF650' }]}><Text style={[S.modeTagTxt, { color: '#8B5CF6' }]}>LOGO OVERLAY</Text></View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[S.modeCard, { borderColor: '#3B82F640' }]}
+            onPress={() => setModeFilter('info')}
+            activeOpacity={0.8}
+          >
+            <View style={[S.modeIconWrap, { backgroundColor: '#3B82F620' }]}>
+              <Info color="#3B82F6" size={24} />
+            </View>
+            <Text style={S.modeCardTitle}>Sans Qualification en Ligne</Text>
+            <Text style={S.modeCardDesc}>
+              Compétition informative. Consulte les détails et inscris-toi via un lien externe.
+            </Text>
+            <View style={S.modeTagsRow}>
+              <View style={[S.modeTag, { borderColor: '#3B82F650' }]}><Text style={[S.modeTagTxt, { color: '#3B82F6' }]}>LIEN EXTERNE</Text></View>
+              <View style={[S.modeTag, { borderColor: '#3B82F650' }]}><Text style={[S.modeTagTxt, { color: '#3B82F6' }]}>INFORMATIF</Text></View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Filtered list view
+  const listModeColor = MODE_COLORS[modeFilter] ?? theme.accent;
+  const isQualifList = modeFilter === 'qualification';
+
   return (
     <View style={S.container}>
       <View style={S.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => setModeFilter(null)} style={S.backBtn} activeOpacity={0.7}>
           <ChevronLeft color={theme.text} size={24} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={S.headerTitle}>Compétitions Physiques</Text>
-          <Text style={S.headerSub}>Événements · Performances · Podium</Text>
+          <Text style={S.headerTitle}>
+            {isQualifList ? 'Qualification en Ligne' : 'Sans Qualification'}
+          </Text>
+          <Text style={S.headerSub}>
+            {isQualifList ? 'WODs avec caméra · Score en ligne' : 'Événements · Inscription externe'}
+          </Text>
         </View>
       </View>
 
@@ -252,19 +317,22 @@ export default function PhysicalCompetitionScreen() {
         <View style={S.center}><ActivityIndicator size="large" color={theme.accent} /></View>
       ) : (
         <FlatList
-          data={competitions}
+          data={filteredComps}
           keyExtractor={c => c.id}
           contentContainerStyle={S.list}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           ListEmptyComponent={
             <View style={S.emptyBox}>
-              <Text style={S.emptyEmoji}>🏆</Text>
-              <Text style={S.emptyText}>Aucune compétition physique disponible.</Text>
+              <Text style={S.emptyEmoji}>{isQualifList ? '�️' : '📋'}</Text>
+              <Text style={S.emptyText}>
+                {isQualifList
+                  ? 'Aucune compétition avec qualification en ligne disponible.'
+                  : 'Aucune compétition informative disponible.'}
+              </Text>
             </View>
           }
           renderItem={({ item: comp }) => {
-            const isQualif = comp.mode === 'qualification';
             const modeColor = MODE_COLORS[comp.mode] ?? theme.accent;
             return (
               <TouchableOpacity style={S.compCard} onPress={() => loadWods(comp)} activeOpacity={0.8}>
@@ -280,11 +348,6 @@ export default function PhysicalCompetitionScreen() {
                           {comp.status === 'open' ? '🟢 Ouvert' : comp.status === 'active' ? '🔴 Live' : '⚫ Fermé'}
                         </Text>
                       </View>
-                      <View style={[S.statusBadge, { backgroundColor: `${modeColor}20` }]}>
-                        <Text style={[S.statusTxt, { color: modeColor }]}>
-                          {isQualif ? '⚡ Qualification' : '📋 Info'}
-                        </Text>
-                      </View>
                     </View>
                   </View>
                 </View>
@@ -296,9 +359,13 @@ export default function PhysicalCompetitionScreen() {
                 </View>
                 <View style={S.compFooter}>
                   <View style={S.metaPill}>
-                    <Zap color={modeColor} size={12} />
+                    {comp.logo_url ? (
+                      <Image source={{ uri: comp.logo_url }} style={{ width: 20, height: 20, borderRadius: 5 }} />
+                    ) : (
+                      <Zap color={modeColor} size={12} />
+                    )}
                     <Text style={[S.metaTxt, { color: modeColor }]}>
-                      {isQualif ? 'Voir les WODs' : 'Voir les détails'}
+                      {isQualifList ? 'Voir les WODs' : 'Voir les détails'}
                     </Text>
                   </View>
                   <ChevronRight color={theme.textMuted} size={16} />
@@ -372,5 +439,21 @@ function createStyles(theme: AppTheme) {
       borderRadius: 12, padding: 13,
     },
     launchBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+    modeCardsWrap: { padding: 16, gap: 14, paddingTop: 24 },
+    modeCard: {
+      backgroundColor: theme.card, borderRadius: 16, padding: 18,
+      borderWidth: 1, gap: 10,
+    },
+    modeIconWrap: {
+      width: 44, height: 44, borderRadius: 12,
+      justifyContent: 'center', alignItems: 'center', marginBottom: 4,
+    },
+    modeCardTitle: { fontSize: 17, fontWeight: '900', color: theme.text },
+    modeCardDesc:  { fontSize: 13, color: theme.textSecondary, lineHeight: 19 },
+    modeTagsRow:   { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 },
+    modeTag: {
+      borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+    },
+    modeTagTxt: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   });
 }
