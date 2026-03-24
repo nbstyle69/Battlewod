@@ -2,7 +2,7 @@
   "expo": {
     "name": "AthleX",
     "slug": "TheHub",
-    "version": "1.0.16",
+    "version": "1.0.18",
     "orientation": "default",
     "icon": "./assets/logoapp.png",
     "userInterfaceStyle": "light",
@@ -22,7 +22,8 @@
         "NSCameraUsageDescription": "AthleX utilise la caméra pour enregistrer tes performances.",
         "NSMicrophoneUsageDescription": "AthleX utilise le micro pour les vidéos de performance.",
         "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos."
-      }
+      },
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
