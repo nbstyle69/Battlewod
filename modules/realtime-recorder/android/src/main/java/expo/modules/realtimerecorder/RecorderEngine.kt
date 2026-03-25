@@ -122,9 +122,14 @@ class RecorderEngine private constructor() {
       .setTargetResolution(Size(1080, 1920))
       .build()
 
-    // Attach preview to host view's PreviewView
-    hostView?.get()?.let { view ->
-      preview?.setSurfaceProvider(view.previewView.surfaceProvider)
+    // Attach preview to host view's PreviewView on main thread to ensure layout is ready
+    val view = hostView?.get()
+    if (view != null) {
+      android.os.Handler(android.os.Looper.getMainLooper()).post {
+        preview?.setSurfaceProvider(view.previewView.surfaceProvider)
+      }
+    } else {
+      Log.w(TAG, "hostView is null when binding camera use cases")
     }
 
     // Image analysis for frame capture during recording
@@ -157,8 +162,15 @@ class RecorderEngine private constructor() {
   }
 
   private fun getLifecycleOwner(context: Context): LifecycleOwner {
-    return if (context is LifecycleOwner) context
-    else ProcessLifecycleOwner.get()
+    // Walk up to find an Activity that is a LifecycleOwner (AppCompatActivity)
+    var ctx = context
+    while (ctx is android.content.ContextWrapper) {
+      if (ctx is LifecycleOwner) return ctx
+      ctx = ctx.baseContext
+    }
+    // Fallback: ProcessLifecycleOwner (may not properly signal RESUMED)
+    Log.w(TAG, "No Activity LifecycleOwner found, using ProcessLifecycleOwner")
+    return ProcessLifecycleOwner.get()
   }
 
   // MARK: - Recording

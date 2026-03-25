@@ -17,7 +17,7 @@ class RealtimeRecorderHostView(context: Context, appContext: AppContext) : ExpoV
       FrameLayout.LayoutParams.MATCH_PARENT,
       FrameLayout.LayoutParams.MATCH_PARENT
     )
-    implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+    implementationMode = PreviewView.ImplementationMode.COMPATIBLE  // TextureView — works with RN view hierarchy
     scaleType = PreviewView.ScaleType.FILL_CENTER
   }
 
