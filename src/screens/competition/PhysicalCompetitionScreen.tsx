@@ -114,7 +114,7 @@ export default function PhysicalCompetitionScreen() {
       sequence:     '[]',
       videoTitle:   wod.name,
       withTimestamp: true,
-      competitionLogoUrl: comp.logo_url || undefined,
+      competitionLogoUrl: comp.mode === 'qualification' ? (comp.logo_url || undefined) : undefined,
     };
     navigation.navigate('TimerRun', params);
   }

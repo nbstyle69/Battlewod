@@ -31,10 +31,12 @@ class OverlayRenderer(private val context: Context) {
   private var cachedCompLogoUrl: String = ""
   @Volatile private var compLogoLoading = false
   private var blackOpsTypeface: Typeface? = null
+  private var dsDigitalTypeface: Typeface? = null
 
   init {
     loadAthlexLogo()
     loadBlackOpsFont()
+    loadDSDigitalFont()
   }
 
   // MARK: - Resource loading
@@ -59,8 +61,15 @@ class OverlayRenderer(private val context: Context) {
     try {
       blackOpsTypeface = Typeface.createFromAsset(context.assets, "realtime-recorder/BlackOpsOne.ttf")
     } catch (e: Exception) {
-      // Fallback to bold system font
       blackOpsTypeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+  }
+
+  private fun loadDSDigitalFont() {
+    try {
+      dsDigitalTypeface = Typeface.createFromAsset(context.assets, "realtime-recorder/DS-Digital.ttf")
+    } catch (e: Exception) {
+      dsDigitalTypeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
     }
   }
 
@@ -117,27 +126,16 @@ class OverlayRenderer(private val context: Context) {
     val safeTop = 60f * (height / 1920f)
     val scale = width / 1080f // Reference: 1080x1920
 
-    // ─── 0. Competition logo (top left — rounded square) ───
+    // ─── 0. Competition logo (top left — rounded square, no white bg) ───
     cachedCompLogo?.let { compImg ->
       val logoSize = 200f * scale
       val logoRect = RectF(margin, safeTop, margin + logoSize, safeTop + logoSize)
       val cornerRadius = 32f * scale
 
-      val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(230, 255, 255, 255)
-        style = Paint.Style.FILL
-      }
-      canvas.drawRoundRect(logoRect, cornerRadius, cornerRadius, bgPaint)
-
-      val inset = 12f * scale
-      val logoInsetRect = RectF(
-        logoRect.left + inset, logoRect.top + inset,
-        logoRect.right - inset, logoRect.bottom - inset
-      )
       canvas.save()
       val clipPath = Path().apply { addRoundRect(logoRect, cornerRadius, cornerRadius, Path.Direction.CW) }
       canvas.clipPath(clipPath)
-      canvas.drawBitmap(compImg, null, logoInsetRect, Paint(Paint.FILTER_BITMAP_FLAG))
+      canvas.drawBitmap(compImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
       canvas.restore()
     }
 
@@ -194,27 +192,27 @@ class OverlayRenderer(private val context: Context) {
       )
     }
 
-    // ─── 4. Timer display (center screen, slightly below center, MM:SS) ───
+    // ════════════════════════════════════════════
+    //  BOTTOM — left: AthleX logo + text   right: timestamp
+    // ════════════════════════════════════════════
+    val safeBottom = 140f * scale  // +100px up from original 40
+
+    // ─── 5. ATHLEX logo (bottom left) ───
+    val atlLogoH = 120f * scale
+    val atlLogoY = height - safeBottom - atlLogoH
+
+    // ─── 4. Timer display (bottom center, DS-Digital font) ───
     if (state.showTimer && state.countdownValue <= 0) {
       val timerH = 110f * scale
-      val timerY = (height - timerH) / 2f + 60f * scale  // slightly below center
+      val timerY = atlLogoY - timerH - 20f * scale  // above AthleX logo area
       drawText(
         canvas, state.timerDisplay,
         RectF(0f, timerY, width, timerY + timerH),
         fontSize = 90f * scale, bold = false, color = Color.WHITE,
         alignment = Layout.Alignment.ALIGN_CENTER,
-        shadow = true, monospace = true
+        shadow = true, dsDigital = true
       )
     }
-
-    // ════════════════════════════════════════════
-    //  BOTTOM — left: AthleX logo + text   right: timestamp
-    // ════════════════════════════════════════════
-    val safeBottom = 40f * scale
-
-    // ─── 5. ATHLEX logo (bottom left) ───
-    val atlLogoH = 120f * scale
-    val atlLogoY = height - safeBottom - atlLogoH
     cachedAthlexLogo?.let { atlImg ->
       val atlLogoW = atlLogoH * (atlImg.width.toFloat() / atlImg.height.toFloat())
       val logoRect = RectF(margin, atlLogoY, margin + atlLogoW, atlLogoY + atlLogoH)
@@ -276,12 +274,14 @@ class OverlayRenderer(private val context: Context) {
     fontSize: Float, bold: Boolean, color: Int,
     alignment: Layout.Alignment,
     shadow: Boolean = false,
-    monospace: Boolean = false
+    monospace: Boolean = false,
+    dsDigital: Boolean = false
   ) {
     val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
       this.color = color
       textSize = fontSize
       typeface = when {
+        dsDigital -> dsDigitalTypeface ?: Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
         monospace -> Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
         bold -> Typeface.DEFAULT_BOLD
         else -> Typeface.DEFAULT

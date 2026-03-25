@@ -28,10 +28,12 @@ final class OverlayRenderer {
   private var cachedCompLogoUrl: String = ""
   private var compLogoLoading = false
   private var blackOpsFont: UIFont?
+  private var dsDigitalFont: UIFont?
 
   init() {
     loadAthlexLogo()
     loadBlackOpsFont()
+    loadDSDigitalFont()
   }
 
   // MARK: - Logo loading
@@ -72,6 +74,30 @@ final class OverlayRenderer {
       blackOpsFont = font
     } else {
       print("[OverlayRenderer] BlackOpsOne-Regular font not available after registration")
+    }
+  }
+
+  private func loadDSDigitalFont() {
+    let bundleName = "RealtimeRecorderResources"
+    guard let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
+          let resBundle = Bundle(url: bundleURL),
+          let fontURL = resBundle.url(forResource: "DS-Digital", withExtension: "ttf") else {
+      print("[OverlayRenderer] DS-Digital.ttf not found in resource bundle")
+      return
+    }
+    var errorRef: Unmanaged<CFError>?
+    CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &errorRef)
+    if let err = errorRef?.takeRetainedValue() {
+      let desc = CFErrorGetDomain(err) as String
+      if !desc.contains("already registered") {
+        print("[OverlayRenderer] DS-Digital font registration error: \(err)")
+      }
+    }
+    // PostScript name for DS-Digital is "DS-Digital"
+    if let font = UIFont(name: "DS-Digital", size: 48) {
+      dsDigitalFont = font
+    } else {
+      print("[OverlayRenderer] DS-Digital font not available after registration")
     }
   }
 
@@ -141,7 +167,7 @@ final class OverlayRenderer {
     let margin: CGFloat = 24
     let safeTop: CGFloat = 60  // safe area for notch
 
-    // ─── 0. Competition logo (top left — rounded square) ───
+    // ─── 0. Competition logo (top left — rounded square, no white bg) ───
     if let compImg = cachedCompLogo {
       let logoSize: CGFloat = 200
       let logoRect = CGRect(x: margin, y: safeTop, width: logoSize, height: logoSize)
@@ -150,9 +176,7 @@ final class OverlayRenderer {
       context.saveGState()
       let path = UIBezierPath(roundedRect: logoRect, cornerRadius: cornerRadius)
       path.addClip()
-      UIColor.white.withAlphaComponent(0.9).setFill()
-      path.fill()
-      compImg.draw(in: logoRect.insetBy(dx: 12, dy: 12))
+      compImg.draw(in: logoRect)
       context.restoreGState()
       UIGraphicsPopContext()
     }
@@ -190,24 +214,24 @@ final class OverlayRenderer {
                fontSize: 260, bold: true, color: .white, alignment: .center, weight: .bold)
     }
 
-    // ─── 4. Timer display (center screen, slightly below center, MM:SS) ───
-    if state.showTimer && state.countdownValue <= 0 {
-      let timerH: CGFloat = 110
-      let timerY = (size.height - timerH) / 2 + 60  // slightly below center
-      drawText(context: context, text: state.timerDisplay,
-               rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
-               fontSize: 90, bold: false, color: .white, alignment: .center,
-               weight: .medium, shadow: true, monospace: true)
-    }
-
     // ════════════════════════════════════════════
     //  BOTTOM — left: AthleX logo + text   right: timestamp
     // ════════════════════════════════════════════
-    let safeBottom: CGFloat = 40
+    let safeBottom: CGFloat = 140  // +100px up from original 40
 
     // ─── 5. ATHLEX logo (bottom left) ───
     let atlLogoH: CGFloat = 120
     let atlLogoY = size.height - safeBottom - atlLogoH
+
+    // ─── 4. Timer display (bottom center, DS-Digital font) ───
+    if state.showTimer && state.countdownValue <= 0 {
+      let timerH: CGFloat = 110
+      let timerY = atlLogoY - timerH - 20  // above AthleX logo area
+      drawText(context: context, text: state.timerDisplay,
+               rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
+               fontSize: 90, bold: false, color: .white, alignment: .center,
+               weight: .medium, shadow: true, dsDigital: true)
+    }
     if let atlImg = cachedAthlexLogo {
       let atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
       let logoRect = CGRect(x: margin, y: atlLogoY, width: atlLogoW, height: atlLogoH)
@@ -281,10 +305,13 @@ final class OverlayRenderer {
     alignment: NSTextAlignment,
     weight: UIFont.Weight? = nil,
     shadow: Bool = false,
-    monospace: Bool = false
+    monospace: Bool = false,
+    dsDigital: Bool = false
   ) {
     let font: UIFont
-    if monospace {
+    if dsDigital, let dsFont = dsDigitalFont?.withSize(fontSize) {
+      font = dsFont
+    } else if monospace {
       font = UIFont.monospacedDigitSystemFont(ofSize: fontSize, weight: weight ?? (bold ? .bold : .regular))
     } else if let w = weight {
       font = UIFont.systemFont(ofSize: fontSize, weight: w)

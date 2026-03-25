@@ -43,6 +43,17 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         existing.stopRunning()
       }
 
+      // Configure audio session BEFORE capture session to ensure iOS locks the correct audio route
+      let audioSession = AVAudioSession.sharedInstance()
+      do {
+        try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
+        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        try audioSession.overrideOutputAudioPort(.speaker)
+        print("[RealtimeRecorder] Audio session configured (videoRecording mode)")
+      } catch {
+        print("[RealtimeRecorder] Audio session config error: \(error)")
+      }
+
       let session = AVCaptureSession()
       session.beginConfiguration()
       session.sessionPreset = .hd1920x1080
@@ -91,15 +102,6 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       self.videoOutput = vOutput
       self.audioOutput = aOutput
 
-      // Configure audio session for simultaneous playback (beeps) + recording (mic)
-      let audioSession = AVAudioSession.sharedInstance()
-      do {
-        try audioSession.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers])
-        try audioSession.setActive(true)
-      } catch {
-        print("[RealtimeRecorder] Audio session config error: \(error)")
-      }
-
       // Attach preview on main thread
       DispatchQueue.main.async {
         let preview = AVCaptureVideoPreviewLayer(session: session)
@@ -119,6 +121,17 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
   // MARK: Recording
 
   func startRecording(url: URL) throws {
+    // Reassert audio session before each recording to guarantee mic is active
+    let audioSession = AVAudioSession.sharedInstance()
+    do {
+      try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
+      try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+      try audioSession.overrideOutputAudioPort(.speaker)
+      print("[RealtimeRecorder] Audio session reasserted for recording")
+    } catch {
+      print("[RealtimeRecorder] Audio session reassert error: \(error)")
+    }
+
     try? FileManager.default.removeItem(at: url)
     self.outputURL = url
     self.isSessionStarted = false
