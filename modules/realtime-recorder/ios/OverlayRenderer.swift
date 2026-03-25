@@ -215,42 +215,50 @@ final class OverlayRenderer {
     }
 
     // ════════════════════════════════════════════
-    //  BOTTOM — left: AthleX logo + text   right: timestamp
+    //  BOTTOM ROW — AthleX (left) | Timer (center) | Timestamp (right)
+    //  Logo centered above "AthleX" text
     // ════════════════════════════════════════════
-    let safeBottom: CGFloat = 140  // +100px up from original 40
+    let safeBottom: CGFloat = 140
 
-    // ─── 5. ATHLEX logo (bottom left) ───
+    // ─── 6. "AthleX" branded text — reference baseline for bottom row ───
+    let brandH: CGFloat = 50
+    let brandY = size.height - safeBottom - brandH
+    let brandTextW: CGFloat = 160  // estimated "AthleX" width at 40pt
+    drawBrandText(context: context,
+                  rect: CGRect(x: margin, y: brandY, width: 280, height: brandH),
+                  fontSize: 40, color: .white, shadow: true)
+
+    // ─── 5. ATHLEX logo (centered horizontally above "AthleX" text) ───
     let atlLogoH: CGFloat = 120
-    let atlLogoY = size.height - safeBottom - atlLogoH
-
-    // ─── 4. Timer display (bottom center, DS-Digital font) ───
-    if state.showTimer && state.countdownValue <= 0 {
-      let timerH: CGFloat = 110
-      let timerY = atlLogoY - timerH - 20  // above AthleX logo area
-      drawText(context: context, text: state.timerDisplay,
-               rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
-               fontSize: 90, bold: false, color: .white, alignment: .center,
-               weight: .medium, shadow: true, dsDigital: true)
-    }
+    let atlLogoY = brandY - atlLogoH - 4
     if let atlImg = cachedAthlexLogo {
       let atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
-      let logoRect = CGRect(x: margin, y: atlLogoY, width: atlLogoW, height: atlLogoH)
+      let brandCenterX = margin + brandTextW / 2
+      let logoX = brandCenterX - atlLogoW / 2
+      let logoRect = CGRect(x: logoX, y: atlLogoY, width: atlLogoW, height: atlLogoH)
       UIGraphicsPushContext(context)
       atlImg.draw(in: logoRect)
       UIGraphicsPopContext()
     }
 
-    // ─── 6. "AthleX" branded text (below logo, bottom left) ───
-    let brandH: CGFloat = 50
-    let brandY = atlLogoY + atlLogoH + 4
-    drawBrandText(context: context,
-                  rect: CGRect(x: margin, y: brandY, width: 280, height: brandH),
-                  fontSize: 40, color: .white, shadow: true)
+    // ─── 4. Timer display (center, same row as AthleX text) ───
+    if state.showTimer && state.countdownValue <= 0 {
+      let timerH: CGFloat = 110
+      let timerCenterY = brandY + brandH / 2
+      let timerY = timerCenterY - timerH / 2
+      drawText(context: context, text: state.timerDisplay,
+               rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
+               fontSize: 90, bold: false, color: .white, alignment: .center,
+               weight: .medium, shadow: true, dsDigital: true)
+    }
 
-    // ─── 7. Timestamp (bottom right) ───
+    // ─── 7. Timestamp (right, same row as AthleX text) ───
     if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
+      let tsH: CGFloat = 34
+      let tsCenterY = brandY + brandH / 2
+      let tsY = tsCenterY - tsH / 2
       drawText(context: context, text: state.timestamp,
-               rect: CGRect(x: size.width - 260 - margin, y: size.height - safeBottom - 34, width: 260, height: 34),
+               rect: CGRect(x: size.width - 260 - margin, y: tsY, width: 260, height: tsH),
                fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
                alignment: .right, shadow: true)
     }

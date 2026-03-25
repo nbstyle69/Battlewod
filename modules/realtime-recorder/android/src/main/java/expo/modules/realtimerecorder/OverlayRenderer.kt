@@ -193,18 +193,37 @@ class OverlayRenderer(private val context: Context) {
     }
 
     // ════════════════════════════════════════════
-    //  BOTTOM — left: AthleX logo + text   right: timestamp
+    //  BOTTOM ROW — AthleX (left) | Timer (center) | Timestamp (right)
+    //  Logo centered above "AthleX" text
     // ════════════════════════════════════════════
-    val safeBottom = 140f * scale  // +100px up from original 40
+    val safeBottom = 140f * scale
 
-    // ─── 5. ATHLEX logo (bottom left) ───
+    // ─── 6. "AthleX" branded text — reference baseline for bottom row ───
+    val brandH = 50f * scale
+    val brandY = height - safeBottom - brandH
+    val brandTextW = 160f * scale  // estimated "AthleX" width at 40pt
+    drawBrandText(
+      canvas,
+      RectF(margin, brandY, margin + 280f * scale, brandY + brandH),
+      fontSize = 40f * scale, color = Color.WHITE, shadow = true
+    )
+
+    // ─── 5. ATHLEX logo (centered horizontally above "AthleX" text) ───
     val atlLogoH = 120f * scale
-    val atlLogoY = height - safeBottom - atlLogoH
+    val atlLogoY = brandY - atlLogoH - 4f * scale
+    cachedAthlexLogo?.let { atlImg ->
+      val atlLogoW = atlLogoH * (atlImg.width.toFloat() / atlImg.height.toFloat())
+      val brandCenterX = margin + brandTextW / 2f
+      val logoX = brandCenterX - atlLogoW / 2f
+      val logoRect = RectF(logoX, atlLogoY, logoX + atlLogoW, atlLogoY + atlLogoH)
+      canvas.drawBitmap(atlImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
+    }
 
-    // ─── 4. Timer display (bottom center, DS-Digital font) ───
+    // ─── 4. Timer display (center, same row as AthleX text) ───
     if (state.showTimer && state.countdownValue <= 0) {
       val timerH = 110f * scale
-      val timerY = atlLogoY - timerH - 20f * scale  // above AthleX logo area
+      val timerCenterY = brandY + brandH / 2f
+      val timerY = timerCenterY - timerH / 2f
       drawText(
         canvas, state.timerDisplay,
         RectF(0f, timerY, width, timerY + timerH),
@@ -213,26 +232,13 @@ class OverlayRenderer(private val context: Context) {
         shadow = true, dsDigital = true
       )
     }
-    cachedAthlexLogo?.let { atlImg ->
-      val atlLogoW = atlLogoH * (atlImg.width.toFloat() / atlImg.height.toFloat())
-      val logoRect = RectF(margin, atlLogoY, margin + atlLogoW, atlLogoY + atlLogoH)
-      canvas.drawBitmap(atlImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
-    }
 
-    // ─── 6. "AthleX" branded text (below logo, bottom left) ───
-    val brandH = 50f * scale
-    val brandY = atlLogoY + atlLogoH + 4f * scale
-    drawBrandText(
-      canvas,
-      RectF(margin, brandY, margin + 280f * scale, brandY + brandH),
-      fontSize = 40f * scale, color = Color.WHITE, shadow = true
-    )
-
-    // ─── 7. Timestamp (bottom right) ───
+    // ─── 7. Timestamp (right, same row as AthleX text) ───
     if (state.timestamp.isNotEmpty() && state.showTimer && state.countdownValue <= 0) {
       val tsW = 260f * scale
       val tsH = 34f * scale
-      val tsY = height - safeBottom - tsH
+      val tsCenterY = brandY + brandH / 2f
+      val tsY = tsCenterY - tsH / 2f
       drawText(
         canvas, state.timestamp,
         RectF(width - tsW - margin, tsY, width - margin, tsY + tsH),
