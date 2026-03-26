@@ -339,18 +339,18 @@ export default function DailyTournamentDetailScreen() {
       return { ...player, delta };
     });
 
-    // Update profiles + write ELO history
+    // Update profiles via RPC (bypasses RLS) + write ELO history
     const historyRows = [];
     for (const d of deltas) {
       const pm = profileMap[d.user_id];
       if (!pm) continue;
       const newElo = pm.elo + d.delta;
-      const updatePayload: any = {
-        elo: newElo,
-        total_matches: pm.total_matches + 1,
-      };
-      if (d.rank === 1) updatePayload.wins = pm.wins + 1;
-      await supabase.from('profiles').update(updatePayload).eq('id', d.user_id);
+      await supabase.rpc('update_user_elo', {
+        p_user_id: d.user_id,
+        p_new_elo: newElo,
+        p_increment_matches: 1,
+        p_increment_wins: d.rank === 1 ? 1 : 0,
+      });
 
       historyRows.push({
         tournament_id: tournamentId,

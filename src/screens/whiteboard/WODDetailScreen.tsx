@@ -116,12 +116,14 @@ async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[
 
   await supabase.from('elo_history').upsert(historyRows, { onConflict: 'wod_id,member_id' });
 
-  // Update profiles
+  // Update profiles via RPC (bypasses RLS)
   for (const d of deltas) {
-    await supabase
-      .from('profiles')
-      .update({ elo: d.elo + d.delta })
-      .eq('id', d.member_id);
+    await supabase.rpc('update_user_elo', {
+      p_user_id: d.member_id,
+      p_new_elo: d.elo + d.delta,
+      p_increment_matches: 1,
+      p_increment_wins: d.rank === 1 ? 1 : 0,
+    });
   }
 }
 

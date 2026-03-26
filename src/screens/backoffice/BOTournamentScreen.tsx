@@ -318,7 +318,12 @@ Réponds en français, sois concis et factuel.`;
             const rank = i + 1;
             const change = calcTournamentElo(athleteElo, rank, tp.length, avgElo);
             const newElo = Math.max(100, athleteElo + change);
-            await supabase.from('profiles').update({ elo: newElo }).eq('id', p.athlete_id);
+            await supabase.rpc('update_user_elo', {
+              p_user_id: p.athlete_id,
+              p_new_elo: newElo,
+              p_increment_matches: 1,
+              p_increment_wins: rank === 1 ? 1 : 0,
+            });
             await supabase.from('tournament_elo_history').upsert({
               tournament_id: selectedId, athlete_id: p.athlete_id,
               final_rank: rank, participants_count: tp.length,
