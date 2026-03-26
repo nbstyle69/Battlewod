@@ -34,6 +34,8 @@ interface PhysComp {
   id: string;
   name: string;
   date: string;
+  start_date: string | null;
+  end_date: string | null;
   location: string;
   description: string;
   status: 'open' | 'active' | 'closed';
@@ -138,7 +140,11 @@ export default function PhysicalCompetitionScreen() {
             <Text style={S.headerTitle} numberOfLines={1}>{selected.name}</Text>
             <View style={S.metaRow}>
               {selected.location ? <><MapPin color={theme.textMuted} size={12} /><Text style={S.metaTxt}>{selected.location}</Text></> : null}
-              {selected.date ? <><Calendar color={theme.textMuted} size={12} /><Text style={S.metaTxt}>{selected.date}</Text></> : null}
+              {selected.mode === 'qualification' && selected.start_date ? (
+                <><Calendar color={theme.textMuted} size={12} /><Text style={S.metaTxt}>{selected.start_date}{selected.end_date ? ` → ${selected.end_date}` : ''}</Text></>
+              ) : selected.date ? (
+                <><Calendar color={theme.textMuted} size={12} /><Text style={S.metaTxt}>{selected.date}</Text></>
+              ) : null}
             </View>
           </View>
           {selected.logo_url ? (
@@ -225,12 +231,25 @@ export default function PhysicalCompetitionScreen() {
                   </View>
                 )}
               </View>
-              {isQualif && (
-                <TouchableOpacity style={[S.launchBtn, { backgroundColor: modeColor }]} onPress={() => launchWOD(wod, selected)} activeOpacity={0.85}>
-                  <Play color="#fff" size={15} />
-                  <Text style={S.launchBtnTxt}>LANCER CE WOD</Text>
-                </TouchableOpacity>
-              )}
+              {isQualif && (() => {
+                const now = new Date().toISOString().slice(0, 10);
+                const before = selected.start_date && now < selected.start_date;
+                const after = selected.end_date && now > selected.end_date;
+                const outsidePeriod = before || after;
+                return outsidePeriod ? (
+                  <View style={[S.launchBtn, { backgroundColor: theme.textMuted + '30' }]}>
+                    <Clock color={theme.textMuted} size={15} />
+                    <Text style={[S.launchBtnTxt, { color: theme.textMuted }]}>
+                      {before ? `Disponible le ${selected.start_date}` : 'Période terminée'}
+                    </Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={[S.launchBtn, { backgroundColor: modeColor }]} onPress={() => launchWOD(wod, selected)} activeOpacity={0.85}>
+                    <Play color="#fff" size={15} />
+                    <Text style={S.launchBtnTxt}>LANCER CE WOD</Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
           )}
         />
