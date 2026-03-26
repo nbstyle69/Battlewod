@@ -23,41 +23,43 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 -- ── RLS: co-owners can manage box_members (update role, ban, etc.) ──
+DROP POLICY IF EXISTS "box_members_coowner_manage" ON public.box_members;
 CREATE POLICY "box_members_coowner_manage" ON public.box_members
   FOR ALL USING (is_box_owner_member(box_id))
   WITH CHECK (is_box_owner_member(box_id));
 
 -- ── RLS: co-owners can manage boxes settings ──
+DROP POLICY IF EXISTS "boxes_coowner_manage" ON public.boxes;
 CREATE POLICY "boxes_coowner_manage" ON public.boxes
   FOR UPDATE USING (is_box_owner_member(id))
   WITH CHECK (is_box_owner_member(id));
 
 -- ── RLS: co-owners can manage WODs ──
+DROP POLICY IF EXISTS "wods_coowner_manage" ON public.wods;
 CREATE POLICY "wods_coowner_manage" ON public.wods
   FOR ALL USING (is_box_owner_member(box_id))
   WITH CHECK (is_box_owner_member(box_id));
 
 -- ── RLS: co-owners can manage message_groups ──
+DROP POLICY IF EXISTS "message_groups_coowner_manage" ON public.message_groups;
 CREATE POLICY "message_groups_coowner_manage" ON public.message_groups
   FOR ALL USING (is_box_owner_member(box_id))
   WITH CHECK (is_box_owner_member(box_id));
 
--- ── RLS: co-owners can manage tournaments ──
-CREATE POLICY "tournaments_coowner_manage" ON public.tournaments
-  FOR ALL USING (is_box_owner_member(box_id))
-  WITH CHECK (is_box_owner_member(box_id));
-
 -- ── RLS: co-owners can manage schedules ──
+DROP POLICY IF EXISTS "class_schedules_coowner_manage" ON public.class_schedules;
 CREATE POLICY "class_schedules_coowner_manage" ON public.class_schedules
   FOR ALL USING (is_box_owner_member(box_id))
   WITH CHECK (is_box_owner_member(box_id));
 
 -- ── RLS: co-owners can manage articles ──
+DROP POLICY IF EXISTS "articles_coowner_manage" ON public.box_articles;
 CREATE POLICY "articles_coowner_manage" ON public.box_articles
   FOR ALL USING (is_box_owner_member(box_id))
   WITH CHECK (is_box_owner_member(box_id));
 
 -- ── RLS: co-owners can manage membership_plans ──
+DROP POLICY IF EXISTS "membership_plans_coowner_manage" ON public.membership_plans;
 CREATE POLICY "membership_plans_coowner_manage" ON public.membership_plans
   FOR ALL USING (is_box_owner_member(box_id))
   WITH CHECK (is_box_owner_member(box_id));
