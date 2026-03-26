@@ -612,7 +612,7 @@ export default function AppNavigator() {
 
   const isAuthenticated = !!session && !!user;
   const isSuperAdmin    = user?.role === 'super_admin' || user?.role === 'admin';
-  const isBoxOwner      = user?.role === 'box_owner';
+  const isBoxOwner      = user?.role === 'box_owner' || boxRole === 'owner';
   const isCoach         = boxRole === 'coach';
   const isB2BUser       = user?.role === 'member' || user?.role === 'box_owner';
   // Legacy 'athlete' users bypass onboarding — only new B2B roles require a box
