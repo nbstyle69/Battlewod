@@ -25,7 +25,7 @@ interface ClassSchedule {
 }
 
 const CLASS_TYPES = [
-  'CrossFit', 'Haltérophilie', 'Cardio', 'Open Gym', 'Strength', 'Mobility', 'Kids', 'Teens', 'Autre',
+  'WOD', 'Haltérophilie', 'Cardio', 'Open Gym', 'Strength', 'Mobility', 'Kids', 'Teens', 'Autre',
 ];
 
 function getWeekDates(offset = 0): Date[] {
@@ -55,7 +55,7 @@ export default function BOScheduleScreen({ navigation }: any) {
   const [modalOpen,   setModalOpen]   = useState(false);
   const [editItem,    setEditItem]    = useState<ClassSchedule | null>(null);
 
-  const [title,       setTitle]       = useState('CrossFit');
+  const [title,       setTitle]       = useState('WOD');
   const [customTitle, setCustomTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coach,       setCoach]       = useState('');
@@ -111,7 +111,7 @@ export default function BOScheduleScreen({ navigation }: any) {
 
   function openCreate(selectedDate: string) {
     setEditItem(null);
-    setTitle('CrossFit'); setCustomTitle(''); setDescription('');
+    setTitle('WOD'); setCustomTitle(''); setDescription('');
     setCoach(''); setDate(selectedDate);
     setStartTime('09:00'); setEndTime('10:00'); setMaxCapacity('15');
     setModalOpen(true);
