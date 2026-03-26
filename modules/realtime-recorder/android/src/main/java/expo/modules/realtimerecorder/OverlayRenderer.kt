@@ -151,7 +151,7 @@ class OverlayRenderer(private val context: Context) {
       )
     }
 
-    // ─── 2. Box logo (top right — circle, 200px) ───
+    // ─── 2. Box logo (top right — circle, 200px, no background) ───
     cachedBoxLogo?.let { boxImg ->
       val logoSize = 200f * scale
       val logoRect = RectF(
@@ -160,21 +160,10 @@ class OverlayRenderer(private val context: Context) {
       )
       val cornerRadius = logoSize / 2f  // circle
 
-      val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(230, 255, 255, 255)
-        style = Paint.Style.FILL
-      }
-      canvas.drawRoundRect(logoRect, cornerRadius, cornerRadius, bgPaint)
-
-      val inset = 12f * scale
-      val logoInsetRect = RectF(
-        logoRect.left + inset, logoRect.top + inset,
-        logoRect.right - inset, logoRect.bottom - inset
-      )
       canvas.save()
       val clipPath = Path().apply { addRoundRect(logoRect, cornerRadius, cornerRadius, Path.Direction.CW) }
       canvas.clipPath(clipPath)
-      canvas.drawBitmap(boxImg, null, logoInsetRect, Paint(Paint.FILTER_BITMAP_FLAG))
+      canvas.drawBitmap(boxImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
       canvas.restore()
     }
 

@@ -23,7 +23,7 @@
         "NSMicrophoneUsageDescription": "AthleX utilise le micro pour les vidéos de performance.",
         "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos."
       },
-      "buildNumber": "5"
+      "buildNumber": "6"
     },
     "android": {
       "adaptiveIcon": {
@@ -45,7 +45,7 @@
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.athlex.app",
-      "versionCode": 15
+      "versionCode": 16
     },
     "web": {
       "favicon": "./assets/favicon.png",

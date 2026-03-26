@@ -190,7 +190,7 @@ final class OverlayRenderer {
                fontSize: 28, bold: true, color: .white, alignment: .center, shadow: true)
     }
 
-    // ─── 2. Box logo (top right — circle, 200px) ───
+    // ─── 2. Box logo (top right — circle, 200px, no background) ───
     if let boxImg = cachedBoxLogo {
       let logoSize: CGFloat = 200
       let logoRect = CGRect(x: size.width - logoSize - margin, y: safeTop, width: logoSize, height: logoSize)
@@ -199,9 +199,7 @@ final class OverlayRenderer {
       context.saveGState()
       let path = UIBezierPath(roundedRect: logoRect, cornerRadius: cornerRadius)
       path.addClip()
-      UIColor.white.withAlphaComponent(0.9).setFill()
-      path.fill()
-      boxImg.draw(in: logoRect.insetBy(dx: 12, dy: 12))
+      boxImg.draw(in: logoRect)
       context.restoreGState()
       UIGraphicsPopContext()
     }
