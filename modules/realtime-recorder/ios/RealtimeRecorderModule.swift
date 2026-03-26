@@ -178,6 +178,11 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     self.pixelBufferAdaptor = adaptor
     self.isRecording = true
 
+    // Prevent screen from auto-locking during recording
+    DispatchQueue.main.async {
+      UIApplication.shared.isIdleTimerDisabled = true
+    }
+
     print("[RealtimeRecorder] Recording started → \(url.lastPathComponent)")
   }
 
@@ -188,6 +193,12 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     }
 
     isRecording = false
+
+    // Re-enable screen auto-lock
+    DispatchQueue.main.async {
+      UIApplication.shared.isIdleTimerDisabled = false
+    }
+
     print("[RealtimeRecorder] Stopping recording...")
 
     writerQueue.async { [weak self] in

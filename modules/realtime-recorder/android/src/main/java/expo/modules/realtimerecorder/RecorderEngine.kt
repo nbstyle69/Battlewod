@@ -12,6 +12,7 @@ import android.os.HandlerThread
 import android.util.Log
 import android.util.Size
 import android.view.Surface
+import android.view.WindowManager
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -198,6 +199,10 @@ class RecorderEngine private constructor() {
       }
       isRecording.set(true)
       if (hasAudio) startAudioCapture()
+
+      // Prevent screen from auto-locking during recording
+      setKeepScreenOn(true)
+
       Log.i(TAG, "Recording started → $path (audio=$hasAudio)")
       return true
     } catch (e: Exception) {
@@ -494,6 +499,9 @@ class RecorderEngine private constructor() {
       return
     }
 
+    // Re-enable screen auto-lock
+    setKeepScreenOn(false)
+
     Thread {
       try {
         // Stop audio
@@ -540,6 +548,19 @@ class RecorderEngine private constructor() {
         callback(Result.failure(e))
       }
     }.start()
+  }
+
+  private fun setKeepScreenOn(on: Boolean) {
+    val view = hostView?.get() ?: return
+    val activity = view.context as? android.app.Activity ?: return
+    activity.runOnUiThread {
+      if (on) {
+        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+      } else {
+        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+      }
+      Log.i(TAG, "Keep screen on: $on")
+    }
   }
 
   private fun cleanupRecording() {
