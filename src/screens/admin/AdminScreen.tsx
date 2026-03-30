@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { formatScoreValue } from '../../utils/scoreFormat';
 
 const TABS = ['Scores', 'Matchs', 'Tournois', 'Daily WOD', 'Changelog'];
@@ -72,6 +73,7 @@ export default function AdminScreen() {
 
   const loadScores = useCallback(async () => {
     setLoadingScores(true);
+    try {
     const { data } = await supabase
       .from('tournament_scores')
       .select('id, score_value, video_url, submitted_at, status, profile:profiles(username, level), tw:tournament_wods(title)')
@@ -93,11 +95,13 @@ export default function AdminScreen() {
       };
     });
     setPendingScores(mapped);
+    } catch (e) { captureError(e, { screen: 'Admin', action: 'loadScores' }); }
     setLoadingScores(false);
   }, []);
 
   const loadDailies = useCallback(async () => {
     setLoadingDailies(true);
+    try {
     const { data } = await supabase
       .from('daily_tournament_scores')
       .select('*, tournament:daily_tournaments(wod_name, score_mode), profile:profiles!daily_tournament_scores_user_id_profiles_fkey(username), contester:profiles!daily_tournament_scores_contested_by_fkey(username)')
@@ -124,17 +128,20 @@ export default function AdminScreen() {
       };
     });
     setContestedDailies(mapped);
+    } catch (e) { captureError(e, { screen: 'Admin', action: 'loadDailies' }); }
     setLoadingDailies(false);
   }, []);
 
   const loadChangelog = useCallback(async () => {
     setLoadingChangelog(true);
+    try {
     const { data } = await supabase
       .from('app_changelog')
       .select('id, title, body, type, created_at')
       .order('created_at', { ascending: false })
       .limit(30);
     setChangelogItems((data ?? []) as ChangelogItem[]);
+    } catch (e) { captureError(e, { screen: 'Admin', action: 'loadChangelog' }); }
     setLoadingChangelog(false);
   }, []);
 

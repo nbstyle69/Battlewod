@@ -11,6 +11,7 @@ import {
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
@@ -52,6 +53,7 @@ export default function InterTeamScreen() {
 
   const load = useCallback(async () => {
     if (!user) return;
+    try {
     const { data: t } = await supabase
       .from('inter_teams')
       .select('*')
@@ -89,6 +91,7 @@ export default function InterTeamScreen() {
         }
       }
     }
+    } catch (e) { captureError(e, { screen: 'InterTeam', action: 'load' }); }
     setLoading(false);
   }, [user, competitionId]);
 

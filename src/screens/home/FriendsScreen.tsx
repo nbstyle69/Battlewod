@@ -10,6 +10,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { captureError } from '../../lib/sentry';
 import { sendFriendRequestNotification, sendFriendAcceptedNotification } from '../../services/notifications';
 import { incrementCounter } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
@@ -56,7 +57,7 @@ export default function FriendsScreen() {
 
   const load = useCallback(async () => {
     if (!user) return;
-
+    try {
     const { data: received } = await supabase
       .from('friendships')
       .select('*, requester:profiles!friendships_requester_id_fkey(id, username, level, elo)')
@@ -85,6 +86,7 @@ export default function FriendsScreen() {
     }).filter(Boolean);
     setFriends(friendList);
 
+    } catch (e) { captureError(e, { screen: 'Friends', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [user]);

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { FileText, Download, Users, Trophy, ClipboardList, TrendingUp, Flame } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -39,6 +40,7 @@ export default function BOReportScreen() {
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
+    try {
     const boxId = currentBox.id;
     const { start, end, label } = getMonthRange(selectedMonth);
 
@@ -111,6 +113,7 @@ export default function BOReportScreen() {
       avgScoresPerMember,
       retentionRate,
     });
+    } catch (e) { captureError(e, { screen: 'BOReport', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [currentBox, selectedMonth]);

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { BarChart3, TrendingUp, Users, Flame, AlertTriangle } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -28,6 +29,7 @@ export default function BOStatsScreen() {
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
+    try {
     const boxId = currentBox.id;
     const now = new Date();
 
@@ -134,6 +136,7 @@ export default function BOStatsScreen() {
     }
     setInactiveMembers(inactive.slice(0, 10));
 
+    } catch (e) { captureError(e, { screen: 'BOStats', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [currentBox]);

@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Users, CalendarClock, Timer } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -69,6 +70,7 @@ export default function BOScheduleScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
+    try {
     const start = toISO(weekDates[0]);
     const end   = toISO(weekDates[6]);
 
@@ -103,6 +105,7 @@ export default function BOScheduleScreen({ navigation }: any) {
     }
 
     setSchedules(items);
+    } catch (e) { captureError(e, { screen: 'BOSchedule', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [currentBox, weekOffset]);

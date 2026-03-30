@@ -5,13 +5,14 @@ import {
 } from 'react-native';
 import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { formatScoreValue } from '../../utils/scoreFormat';
 
 interface Stats {
   memberCount: number;
-  todayWOD: { title: string; wod_type: string } | null;
+  todayWOD: { title: string; wod_type: string | null } | null;
   recentScores: { username: string; score_value: number; score_type: string; rx: boolean; wod_title: string }[];
 }
 
@@ -28,6 +29,7 @@ export default function BODashboardScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
+    try {
     const [{ count }, { data: wods }, { data: scores }] = await Promise.all([
       supabase.from('box_members').select('*', { count: 'exact', head: true })
         .eq('box_id', currentBox.id).eq('status', 'active'),
@@ -50,6 +52,7 @@ export default function BODashboardScreen({ navigation }: any) {
         wod_title: s.box_wods?.title ?? '',
       })),
     });
+    } catch (e) { captureError(e, { screen: 'BODashboard', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [currentBox, today]);

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { Award, Flame, Users, ChevronRight, TrendingUp, AlertTriangle } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -53,6 +54,7 @@ export default function BOGamificationScreen() {
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
+    try {
     const boxId = currentBox.id;
 
     // Get box member user_ids
@@ -112,7 +114,7 @@ export default function BOGamificationScreen() {
     // ── Streaks ──
     const { data: streaks } = await supabase
       .from('athlete_streaks')
-      .select('athlete_id, current_streak, longest_streak, sessions_this_week')
+      .select('athlete_id, current_streak, longest_streak, week_session_count')
       .in('athlete_id', memberIds);
 
     const msList: MemberStreak[] = memberIds.map(uid => {
@@ -122,7 +124,7 @@ export default function BOGamificationScreen() {
         username: nameMap.get(uid) ?? '?',
         current_streak: s?.current_streak ?? 0,
         longest_streak: s?.longest_streak ?? 0,
-        sessions_this_week: s?.sessions_this_week ?? 0,
+        sessions_this_week: s?.week_session_count ?? 0,
       };
     }).sort((a, b) => b.current_streak - a.current_streak);
     setMemberStreaks(msList);
@@ -152,6 +154,7 @@ export default function BOGamificationScreen() {
     })).sort((a, b) => b.total_reps - a.total_reps);
     setMemberMovements(mmList);
 
+    } catch (e) { captureError(e, { screen: 'BOGamification', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [currentBox]);

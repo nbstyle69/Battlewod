@@ -10,6 +10,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -91,7 +92,7 @@ export default function DailyTournamentDetailScreen() {
 
   const load = useCallback(async () => {
     if (!user) return;
-
+    try {
     const { data: t } = await supabase
       .from('daily_tournaments')
       .select('*')
@@ -168,6 +169,7 @@ export default function DailyTournamentDetailScreen() {
       setEloDeltas(dMap);
     }
 
+    } catch (e) { captureError(e, { screen: 'DailyTournamentDetail', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [user, tournamentId]);

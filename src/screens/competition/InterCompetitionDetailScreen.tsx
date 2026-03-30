@@ -10,6 +10,7 @@ import {
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
@@ -45,6 +46,7 @@ export default function InterCompetitionDetailScreen() {
   const realtimeRef = useRef<any>(null);
 
   const load = useCallback(async () => {
+    try {
     const [{ data: c }, { data: w }, { data: s }] = await Promise.all([
       supabase.from('inter_competitions').select('*').eq('id', competitionId).single(),
       supabase.from('inter_competition_wods').select('*').eq('competition_id', competitionId).order('order_index'),
@@ -68,6 +70,7 @@ export default function InterCompetitionDetailScreen() {
       setMyTeam(tm);
       setMyScores((sc ?? []).map((x: any) => ({ ...x, wod: Array.isArray(x.wod) ? x.wod[0] : x.wod })));
     }
+    } catch (e) { captureError(e, { screen: 'InterCompetitionDetail', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [competitionId, user]);

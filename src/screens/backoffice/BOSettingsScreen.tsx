@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Settings, ArrowLeft, Save } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -24,6 +25,7 @@ export default function BOSettingsScreen({ navigation }: any) {
   useEffect(() => {
     if (!currentBox) return;
     (async () => {
+      try {
       const { data } = await supabase
         .from('boxes')
         .select('daily_publish_hour, weekly_publish_day, weekly_publish_hour')
@@ -34,6 +36,7 @@ export default function BOSettingsScreen({ navigation }: any) {
         setWeeklyDay(data.weekly_publish_day ?? 0);
         setWeeklyHour(String(data.weekly_publish_hour ?? 18).padStart(2, '0'));
       }
+      } catch (e) { captureError(e, { screen: 'BOSettings', action: 'loadSettings' }); }
       setLoading(false);
     })();
   }, [currentBox]);

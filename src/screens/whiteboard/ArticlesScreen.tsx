@@ -6,6 +6,7 @@ import {
 import { Newspaper, Heart, MessageCircle, Send, Trash2, ArrowLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -47,7 +48,7 @@ export default function ArticlesScreen() {
 
   const load = useCallback(async () => {
     if (!currentBox || !user) { setLoading(false); return; }
-
+    try {
     const { data } = await supabase
       .from('box_articles')
       .select('id, title, body, image_url, created_at, author:profiles!author_id(username)')
@@ -76,6 +77,7 @@ export default function ArticlesScreen() {
     }
 
     setArticles(enriched);
+    } catch (e) { captureError(e, { screen: 'Articles', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [currentBox, user]);

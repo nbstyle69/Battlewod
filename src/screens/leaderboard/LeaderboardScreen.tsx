@@ -12,6 +12,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 
 const LEVELS: (AthleteLevel | 'all')[] = ['all', 'scaled', 'inter', 'rx', 'rx+', 'gx', 'pro'];
@@ -135,6 +136,7 @@ export default function LeaderboardScreen() {
 
   const loadBoxes = useCallback(async () => {
     setLoadingBoxes(true);
+    try {
     const { data: boxData } = await supabase.from('boxes').select('id, name, city');
     if (!boxData?.length) { setBoxes([]); setLoadingBoxes(false); return; }
 
@@ -161,6 +163,7 @@ export default function LeaderboardScreen() {
 
     boxList.sort((a: any, b: any) => b.avgElo - a.avgElo);
     setBoxes(boxList.map((b: any, i: number) => ({ ...b, rank: i + 1 })));
+    } catch (e) { captureError(e, { screen: 'Leaderboard', action: 'loadBoxes' }); }
     setLoadingBoxes(false);
   }, []);
 

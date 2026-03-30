@@ -10,6 +10,7 @@ import {
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList, TimerType } from '../../navigation';
 
@@ -80,11 +81,13 @@ export default function PhysicalCompetitionScreen() {
   const [searchQuery,  setSearchQuery]  = useState('');
 
   const load = useCallback(async () => {
+    try {
     const { data } = await supabase
       .from('physical_competitions')
       .select('*')
       .order('date', { ascending: true });
     setCompetitions((data ?? []) as PhysComp[]);
+    } catch (e) { captureError(e, { screen: 'PhysicalCompetition', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -92,6 +95,7 @@ export default function PhysicalCompetitionScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const loadWods = useCallback(async (comp: PhysComp) => {
+    try {
     const { data } = await supabase
       .from('physical_wods')
       .select('*')
@@ -99,6 +103,7 @@ export default function PhysicalCompetitionScreen() {
       .order('order_index', { ascending: true });
     const updated = { ...comp, wods: (data ?? []) as PhysWOD[] };
     setSelected(updated);
+    } catch (e) { captureError(e, { screen: 'PhysicalCompetition', action: 'loadWods' }); }
   }, []);
 
   function launchWOD(wod: PhysWOD, comp: PhysComp) {

@@ -5,6 +5,7 @@ import {
 import { ArrowLeft, Sparkles, Bug, RefreshCw } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -35,7 +36,7 @@ export default function ChangelogScreen() {
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-
+    try {
     const [{ data: changelog }, { data: reads }] = await Promise.all([
       supabase
         .from('app_changelog')
@@ -52,6 +53,7 @@ export default function ChangelogScreen() {
 
     setEntries((changelog ?? []).map(c => ({
       ...c,
+      type: c.type as 'fix' | 'feature' | 'update',
       isRead: readSet.has(c.id),
     })));
     setLoading(false);
@@ -62,6 +64,7 @@ export default function ChangelogScreen() {
       const rows = unread.map(c => ({ user_id: user.id, changelog_id: c.id }));
       await supabase.from('changelog_reads').upsert(rows, { onConflict: 'user_id,changelog_id' });
     }
+    } catch (e) { captureError(e, { screen: 'Changelog', action: 'load' }); setLoading(false); }
   }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));

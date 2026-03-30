@@ -7,6 +7,7 @@ import { Globe2, Users, Calendar, Trophy, ChevronRight, Zap } from 'lucide-react
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
@@ -49,6 +50,7 @@ export default function InterCompetitionListScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    try {
     const { data } = await supabase
       .from('inter_competitions')
       .select('*')
@@ -65,6 +67,7 @@ export default function InterCompetitionListScreen() {
       return { ...c, reg_count: reg_count ?? 0, my_registration: !!myReg };
     }));
     setComps(list);
+    } catch (e) { captureError(e, { screen: 'InterCompetitionList', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [user]);

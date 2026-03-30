@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Bell, Send, Users, User, Clock, CheckCircle } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -29,7 +30,7 @@ export default function BONotificationsScreen() {
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
-
+    try {
     const [{ data: mbrs }, { data: notifs }] = await Promise.all([
       supabase.from('box_members')
         .select('member_id, profiles(username)')
@@ -46,6 +47,7 @@ export default function BONotificationsScreen() {
       username: m.profiles?.username ?? '?',
     })));
     setHistory(notifs ?? []);
+    } catch (e) { captureError(e, { screen: 'BONotifications', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [currentBox]);

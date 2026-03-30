@@ -10,6 +10,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { CompetitionStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'CompetitionList'>;
@@ -60,6 +61,7 @@ export default function CompetitionScreen() {
   const loadTournaments = useCallback(async () => {
     setTLoading(true);
     if (!currentBox) { setTLoading(false); setTRefreshing(false); return; }
+    try {
     const { data } = await supabase
       .from('tournaments')
       .select('id, name, level, status, max_participants, prize, start_date')
@@ -80,6 +82,7 @@ export default function CompetitionScreen() {
       }));
       setParticipantCounts(counts);
     }
+    } catch (e) { captureError(e, { screen: 'Competition', action: 'loadTournaments' }); }
     setTLoading(false);
     setTRefreshing(false);
   }, [currentBox]);
@@ -87,6 +90,7 @@ export default function CompetitionScreen() {
   const loadMiniTournaments = useCallback(async () => {
     if (!user) return;
     setMiniLoading(true);
+    try {
     const { data } = await supabase
       .from('daily_tournaments')
       .select(`
@@ -113,6 +117,7 @@ export default function CompetitionScreen() {
       creator_name: (Array.isArray(t.creator) ? t.creator[0] : t.creator)?.username ?? '—',
     }));
     setMiniTournaments(mapped);
+    } catch (e) { captureError(e, { screen: 'Competition', action: 'loadMiniTournaments' }); }
     setMiniLoading(false);
   }, [user]);
 

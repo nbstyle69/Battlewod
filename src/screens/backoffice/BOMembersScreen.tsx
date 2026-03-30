@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { UserX, UserCheck, ChevronLeft, ChevronRight, X, Calendar, Clock, Check, Timer, ShieldCheck } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
@@ -47,12 +48,14 @@ export default function BOMembersScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
+    try {
     const { data } = await supabase
       .from('box_members')
       .select('*, role, profile:profiles(id, username, email, level, elo, avatar_url)')
       .eq('box_id', currentBox.id)
       .order('joined_at', { ascending: false });
     setMembers((data ?? []) as MemberRow[]);
+    } catch (e) { captureError(e, { screen: 'BOMembers', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [currentBox]);

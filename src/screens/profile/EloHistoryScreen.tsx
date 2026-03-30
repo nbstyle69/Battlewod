@@ -6,6 +6,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Zap } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -33,6 +34,7 @@ export default function EloHistoryScreen() {
 
   const load = useCallback(async () => {
     if (!user) return;
+    try {
     const results: EloEntry[] = [];
 
     // 1. WOD elo_history
@@ -53,7 +55,7 @@ export default function EloHistoryScreen() {
         eloBefore: h.elo_before,
         eloAfter: h.elo_after,
         rank: h.rank,
-        date: h.created_at,
+        date: h.created_at ?? '',
       });
     }
 
@@ -104,6 +106,7 @@ export default function EloHistoryScreen() {
     // Sort by date descending
     results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     setEntries(results);
+    } catch (e) { captureError(e, { screen: 'EloHistory', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
   }, [user]);
