@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity,
+  View, Text, ScrollView, FlatList, StyleSheet, TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
 import { Users, MapPin, ChevronLeft } from 'lucide-react-native';
@@ -38,6 +38,10 @@ export default function LeaderboardScreen() {
 
   const [athletes,       setAthletes]       = useState<any[]>([]);
   const [loadingAthletes,setLoadingAthletes] = useState(false);
+  const [athletePage,    setAthletePage]    = useState(0);
+  const [hasMoreAthletes, setHasMoreAthletes] = useState(true);
+  const [loadingMore,    setLoadingMore]    = useState(false);
+  const ATHLETE_PAGE_SIZE = 30;
   const [teams,          setTeams]          = useState<any[]>([]);
   const [loadingTeams,   setLoadingTeams]   = useState(false);
   const [boxes,          setBoxes]          = useState<any[]>([]);
@@ -50,16 +54,37 @@ export default function LeaderboardScreen() {
         .from('profiles')
         .select('id, username, level, elo, wins, total_matches')
         .order('elo', { ascending: false })
-        .limit(100);
+        .limit(ATHLETE_PAGE_SIZE);
       return (data ?? []).map((p: any, i: number) => ({ ...p, rank: i + 1, isMe: p.id === user?.id }));
     },
     { enabled: mainTab === 0 },
   );
 
   useEffect(() => {
-    if (athleteData) { setAthletes(athleteData); setLoadingAthletes(false); }
-    else if (loadingAthletesQuery) setLoadingAthletes(true);
+    if (athleteData) {
+      setAthletes(athleteData);
+      setLoadingAthletes(false);
+      setAthletePage(0);
+      setHasMoreAthletes(athleteData.length >= ATHLETE_PAGE_SIZE);
+    } else if (loadingAthletesQuery) setLoadingAthletes(true);
   }, [athleteData, loadingAthletesQuery]);
+
+  const loadMoreAthletes = useCallback(async () => {
+    if (loadingMore || !hasMoreAthletes) return;
+    setLoadingMore(true);
+    const nextPage = athletePage + 1;
+    const from = nextPage * ATHLETE_PAGE_SIZE;
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, level, elo, wins, total_matches')
+      .order('elo', { ascending: false })
+      .range(from, from + ATHLETE_PAGE_SIZE - 1);
+    const newItems = (data ?? []).map((p: any, i: number) => ({ ...p, rank: from + i + 1, isMe: p.id === user?.id }));
+    setAthletes(prev => [...prev, ...newItems]);
+    setAthletePage(nextPage);
+    setHasMoreAthletes(newItems.length >= ATHLETE_PAGE_SIZE);
+    setLoadingMore(false);
+  }, [athletePage, loadingMore, hasMoreAthletes, user?.id]);
 
   const loadTeams = useCallback(async () => {
     setLoadingTeams(true);
@@ -204,9 +229,21 @@ export default function LeaderboardScreen() {
           {loadingAthletes ? (
             <ActivityIndicator style={{ marginTop: 40 }} color={theme.accent} />
           ) : (
-            <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
-              {filtered.map((item: any) => (
-                <View key={item.id} style={[S.row, item.isMe && S.rowMe]}>
+            <FlatList
+              data={filtered}
+              keyExtractor={(item: any) => item.id}
+              contentContainerStyle={S.list}
+              showsVerticalScrollIndicator={false}
+              onEndReached={selectedLevel === 'all' ? loadMoreAthletes : undefined}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={loadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color={theme.accent} /> : <View style={{ height: 24 }} />}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                  <Text style={{ color: theme.textMuted, fontWeight: '600' }}>Aucun athlète pour ce niveau</Text>
+                </View>
+              }
+              renderItem={({ item }: { item: any }) => (
+                <View style={[S.row, item.isMe && S.rowMe]}>
                   <View style={S.rankCell}><RankBadge rank={item.rank} /></View>
                   <View style={[S.avatarBox, { borderColor: LevelColors[item.level as AthleteLevel] ?? theme.border }]}>
                     <Text style={S.avatarText}>{(item.username ?? '?')[0].toUpperCase()}</Text>
@@ -235,14 +272,8 @@ export default function LeaderboardScreen() {
                     <Text style={S.eloLabel}>ELO</Text>
                   </View>
                 </View>
-              ))}
-              {filtered.length === 0 && (
-                <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                  <Text style={{ color: theme.textMuted, fontWeight: '600' }}>Aucun athlète pour ce niveau</Text>
-                </View>
               )}
-              <View style={{ height: 24 }} />
-            </ScrollView>
+            />
           )}
         </>
       )}

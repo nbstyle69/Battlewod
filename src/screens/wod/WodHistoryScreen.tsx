@@ -72,6 +72,9 @@ export default function WodHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const WOD_PAGE_SIZE = 30;
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -80,7 +83,7 @@ export default function WodHistoryScreen() {
       .select('*, scores:generated_wod_scores(*)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(WOD_PAGE_SIZE);
 
     if (filter === 'favorites') query = query.eq('is_favorite', true);
     if (filter === 'benchmark') query = query.eq('is_benchmark', true);
@@ -88,11 +91,32 @@ export default function WodHistoryScreen() {
     const { data, error } = await query;
     if (error) { captureError(error, { screen: 'WodHistory', action: 'loadWods' }); }
     setWods((data ?? []) as SavedWOD[]);
+    setHasMore((data ?? []).length >= WOD_PAGE_SIZE);
     setLoading(false);
     setRefreshing(false);
   }, [user, filter]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadMore = useCallback(async () => {
+    if (!user || loadingMore || !hasMore || wods.length === 0) return;
+    setLoadingMore(true);
+    const lastCreated = wods[wods.length - 1].created_at;
+    let query = supabase
+      .from('generated_wods')
+      .select('*, scores:generated_wod_scores(*)')
+      .eq('user_id', user.id)
+      .lt('created_at', lastCreated)
+      .order('created_at', { ascending: false })
+      .limit(WOD_PAGE_SIZE);
+    if (filter === 'favorites') query = query.eq('is_favorite', true);
+    if (filter === 'benchmark') query = query.eq('is_benchmark', true);
+    const { data } = await query;
+    const newItems = (data ?? []) as SavedWOD[];
+    setWods(prev => [...prev, ...newItems]);
+    setHasMore(newItems.length >= WOD_PAGE_SIZE);
+    setLoadingMore(false);
+  }, [user, filter, wods, loadingMore, hasMore]);
 
   async function toggleFav(wod: SavedWOD) {
     const newVal = !wod.is_favorite;
@@ -276,6 +300,9 @@ export default function WodHistoryScreen() {
           keyExtractor={w => w.id}
           renderItem={renderWod}
           contentContainerStyle={S.list}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color={theme.accent} /> : null}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           ListEmptyComponent={
             <View style={S.empty}>

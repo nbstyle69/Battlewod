@@ -67,6 +67,9 @@ export default function MessagesScreen() {
   const [gifLoading, setGifLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const MSG_PAGE_SIZE = 60;
 
   const load = useCallback(async () => {
     if (!currentBox || !user) { setLoading(false); setRefreshing(false); return; }
@@ -89,10 +92,12 @@ export default function MessagesScreen() {
       .select('id, box_id, sender_id, content, message_type, is_announcement, attachment_url, created_at, read_by, sender:profiles!messages_sender_id_fkey(username, avatar_url)')
       .eq('box_id', currentBox.id)
       .eq('message_type', 'general')
-      .order('created_at', { ascending: true })
-      .limit(60);
+      .order('created_at', { ascending: false })
+      .limit(MSG_PAGE_SIZE);
 
-    const chatRows: MsgRow[] = (chatData ?? []).map((m: any) => ({
+    const chatReversed = (chatData ?? []).reverse();
+    setHasOlder((chatData ?? []).length >= MSG_PAGE_SIZE);
+    const chatRows: MsgRow[] = chatReversed.map((m: any) => ({
       ...m,
       group_id:        null,
       sender:          Array.isArray(m.sender) ? m.sender[0] ?? null : m.sender,
@@ -197,6 +202,30 @@ export default function MessagesScreen() {
   useEffect(() => { load(); }, [load]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!currentBox || !user || loadingOlder || !hasOlder) return;
+    const oldest = messages.filter(m => !m.id.startsWith('admin-') && !m.id.startsWith('gc-'))[0];
+    if (!oldest) return;
+    setLoadingOlder(true);
+    const { data: olderData } = await supabase
+      .from('messages')
+      .select('id, box_id, sender_id, content, message_type, is_announcement, attachment_url, created_at, read_by, sender:profiles!messages_sender_id_fkey(username, avatar_url)')
+      .eq('box_id', currentBox.id)
+      .eq('message_type', 'general')
+      .lt('created_at', oldest.created_at)
+      .order('created_at', { ascending: false })
+      .limit(MSG_PAGE_SIZE);
+    const older = (olderData ?? []).reverse().map((m: any) => ({
+      ...m,
+      group_id: null,
+      sender: Array.isArray(m.sender) ? m.sender[0] ?? null : m.sender,
+      reactions: [],
+    }));
+    setHasOlder((olderData ?? []).length >= MSG_PAGE_SIZE);
+    setMessages(prev => [...older, ...prev]);
+    setLoadingOlder(false);
+  }, [currentBox, user, messages, loadingOlder, hasOlder]);
 
   // Supabase Realtime — general messages
   useEffect(() => {
@@ -545,6 +574,17 @@ export default function MessagesScreen() {
             onRefresh={() => { setRefreshing(true); load(); }}
           />
         }
+        ListHeaderComponent={hasOlder ? (
+          <TouchableOpacity
+            onPress={loadOlderMessages}
+            style={{ alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 20, marginBottom: 8, borderRadius: 16, backgroundColor: `${theme.accent}18` }}
+            disabled={loadingOlder}
+          >
+            {loadingOlder
+              ? <ActivityIndicator size="small" color={theme.accent} />
+              : <Text style={{ color: theme.accent, fontWeight: '700', fontSize: 13 }}>Charger les messages précédents</Text>}
+          </TouchableOpacity>
+        ) : null}
         renderItem={({ item }) => {
           if ('type' in item && item.type === 'date') {
             return (
