@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { routeNotification } from './src/services/notificationRouter';
 import { StatusBar } from 'expo-status-bar';
 import * as Sentry from '@sentry/react-native';
 import { useFonts,
@@ -79,6 +81,22 @@ function App() {
     Barlow_800ExtraBold,
     Barlow_900Black,
   });
+
+  // Deep link: handle notification tap (foreground + background)
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  useEffect(() => {
+    // Handle notification that launched the app (cold start)
+    Notifications.getLastNotificationResponseAsync().then(response => {
+      if (response) routeNotification(response.notification.request.content.data);
+    });
+    // Handle notification tap while app is running
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      routeNotification(response.notification.request.content.data);
+    });
+    return () => {
+      if (responseListener.current) responseListener.current.remove();
+    };
+  }, []);
 
   if (!fontsLoaded) return null;
 
