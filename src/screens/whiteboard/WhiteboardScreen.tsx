@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList,
   Modal, TextInput, KeyboardAvoidingView, Platform,
@@ -86,8 +87,10 @@ export default function WhiteboardScreen() {
     setMembersLoading(false);
   }, [currentBox]);
 
-  const load = useCallback(async () => {
-    if (!currentBox) { setLoading(false); return; }
+  const { data: wodData, isLoading: wodQueryLoading, refetch: refetchWods } = useFocusQuery(
+    ['whiteboard', currentBox?.id, selectedDate, boxRole],
+    async () => {
+    if (!currentBox) return [];
 
     // 1. Fetch user's group memberships (via members uuid[] array on message_groups)
     const { data: myGroupRows } = user
@@ -147,12 +150,15 @@ export default function WhiteboardScreen() {
       return true;
     }
 
-    setDayWODs((dayData ?? []).filter(canSee) as BoxWOD[]);
-    setLoading(false);
-    setRefreshing(false);
-  }, [currentBox, selectedDate, user, boxRole]);
+    return (dayData ?? []).filter(canSee) as BoxWOD[];
+  },
+    { enabled: !!currentBox },
+  );
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (wodData) { setDayWODs(wodData); setLoading(false); setRefreshing(false); }
+    else if (wodQueryLoading) setLoading(true);
+  }, [wodData, wodQueryLoading]);
 
   async function handleJoin() {
     if (!joinCode.trim()) return;
@@ -320,7 +326,7 @@ export default function WhiteboardScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetchWods(); }} />}
       >
         <View style={S.section}>
           <Text style={S.sectionTitle}>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -137,9 +138,52 @@ export default function ProfileScreen() {
   const [saving, setSaving]         = useState(false);
   const [pickingPhoto, setPickingPhoto] = useState(false);
 
+  const { data: profileData } = useFocusQuery(
+    ['profile', user?.id],
+    async () => {
+      if (!user) return null;
+      const [wodCountRes, prRes, badgesRes, earnedRes, streakRes, friendsRes] = await Promise.all([
+        supabase.from('wod_scores').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('profiles').select('personal_records').eq('id', user.id).single(),
+        getBadgesCatalog(),
+        getEarnedBadges(user.id),
+        getStreak(user.id),
+        supabase.from('friendships').select('requester_id, addressee_id, requester:profiles!requester_id(id, username, level, avatar_url), addressee:profiles!addressee_id(id, username, level, avatar_url)').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status', 'accepted'),
+      ]);
+      return {
+        wodCount: wodCountRes.count ?? 0,
+        prValues: prRes.data?.personal_records ?? {},
+        badgesCatalog: badgesRes,
+        earnedBadges: earnedRes,
+        streak: streakRes,
+        friends: friendsRes.data,
+      };
+    },
+    { enabled: !!user },
+  );
+
+  useEffect(() => {
+    if (!profileData) return;
+    setWodCount(profileData.wodCount);
+    if (profileData.prValues && typeof profileData.prValues === 'object') {
+      const prs = profileData.prValues as Record<string, string>;
+      setPrValues(prev => ({ ...prev, ...prs }));
+    }
+    setBadgesCatalog(profileData.badgesCatalog);
+    setEarnedBadges(profileData.earnedBadges);
+    setStreak(profileData.streak);
+    // Map friends
+    const mapped = (profileData.friends ?? []).map((f: any) => {
+      const friend = f.requester_id === user?.id
+        ? (Array.isArray(f.addressee) ? f.addressee[0] : f.addressee)
+        : (Array.isArray(f.requester) ? f.requester[0] : f.requester);
+      return friend;
+    }).filter(Boolean);
+    setFriends(mapped);
+  }, [profileData]);
+
   useEffect(() => {
     loadReferralCode();
-    if (user?.id) { loadWodCount(); loadFriends(); loadPRs(); loadBadges(); }
   }, [user?.id]);
 
   async function loadPRs() {
@@ -150,7 +194,8 @@ export default function ProfileScreen() {
       .eq('id', user.id)
       .single();
     if (data?.personal_records && typeof data.personal_records === 'object') {
-      setPrValues(prev => ({ ...prev, ...data.personal_records }));
+      const prs = data.personal_records as Record<string, string>;
+      setPrValues(prev => ({ ...prev, ...prs }));
     }
   }
 

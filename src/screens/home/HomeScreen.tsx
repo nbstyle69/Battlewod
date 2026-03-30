@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Image,
 } from 'react-native';
 import { Zap, Trophy, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History, Bell } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusQuery } from '../../hooks/useFocusQuery';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
@@ -55,27 +56,24 @@ export default function HomeScreen() {
   const [favCount,        setFavCount]        = useState(0);
   const [bestScores,      setBestScores]      = useState<{name:string; value:string; type:string}[]>([]);
 
-  const loadData = useCallback(async () => {
-    if (!user) return;
+  const { data: homeData } = useFocusQuery(
+    ['home', user?.id, currentBox?.id],
+    async () => {
+    if (!user) return null;
 
     // Rank: number of profiles with higher ELO + 1
     const { count } = await supabase
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .gt('elo', user.elo ?? 0);
-    setRank((count ?? 0) + 1);
-
     // Streak from gamification service
     const streakData = await getStreak(user.id);
-    setStreak(streakData);
 
     // Unread changelog count
     const [{ count: totalCl }, { count: readCl }] = await Promise.all([
       supabase.from('app_changelog').select('id', { count: 'exact', head: true }),
       supabase.from('changelog_reads').select('changelog_id', { count: 'exact', head: true }).eq('user_id', user.id),
     ]);
-    setUnreadChangelog(Math.max(0, (totalCl ?? 0) - (readCl ?? 0)));
-
     // Competitions: from current box if member, else global open ones
     const boxFilter = currentBox?.id;
     const { data: tourns } = await supabase
@@ -99,16 +97,12 @@ export default function HomeScreen() {
       prize:           t.prize ?? '',
       wods:            [],
     }));
-    setCompetitions(mapped);
-
     // Pending friend requests
     const { count: friendCount } = await supabase
       .from('friendships')
       .select('id', { count: 'exact', head: true })
       .eq('addressee_id', user.id)
       .eq('status', 'pending');
-    setPendingFriends(friendCount ?? 0);
-
     // Unread accepted friend requests (my sent requests that were accepted since last seen)
     const lastSeen = await AsyncStorage.getItem(`lastSeenFriends_${user.id}`);
     if (lastSeen) {
@@ -135,10 +129,6 @@ export default function HomeScreen() {
       supabase.from('generated_wods').select('created_at').eq('user_id', user.id).gte('created_at', sevenDaysStr),
       supabase.from('generated_wods').select('created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
     ]);
-    setTotalWods(genWodCount ?? 0);
-    setTotalScoresGen(genScoreCount ?? 0);
-    setFavCount(genFavCount ?? 0);
-
     // Week activity (7 bars)
     const weekArr = [0,0,0,0,0,0,0];
     const now = new Date();
@@ -147,12 +137,10 @@ export default function HomeScreen() {
       const diff = Math.floor((now.getTime() - d.getTime()) / 86400000);
       if (diff >= 0 && diff < 7) weekArr[6 - diff]++;
     });
-    setWeekActivity(weekArr);
-
     // Gen streak
+    let gs = 0;
     if (genAll && genAll.length > 0) {
       const days = [...new Set((genAll as any[]).map((w: any) => w.created_at.slice(0, 10)))];
-      let gs = 0;
       const td = new Date();
       for (let i = 0; i < days.length; i++) {
         const check = new Date(td);
@@ -160,7 +148,6 @@ export default function HomeScreen() {
         if (days.includes(check.toISOString().slice(0, 10))) gs++;
         else break;
       }
-      setGenStreak(gs);
     }
 
     // Best scores per WOD type
@@ -170,8 +157,8 @@ export default function HomeScreen() {
       .eq('user_id', user.id)
       .order('score_value', { ascending: true })
       .limit(50);
+    const byType: Record<string, {name:string; value:number; type:string}> = {};
     if (bestData && bestData.length > 0) {
-      const byType: Record<string, {name:string; value:number; type:string}> = {};
       (bestData as any[]).forEach(s => {
         const wodType = s.wod?.wod_type ?? 'unknown';
         const key = wodType;
@@ -185,12 +172,12 @@ export default function HomeScreen() {
           }
         }
       });
-      setBestScores(Object.entries(byType).map(([, v]) => ({
-        name: v.name,
-        value: formatScoreValue(v.value, v.type),
-        type: v.type === 'time' ? '⏱' : v.type === 'reps' ? '🔄' : v.type === 'weight' ? '🏋️' : '🔁',
-      })).slice(0, 4));
     }
+    const bestScoresMapped = Object.entries(byType).map(([, v]) => ({
+      name: v.name,
+      value: formatScoreValue(v.value, v.type),
+      type: v.type === 'time' ? '⏱' : v.type === 'reps' ? '🔄' : v.type === 'weight' ? '🏋️' : '🔁',
+    })).slice(0, 4);
 
     // Recent scores
     const { data: scores } = await supabase
@@ -200,16 +187,48 @@ export default function HomeScreen() {
       .order('submitted_at', { ascending: false })
       .limit(3);
 
-    setRecentScores((scores ?? []).map((s: any) => ({
+    const recentScoresMapped = (scores ?? []).map((s: any) => ({
       id:           s.id,
       score_value:  s.score_value,
       submitted_at: s.submitted_at,
       wod_title:    (Array.isArray(s.tw) ? s.tw[0] : s.tw)?.title ?? '—',
       status:       s.status,
-    })));
-  }, [user, currentBox]);
+    }));
 
-  useEffect(() => { loadData(); }, [loadData]);
+    return {
+      rank: (count ?? 0) + 1,
+      streak: streakData,
+      unreadChangelog: Math.max(0, (totalCl ?? 0) - (readCl ?? 0)),
+      competitions: mapped,
+      pendingFriends: friendCount ?? 0,
+      recentScores: recentScoresMapped,
+      totalWods: genWodCount ?? 0,
+      totalScoresGen: genScoreCount ?? 0,
+      favCount: genFavCount ?? 0,
+      weekActivity: weekArr,
+      genStreak: gs,
+      bestScores: bestScoresMapped,
+    };
+  },
+    { enabled: !!user },
+  );
+
+  // Sync cached data from React Query on remount (stale-while-revalidate)
+  useEffect(() => {
+    if (!homeData) return;
+    setRank(homeData.rank);
+    setStreak(homeData.streak);
+    setUnreadChangelog(homeData.unreadChangelog);
+    setCompetitions(homeData.competitions);
+    setPendingFriends(homeData.pendingFriends);
+    setRecentScores(homeData.recentScores);
+    setTotalWods(homeData.totalWods);
+    setTotalScoresGen(homeData.totalScoresGen);
+    setFavCount(homeData.favCount);
+    setWeekActivity(homeData.weekActivity);
+    setGenStreak(homeData.genStreak);
+    setBestScores(homeData.bestScores);
+  }, [homeData]);
 
   // Realtime: refresh badge when a new friend request targets this user
   useEffect(() => {

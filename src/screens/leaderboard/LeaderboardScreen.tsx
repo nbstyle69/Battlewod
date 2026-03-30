@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   ActivityIndicator,
@@ -42,16 +43,23 @@ export default function LeaderboardScreen() {
   const [boxes,          setBoxes]          = useState<any[]>([]);
   const [loadingBoxes,   setLoadingBoxes]   = useState(false);
 
-  const loadAthletes = useCallback(async () => {
-    setLoadingAthletes(true);
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, username, level, elo, wins, total_matches')
-      .order('elo', { ascending: false })
-      .limit(100);
-    setAthletes((data ?? []).map((p: any, i: number) => ({ ...p, rank: i + 1, isMe: p.id === user?.id })));
-    setLoadingAthletes(false);
-  }, [user?.id]);
+  const { data: athleteData, isLoading: loadingAthletesQuery } = useFocusQuery(
+    ['leaderboard-athletes'],
+    async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, username, level, elo, wins, total_matches')
+        .order('elo', { ascending: false })
+        .limit(100);
+      return (data ?? []).map((p: any, i: number) => ({ ...p, rank: i + 1, isMe: p.id === user?.id }));
+    },
+    { enabled: mainTab === 0 },
+  );
+
+  useEffect(() => {
+    if (athleteData) { setAthletes(athleteData); setLoadingAthletes(false); }
+    else if (loadingAthletesQuery) setLoadingAthletes(true);
+  }, [athleteData, loadingAthletesQuery]);
 
   const loadTeams = useCallback(async () => {
     setLoadingTeams(true);
@@ -132,12 +140,9 @@ export default function LeaderboardScreen() {
   }, []);
 
   useEffect(() => {
-    if (mainTab === 0 && athletes.length === 0) loadAthletes();
-    else if (mainTab === 1 && teams.length === 0) loadTeams();
+    if (mainTab === 1 && teams.length === 0) loadTeams();
     else if (mainTab === 2 && boxes.length === 0) loadBoxes();
   }, [mainTab]);
-
-  useEffect(() => { loadAthletes(); }, []);
 
   const filtered = selectedLevel === 'all'
     ? athletes
