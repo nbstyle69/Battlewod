@@ -296,7 +296,7 @@ export default function DailyTournamentDetailScreen() {
       .eq('tournament_id', tournamentId)
       .order('score_value', { ascending: tournament.score_mode === 'time' });
 
-    if (!allScores || allScores.length === 0) return;
+    if (!allScores || allScores.length < 2) return;
 
     // Get current ELO for all participants
     const userIds = allScores.map(s => s.user_id);

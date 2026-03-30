@@ -303,7 +303,13 @@ Réponds en français, sois concis et factuel.`;
           const { data: tp } = await supabase.from('tournament_participants')
             .select('athlete_id, score')
             .eq('tournament_id', selectedId).order('score', { ascending: false });
-          if (!tp || tp.length === 0) { setClosingTourn(false); return; }
+          if (!tp || tp.length < 2) {
+            if (tp && tp.length === 1) {
+              await supabase.from('tournaments').update({ status: 'completed' }).eq('id', selectedId);
+              Alert.alert('Tournoi clôturé', 'Pas assez de participants pour calculer l\'ELO (minimum 2).');
+            }
+            setClosingTourn(false); return;
+          }
           const tpIds = tp.map((p: any) => p.athlete_id);
           const { data: tpProfs } = await supabase.from('profiles').select('id, username, elo').in('id', tpIds);
           const tpProfileMap: Record<string, any> = {};
