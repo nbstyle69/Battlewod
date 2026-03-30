@@ -23,12 +23,12 @@ import java.net.URL
  */
 class OverlayRenderer(private val context: Context) {
 
-  private var cachedAthlexLogo: Bitmap? = null
-  private var cachedBoxLogo: Bitmap? = null
-  private var cachedBoxLogoUrl: String = ""
+  @Volatile private var cachedAthlexLogo: Bitmap? = null
+  @Volatile private var cachedBoxLogo: Bitmap? = null
+  @Volatile private var cachedBoxLogoUrl: String = ""
   @Volatile private var boxLogoLoading = false
-  private var cachedCompLogo: Bitmap? = null
-  private var cachedCompLogoUrl: String = ""
+  @Volatile private var cachedCompLogo: Bitmap? = null
+  @Volatile private var cachedCompLogoUrl: String = ""
   @Volatile private var compLogoLoading = false
   private var blackOpsTypeface: Typeface? = null
   private var dsDigitalTypeface: Typeface? = null

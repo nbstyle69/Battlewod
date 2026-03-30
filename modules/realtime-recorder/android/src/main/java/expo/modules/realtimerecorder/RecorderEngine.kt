@@ -85,21 +85,41 @@ class RecorderEngine private constructor() {
   var hostView: WeakReference<RealtimeRecorderHostView>? = null
 
   private var readyCallback: (() -> Unit)? = null
+  private val sessionActive = AtomicBoolean(false)
+  private val setupLock = Object()
 
-  fun setReadyCallback(cb: () -> Unit) {
+  fun setReadyCallback(cb: (() -> Unit)?) {
     readyCallback = cb
   }
 
   // MARK: - Setup
 
   fun setupSession(context: Context) {
-    if (renderer == null) {
-      renderer = OverlayRenderer(context)
+    synchronized(setupLock) {
+      // Release previous session first to avoid CameraX conflicts
+      if (sessionActive.get()) {
+        Log.i(TAG, "Releasing previous session before setup")
+        releaseSessionInternal()
+      }
+
+      if (renderer == null) {
+        try {
+          renderer = OverlayRenderer(context)
+        } catch (e: Exception) {
+          Log.e(TAG, "OverlayRenderer init failed", e)
+        }
+      }
+
+      sessionActive.set(true)
     }
 
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
     cameraProviderFuture.addListener({
       try {
+        if (!sessionActive.get()) {
+          Log.w(TAG, "Session was released before camera provider resolved")
+          return@addListener
+        }
         val provider = cameraProviderFuture.get()
         cameraProvider = provider
         bindCameraUseCases(context, provider)
@@ -109,10 +129,45 @@ class RecorderEngine private constructor() {
     }, ContextCompat.getMainExecutor(context))
   }
 
-  private fun bindCameraUseCases(context: Context, provider: ProcessCameraProvider) {
-    val lifecycleOwner = getLifecycleOwner(context)
+  /**
+   * Release camera session — called from onDetachedFromWindow.
+   */
+  fun releaseSession() {
+    synchronized(setupLock) {
+      releaseSessionInternal()
+    }
+  }
 
-    provider.unbindAll()
+  private fun releaseSessionInternal() {
+    sessionActive.set(false)
+    try {
+      cameraProvider?.unbindAll()
+    } catch (e: Exception) {
+      Log.w(TAG, "unbindAll failed", e)
+    }
+    preview = null
+    imageAnalysis = null
+    camera = null
+    Log.i(TAG, "Session released")
+  }
+
+  private fun bindCameraUseCases(context: Context, provider: ProcessCameraProvider) {
+    if (!sessionActive.get()) {
+      Log.w(TAG, "Session no longer active, skipping bind")
+      return
+    }
+
+    val lifecycleOwner = getLifecycleOwner(context)
+    if (lifecycleOwner == null) {
+      Log.e(TAG, "No LifecycleOwner found, cannot bind camera")
+      return
+    }
+
+    try {
+      provider.unbindAll()
+    } catch (e: Exception) {
+      Log.w(TAG, "unbindAll failed during bind setup", e)
+    }
 
     val cameraSelector = CameraSelector.Builder()
       .requireLensFacing(currentFacing)
@@ -123,12 +178,10 @@ class RecorderEngine private constructor() {
       .setTargetResolution(Size(1080, 1920))
       .build()
 
-    // Attach preview to host view's PreviewView on main thread to ensure layout is ready
+    // Attach preview to host view's PreviewView
     val view = hostView?.get()
     if (view != null) {
-      android.os.Handler(android.os.Looper.getMainLooper()).post {
-        preview?.setSurfaceProvider(view.previewView.surfaceProvider)
-      }
+      preview?.setSurfaceProvider(view.previewView.surfaceProvider)
     } else {
       Log.w(TAG, "hostView is null when binding camera use cases")
     }
@@ -141,10 +194,15 @@ class RecorderEngine private constructor() {
       .build()
 
     imageAnalysis?.setAnalyzer(analysisExecutor) { imageProxy ->
-      if (isRecording.get()) {
-        processFrame(imageProxy)
+      try {
+        if (isRecording.get()) {
+          processFrame(imageProxy)
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Analyzer error", e)
+      } finally {
+        imageProxy.close()
       }
-      imageProxy.close()
     }
 
     try {
@@ -162,16 +220,21 @@ class RecorderEngine private constructor() {
     }
   }
 
-  private fun getLifecycleOwner(context: Context): LifecycleOwner {
+  private fun getLifecycleOwner(context: Context): LifecycleOwner? {
     // Walk up to find an Activity that is a LifecycleOwner (AppCompatActivity)
     var ctx = context
     while (ctx is android.content.ContextWrapper) {
       if (ctx is LifecycleOwner) return ctx
       ctx = ctx.baseContext
     }
-    // Fallback: ProcessLifecycleOwner (may not properly signal RESUMED)
+    // Fallback: ProcessLifecycleOwner
     Log.w(TAG, "No Activity LifecycleOwner found, using ProcessLifecycleOwner")
-    return ProcessLifecycleOwner.get()
+    return try {
+      ProcessLifecycleOwner.get()
+    } catch (e: Exception) {
+      Log.e(TAG, "ProcessLifecycleOwner.get() failed", e)
+      null
+    }
   }
 
   // MARK: - Recording
@@ -323,8 +386,19 @@ class RecorderEngine private constructor() {
         }
         renderer?.render(bitmap, state)
 
-        // Draw bitmap to encoder input surface
-        val canvas = surface.lockCanvas(null)
+        // Draw bitmap to encoder input surface (hardware-accelerated)
+        val canvas: Canvas = try {
+          surface.lockHardwareCanvas()
+        } catch (e: Exception) {
+          // Fallback to software canvas if hardware canvas not supported
+          try {
+            surface.lockCanvas(null)
+          } catch (e2: Exception) {
+            Log.e(TAG, "Cannot lock canvas on input surface", e2)
+            bitmap.recycle()
+            return
+          }
+        }
         canvas.drawBitmap(bitmap, 0f, 0f, null)
         surface.unlockCanvasAndPost(canvas)
         bitmap.recycle()
