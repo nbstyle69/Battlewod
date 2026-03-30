@@ -6,6 +6,7 @@ import {
 import { CalendarClock, ChevronLeft, ChevronRight, Users, Check, Clock, Dumbbell, Timer, X, CalendarCheck } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import WeekDayPicker from '../../components/WeekDayPicker';
@@ -215,7 +216,7 @@ export default function ReservationScreen() {
           setBooking(null);
           return;
         }
-      } catch (_) { /* if RPC doesn't exist yet, skip check */ }
+      } catch (e) { captureError(e, { screen: 'Reservation', action: 'checkWeeklyLimit' }); }
 
       // Check daily limit (1 créneau/jour sauf illimité)
       try {
@@ -230,7 +231,7 @@ export default function ReservationScreen() {
           setBooking(null);
           return;
         }
-      } catch (_) { /* if RPC doesn't exist yet, skip check */ }
+      } catch (e) { captureError(e, { screen: 'Reservation', action: 'checkDailyLimit' }); }
 
       const status = item.available_spots > 0 ? 'confirmed' : 'waiting';
       if (status === 'waiting') {

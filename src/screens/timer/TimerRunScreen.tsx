@@ -20,6 +20,7 @@ import { HomeStackParamList, SeqBlock } from '../../navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { incrementCounter } from '../../services/gamification';
+import { captureError } from '../../lib/sentry';
 
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
@@ -390,7 +391,7 @@ export default function TimerRunScreen() {
       await MediaLibrary.saveToLibraryAsync(uri);
       setCardSaved(true);
     } catch (e) {
-      console.warn('saveCard error', e);
+      captureError(e, { screen: 'TimerRun', action: 'saveCard' });
     } finally {
       setSavingCard(false);
     }
@@ -602,7 +603,7 @@ export default function TimerRunScreen() {
         await MediaLibrary.saveToLibraryAsync(localPath);
         console.log('✅ saved to library');
       } catch (libErr: any) {
-        console.warn('⚠️ MediaLibrary save failed:', libErr);
+        captureError(libErr, { screen: 'TimerRun', action: 'saveToLibrary' });
       }
 
       setSavedUri(finalVideoPath);
@@ -626,7 +627,7 @@ export default function TimerRunScreen() {
       await FileSystem.writeAsStringAsync(metaPath, JSON.stringify(meta, null, 2));
       setPhase('done');
     } catch (e) {
-      console.warn('❌ stopRecording error:', e);
+      captureError(e, { screen: 'TimerRun', action: 'stopRecording' });
       setPhase('done');
     } finally {
       setSaving(false);

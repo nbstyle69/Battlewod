@@ -6,6 +6,7 @@ import {
 import { Newspaper, Plus, Trash2, X, Image as ImageIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -85,7 +86,7 @@ export default function BOArticlesScreen() {
       if (error) return null;
       const { data } = supabase.storage.from('box-assets').getPublicUrl(fileName);
       return data.publicUrl;
-    } catch { return null; }
+    } catch (e) { captureError(e, { screen: 'BOArticles', action: 'uploadImage' }); return null; }
   }
 
   async function handlePublish() {

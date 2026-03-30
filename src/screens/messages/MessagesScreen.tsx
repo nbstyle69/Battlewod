@@ -11,6 +11,7 @@ const TENOR_API_KEY = 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ'; // Free public 
 interface GifResult { id: string; url: string; preview: string; }
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { sendNewMessageNotification } from '../../services/notifications';
@@ -185,7 +186,7 @@ export default function MessagesScreen() {
         Object.entries(grouped).forEach(([msgId, emojis]) => {
           reactionsMap[msgId] = Object.entries(emojis).map(([emoji, v]) => ({ emoji, ...v }));
         });
-      } catch (_) { /* table may not exist yet */ }
+      } catch (e) { captureError(e, { screen: 'Messages', action: 'loadReactions' }); }
     }
 
     setMessages(all.map(m => ({ ...m, reactions: reactionsMap[m.id] ?? [] })));
@@ -288,7 +289,7 @@ export default function MessagesScreen() {
         preview: r.media_formats?.tinygif?.url ?? r.media_formats?.gif?.url ?? '',
       }));
       setGifResults(results);
-    } catch (_) { setGifResults([]); }
+    } catch (e) { captureError(e, { screen: 'Messages', action: 'searchGifs' }); setGifResults([]); }
     setGifLoading(false);
   }
 
@@ -347,7 +348,7 @@ export default function MessagesScreen() {
       if (error) { console.warn('Upload error:', error.message); return null; }
       const { data: urlData } = supabase.storage.from('message-attachments').getPublicUrl(fileName);
       return urlData.publicUrl;
-    } catch (e) { console.warn('Upload failed:', e); return null; }
+    } catch (e) { captureError(e, { screen: 'Messages', action: 'uploadImage' }); return null; }
   }
 
   async function toggleReaction(msgId: string, emoji: string) {

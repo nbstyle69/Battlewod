@@ -8,6 +8,7 @@ import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Eye, EyeOff, Upload, C
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { sendWodPublishedNotification } from '../../services/notifications';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -285,6 +286,7 @@ export default function BOWODsScreen({ navigation }: any) {
       Alert.alert('Import réussi', `${inserted.length} WOD(s) importé(s) !`);
       load();
     } catch (e: any) {
+      captureError(e, { screen: 'BOWODs', action: 'importCSV' });
       Alert.alert('Erreur', e.message || 'Import échoué');
     }
   }

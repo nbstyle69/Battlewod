@@ -10,6 +10,7 @@ import { LevelColors } from '../../theme/colors';
 import { AthleteLevel } from '../../types';
 import { HomeStackParamList, TimerType } from '../../navigation';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'CompetitionDetail'>;
@@ -54,7 +55,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         score: row.score ?? 0,
       }));
       setParticipants(mapped);
-    } catch { /* ignore */ }
+    } catch (e) { captureError(e, { screen: 'CompetitionDetail', action: 'loadParticipants' }); }
     setLoadingParticipants(false);
   }
 

@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
@@ -115,6 +116,7 @@ export default function DocumentsScreen() {
       setUploading(false);
       load();
     } catch (e: any) {
+      captureError(e, { screen: 'Documents', action: 'uploadDocument' });
       Alert.alert('Erreur', e.message ?? 'Erreur inconnue');
       setUploading(false);
     }

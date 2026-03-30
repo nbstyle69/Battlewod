@@ -12,6 +12,7 @@ import {
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { scheduleTournamentReminder } from '../../services/notifications';
@@ -166,6 +167,7 @@ export default function TournamentScreen() {
             }]
       );
     } catch (e: any) {
+      captureError(e, { screen: 'Tournament', action: 'register' });
       Alert.alert('Erreur', e?.message ?? 'Inscription impossible');
     } finally {
       setRegistering(false);

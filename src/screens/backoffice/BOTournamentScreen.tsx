@@ -12,6 +12,7 @@ import {
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { sendTournamentClosedNotification } from '../../services/notifications';
 import { incrementCounter, checkAndAwardBadges } from '../../services/gamification';
 import { useAuth } from '../../context/AuthContext';
@@ -279,6 +280,7 @@ Réponds en français, sois concis et factuel.`;
       setAiModal({ score: { ...score, ai_analysis: analysis }, analysis });
       loadData();
     } catch (e: any) {
+      captureError(e, { screen: 'BOTournament', action: 'aiAnalysis' });
       setAiLoading(null);
       Alert.alert('Erreur IA', e?.message ?? 'Impossible de contacter l\'API.');
     }

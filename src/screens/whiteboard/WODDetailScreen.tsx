@@ -11,6 +11,7 @@ import ShareScoreCard from '../../components/ShareScoreCard';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
@@ -248,6 +249,7 @@ export default function WODDetailScreen() {
       await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Partager ma performance' });
     } catch (e: any) {
       if (!e?.message?.includes('cancel')) {
+        captureError(e, { screen: 'WODDetail', action: 'shareCard' });
         Alert.alert('Erreur', 'Impossible de partager la card.');
       }
     } finally {
