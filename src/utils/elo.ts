@@ -69,12 +69,13 @@ export function clampElo(elo: number): number {
 export function assignRanks<T extends { score: number }>(
   sorted: T[],
 ): (T & { rank: number })[] {
-  return sorted.map((item, i) => {
+  const result: (T & { rank: number })[] = [];
+  for (let i = 0; i < sorted.length; i++) {
     let rank = i + 1;
     if (i > 0 && sorted[i].score === sorted[i - 1].score) {
-      const prev = sorted[i - 1] as T & { rank: number };
-      rank = prev.rank ?? rank;
+      rank = result[i - 1].rank;
     }
-    return { ...item, rank };
-  });
+    result.push({ ...sorted[i], rank });
+  }
+  return result;
 }
