@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Target, ChevronDown, ChevronUp, Dumbbell } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -71,7 +72,7 @@ export default function OneRMCalculatorScreen() {
         if (saved.input) setInput(saved.input);
         if (saved.movement) setSelectedMovement(saved.movement);
         if (saved.isLbs !== undefined) setIsLbs(saved.isLbs);
-      } catch {}
+      } catch (e) { captureError(e, { screen: 'OneRMCalculator', action: 'restoreState' }); }
     });
   }, []);
 

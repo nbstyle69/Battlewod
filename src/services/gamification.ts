@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import * as Notifications from 'expo-notifications';
+import { captureError } from '../lib/sentry';
 
 // ── Badge title cache (avoid re-fetching) ───────────────────────────
 let badgeTitleCache: Record<string, { title: string; icon: string }> = {};
@@ -89,7 +90,7 @@ async function awardBadge(userId: string, badgeKey: string): Promise<boolean> {
       },
       trigger: null, // immediate
     });
-  } catch {}
+  } catch (e) { captureError(e, { service: 'gamification', action: 'badgeNotification', badgeKey }); }
 
   return true;
 }
@@ -314,7 +315,7 @@ export async function logMovementReps(
     source_type: sourceType,
     source_id: sourceId ?? null,
   }));
-  try { await supabase.from('movement_logs').insert(logs); } catch {}
+  try { await supabase.from('movement_logs').insert(logs); } catch (e) { captureError(e, { service: 'gamification', action: 'insertMovementLogs' }); }
 
   // 2. Increment cumulative stats via RPC
   for (const m of movements) {
@@ -326,7 +327,7 @@ export async function logMovementReps(
         p_reps: m.reps,
         p_weight: m.weight_kg ?? null,
       });
-    } catch {}
+    } catch (e) { captureError(e, { service: 'gamification', action: 'incrementMovementStats', movement: normalized }); }
   }
 
   // 3. Check movement badges

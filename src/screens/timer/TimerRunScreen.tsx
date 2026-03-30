@@ -81,7 +81,7 @@ async function playTone(hz: number, ms: number, fadeOutMs = 20): Promise<void> {
     await FileSystem.writeAsStringAsync(path, wav, { encoding: FileSystem.EncodingType.Base64 });
     const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
     setTimeout(() => { sound.unloadAsync().catch(() => {}); }, ms + 500);
-  } catch {}
+  } catch (e) { captureError(e, { screen: 'TimerRun', action: 'playTone', hz, ms }); }
 }
 
 // ─── Séquence d'armement : 3× bip court (860 Hz) + 1× bip long (1000 Hz) ────
@@ -378,7 +378,7 @@ export default function TimerRunScreen() {
           boxLogoUrl: currentBox?.logo_url || '',
           competitionLogoUrl: competitionLogoUrl || '',
         });
-      } catch {}
+      } catch (e) { /* overlay update at 30fps — silent to avoid flooding Sentry */ }
     }, 33); // ~30fps
     return () => clearInterval(id);
   }, [withCamera, isRecordingActive, timerType, videoTitle, clockStr, phase, countdownVal, currentBox, competitionLogoUrl]);
@@ -456,7 +456,7 @@ export default function TimerRunScreen() {
           playsInSilentModeIOS: true,
           staysActiveInBackground: false,
         });
-      } catch {}
+      } catch (e) { captureError(e, { screen: 'TimerRun', action: 'setAudioMode' }); }
       if (withCamera) {
         if (!camPermission?.granted) requestCamPermission();
         if (!micPermission?.granted) requestMicPermission();
@@ -497,7 +497,7 @@ export default function TimerRunScreen() {
 
   useEffect(() => {
     AsyncStorage.getItem(DISPLAY_OPTS_KEY).then(v => {
-      if (v) try { setDisplayOptsRaw({ ...DEFAULT_DISPLAY, ...JSON.parse(v) }); } catch {}
+      if (v) try { setDisplayOptsRaw({ ...DEFAULT_DISPLAY, ...JSON.parse(v) }); } catch (e) { captureError(e, { screen: 'TimerRun', action: 'parseDisplayOpts' }); }
     });
   }, []);
 
@@ -533,7 +533,7 @@ export default function TimerRunScreen() {
       } else {
         sndDoneRef.current?.replayAsync();
       }
-    } catch {}
+    } catch (e) { captureError(e, { screen: 'TimerRun', action: 'playBeep' }); }
   }
 
   function stopAndSave() {
@@ -566,7 +566,7 @@ export default function TimerRunScreen() {
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
       });
-    } catch {}
+    } catch (e) { captureError(e, { screen: 'TimerRun', action: 'setAudioModePreRecord' }); }
 
     videoStartTimeRef.current = Date.now();
     timerStartOffsetRef.current = null;

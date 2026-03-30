@@ -7,7 +7,7 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Send, Megaphone, ImagePlus, X, Search, ChevronLeft } from 'lucide-react-native';
 
-const TENOR_API_KEY = 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ'; // Free public Tenor key
+const TENOR_API_KEY = process.env.EXPO_PUBLIC_TENOR_KEY ?? '';
 interface GifResult { id: string; url: string; preview: string; }
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
