@@ -339,26 +339,32 @@ class RecorderEngine private constructor() {
         val buffer = ByteArray(bufferSize)
         val encoder = audioEncoder ?: return@Thread
 
-        while (audioRecording.get()) {
-          val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
-          if (read > 0) {
-            val inputIndex = encoder.dequeueInputBuffer(10000)
-            if (inputIndex >= 0) {
-              val inputBuffer = encoder.getInputBuffer(inputIndex)
-              inputBuffer?.clear()
-              inputBuffer?.put(buffer, 0, read)
-              encoder.queueInputBuffer(inputIndex, 0, read, System.nanoTime() / 1000, 0)
+        try {
+          while (audioRecording.get()) {
+            val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
+            if (read > 0) {
+              val inputIndex = encoder.dequeueInputBuffer(10000)
+              if (inputIndex >= 0) {
+                val inputBuffer = encoder.getInputBuffer(inputIndex) ?: continue
+                inputBuffer.clear()
+                // Only write as much data as the codec buffer can hold
+                val bytesToWrite = minOf(read, inputBuffer.remaining())
+                inputBuffer.put(buffer, 0, bytesToWrite)
+                encoder.queueInputBuffer(inputIndex, 0, bytesToWrite, System.nanoTime() / 1000, 0)
+              }
+              drainAudioEncoder(false)
             }
-            drainAudioEncoder(false)
           }
-        }
 
-        // Signal end of stream
-        val inputIndex = encoder.dequeueInputBuffer(10000)
-        if (inputIndex >= 0) {
-          encoder.queueInputBuffer(inputIndex, 0, 0, System.nanoTime() / 1000, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+          // Signal end of stream
+          val inputIndex = encoder.dequeueInputBuffer(10000)
+          if (inputIndex >= 0) {
+            encoder.queueInputBuffer(inputIndex, 0, 0, System.nanoTime() / 1000, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+          }
+          drainAudioEncoder(true)
+        } catch (e: Exception) {
+          Log.e(TAG, "Audio capture error", e)
         }
-        drainAudioEncoder(true)
       }.apply {
         name = "AudioCaptureThread"
         start()
