@@ -285,7 +285,7 @@ export default function MessagesScreen() {
             is_announcement: false,
             created_at: raw.created_at,
             read_by: [],
-            sender: profile ?? { username: 'Inconnu' },
+            sender: profile ? { username: profile.username, avatar_url: profile.avatar_url ?? undefined } : { username: 'Inconnu' },
           };
           setMessages(prev => {
             if (prev.some(m => m.id === msgRow.id)) return prev;
