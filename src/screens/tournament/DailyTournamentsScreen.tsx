@@ -10,6 +10,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -83,7 +84,7 @@ export default function DailyTournamentsScreen() {
       .order('created_at', { ascending: false })
       .limit(30);
 
-    if (error) { console.error(error); }
+    if (error) { captureError(error, { screen: 'DailyTournaments', action: 'loadTournaments' }); }
 
     const mapped: DailyTournament[] = (data ?? []).map((t: any) => ({
       ...t,

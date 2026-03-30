@@ -7,6 +7,7 @@ import { ArrowLeft, Heart, Clock, Zap, Trash2, ChevronDown, ChevronUp } from 'lu
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -85,7 +86,7 @@ export default function WodHistoryScreen() {
     if (filter === 'benchmark') query = query.eq('is_benchmark', true);
 
     const { data, error } = await query;
-    if (error) { console.error(error); }
+    if (error) { captureError(error, { screen: 'WodHistory', action: 'loadWods' }); }
     setWods((data ?? []) as SavedWOD[]);
     setLoading(false);
     setRefreshing(false);

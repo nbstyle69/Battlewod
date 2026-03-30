@@ -345,7 +345,7 @@ export default function MessagesScreen() {
       const { error } = await supabase.storage
         .from('message-attachments')
         .upload(fileName, arrayBuf, { contentType: blob.type || `image/${ext}`, upsert: false });
-      if (error) { console.warn('Upload error:', error.message); return null; }
+      if (error) { captureError(error, { screen: 'Messages', action: 'uploadImage' }); return null; }
       const { data: urlData } = supabase.storage.from('message-attachments').getPublicUrl(fileName);
       return urlData.publicUrl;
     } catch (e) { captureError(e, { screen: 'Messages', action: 'uploadImage' }); return null; }

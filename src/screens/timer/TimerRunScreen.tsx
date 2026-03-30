@@ -577,11 +577,10 @@ export default function TimerRunScreen() {
     // Start native realtime recording (overlays burned on each frame)
     const outputPath = (FileSystem.documentDirectory ?? '') + `bwod_video_${videoStartTimeRef.current}.mp4`;
     nativeStartRec({ outputPath, facing }).catch((err: any) => {
-      console.warn('❌ nativeStartRec error:', err);
+      captureError(err, { screen: 'TimerRun', action: 'nativeStartRec' });
       recordingActiveRef.current = false;
       setIsRecordingActive(false);
     });
-    console.log('🎬 realtime recording started');
   }
 
   async function stopVideoAndFinish() {
@@ -592,7 +591,6 @@ export default function TimerRunScreen() {
 
     try {
       const videoPath = await nativeStopRec();
-      console.log('🎬 recording stopped, path:', videoPath);
 
       // Resolve the file path (strip file:// if needed for MediaLibrary)
       const localPath = videoPath.startsWith('file://') ? videoPath.replace('file://', '') : videoPath;
@@ -601,7 +599,6 @@ export default function TimerRunScreen() {
       // Save to phone gallery
       try {
         await MediaLibrary.saveToLibraryAsync(localPath);
-        console.log('✅ saved to library');
       } catch (libErr: any) {
         captureError(libErr, { screen: 'TimerRun', action: 'saveToLibrary' });
       }

@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { captureError } from '../lib/sentry';
 
 // ── Config par défaut ────────────────────────────────────────────────
 Notifications.setNotificationHandler({
@@ -31,7 +32,7 @@ export async function setupAndroidChannel() {
 // ── Demande de permission + récupération du token ────────────────────
 export async function registerForPushNotifications(): Promise<string | null> {
   if (!Device.isDevice) {
-    console.log('Push notifications need a physical device');
+    // Push notifications need a physical device
     return null;
   }
 
@@ -44,7 +45,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   if (finalStatus !== 'granted') {
-    console.log('Push notification permission not granted');
+    // Push notification permission not granted
     return null;
   }
 
@@ -67,7 +68,7 @@ export async function savePushToken(userId: string, token: string) {
       { user_id: userId, token, platform, updated_at: new Date().toISOString() },
       { onConflict: 'user_id,token' }
     );
-  if (error) console.error('Error saving push token:', error.message);
+  if (error) captureError(error, { service: 'notifications', action: 'savePushToken' });
 }
 
 // ── Supprimer le token (logout) ──────────────────────────────────────
@@ -209,7 +210,7 @@ export async function sendScoreNotification(
       body: JSON.stringify(messages),
     });
   } catch (err) {
-    console.error('Error sending score notification:', err);
+    captureError(err, { service: 'notifications', action: 'sendScoreNotification' });
   }
 }
 
@@ -235,7 +236,7 @@ async function sendPush(
       body: JSON.stringify(messages),
     });
   } catch (err) {
-    console.error('Push send error:', err);
+    captureError(err, { service: 'notifications', action: 'pushSend' });
   }
 }
 
@@ -367,7 +368,7 @@ export async function sendTournamentClosedNotification(
       });
     }
   } catch (err) {
-    console.error('Tournament notification error:', err);
+    captureError(err, { service: 'notifications', action: 'tournamentNotification' });
   }
 }
 
@@ -451,7 +452,7 @@ export async function sendScoreOvertakenNotification(
       });
     }
   } catch (err) {
-    console.error('Overtaken notification error:', err);
+    captureError(err, { service: 'notifications', action: 'overtakenNotification' });
   }
 }
 
