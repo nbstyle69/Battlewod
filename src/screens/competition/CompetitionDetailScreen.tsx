@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Image,
 } from 'react-native';
 import { ChevronLeft, Calendar, Users, Zap, Clock, Timer } from 'lucide-react-native';
 import { RouteProp } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel } from '../../types';
 import { HomeStackParamList, TimerType } from '../../navigation';
+import { supabase } from '../../lib/supabase';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'CompetitionDetail'>;
@@ -21,6 +22,41 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const S = createStyles(theme);
   const [tab, setTab] = useState(0);
   const TABS = ['Infos', 'WODs', 'Participants'];
+
+  interface Participant {
+    athlete_id: string;
+    username: string;
+    avatar_url: string | null;
+    elo: number;
+    score: number;
+  }
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+
+  useEffect(() => {
+    if (tab === 2) loadParticipants();
+  }, [tab]);
+
+  async function loadParticipants() {
+    setLoadingParticipants(true);
+    try {
+      const { data } = await supabase
+        .from('tournament_participants')
+        .select('athlete_id, score, profiles:athlete_id(username, avatar_url, elo)')
+        .eq('tournament_id', competition.id)
+        .order('score', { ascending: false });
+
+      const mapped: Participant[] = (data ?? []).map((row: any) => ({
+        athlete_id: row.athlete_id,
+        username: row.profiles?.username ?? 'Inconnu',
+        avatar_url: row.profiles?.avatar_url ?? null,
+        elo: row.profiles?.elo ?? 1000,
+        score: row.score ?? 0,
+      }));
+      setParticipants(mapped);
+    } catch { /* ignore */ }
+    setLoadingParticipants(false);
+  }
 
   function handleLaunchTimer(wod: { title: string; type: string; duration: number }) {
     navigation.navigate('TimerRun', {
@@ -170,22 +206,34 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
         {tab === 2 && (
           <>
-            <Text style={S.sectionTitle}>Participants ({competition.participants})</Text>
-            {Array.from({ length: Math.min(competition.participants, 10) }, (_, i) => (
-              <View key={i} style={S.participantRow}>
-                <View style={S.participantRank}>
-                  <Text style={S.participantRankText}>{i + 1}</Text>
-                </View>
-                <View style={S.participantAvatar}>
-                  <Text style={S.participantAvatarText}>{String.fromCharCode(65 + i)}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={S.participantName}>Athlète {i + 1}</Text>
-                  <Text style={S.participantElo}>ELO {1000 + Math.round(Math.random() * 500)}</Text>
-                </View>
-                <Text style={S.participantScore}>—</Text>
+            <Text style={S.sectionTitle}>Participants ({participants.length})</Text>
+            {loadingParticipants ? (
+              <ActivityIndicator color={theme.accent} style={{ marginTop: 24 }} />
+            ) : participants.length === 0 ? (
+              <View style={S.emptyState}>
+                <Text style={S.emptyText}>Aucun participant pour le moment.</Text>
               </View>
-            ))}
+            ) : (
+              participants.map((p, i) => (
+                <View key={p.athlete_id} style={S.participantRow}>
+                  <View style={S.participantRank}>
+                    <Text style={S.participantRankText}>{i + 1}</Text>
+                  </View>
+                  {p.avatar_url ? (
+                    <Image source={{ uri: p.avatar_url }} style={S.participantAvatarImg} />
+                  ) : (
+                    <View style={S.participantAvatar}>
+                      <Text style={S.participantAvatarText}>{(p.username[0] ?? '?').toUpperCase()}</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={S.participantName}>{p.username}</Text>
+                    <Text style={S.participantElo}>ELO {p.elo}</Text>
+                  </View>
+                  <Text style={S.participantScore}>{p.score > 0 ? `${p.score} pts` : '—'}</Text>
+                </View>
+              ))
+            )}
           </>
         )}
 
@@ -286,6 +334,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: `${theme.accent}20`, justifyContent: 'center', alignItems: 'center',
   },
   participantAvatarText: { fontSize: 16, fontWeight: '900', color: theme.accent },
+  participantAvatarImg: {
+    width: 38, height: 38, borderRadius: 19,
+  },
   participantName: { fontSize: 14, fontWeight: '700', color: theme.text },
   participantElo: { fontSize: 11, color: theme.textMuted, marginTop: 1 },
   participantScore: { fontSize: 14, fontWeight: '700', color: theme.textMuted },
