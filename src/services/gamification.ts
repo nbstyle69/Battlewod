@@ -49,7 +49,7 @@ export async function getEarnedBadges(userId: string): Promise<EarnedBadge[]> {
     .from('athlete_badges')
     .select('badge_key, earned_at')
     .eq('athlete_id', userId);
-  return (data ?? []) as EarnedBadge[];
+  return (data ?? []) as unknown as EarnedBadge[];
 }
 
 export async function getStreak(userId: string): Promise<StreakInfo> {
@@ -325,7 +325,7 @@ export async function logMovementReps(
         p_user_id: userId,
         p_movement: normalized,
         p_reps: m.reps,
-        p_weight: m.weight_kg ?? null,
+        p_weight: m.weight_kg ?? undefined,
       });
     } catch (e) { captureError(e, { service: 'gamification', action: 'incrementMovementStats', movement: normalized }); }
   }

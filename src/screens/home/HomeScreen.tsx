@@ -12,6 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
 import { supabase } from '../../lib/supabase';
+import { captureError } from '../../lib/sentry';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import { getStreak, StreakInfo } from '../../services/gamification';
 
@@ -234,6 +235,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!user) return;
     const refreshCounts = async () => {
+      try {
       const [{ count: pending }, lastSeen] = await Promise.all([
         supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('addressee_id', user.id).eq('status', 'pending'),
         AsyncStorage.getItem(`lastSeenFriends_${user.id}`),
@@ -243,6 +245,7 @@ export default function HomeScreen() {
         const { count: accepted } = await supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('requester_id', user.id).eq('status', 'accepted').gt('updated_at', lastSeen);
         setUnreadAccepted(accepted ?? 0);
       }
+      } catch (e) { captureError(e, { screen: 'Home', action: 'refreshFriendCounts' }); }
     };
     const channel = supabase
       .channel(`friend-notif-${user.id}`)
@@ -257,10 +260,12 @@ export default function HomeScreen() {
     useCallback(() => {
       if (!user) return;
       AsyncStorage.getItem(`lastSeenFriends_${user.id}`).then(async (lastSeen) => {
+        try {
         if (lastSeen) {
           const { count: accepted } = await supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('requester_id', user.id).eq('status', 'accepted').gt('updated_at', lastSeen);
           setUnreadAccepted(accepted ?? 0);
         }
+        } catch (e) { captureError(e, { screen: 'Home', action: 'refreshUnreadAccepted' }); }
       });
     }, [user])
   );

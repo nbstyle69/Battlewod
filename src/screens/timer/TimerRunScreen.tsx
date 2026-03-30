@@ -1439,7 +1439,7 @@ export default function TimerRunScreen() {
         {camPermission?.granted
           ? <RealtimeRecorderView
               ref={cameraRef}
-              style={StyleSheet.absoluteFill}
+              style={StyleSheet.absoluteFill as any}
               facing={facing}
               onReady={() => setIsCameraReady(true)}
             />
