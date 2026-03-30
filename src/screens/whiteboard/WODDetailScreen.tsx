@@ -1228,11 +1228,11 @@ function createStyles(theme: AppTheme) {
   },
   shareTitle: { fontSize: 18, fontWeight: '800', color: theme.text },
   sharePreview: {
-    alignItems: 'center', justifyContent: 'center', padding: 16,
+    alignItems: 'center', justifyContent: 'center',
+    width: 1080, height: 1920,
     transform: [{ scale: 0.28 }],
-    height: 1920 * 0.28 + 32,
-    marginTop: -1920 * 0.36 + 200,
-    marginBottom: -1920 * 0.36 + 200,
+    marginVertical: -(1920 * (1 - 0.28)) / 2,
+    marginHorizontal: -(1080 * (1 - 0.28)) / 2,
   },
   shareCTA: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
