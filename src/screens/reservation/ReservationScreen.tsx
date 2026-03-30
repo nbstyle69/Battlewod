@@ -208,10 +208,11 @@ export default function ReservationScreen() {
         const { data: limitData } = await supabase.rpc('check_weekly_limit', {
           p_user_id: user.id, p_box_id: currentBox.id,
         });
-        if (limitData && !limitData.allowed) {
+        const wl = limitData as { allowed: boolean; max: number; used: number } | null;
+        if (wl && !wl.allowed) {
           Alert.alert(
             'Limite atteinte',
-            `Tu as utilis\u00e9 tes ${limitData.max} s\u00e9ance(s) cette semaine (${limitData.used}/${limitData.max}). Contacte ton coach pour changer de contrat.`,
+            `Tu as utilis\u00e9 tes ${wl.max} s\u00e9ance(s) cette semaine (${wl.used}/${wl.max}). Contacte ton coach pour changer de contrat.`,
           );
           setBooking(null);
           return;
@@ -223,7 +224,8 @@ export default function ReservationScreen() {
         const { data: dailyData } = await supabase.rpc('check_daily_limit', {
           p_user_id: user.id, p_box_id: currentBox.id, p_date: item.scheduled_date,
         });
-        if (dailyData && !dailyData.allowed) {
+        const dl = dailyData as { allowed: boolean } | null;
+        if (dl && !dl.allowed) {
           Alert.alert(
             'Limite journalière',
             'Tu as déjà réservé un créneau ce jour. Ton abonnement permet 1 séance par jour.',

@@ -36,12 +36,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
     return null;
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+  const perms = await Notifications.getPermissionsAsync() as any;
+  let finalStatus = perms.status;
 
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+  if (finalStatus !== 'granted') {
+    const req = await Notifications.requestPermissionsAsync() as any;
+    finalStatus = req.status;
   }
 
   if (finalStatus !== 'granted') {
@@ -133,7 +133,7 @@ export async function getNotificationPrefs(userId: string): Promise<Notification
     .eq('user_id', userId)
     .single();
 
-  return data ?? {
+  const defaults: NotificationPrefs = {
     daily_reminder: true,
     reminder_hour: 9,
     friend_requests: true,
@@ -141,6 +141,16 @@ export async function getNotificationPrefs(userId: string): Promise<Notification
     score_updates: true,
     score_comments: true,
     score_reactions: true,
+  };
+  if (!data) return defaults;
+  return {
+    daily_reminder: data.daily_reminder ?? defaults.daily_reminder,
+    reminder_hour: data.reminder_hour ?? defaults.reminder_hour,
+    friend_requests: data.friend_requests ?? defaults.friend_requests,
+    tournament_updates: data.tournament_updates ?? defaults.tournament_updates,
+    score_updates: data.score_updates ?? defaults.score_updates,
+    score_comments: data.score_comments ?? defaults.score_comments,
+    score_reactions: data.score_reactions ?? defaults.score_reactions,
   };
 }
 
@@ -255,7 +265,7 @@ export async function sendWodPublishedNotification(
     .neq('member_id', senderUserId);
   if (!members || members.length === 0) return;
 
-  const memberIds = members.map(m => m.member_id);
+  const memberIds = members.map(m => m.member_id).filter((id): id is string => id != null);
 
   // Get tokens for all members in one query
   const { data: tokens } = await supabase
