@@ -12,6 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { calculatePairwiseDeltas, RankedPlayer } from '../../utils/elo';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
@@ -44,34 +45,7 @@ function formatScore(score: WODScore): string {
   return formatScoreValue(score.score_value, score.score_type);
 }
 
-// ── ELO Calculation ──────────────────────────────────────────────────────
-const K = 32;
-
-function calculateEloDeltas(rankedScores: { member_id: string; elo: number; rank: number }[]) {
-  const n = rankedScores.length;
-  if (n < 2) return rankedScores.map(s => ({ ...s, delta: 0 }));
-
-  const results: { member_id: string; elo: number; rank: number; delta: number }[] = [];
-
-  for (const player of rankedScores) {
-    let expectedScore = 0;
-    let actualScore = 0;
-
-    for (const opponent of rankedScores) {
-      if (opponent.member_id === player.member_id) continue;
-      const exp = 1 / (1 + Math.pow(10, (opponent.elo - player.elo) / 400));
-      expectedScore += exp;
-
-      if (player.rank < opponent.rank) actualScore += 1;
-      else if (player.rank === opponent.rank) actualScore += 0.5;
-    }
-
-    const delta = Math.round((K / (n - 1)) * (actualScore - expectedScore));
-    results.push({ ...player, delta });
-  }
-
-  return results;
-}
+// ── ELO Calculation (delegated to shared utility) ───────────────────────
 
 async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[], isTimeBased: boolean) {
   if (scores.length < 2) return;
@@ -99,16 +73,16 @@ async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[
     if (i > 0 && sorted[i].score_value === sorted[i - 1].score_value) {
       rank = ranked[i - 1]?.rank ?? rank;
     }
-    return { member_id: s.member_id, elo: eloMap[s.member_id] ?? 1000, rank };
+    return { id: s.member_id, elo: eloMap[s.member_id] ?? 1000, rank };
   });
 
-  const deltas = calculateEloDeltas(ranked);
+  const deltas = calculatePairwiseDeltas(ranked);
 
   // Upsert elo_history
   const historyRows = deltas.map(d => ({
     box_id: boxId,
     wod_id: wodId,
-    member_id: d.member_id,
+    member_id: d.id,
     elo_before: d.elo,
     elo_after: d.elo + d.delta,
     elo_delta: d.delta,
@@ -120,7 +94,7 @@ async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[
   // Update profiles via RPC (bypasses RLS)
   for (const d of deltas) {
     await supabase.rpc('update_user_elo', {
-      p_user_id: d.member_id,
+      p_user_id: d.id,
       p_new_elo: d.elo + d.delta,
       p_increment_matches: 1,
       p_increment_wins: d.rank === 1 ? 1 : 0,

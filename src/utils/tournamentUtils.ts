@@ -52,19 +52,9 @@ export function normalizeMovement(raw: string): { key: string; label: string } {
   return { key, label };
 }
 
-// ── ELO calculation ───────────────────────────────────────────────────────────
-export function calcTournamentElo(
-  athleteElo: number,
-  finalRank: number,
-  totalParticipants: number,
-  avgOpponentElo: number,
-  k = 48,
-): number {
-  if (totalParticipants <= 1) return 0;
-  const actualScore = (totalParticipants - finalRank) / (totalParticipants - 1);
-  const expectedScore = 1 / (1 + Math.pow(10, (avgOpponentElo - athleteElo) / 400));
-  return Math.round(k * (actualScore - expectedScore));
-}
+// ── ELO calculation (delegated to shared utility) ────────────────────────────
+// Kept as re-export for backward compatibility
+export { calcAvgOpponentDelta as calcTournamentElo } from './elo';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface TournamentWOD {

@@ -20,9 +20,10 @@ import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import {
   TournamentScore, MOVEMENT_BADGE_LEVELS,
-  rankWodScores, cfPoints, calcTournamentElo,
+  rankWodScores, cfPoints,
   normalizeMovement, formatDateTime,
 } from '../../utils/tournamentUtils';
+import { calcAvgOpponentDelta, clampElo } from '../../utils/elo';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function StatusPill({ status, theme: t }: { status: string; theme: AppTheme }) {
@@ -318,8 +319,8 @@ Réponds en français, sois concis et factuel.`;
             const prof = getProfile(p);
             const athleteElo = prof?.elo ?? 1000;
             const rank = i + 1;
-            const change = calcTournamentElo(athleteElo, rank, tp.length, avgElo);
-            const newElo = Math.max(100, athleteElo + change);
+            const change = calcAvgOpponentDelta(athleteElo, rank, tp.length, avgElo);
+            const newElo = clampElo(athleteElo + change);
             await supabase.rpc('update_user_elo', {
               p_user_id: p.athlete_id,
               p_new_elo: newElo,

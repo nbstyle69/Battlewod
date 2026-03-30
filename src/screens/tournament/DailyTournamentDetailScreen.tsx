@@ -17,6 +17,7 @@ import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { cancelTodayScoreReminder } from '../../services/notifications';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { formatScoreValue } from '../../utils/scoreFormat';
+import { calculatePairwiseDeltas } from '../../utils/elo';
 
 import { HomeStackParamList, TimerType } from '../../navigation';
 
@@ -288,8 +289,6 @@ export default function DailyTournamentDetailScreen() {
 
   async function completeTournament() {
     if (!tournament) return;
-    const K = 32;
-
     // Get all scores sorted
     const { data: allScores } = await supabase
       .from('daily_tournament_scores')
@@ -320,33 +319,20 @@ export default function DailyTournamentDetailScreen() {
         rank = ranked[i - 1]?.rank ?? rank;
       }
       const elo = profileMap[s.user_id]?.elo ?? 1000;
-      return { user_id: s.user_id, elo, rank };
+      return { id: s.user_id, elo, rank };
     });
 
-    // Calculate ELO deltas (pairwise expected vs actual)
-    const n = ranked.length;
-    const deltas = ranked.map(player => {
-      if (n < 2) return { ...player, delta: 0 };
-      let expectedScore = 0;
-      let actualScore = 0;
-      for (const opp of ranked) {
-        if (opp.user_id === player.user_id) continue;
-        expectedScore += 1 / (1 + Math.pow(10, (opp.elo - player.elo) / 400));
-        if (player.rank < opp.rank) actualScore += 1;
-        else if (player.rank === opp.rank) actualScore += 0.5;
-      }
-      const delta = Math.round((K / (n - 1)) * (actualScore - expectedScore));
-      return { ...player, delta };
-    });
+    // Calculate ELO deltas via shared utility
+    const deltas = calculatePairwiseDeltas(ranked);
 
     // Update profiles via RPC (bypasses RLS) + write ELO history
     const historyRows = [];
     for (const d of deltas) {
-      const pm = profileMap[d.user_id];
+      const pm = profileMap[d.id];
       if (!pm) continue;
       const newElo = pm.elo + d.delta;
       await supabase.rpc('update_user_elo', {
-        p_user_id: d.user_id,
+        p_user_id: d.id,
         p_new_elo: newElo,
         p_increment_matches: 1,
         p_increment_wins: d.rank === 1 ? 1 : 0,
@@ -354,7 +340,7 @@ export default function DailyTournamentDetailScreen() {
 
       historyRows.push({
         tournament_id: tournamentId,
-        user_id: d.user_id,
+        user_id: d.id,
         elo_before: pm.elo,
         elo_after: newElo,
         elo_delta: d.delta,
