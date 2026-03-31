@@ -15,6 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { sendTournamentClosedNotification } from '../../services/notifications';
 import { incrementCounter, checkAndAwardBadges } from '../../services/gamification';
+import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -338,6 +339,7 @@ Réponds en français, sois concis et factuel.`;
         p_increment_matches: 1,
         p_increment_wins: rank === 1 ? 1 : 0,
       });
+      await syncLevelAndBadges(p.athlete_id, newElo);
       await supabase.from('tournament_elo_history').upsert({
         tournament_id: tournId, athlete_id: p.athlete_id,
         final_rank: rank, participants_count: tp.length,

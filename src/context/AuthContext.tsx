@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { User, Box, BoxMemberRole } from '../types';
 import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
+import { awardLevelBadge } from '../services/gamification';
 import { setUserContext, clearUserContext } from '../lib/sentry';
 import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackBoxCreate, trackDeleteAccount } from '../lib/analytics';
 
@@ -159,6 +160,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         referral_code,
       });
       if (profileError) return { error: `Profil: ${profileError.message}` };
+      // Award welcome badge (level_scaled) silently
+      awardLevelBadge(data.user.id, 'level_scaled').catch(() => {});
       if (!data.session) return { error: 'CONFIRM_EMAIL' };
       trackSignUp('email', role, level);
       // Profile is now in DB — explicitly refresh user state so navigation triggers

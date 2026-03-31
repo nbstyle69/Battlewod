@@ -95,6 +95,12 @@ async function awardBadge(userId: string, badgeKey: string): Promise<boolean> {
   return true;
 }
 
+// ── Public badge award (used by eloLevels) ──────────────────────────
+
+export async function awardLevelBadge(userId: string, badgeKey: string): Promise<boolean> {
+  return awardBadge(userId, badgeKey);
+}
+
 // ── Record activity for streak tracking ─────────────────────────────
 
 export async function recordActivity(userId: string): Promise<string[]> {
@@ -208,10 +214,12 @@ export async function checkAndAwardBadges(
     [(counters.total_tournament_wins ?? 0) >= 1, 'first_win'],
     [(counters.total_tournament_wins ?? 0) >= 5, 'champion_5'],
     // Podium is checked separately in tournament close
-    // ELO
-    [(counters.elo ?? 0) >= 1200, 'elo_1200'],
-    [(counters.elo ?? 0) >= 1500, 'elo_1500'],
-    [(counters.elo ?? 0) >= 2000, 'elo_2000'],
+    // ELO level badges
+    [(counters.elo ?? 0) >= 1001, 'level_inter'],
+    [(counters.elo ?? 0) >= 1200, 'level_rx'],
+    [(counters.elo ?? 0) >= 1400, 'level_rx_plus'],
+    [(counters.elo ?? 0) >= 1600, 'level_elite'],
+    [(counters.elo ?? 0) >= 1800, 'level_pro'],
   ];
 
   for (const [condition, badgeKey] of checks) {

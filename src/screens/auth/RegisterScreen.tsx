@@ -8,20 +8,10 @@ import { Zap, ChevronLeft, Building2, Dumbbell, User as UserIcon } from 'lucide-
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
 import { AuthStackParamList } from '../../navigation';
-import { AthleteLevel, Gender } from '../../types';
+import { Gender } from '../../types';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'> };
-
-const LEVELS: { value: AthleteLevel; label: string; description: string }[] = [
-  { value: 'scaled', label: 'Scaled', description: 'Débutant, mouvements adaptés' },
-  { value: 'inter', label: 'Intermédiaire', description: '1 an+ de pratique' },
-  { value: 'rx', label: 'RX', description: 'WOD standards complets' },
-  { value: 'rx+', label: 'RX+', description: 'Niveau compétiteur' },
-  { value: 'gx', label: 'GX', description: 'Elite games' },
-  { value: 'pro', label: 'PRO', description: 'Athlète professionnel' },
-];
 
 export default function RegisterScreen({ navigation }: Props) {
   const { signUp } = useAuth();
@@ -30,7 +20,6 @@ export default function RegisterScreen({ navigation }: Props) {
   const [email,       setEmail]       = useState('');
   const [username,    setUsername]    = useState('');
   const [password,    setPassword]    = useState('');
-  const [level,       setLevel]       = useState<AthleteLevel>('scaled');
   const [gender,      setGender]      = useState<Gender>('male');
   const [asBoxOwner,  setAsBoxOwner]  = useState(false);
   const [loading,     setLoading]     = useState(false);
@@ -41,7 +30,7 @@ export default function RegisterScreen({ navigation }: Props) {
     if (password.length < 6) { Alert.alert('Erreur', 'Mot de passe trop court (6 caractères min)'); return; }
     if (!acceptedCGU) { Alert.alert('CGU requises', 'Tu dois accepter les Conditions Générales d\'Utilisation pour t\'inscrire.'); return; }
     setLoading(true);
-    const { error } = await signUp(email.trim(), password, username.trim(), level, asBoxOwner, gender);
+    const { error } = await signUp(email.trim(), password, username.trim(), 'inter', asBoxOwner, gender);
     setLoading(false);
     if (error === 'CONFIRM_EMAIL') {
       Alert.alert(
@@ -160,27 +149,6 @@ export default function RegisterScreen({ navigation }: Props) {
               </View>
             </View>
 
-            <View style={S.inputContainer}>
-              <Text style={S.label}>Ton niveau</Text>
-              <View style={S.levelsGrid}>
-                {LEVELS.map((l) => (
-                  <TouchableOpacity
-                    key={l.value}
-                    onPress={() => setLevel(l.value)}
-                    style={[
-                      S.levelCard,
-                      level === l.value && { borderColor: LevelColors[l.value], backgroundColor: `${LevelColors[l.value]}20` },
-                    ]}
-                  >
-                    <Text style={[S.levelLabel, level === l.value && { color: LevelColors[l.value] }]}>
-                      {l.label}
-                    </Text>
-                    <Text style={S.levelDesc}>{l.description}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
             <View style={S.cguRow}>
               <TouchableOpacity onPress={() => setAcceptedCGU(!acceptedCGU)} style={S.cguCheckbox}>
                 {acceptedCGU && <View style={S.cguChecked} />}
@@ -245,14 +213,6 @@ function createStyles(theme: AppTheme) {
   roleLabel:      { fontSize: 13, fontWeight: '700', color: theme.textMuted, textAlign: 'center' },
   roleLabelActive: { color: theme.accent },
   roleDesc:       { fontSize: 10, color: theme.textMuted, textAlign: 'center' },
-  levelsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  levelCard: {
-    width: '48%', padding: 12, borderRadius: 14,
-    borderWidth: 1, borderColor: theme.border,
-    backgroundColor: isDark ? theme.surface : theme.background,
-  },
-  levelLabel: { fontSize: 14, fontWeight: '700', color: theme.text, marginBottom: 2 },
-  levelDesc: { fontSize: 11, color: theme.textMuted },
   button: { borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
   cguRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12 },

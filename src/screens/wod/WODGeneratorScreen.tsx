@@ -12,7 +12,7 @@ import { incrementCounter } from '../../services/gamification';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WODType } from '../../types';
 
-const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'gx', 'pro'];
+const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const DURATIONS = [5, 10, 15, 20];
 const WOD_TYPES: WODType[] = ['AMRAP', 'For Time', 'EMOM', 'Tabata', 'Max Reps', 'Chipper', 'Ladder', 'Couplet', 'Death By'];
 const UI_WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Reps'];
@@ -277,7 +277,7 @@ interface GeneratedWOD {
 }
 
 // ── Movement database ─────────────────────────────────────────────────
-const _LI: Record<AthleteLevel, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, gx: 4, pro: 5 };
+const _LI: Record<AthleteLevel, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, elite: 4, pro: 5 };
 interface Mvt { name: string; eq: string[]; reps: number[]; load?: string[]; unit?: string }
 
 const MVTS: Mvt[] = [

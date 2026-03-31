@@ -23,6 +23,7 @@ import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { formatScoreValue, DNF_BASE } from '../../utils/scoreFormat';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
+import { syncLevelAndBadges } from '../../utils/eloLevels';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -93,14 +94,16 @@ async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[
 
   await supabase.from('elo_history').upsert(historyRows, { onConflict: 'wod_id,member_id' });
 
-  // Update profiles via RPC (bypasses RLS)
+  // Update profiles via RPC (bypasses RLS) + sync level & badges
   for (const d of deltas) {
+    const newElo = d.elo + d.delta;
     await supabase.rpc('update_user_elo', {
       p_user_id: d.id,
-      p_new_elo: d.elo + d.delta,
+      p_new_elo: newElo,
       p_increment_matches: 1,
       p_increment_wins: d.rank === 1 ? 1 : 0,
     });
+    await syncLevelAndBadges(d.id, newElo);
   }
 }
 

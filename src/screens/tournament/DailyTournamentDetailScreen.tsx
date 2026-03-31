@@ -18,6 +18,7 @@ import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { cancelTodayScoreReminder } from '../../services/notifications';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
+import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import { calculatePairwiseDeltas } from '../../utils/elo';
 
@@ -375,6 +376,7 @@ export default function DailyTournamentDetailScreen() {
         p_increment_matches: 1,
         p_increment_wins: d.rank === 1 ? 1 : 0,
       });
+      await syncLevelAndBadges(d.id, newElo);
 
       historyRows.push({
         tournament_id: tId,

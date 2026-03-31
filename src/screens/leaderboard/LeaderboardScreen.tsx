@@ -15,7 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 
-const LEVELS: (AthleteLevel | 'all')[] = ['all', 'scaled', 'inter', 'rx', 'rx+', 'gx', 'pro'];
+const LEVELS: (AthleteLevel | 'all')[] = ['all', 'scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const MAIN_TABS = ['Individuel', 'Équipes', 'Box'];
 
 function RankBadge({ rank }: { rank: number }) {

@@ -36,7 +36,7 @@ interface Friend {
 
 const LEVEL_COLORS: Record<string, string> = {
   scaled: '#6B7280', inter: '#3B82F6', rx: '#10B981',
-  'rx+': '#F59E0B', gx: '#EF4444', pro: '#8B5CF6',
+  'rx+': '#F59E0B', elite: '#7C3AED', pro: '#DC2626',
 };
 
 export default function FriendsScreen() {

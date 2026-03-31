@@ -12,7 +12,7 @@ import { WODStackParamList } from '../../navigation';
 
 type Nav = NativeStackNavigationProp<WODStackParamList, 'WODList'>;
 
-const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'gx', 'pro'];
+const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 
 const MOCK_WODS: WOD[] = [
   {

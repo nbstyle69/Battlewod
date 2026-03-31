@@ -1,4 +1,4 @@
-export type AthleteLevel = 'scaled' | 'inter' | 'rx' | 'rx+' | 'gx' | 'pro';
+export type AthleteLevel = 'scaled' | 'inter' | 'rx' | 'rx+' | 'elite' | 'pro';
 
 export type UserRole = 'super_admin' | 'box_owner' | 'member' | 'athlete' | 'admin';
 

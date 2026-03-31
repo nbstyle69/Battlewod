@@ -24,9 +24,9 @@ type LK = AthleteLevel;
 const LEVELS: { key: LK; label: string }[] = [
   { key: 'scaled', label: 'Scaled' }, { key: 'inter', label: 'Inter' },
   { key: 'rx', label: 'RX' }, { key: 'rx+', label: 'RX+' },
-  { key: 'gx', label: 'Elite' }, { key: 'pro', label: 'Pro' },
+  { key: 'elite', label: 'Elite' }, { key: 'pro', label: 'Pro' },
 ];
-const LI: Record<LK, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, gx: 4, pro: 5 };
+const LI: Record<LK, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, elite: 4, pro: 5 };
 const FORMATS = ['Solo', 'Équipe 2', 'Équipe 3', 'Équipe 4', 'Équipe 6'];
 
 const HYROX_LEVELS = ['Women', 'Women Pro', 'Men', 'Men Pro'];

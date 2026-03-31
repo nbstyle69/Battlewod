@@ -36,6 +36,6 @@ export const LevelColors: Record<string, string> = {
   inter:   '#3B82F6',
   rx:      '#16A34A',
   'rx+':   '#D97706',
-  gx:      '#7C3AED',
+  elite:   '#7C3AED',
   pro:     '#DC2626',
 };
