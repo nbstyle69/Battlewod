@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import AppNavigator from './src/navigation';
+import ForceUpdateGate from './src/components/ForceUpdateGate';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -102,13 +103,15 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AuthProvider>
-            <AppNavigator />
-          </AuthProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+      <ForceUpdateGate>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <AuthProvider>
+              <AppNavigator />
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </ForceUpdateGate>
     </ErrorBoundary>
   );
 }
