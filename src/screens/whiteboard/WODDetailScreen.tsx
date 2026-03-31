@@ -22,6 +22,7 @@ import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScore
 import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { formatScoreValue, DNF_BASE } from '../../utils/scoreFormat';
 import { computeCompletedMovements } from '../../utils/movementParser';
+import { computeMaxScore } from '../../utils/computeMaxScore';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -262,6 +263,13 @@ export default function WODDetailScreen() {
       value = parseFloat(scoreInput);
     }
     if (isNaN(value) || value <= 0) { Alert.alert('Score invalide'); return; }
+
+    // Cap validation for AMRAP / EMOM / Tabata
+    const maxScore = computeMaxScore(wod.wod_type, wod.description, wod.time_cap_seconds, wod.rounds, scoreType);
+    if (maxScore && value > maxScore) {
+      Alert.alert('Score trop élevé', `Le maximum estimé pour ce WOD est de ${maxScore} ${scoreType === 'rounds' ? 'rounds' : 'reps'}. Vérifie ta saisie.`);
+      return;
+    }
 
     setSubmitting(true);
     const { error } = await supabase.from('wod_scores').upsert({

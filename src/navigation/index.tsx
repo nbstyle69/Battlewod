@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
 import { navigationRef } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -131,11 +131,11 @@ export type AuthStackParamList = {
 };
 
 export type MainTabParamList = {
-  Home: undefined;
-  Competitions: undefined;
-  Explorer: undefined;
-  Whiteboard: undefined;
-  Reservation: undefined;
+  Home: NavigatorScreenParams<HomeStackParamList>;
+  Competitions: NavigatorScreenParams<CompetitionStackParamList>;
+  Explorer: NavigatorScreenParams<ExplorerStackParamList>;
+  Whiteboard: NavigatorScreenParams<WhiteboardStackParamList>;
+  Reservation: NavigatorScreenParams<ReservationStackParamList>;
 };
 
 export type ExplorerStackParamList = {
@@ -606,11 +606,16 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compétitions' }} />
-      <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: 'Accueil' }} />
-      <Tab.Screen name="Explorer"     component={ExplorerNavigator}     options={{ tabBarLabel: 'Explorer' }} />
-      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Ma Box' }} />
-      <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: 'Réservation' }} />
+      <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compétitions' }}
+        listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Competitions', { screen: 'CompetitionList' }) })} />
+      <Tab.Screen name="Explorer"     component={ExplorerNavigator}     options={{ tabBarLabel: 'Explorer' }}
+        listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Explorer', { screen: 'ExplorerMain' }) })} />
+      <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: 'Accueil' }}
+        listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Home', { screen: 'HomeList' }) })} />
+      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Ma Box' }}
+        listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Whiteboard', { screen: 'WhiteboardMain' }) })} />
+      <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: 'Réservation' }}
+        listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Reservation', { screen: 'ReservationMain' }) })} />
     </Tab.Navigator>
   );
 }

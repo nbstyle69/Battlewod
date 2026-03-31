@@ -17,6 +17,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { cancelTodayScoreReminder } from '../../services/notifications';
 import { computeCompletedMovements } from '../../utils/movementParser';
+import { computeMaxScore } from '../../utils/computeMaxScore';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import { calculatePairwiseDeltas } from '../../utils/elo';
 
@@ -259,6 +260,21 @@ export default function DailyTournamentDetailScreen() {
 
     if (isNaN(value) || value <= 0) {
       Alert.alert('Valeur invalide', 'Entre un score valide.');
+      setSubmitting(false);
+      return;
+    }
+
+    // Cap validation for AMRAP / EMOM / Tabata
+    const sType = tournament?.score_mode === 'time' ? 'time' : 'reps';
+    const maxScore = computeMaxScore(
+      tournament?.wod_type,
+      tournament?.movements,
+      tournament?.duration ? tournament.duration * 60 : null,
+      null,
+      sType,
+    );
+    if (maxScore && value > maxScore) {
+      Alert.alert('Score trop élevé', `Le maximum estimé pour ce WOD est de ${maxScore} reps. Vérifie ta saisie.`);
       setSubmitting(false);
       return;
     }
