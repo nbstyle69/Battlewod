@@ -2,6 +2,9 @@
 -- Issue #100 — Niveaux automatiques par paliers ELO + badges
 -- =====================================================================
 
+-- 0. Drop old CHECK constraint
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_level_check;
+
 -- 1. Rename 'gx' → 'elite' in profiles.level
 UPDATE profiles SET level = 'elite' WHERE level = 'gx';
 
@@ -61,3 +64,7 @@ ON CONFLICT (athlete_id, badge_key) DO NOTHING;
 -- 5. Remove old ELO badges from catalog (replaced by level badges)
 DELETE FROM badges_catalog WHERE badge_key IN ('elo_1200', 'elo_1500', 'elo_2000');
 DELETE FROM athlete_badges WHERE badge_key IN ('elo_1200', 'elo_1500', 'elo_2000');
+
+-- 6. Re-add CHECK constraint with 'elite' instead of 'gx'
+ALTER TABLE profiles ADD CONSTRAINT profiles_level_check
+  CHECK (level IN ('scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'));
