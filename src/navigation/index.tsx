@@ -4,7 +4,7 @@ import { navigationRef } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Image, ActivityIndicator, Platform } from 'react-native';
-import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock } from 'lucide-react-native';
+import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock, Compass } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,6 +66,10 @@ import DocumentsScreen from '../screens/documents/DocumentsScreen';
 import EloHistoryScreen from '../screens/profile/EloHistoryScreen';
 import LegalScreen from '../screens/documents/LegalScreen';
 import ChangelogScreen from '../screens/home/ChangelogScreen';
+import ExplorerScreen from '../screens/explorer/ExplorerScreen';
+import ProgrammationScreen from '../screens/explorer/ProgrammationScreen';
+import ProgramAffiliatesScreen from '../screens/explorer/ProgramAffiliatesScreen';
+import AffiliateDetailScreen from '../screens/explorer/AffiliateDetailScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -129,8 +133,16 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   Home: undefined;
   Competitions: undefined;
+  Explorer: undefined;
   Whiteboard: undefined;
   Reservation: undefined;
+};
+
+export type ExplorerStackParamList = {
+  ExplorerMain: undefined;
+  Programmation: undefined;
+  ProgramAffiliates: { category: 'functional' | 'hybrid' };
+  AffiliateDetail: { affiliateId: string; affiliateName: string };
 };
 
 export type TimerType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'ywyr' | 'libre';
@@ -315,6 +327,7 @@ const HomeStack       = createNativeStackNavigator<HomeStackParamList>();
 const WhiteboardStack  = createNativeStackNavigator<WhiteboardStackParamList>();
 const CommunityStack   = createNativeStackNavigator<CommunityStackParamList>();
 const ResStack          = createNativeStackNavigator<ReservationStackParamList>();
+const ExplStack         = createNativeStackNavigator<ExplorerStackParamList>();
 const BOProfileStack    = createNativeStackNavigator<BOProfileStackParamList>();
 const CoachTab          = createBottomTabNavigator<CoachTabParamList>();
 
@@ -403,6 +416,17 @@ function ReservationNavigator() {
       <ResStack.Screen name="ReservationMain" component={ReservationScreen} />
       <ResStack.Screen name="MyReservations" component={MyReservationsScreen} />
     </ResStack.Navigator>
+  );
+}
+
+function ExplorerNavigator() {
+  return (
+    <ExplStack.Navigator screenOptions={{ headerShown: false }}>
+      <ExplStack.Screen name="ExplorerMain" component={ExplorerScreen} />
+      <ExplStack.Screen name="Programmation" component={ProgrammationScreen} />
+      <ExplStack.Screen name="ProgramAffiliates" component={ProgramAffiliatesScreen} />
+      <ExplStack.Screen name="AffiliateDetail" component={AffiliateDetailScreen} />
+    </ExplStack.Navigator>
   );
 }
 
@@ -564,6 +588,7 @@ function MainTabs() {
           const icons: Record<string, React.ReactNode> = {
             Competitions: <Trophy color={color} size={iconSize} />,
             Home:         <Home color={color} size={iconSize} />,
+            Explorer:     <Compass color={color} size={iconSize} />,
             Whiteboard:   <Layout color={color} size={iconSize} />,
             Reservation:  <CalendarClock color={color} size={iconSize} />,
           };
@@ -583,6 +608,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compétitions' }} />
       <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: 'Accueil' }} />
+      <Tab.Screen name="Explorer"     component={ExplorerNavigator}     options={{ tabBarLabel: 'Explorer' }} />
       <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Ma Box' }} />
       <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: 'Réservation' }} />
     </Tab.Navigator>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, ActivityIndicator,
 } from 'react-native';
-import { Sparkles, ChevronLeft, Clock, Zap, RefreshCw, History, Heart } from 'lucide-react-native';
+import { Sparkles, ChevronLeft, Clock, Zap, RefreshCw, History, Heart, BookOpen, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { WODStackParamList } from '../../navigation';
@@ -26,15 +26,16 @@ const TEAM_SIZES = [1, 2, 3, 4, 6];
 
 const HYROX_ORANGE = '#F97316';
 
-const HYROX_LEVELS = ['Open', 'Pro', 'Elite'];
+const HYROX_LEVELS = ['Women', 'Women Pro', 'Men', 'Men Pro'];
 const HYROX_FORMATS = ['Solo', 'Doubles', 'Relais', 'Mixed Relais'];
 const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force'];
 const HYROX_DURATIONS = [20, 30, 45, 60];
 const HYROX_EQUIPMENT = [
-  'SkiErg', 'Sled Push', 'Sled Pull', 'RowErg',
+  'SkiErg', 'Sled Push', 'Sled Pull', 'RowErg', 'BikeErg',
   'Burpee Broad Jump', 'Farmers Carry', 'Sandbag Lunges', 'Wall Balls',
   'Tapis de course', 'Haltères',
 ];
+
 
 interface HyroxWOD {
   title: string;
@@ -86,11 +87,12 @@ function spick<T>(arr: T[], n: number): T[] {
 }
 
 function generateHyroxWOD(level: string, format: string, type: string, duration: number, equipment: string[]): HyroxWOD {
-  const li   = ({ Open: 0, Pro: 1, Elite: 2 } as Record<string, number>)[level] ?? 0;
+  const li = ({ Women: 0, 'Women Pro': 1, Men: 2, 'Men Pro': 3 } as Record<string, number>)[level] ?? 2;
   const ski  = equipment.includes('SkiErg');
   const slp  = equipment.includes('Sled Push');
   const slpu = equipment.includes('Sled Pull');
   const row  = equipment.includes('RowErg');
+  const bike = equipment.includes('BikeErg');
   const sbl  = equipment.includes('Sandbag Lunges');
   const wb   = equipment.includes('Wall Balls');
   const bbj  = equipment.includes('Burpee Broad Jump');
@@ -98,39 +100,46 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const db   = equipment.includes('Haltères');
   const trd  = equipment.includes('Tapis de course');
 
-  // ── Charges / volumes par catégorie ──
-  const sp_kg  = ['60','80','102'][li];
-  const sl_kg  = ['40','60','80'][li];
-  const wb_rep = [75, 100, 100][li];
-  const wb_kg  = ['6','9','9'][li];
-  const fc_kg  = ['16','24','32'][li];
-  const sb_kg  = ['10','20','20'][li];
-  const db_kg  = ['12.5','15','22.5'][li];
-  const ski_d  = ['800m','1000m','1000m'][li];
-  const row_d  = ['800m','1000m','1000m'][li];
-  const r1k    = trd ? '1 km Tapis' : '1 km Run';
-  const r800   = trd ? '800m Tapis' : '800m Run';
-  const r400   = trd ? '400m Tapis' : '400m Run';
+  const sp_kg  = ['75','125','125','175'][li];
+  const sl_kg  = ['50','75','75','125'][li];
+  const wb_rep = [75, 100, 100, 100][li];
+  const wb_kg  = ['4','6','6','9'][li];
+  const fc_kg  = ['16','24','24','32'][li];
+  const sb_kg  = ['10','20','20','30'][li];
+  const db_kg  = ['12.5','15','15','22.5'][li];
+  const bbj_d  = '80m';
+  const ski_d  = '1000m';
+  const row_d  = '1000m';
+  const bike_d = '1000m';
+  const r1k  = trd ? '1 km Tapis' : null;
+  const r800 = trd ? '800m Tapis' : null;
 
-  // ── Stations disponibles (équipement strict + fallback bodyweight) ──
   const S = {
-    ski:  ski  ? `${ski_d} SkiErg`                                  : row ? `${row_d} RowErg`              : `${ski_d} Run`,
-    row:  row  ? `${row_d} RowErg`                                  : ski ? `${ski_d} SkiErg`              : `${row_d} Run`,
-    slp:  slp  ? `50m Sled Push (${sp_kg} kg)`                     : bbj ? `${[15,20,25][li]} Burpee Broad Jump` : `${[20,30,40][li]} Burpees`,
-    slpu: slpu ? `50m Sled Pull (${sl_kg} kg)`                     : fc  ? `${[150,200,200][li]}m Farmers Carry (${fc_kg} kg×2)` : `${[15,20,25][li]} Burpees`,
-    sbl:  sbl  ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)`: fc  ? `${[100,150,200][li]}m Farmers Carry (${fc_kg} kg×2)` : `${[40,60,80][li]} Walking Lunges`,
-    wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`              : `${[60,80,100][li]} Air Squats`,
-    fc:   fc   ? `${[200,200,200][li]}m Farmers Carry (${fc_kg} kg×2)` : sbl ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)` : `${[40,60,80][li]} Goblet Squats`,
-    bbj:  bbj  ? `${[15,20,25][li]} Burpee Broad Jump`             : `${[15,20,30][li]} Burpees`,
-    db:   db   ? `${[12,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,25][li]} Thrusters PVC`,
+    ski:  ski  ? `${ski_d} SkiErg`  : row ? `${row_d} RowErg` : bike ? `${bike_d} BikeErg` : null,
+    row:  row  ? `${row_d} RowErg`  : ski ? `${ski_d} SkiErg` : bike ? `${bike_d} BikeErg` : null,
+    bike: bike ? `${bike_d} BikeErg` : ski ? `${ski_d} SkiErg` : row ? `${row_d} RowErg` : null,
+    slp:  slp  ? `4×12.5m Sled Push (${sp_kg} kg)` : bbj ? `${bbj_d} Burpee Broad Jump` : `${[20,25,25,30][li]} Burpees`,
+    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[20,25,25,30][li]} Burpees`,
+    sbl:  sbl  ? `100m Sandbag Lunges (${sb_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[40,50,50,60][li]} Walking Lunges`,
+    wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)` : `${[60,80,80,100][li]} Air Squats`,
+    fc:   fc   ? `200m Farmers Carry (${fc_kg} kg×2)` : sbl ? `100m Sandbag Lunges (${sb_kg} kg)` : `${[40,50,50,60][li]} Goblet Squats`,
+    bbj:  bbj  ? `${bbj_d} Burpee Broad Jump` : `${[15,20,20,25][li]} Burpees`,
+    db:   db   ? `${[12,15,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,20,25][li]} Thrusters PVC`,
   };
 
-  // ── Pools cardio / force ──
-  const cardioPool = [S.ski, S.row, r800, r400, `${['250m','300m','400m'][li]} SkiErg`].filter(Boolean);
+  const cardioPool: string[] = [];
+  if (S.ski)  cardioPool.push(S.ski);
+  if (S.row && !cardioPool.includes(S.row))  cardioPool.push(S.row);
+  if (S.bike && !cardioPool.includes(S.bike)) cardioPool.push(S.bike);
+  if (r1k)  cardioPool.push(r1k);
+  if (r800) cardioPool.push(r800);
+  if (cardioPool.length === 0) {
+    cardioPool.push(`${[30,40,40,50][li]} Burpees`);
+    cardioPool.push(`${[40,50,50,60][li]} Jumping Lunges`);
+  }
   const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db];
   const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db];
 
-  // ── Anti-doublons : aucune station identique consécutive ──
   function noConsecutive(arr: string[]): string[] {
     for (let i = 1; i < arr.length; i++) {
       if (arr[i] === arr[i - 1]) {
@@ -142,41 +151,23 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     return arr;
   }
 
-  // ── Run distance par catégorie ──
-  function runForLevel(): string {
-    if (li === 0) return srand([r400, r800]);     // Open
-    if (li === 1) return srand([r800, r1k]);      // Pro
-    return r1k;                                    // Elite
-  }
-
   const title = srand(HYROX_SCR_NAMES[type] ?? HYROX_SCR_NAMES['Race Simulation']);
   const tip   = srand(HYROX_SCR_TIPS[type]  ?? HYROX_SCR_TIPS['Race Simulation']);
   let stations: string[] = [];
   let scoring  = '';
+  const isPro = level.includes('Pro');
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 🏁 RACE SIMULATION — alternance Run + Station
-  // ═══════════════════════════════════════════════════════════════════════
   if (type === 'Race Simulation') {
-    const blocCount = duration <= 20 ? srand([3,4])
-                    : duration <= 30 ? srand([4,5])
-                    : duration <= 45 ? srand([6,7])
-                    : 8;
+    const blocCount = duration <= 20 ? srand([3,4]) : duration <= 30 ? srand([4,5]) : duration <= 45 ? srand([6,7]) : 8;
     const picked = spick(allStations, Math.min(blocCount, allStations.length));
     while (picked.length < blocCount) picked.push(srand(allStations.filter(s => s !== picked[picked.length - 1])));
     const result: string[] = [];
-    for (let i = 0; i < blocCount; i++) {
-      result.push(runForLevel());
-      result.push(picked[i]);
-    }
+    for (let i = 0; i < blocCount; i++) { result.push(srand(cardioPool)); result.push(picked[i]); }
     stations = noConsecutive(result);
-    const timeTarget = level === 'Elite' ? `< ${duration - 5} min` : level === 'Pro' ? `< ${duration} min` : `< ${duration + 5} min`;
-    scoring = `For Time — ${blocCount} blocs Run + Station — objectif ${timeTarget}`;
+    const timeTarget = isPro ? `< ${duration} min` : `< ${duration + 5} min`;
+    scoring = `For Time — ${blocCount} blocs Cardio + Station — objectif ${timeTarget}`;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 🎯 STATION TRAINING — circuit sans run continu
-  // ═══════════════════════════════════════════════════════════════════════
   else if (type === 'Station Training') {
     if (duration <= 20) {
       const n = srand([2, 3]);
@@ -186,7 +177,11 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     } else if (duration <= 30) {
       const isChipper = Math.random() < 0.5;
       if (isChipper) {
-        const mvs = spick([...allStations, S.ski, S.row], Math.min(5, allStations.length + 2));
+        const pool = [...allStations];
+        if (S.ski) pool.push(S.ski);
+        if (S.row) pool.push(S.row);
+        if (S.bike) pool.push(S.bike);
+        const mvs = spick(pool, Math.min(5, pool.length));
         stations = ['For Time (Chipper) :', ...mvs];
         scoring = `Chipper — Temps (cap ${duration} min)`;
       } else {
@@ -199,7 +194,11 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
       const emomMins = srand([2, 3]);
       const emomMvs = spick(allStations, emomMins);
       const emomCycles = Math.floor(20 / emomMins);
-      const chipperMvs = spick(allStations.filter(s => !emomMvs.includes(s)).concat([S.ski, S.row]), 4);
+      const chipPool = allStations.filter(s => !emomMvs.includes(s));
+      if (S.ski) chipPool.push(S.ski);
+      if (S.row) chipPool.push(S.row);
+      if (S.bike) chipPool.push(S.bike);
+      const chipperMvs = spick(chipPool, Math.min(4, chipPool.length));
       stations = [
         `── Partie 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
         ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
@@ -209,8 +208,12 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
       scoring = `EMOM ${emomCycles * emomMins} min + Chipper restant`;
     } else {
       const ladderMvs = spick(allStations, 2);
-      const maxRung = [8, 10, 12][li];
-      const chipperMvs = spick(allStations.filter(s => !ladderMvs.includes(s)).concat([S.ski, S.row]), 5);
+      const maxRung = isPro ? 12 : 10;
+      const chipPool = allStations.filter(s => !ladderMvs.includes(s));
+      if (S.ski) chipPool.push(S.ski);
+      if (S.row) chipPool.push(S.row);
+      if (S.bike) chipPool.push(S.bike);
+      const chipperMvs = spick(chipPool, Math.min(5, chipPool.length));
       stations = [
         `── Partie 1 : Ladder 1→${maxRung} For Time ──`,
         ...ladderMvs,
@@ -222,9 +225,6 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     stations = noConsecutive(stations);
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 💪 CARDIO FORCE — alternance cardio + force
-  // ═══════════════════════════════════════════════════════════════════════
   else {
     const blocCount = duration <= 20 ? 4 : duration <= 30 ? 6 : duration <= 45 ? 8 : 10;
     const nC = Math.ceil(blocCount / 2);
@@ -252,7 +252,6 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     stations = noConsecutive(stations);
   }
 
-  // ── Format équipe ──
   const fmtS = (s: string): string => {
     if (s.startsWith('──') || s.startsWith('AMRAP') || s.startsWith('For Time')
         || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  Min')) return s;
@@ -851,7 +850,7 @@ export default function WODGeneratorScreen() {
   const [equipment,    setEquipment]    = useState<string[]>(['Barre + Disques', 'Corde à sauter']);
   const [teamSize,     setTeamSize]     = useState(1);
   const [generatedWOD, setGeneratedWOD] = useState<GeneratedWOD | null>(null);
-  const [hyroxLevel,   setHyroxLevel]   = useState('Open');
+  const [hyroxLevel,   setHyroxLevel]   = useState('Men');
   const [hyroxFormat,  setHyroxFormat]  = useState('Solo');
   const [hyroxType,    setHyroxType]    = useState('Race Simulation');
   const [hyroxDur,     setHyroxDur]     = useState(45);
@@ -919,6 +918,13 @@ export default function WODGeneratorScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Programmation button */}
+        <TouchableOpacity style={S.progBtn} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
+          <BookOpen color={theme.accent} size={16} />
+          <Text style={S.progBtnTxt}>Programmation</Text>
+          <ChevronRight color={theme.textMuted} size={14} />
+        </TouchableOpacity>
+
         {/* Sport selector */}
         <View style={S.sportRow}>
           <TouchableOpacity
@@ -944,7 +950,7 @@ export default function WODGeneratorScreen() {
         {sport === 'functional' ? (
           <>
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Ton niveau</Text>
+          <Text style={S.sectionTitle}>Catégorie</Text>
           <View style={S.chipRow}>
             {LEVELS.map(l => (
               <TouchableOpacity
@@ -977,7 +983,7 @@ export default function WODGeneratorScreen() {
         </View>
 
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Type de WOD</Text>
+          <Text style={S.sectionTitle}>Type d'entraînement</Text>
           <View style={S.chipRow}>
             {UI_WOD_TYPES.map(t => (
               <TouchableOpacity
@@ -992,7 +998,7 @@ export default function WODGeneratorScreen() {
         </View>
 
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Matériel disponible</Text>
+          <Text style={S.sectionTitle}>Équipement disponible</Text>
           <View style={S.equipGrid}>
             {EQUIPMENT_OPTIONS.map(item => (
               <TouchableOpacity
@@ -1226,6 +1232,7 @@ export default function WODGeneratorScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
     </View>
   );
 }
@@ -1308,4 +1315,10 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: theme.accent,
   },
   startButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  progBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: theme.card, borderRadius: 12, paddingVertical: 12,
+    borderWidth: 1, borderColor: theme.border, marginBottom: 16,
+  },
+  progBtnTxt: { fontSize: 13, fontWeight: '800', color: theme.text },
 }); }

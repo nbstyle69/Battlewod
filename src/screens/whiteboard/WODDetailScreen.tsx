@@ -4,7 +4,8 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl, FlatList,
 } from 'react-native';
-import { ChevronLeft, Clock, Plus, RotateCcw, MessageSquare, Trophy, Heart, Send, X, Smile, Share2 } from 'lucide-react-native';
+import { ChevronLeft, Clock, Plus, RotateCcw, MessageSquare, Trophy, Heart, Send, X, Smile, Share2, Play } from 'lucide-react-native';
+import WebView from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import ShareScoreCard from '../../components/ShareScoreCard';
@@ -182,14 +183,29 @@ export default function WODDetailScreen() {
         setScoreMeta(meta);
       }
 
-      // Load ELO deltas for this WOD
+      // ELO: compute lazily after WOD closes (past midnight), then load deltas
+      const wodExpired = new Date() >= (() => { const d = new Date(w.scheduled_date + 'T00:00:00'); d.setDate(d.getDate() + 1); return d; })();
       const { data: eloHist } = await supabase
         .from('elo_history')
         .select('member_id, elo_delta')
         .eq('wod_id', w.id);
-      const dMap: Record<string, number> = {};
-      (eloHist ?? []).forEach((h: any) => { dMap[h.member_id] = h.elo_delta; });
-      setEloDeltas(dMap);
+
+      if (wodExpired && (eloHist ?? []).length === 0 && list.length >= 2 && w.leaderboard_enabled !== false && currentBox) {
+        await computeAndSaveElo(w.id, currentBox.id, list, w.wod_type === 'for-time');
+        const { data: freshHist } = await supabase
+          .from('elo_history')
+          .select('member_id, elo_delta')
+          .eq('wod_id', w.id);
+        const dMap: Record<string, number> = {};
+        (freshHist ?? []).forEach((h: any) => { dMap[h.member_id] = h.elo_delta; });
+        setEloDeltas(dMap);
+      } else if (wodExpired) {
+        const dMap: Record<string, number> = {};
+        (eloHist ?? []).forEach((h: any) => { dMap[h.member_id] = h.elo_delta; });
+        setEloDeltas(dMap);
+      } else {
+        setEloDeltas({});
+      }
     }
     setLoading(false);
     setRefreshing(false);
@@ -301,10 +317,7 @@ export default function WODDetailScreen() {
     setScores(list);
     setMyScore(list.find(sc => sc.member_id === user.id) ?? null);
 
-    // ELO calculation (only if leaderboard enabled)
-    if (wod.leaderboard_enabled !== false) {
-      await computeAndSaveElo(wod.id, currentBox.id, list, wod.wod_type === 'for-time');
-    }
+    // ELO is now computed lazily after WOD closes (past midnight)
 
     setSubmitting(false);
     setModalOpen(false);
@@ -472,30 +485,56 @@ export default function WODDetailScreen() {
             </View>
           )}
 
+          {/* Video */}
+          {wod.video_url && (() => {
+            const m = wod.video_url!.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
+            const vid = m?.[1];
+            if (!vid) return null;
+            return (
+              <View style={S.videoBox}>
+                <View style={S.videoLabel}>
+                  <Play color="#EF4444" size={13} />
+                  <Text style={S.videoLabelText}>Vidéo</Text>
+                </View>
+                <View style={S.videoWrapper}>
+                  <WebView
+                    source={{ uri: `https://www.youtube.com/embed/${vid}?rel=0&modestbranding=1` }}
+                    style={{ height: 200, borderRadius: 12 }}
+                    allowsInlineMediaPlayback
+                    mediaPlaybackRequiresUserAction={false}
+                    scrollEnabled={false}
+                  />
+                </View>
+              </View>
+            );
+          })()}
+
           {/* My score */}
           {myScore ? (
-            <View style={S.myScoreRow}>
-              <View style={S.myScoreBadge}>
+            <View style={S.myScoreWrapper}>
+              <View style={S.myScoreRow}>
                 <Text style={S.myScoreLabel}>Mon score</Text>
                 <Text style={S.myScoreValue}>{formatScore(myScore)}</Text>
                 <Text style={S.myScoreRx}>{myScore.rx ? 'RX' : 'Scaled'}</Text>
+                {wod.leaderboard_enabled !== false && myRank && (
+                  <View style={S.myRankBadge}>
+                    <Trophy color={myRank <= 3 ? theme.gold : theme.textMuted} size={14} />
+                    <Text style={[S.myRankText, myRank <= 3 && { color: theme.gold }]}>#{myRank}</Text>
+                  </View>
+                )}
               </View>
-              {wod.leaderboard_enabled !== false && myRank && (
-                <View style={S.myRankBadge}>
-                  <Trophy color={myRank <= 3 ? theme.gold : theme.textMuted} size={14} />
-                  <Text style={[S.myRankText, myRank <= 3 && { color: theme.gold }]}>#{myRank}</Text>
-                </View>
-              )}
-              <TouchableOpacity style={S.shareScoreBtn} onPress={() => setShareModal(true)} activeOpacity={0.7}>
-                <Share2 color={theme.accent} size={14} />
-                <Text style={S.editScoreBtnText}>Partager</Text>
-              </TouchableOpacity>
-              {!isExpired && (
-                <TouchableOpacity style={S.editScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.7}>
-                  <RotateCcw color={theme.accent} size={14} />
-                  <Text style={S.editScoreBtnText}>Modifier</Text>
+              <View style={S.myScoreActions}>
+                <TouchableOpacity style={S.shareScoreBtn} onPress={() => setShareModal(true)} activeOpacity={0.7}>
+                  <Share2 color={theme.accent} size={14} />
+                  <Text style={S.editScoreBtnText}>Partager</Text>
                 </TouchableOpacity>
-              )}
+                {!isExpired && (
+                  <TouchableOpacity style={S.editScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.7}>
+                    <RotateCcw color={theme.accent} size={14} />
+                    <Text style={S.editScoreBtnText}>Modifier</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           ) : isExpired ? (
             <View style={S.expiredBanner}>
@@ -553,7 +592,7 @@ export default function WODDetailScreen() {
                       </Text>
                       <View style={S.leaderSubRow}>
                         <Text style={S.leaderElo}>{elo} ELO</Text>
-                        {eloDeltas[sc.member_id] != null && (
+                        {isExpired && eloDeltas[sc.member_id] != null && (
                           <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[sc.member_id] > 0 ? '#22c55e' : eloDeltas[sc.member_id] < 0 ? '#ef4444' : theme.textMuted }}>
                             {eloDeltas[sc.member_id] > 0 ? '+' : ''}{eloDeltas[sc.member_id]}
                           </Text>
@@ -995,8 +1034,14 @@ function createStyles(theme: AppTheme) {
   notesBox: { backgroundColor: theme.surface, borderRadius: 10, padding: 10, gap: 4 },
   notesLabel: { fontSize: 10, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.5 },
   notesText: { fontSize: 12, color: theme.textSecondary, lineHeight: 18 },
-  myScoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  myScoreBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  videoBox: { gap: 6, marginTop: 4 },
+  videoLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  videoLabelText: { fontSize: 10, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.5 },
+  videoWrapper: { borderRadius: 12, overflow: 'hidden', height: 200, backgroundColor: '#000' },
+  myScoreWrapper: { gap: 8 },
+  myScoreRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  myScoreBadge: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  myScoreActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   myScoreLabel: { fontSize: 12, color: theme.textMuted, fontWeight: '500' },
   myScoreValue: { fontSize: 20, fontWeight: '900', color: theme.text },
   myScoreRx: {

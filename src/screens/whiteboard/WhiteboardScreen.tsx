@@ -5,7 +5,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { Clock, ChevronRight, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper } from 'lucide-react-native';
+import { Clock, ChevronRight, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper, Play } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -349,6 +349,12 @@ export default function WhiteboardScreen() {
                     <View style={S.wodCardTop}>
                       <WodTypeBadge type={wod.wod_type} />
                       
+                      {wod.video_url && (
+                        <View style={[S.timeCap, { backgroundColor: '#EF444418', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
+                          <Play color="#EF4444" size={10} />
+                          <Text style={[S.timeCapText, { color: '#EF4444' }]}>Vidéo</Text>
+                        </View>
+                      )}
                       {wod.time_cap_seconds != null && (
                         <View style={S.timeCap}>
                           <Clock color={theme.textMuted} size={12} />

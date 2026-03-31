@@ -12,7 +12,7 @@ import {
 describe('elo utilities', () => {
   // ── Constants ────────────────────────────────────────────────────────────
   test('constants have expected values', () => {
-    expect(K_PAIRWISE).toBe(32);
+    expect(K_PAIRWISE).toBe(64);
     expect(K_TOURNAMENT).toBe(48);
     expect(ELO_FLOOR).toBe(100);
   });

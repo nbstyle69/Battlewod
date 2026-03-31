@@ -70,7 +70,7 @@ export default function BOTournamentScreen() {
   useEffect(() => {
     if (!currentBox) { setLoading(false); return; }
     supabase.from('tournaments')
-      .select('id, name, status')
+      .select('id, name, status, end_date')
       .eq('box_id', currentBox.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
@@ -83,6 +83,18 @@ export default function BOTournamentScreen() {
   // ── Load tournament data ──────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     if (!selectedId) return;
+
+    // Auto-close: if end_date has passed and tournament not yet completed
+    const currentTourn = tournaments.find(t => t.id === selectedId);
+    if (currentTourn && currentTourn.status !== 'completed' && currentTourn.end_date) {
+      const endDate = new Date(currentTourn.end_date + 'T00:00:00');
+      endDate.setDate(endDate.getDate() + 1); // end of end_date day
+      if (new Date() >= endDate) {
+        await performTournamentClose(selectedId);
+        setTournaments(prev => prev.map(t => t.id === selectedId ? { ...t, status: 'completed' } : t));
+      }
+    }
+
     const [{ data: sc }, { data: tw }, { data: tp }] = await Promise.all([
       supabase.from('tournament_scores')
         .select('*, tw:tournament_wods(title, type, movements), t:tournaments(name)')
@@ -287,7 +299,84 @@ Réponds en français, sois concis et factuel.`;
     }
   }
 
-  // ── Close tournament + ELO ────────────────────────────────────────────────
+  // ── Core tournament close: compute ELO, gamification, notifications ──────
+  async function performTournamentClose(tournId: string): Promise<{ name: string; rank: number; change: number }[]> {
+    // Check if ELO already computed
+    const { data: existingHist } = await supabase
+      .from('tournament_elo_history')
+      .select('id')
+      .eq('tournament_id', tournId)
+      .limit(1);
+    if ((existingHist ?? []).length > 0) return []; // Already done
+
+    const { data: tp } = await supabase.from('tournament_participants')
+      .select('athlete_id, score')
+      .eq('tournament_id', tournId).order('score', { ascending: false });
+    if (!tp || tp.length < 2) {
+      await supabase.from('tournaments').update({ status: 'completed' }).eq('id', tournId);
+      return [];
+    }
+
+    const tpIds = tp.map((p: any) => p.athlete_id);
+    const { data: tpProfs } = await supabase.from('profiles').select('id, username, elo').in('id', tpIds);
+    const tpProfileMap: Record<string, any> = {};
+    (tpProfs ?? []).forEach((p: any) => { tpProfileMap[p.id] = p; });
+
+    const avgElo = Math.round(tp.reduce((sum: number, p: any) => sum + (tpProfileMap[p.athlete_id]?.elo ?? 1000), 0) / tp.length);
+    const eloChanges: { name: string; rank: number; change: number }[] = [];
+
+    for (let i = 0; i < tp.length; i++) {
+      const p = tp[i];
+      const prof = tpProfileMap[p.athlete_id];
+      const athleteElo = prof?.elo ?? 1000;
+      const rank = i + 1;
+      const change = calcAvgOpponentDelta(athleteElo, rank, tp.length, avgElo);
+      const newElo = clampElo(athleteElo + change);
+      await supabase.rpc('update_user_elo', {
+        p_user_id: p.athlete_id,
+        p_new_elo: newElo,
+        p_increment_matches: 1,
+        p_increment_wins: rank === 1 ? 1 : 0,
+      });
+      await supabase.from('tournament_elo_history').upsert({
+        tournament_id: tournId, athlete_id: p.athlete_id,
+        final_rank: rank, participants_count: tp.length,
+        avg_opponent_elo: avgElo, elo_before: athleteElo,
+        elo_after: newElo, elo_change: change,
+      }, { onConflict: 'tournament_id,athlete_id' });
+      eloChanges.push({ name: prof?.username ?? '?', rank, change });
+    }
+
+    await supabase.from('tournaments').update({ status: 'completed' }).eq('id', tournId);
+
+    // Send push notifications to all participants
+    const tournName = tournaments.find(t => t.id === tournId)?.name ?? 'Tournoi';
+    sendTournamentClosedNotification(
+      tournId,
+      tournName,
+      tp.map((p: any, i: number) => ({ athleteId: p.athlete_id, change: eloChanges[i].change })),
+    ).catch(() => {});
+
+    // Gamification: increment counters + award badges
+    for (let i = 0; i < tp.length; i++) {
+      const p = tp[i];
+      const rank = i + 1;
+      const newElo = (tpProfileMap[p.athlete_id]?.elo ?? 1000) + eloChanges[i].change;
+      incrementCounter(p.athlete_id, 'total_tournaments').catch(() => {});
+      if (rank === 1) incrementCounter(p.athlete_id, 'total_tournament_wins').catch(() => {});
+      if (rank <= 3) {
+        supabase.from('athlete_badges').upsert(
+          { athlete_id: p.athlete_id, badge_key: 'podium' },
+          { onConflict: 'athlete_id,badge_key' },
+        ).then(() => {});
+      }
+      checkAndAwardBadges(p.athlete_id, { elo: newElo }).catch(() => {});
+    }
+
+    return eloChanges;
+  }
+
+  // ── Close tournament (manual) + ELO ─────────────────────────────────────
   async function handleCloseTournament() {
     if (!selectedId) return;
     if (stats.pending > 0) {
@@ -300,79 +389,18 @@ Réponds en français, sois concis et factuel.`;
       [{ text: 'Annuler', style: 'cancel' }, {
         text: 'Clôturer', style: 'destructive', onPress: async () => {
           setClosingTourn(true);
-          const { data: tp } = await supabase.from('tournament_participants')
-            .select('athlete_id, score')
-            .eq('tournament_id', selectedId).order('score', { ascending: false });
-          if (!tp || tp.length < 2) {
-            if (tp && tp.length === 1) {
-              await supabase.from('tournaments').update({ status: 'completed' }).eq('id', selectedId);
-              Alert.alert('Tournoi clôturé', 'Pas assez de participants pour calculer l\'ELO (minimum 2).');
-            }
-            setClosingTourn(false); return;
-          }
-          const tpIds = tp.map((p: any) => p.athlete_id);
-          const { data: tpProfs } = await supabase.from('profiles').select('id, username, elo').in('id', tpIds);
-          const tpProfileMap: Record<string, any> = {};
-          (tpProfs ?? []).forEach((p: any) => { tpProfileMap[p.id] = p; });
-          const tpWithProfile = tp.map((p: any) => ({ ...p, profile: tpProfileMap[p.athlete_id] ?? null }));
-
-          const getProfile = (p: any) => p.profile;
-          const avgElo = Math.round(tpWithProfile.reduce((sum: number, p: any) => sum + (getProfile(p)?.elo ?? 1000), 0) / tpWithProfile.length);
-          const eloChanges: { name: string; rank: number; change: number }[] = [];
-
-          for (let i = 0; i < tpWithProfile.length; i++) {
-            const p = tpWithProfile[i];
-            const prof = getProfile(p);
-            const athleteElo = prof?.elo ?? 1000;
-            const rank = i + 1;
-            const change = calcAvgOpponentDelta(athleteElo, rank, tp.length, avgElo);
-            const newElo = clampElo(athleteElo + change);
-            await supabase.rpc('update_user_elo', {
-              p_user_id: p.athlete_id,
-              p_new_elo: newElo,
-              p_increment_matches: 1,
-              p_increment_wins: rank === 1 ? 1 : 0,
-            });
-            await supabase.from('tournament_elo_history').upsert({
-              tournament_id: selectedId, athlete_id: p.athlete_id,
-              final_rank: rank, participants_count: tp.length,
-              avg_opponent_elo: avgElo, elo_before: athleteElo,
-              elo_after: newElo, elo_change: change,
-            }, { onConflict: 'tournament_id,athlete_id' });
-            eloChanges.push({ name: prof?.username ?? '?', rank, change });
-          }
-          await supabase.from('tournaments').update({ status: 'completed' }).eq('id', selectedId);
+          const eloChanges = await performTournamentClose(selectedId);
           setClosingTourn(false);
+          setTournaments(prev => prev.map(t => t.id === selectedId ? { ...t, status: 'completed' } : t));
 
-          // Send push notifications to all participants
-          const tournName = selectedTourn?.name ?? 'Tournoi';
-          sendTournamentClosedNotification(
-            selectedId!,
-            tournName,
-            tpWithProfile.map((p: any, i: number) => ({ athleteId: p.athlete_id, change: eloChanges[i].change })),
-          ).catch(() => {});
-
-          // Gamification: increment counters + award badges
-          for (let i = 0; i < tpWithProfile.length; i++) {
-            const p = tpWithProfile[i];
-            const rank = i + 1;
-            const newElo = (getProfile(p)?.elo ?? 1000) + eloChanges[i].change;
-            incrementCounter(p.athlete_id, 'total_tournaments').catch(() => {});
-            if (rank === 1) incrementCounter(p.athlete_id, 'total_tournament_wins').catch(() => {});
-            if (rank <= 3) {
-              // Award podium badge
-              supabase.from('athlete_badges').upsert(
-                { athlete_id: p.athlete_id, badge_key: 'podium' },
-                { onConflict: 'athlete_id,badge_key' },
-              ).then(() => {});
-            }
-            checkAndAwardBadges(p.athlete_id, { elo: newElo }).catch(() => {});
+          if (eloChanges.length === 0) {
+            Alert.alert('Tournoi clôturé', 'Pas assez de participants pour calculer l\'ELO (minimum 2).');
+          } else {
+            const recap = eloChanges.slice(0, 5).map(e =>
+              `${e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : e.rank === 3 ? '🥉' : `#${e.rank}`} ${e.name}: ${e.change >= 0 ? '+' : ''}${e.change} ELO`
+            ).join('\n');
+            Alert.alert('✅ Tournoi clôturé !', `ELO distribué :\n\n${recap}\n${eloChanges.length > 5 ? `...et ${eloChanges.length - 5} autres` : ''}`);
           }
-
-          const recap = eloChanges.slice(0, 5).map(e =>
-            `${e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : e.rank === 3 ? '🥉' : `#${e.rank}`} ${e.name}: ${e.change >= 0 ? '+' : ''}${e.change} ELO`
-          ).join('\n');
-          Alert.alert('✅ Tournoi clôturé !', `ELO distribué :\n\n${recap}\n${eloChanges.length > 5 ? `...et ${eloChanges.length - 5} autres` : ''}`);
           loadData();
         },
       }],

@@ -220,14 +220,19 @@ export default function LeaderboardScreen() {
         <>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
             contentContainerStyle={S.levelFilters}>
-            {LEVELS.map((l) => (
-              <TouchableOpacity key={l} onPress={() => setSelectedLevel(l)}
-                style={[S.chip, selectedLevel === l && S.chipActive]}>
-                <Text style={[S.chipText, selectedLevel === l && S.chipTextActive]}>
-                  {l === 'all' ? 'Tous' : l.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {LEVELS.map((l) => {
+              const isAll = l === 'all';
+              const isSel = selectedLevel === l;
+              const color = isAll ? theme.accent : (LevelColors[l as AthleteLevel] ?? theme.accent);
+              return (
+                <TouchableOpacity key={l} onPress={() => setSelectedLevel(l)}
+                  style={[S.chip, isSel && { backgroundColor: `${color}18`, borderColor: color }]}>
+                  <Text style={[S.chipText, isSel && { color, fontWeight: '800' }]}>
+                    {isAll ? 'Tous' : l.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
           {loadingAthletes ? (
             <ActivityIndicator style={{ marginTop: 40 }} color={theme.accent} />
@@ -397,12 +402,10 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   mainTabTextActive: { color: theme.accent, fontWeight: '800' },
   levelFilters: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   chip: {
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    borderWidth: 1, borderColor: theme.border, backgroundColor: theme.background,
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
   },
-  chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
-  chipText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
-  chipTextActive: { color: '#FFFFFF' },
+  chipText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
   list: { padding: 16, gap: 8 },
   sectionHint: { fontSize: 12, color: theme.textMuted, marginBottom: 8 },
   row: {

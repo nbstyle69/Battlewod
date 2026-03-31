@@ -1,9 +1,9 @@
 // ── Shared ELO Calculation Utilities ──────────────────────────────────────────
 // Single source of truth for all ELO calculations across the app.
-// K-factor: 32 for pairwise (daily tournaments, WODs, inter-box)
+// K-factor: 64 for pairwise (daily tournaments, WODs, inter-box)
 //           48 for avg-opponent (box owner tournaments)
 
-export const K_PAIRWISE = 32;
+export const K_PAIRWISE = 64;
 export const K_TOURNAMENT = 48;
 export const ELO_FLOOR = 100;
 

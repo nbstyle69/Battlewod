@@ -42,6 +42,7 @@ export interface BoxWOD {
   rounds?: number;
   notes?: string;
   block_name?: string;
+  video_url?: string;
   is_published: boolean;
   leaderboard_enabled?: boolean;
   created_at: string;

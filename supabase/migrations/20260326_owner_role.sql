@@ -22,44 +22,72 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   )
 $$;
 
--- ── RLS: co-owners can manage box_members (update role, ban, etc.) ──
-DROP POLICY IF EXISTS "box_members_coowner_manage" ON public.box_members;
-CREATE POLICY "box_members_coowner_manage" ON public.box_members
-  FOR ALL USING (is_box_owner_member(box_id))
-  WITH CHECK (is_box_owner_member(box_id));
+-- ── RLS: co-owners can manage box_members ──
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "box_members_coowner_manage" ON public.box_members;
+  CREATE POLICY "box_members_coowner_manage" ON public.box_members
+    FOR ALL USING (is_box_owner_member(box_id))
+    WITH CHECK (is_box_owner_member(box_id));
+  RAISE NOTICE 'OK: box_members';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'SKIP box_members: %', SQLERRM;
+END $$;
 
 -- ── RLS: co-owners can manage boxes settings ──
-DROP POLICY IF EXISTS "boxes_coowner_manage" ON public.boxes;
-CREATE POLICY "boxes_coowner_manage" ON public.boxes
-  FOR UPDATE USING (is_box_owner_member(id))
-  WITH CHECK (is_box_owner_member(id));
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "boxes_coowner_manage" ON public.boxes;
+  CREATE POLICY "boxes_coowner_manage" ON public.boxes
+    FOR UPDATE USING (is_box_owner_member(id))
+    WITH CHECK (is_box_owner_member(id));
+  RAISE NOTICE 'OK: boxes';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'SKIP boxes: %', SQLERRM;
+END $$;
 
 -- ── RLS: co-owners can manage WODs ──
-DROP POLICY IF EXISTS "wods_coowner_manage" ON public.wods;
-CREATE POLICY "wods_coowner_manage" ON public.wods
-  FOR ALL USING (is_box_owner_member(box_id))
-  WITH CHECK (is_box_owner_member(box_id));
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "wods_coowner_manage" ON public.wods;
+  CREATE POLICY "wods_coowner_manage" ON public.wods
+    FOR ALL USING (is_box_owner_member(box_id))
+    WITH CHECK (is_box_owner_member(box_id));
+  RAISE NOTICE 'OK: wods';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'SKIP wods: %', SQLERRM;
+END $$;
 
 -- ── RLS: co-owners can manage message_groups ──
-DROP POLICY IF EXISTS "message_groups_coowner_manage" ON public.message_groups;
-CREATE POLICY "message_groups_coowner_manage" ON public.message_groups
-  FOR ALL USING (is_box_owner_member(box_id))
-  WITH CHECK (is_box_owner_member(box_id));
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "message_groups_coowner_manage" ON public.message_groups;
+  CREATE POLICY "message_groups_coowner_manage" ON public.message_groups
+    FOR ALL USING (is_box_owner_member(box_id))
+    WITH CHECK (is_box_owner_member(box_id));
+  RAISE NOTICE 'OK: message_groups';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'SKIP message_groups: %', SQLERRM;
+END $$;
 
 -- ── RLS: co-owners can manage schedules ──
-DROP POLICY IF EXISTS "class_schedules_coowner_manage" ON public.class_schedules;
-CREATE POLICY "class_schedules_coowner_manage" ON public.class_schedules
-  FOR ALL USING (is_box_owner_member(box_id))
-  WITH CHECK (is_box_owner_member(box_id));
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "class_schedules_coowner_manage" ON public.class_schedules;
+  CREATE POLICY "class_schedules_coowner_manage" ON public.class_schedules
+    FOR ALL USING (is_box_owner_member(box_id))
+    WITH CHECK (is_box_owner_member(box_id));
+  RAISE NOTICE 'OK: class_schedules';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'SKIP class_schedules: %', SQLERRM;
+END $$;
 
 -- ── RLS: co-owners can manage articles ──
-DROP POLICY IF EXISTS "articles_coowner_manage" ON public.box_articles;
-CREATE POLICY "articles_coowner_manage" ON public.box_articles
-  FOR ALL USING (is_box_owner_member(box_id))
-  WITH CHECK (is_box_owner_member(box_id));
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "articles_coowner_manage" ON public.box_articles;
+  CREATE POLICY "articles_coowner_manage" ON public.box_articles
+    FOR ALL USING (is_box_owner_member(box_id))
+    WITH CHECK (is_box_owner_member(box_id));
+  RAISE NOTICE 'OK: box_articles';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'SKIP box_articles: %', SQLERRM;
+END $$;
 
 -- ── RLS: co-owners can manage membership_plans ──
-DROP POLICY IF EXISTS "membership_plans_coowner_manage" ON public.membership_plans;
-CREATE POLICY "membership_plans_coowner_manage" ON public.membership_plans
-  FOR ALL USING (is_box_owner_member(box_id))
-  WITH CHECK (is_box_owner_member(box_id));
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "membership_plans_coowner_manage" ON public.membership_plans;
+  CREATE POLICY "membership_plans_coowner_manage" ON public.membership_plans
+    FOR ALL USING (is_box_owner_member(box_id))
+    WITH CHECK (is_box_owner_member(box_id));
+  RAISE NOTICE 'OK: membership_plans';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'SKIP membership_plans: %', SQLERRM;
+END $$;

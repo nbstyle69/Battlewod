@@ -158,15 +158,30 @@ export default function DailyTournamentDetailScreen() {
 
     setHasScored(mapped.some(p => p.user_id === user.id && p.score_value !== null));
 
-    // Load ELO deltas if tournament is completed
-    if (t?.status === 'completed') {
+    // ELO: compute lazily after tournament ends_at has passed, then load deltas
+    const tournEnded = t?.ends_at ? new Date() >= new Date(t.ends_at) : false;
+    if (t?.status === 'completed' && tournEnded) {
       const { data: eloHist } = await supabase
         .from('daily_tournament_elo_history')
         .select('user_id, elo_delta')
         .eq('tournament_id', tournamentId);
-      const dMap: Record<string, number> = {};
-      (eloHist ?? []).forEach((h: any) => { dMap[h.user_id] = h.elo_delta; });
-      setEloDeltas(dMap);
+
+      if ((eloHist ?? []).length === 0 && mapped.length >= 2) {
+        await computeAndSaveEloForTournament(tournamentId, t, mapped);
+        const { data: freshHist } = await supabase
+          .from('daily_tournament_elo_history')
+          .select('user_id, elo_delta')
+          .eq('tournament_id', tournamentId);
+        const dMap: Record<string, number> = {};
+        (freshHist ?? []).forEach((h: any) => { dMap[h.user_id] = h.elo_delta; });
+        setEloDeltas(dMap);
+      } else {
+        const dMap: Record<string, number> = {};
+        (eloHist ?? []).forEach((h: any) => { dMap[h.user_id] = h.elo_delta; });
+        setEloDeltas(dMap);
+      }
+    } else {
+      setEloDeltas({});
     }
 
     } catch (e) { captureError(e, { screen: 'DailyTournamentDetail', action: 'load' }); }
@@ -291,12 +306,17 @@ export default function DailyTournamentDetailScreen() {
 
   async function completeTournament() {
     if (!tournament) return;
+    // Mark tournament completed — ELO will be computed lazily on first load after ends_at
+    await supabase.from('daily_tournaments').update({ status: 'completed' }).eq('id', tournamentId);
+  }
+
+  async function computeAndSaveEloForTournament(tId: string, t: any, parts: Participant[]) {
     // Get all scores sorted
     const { data: allScores } = await supabase
       .from('daily_tournament_scores')
       .select('user_id, score_value')
-      .eq('tournament_id', tournamentId)
-      .order('score_value', { ascending: tournament.score_mode === 'time' });
+      .eq('tournament_id', tId)
+      .order('score_value', { ascending: t.score_mode === 'time' });
 
     if (!allScores || allScores.length < 2) return;
 
@@ -341,7 +361,7 @@ export default function DailyTournamentDetailScreen() {
       });
 
       historyRows.push({
-        tournament_id: tournamentId,
+        tournament_id: tId,
         user_id: d.id,
         elo_before: pm.elo,
         elo_after: newElo,
@@ -356,9 +376,6 @@ export default function DailyTournamentDetailScreen() {
         onConflict: 'tournament_id,user_id',
       });
     }
-
-    // Mark tournament completed
-    await supabase.from('daily_tournaments').update({ status: 'completed' }).eq('id', tournamentId);
   }
 
   async function handleValidateScore(participantId: string) {
@@ -505,7 +522,7 @@ export default function DailyTournamentDetailScreen() {
                       <View style={[S.levelDot, { backgroundColor: pLevelColor }]} />
                       <Text style={[S.levelTxt, { color: pLevelColor }]}>{p.level.toUpperCase()}</Text>
                       <Text style={S.eloTxt}>{p.elo} ELO</Text>
-                      {eloDeltas[p.user_id] != null && (
+                      {isCompleted && eloDeltas[p.user_id] != null && (
                         <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[p.user_id] > 0 ? '#22c55e' : eloDeltas[p.user_id] < 0 ? '#ef4444' : theme.textMuted }}>
                           {eloDeltas[p.user_id] > 0 ? '+' : ''}{eloDeltas[p.user_id]}
                         </Text>

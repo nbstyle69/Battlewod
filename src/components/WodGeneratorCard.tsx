@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { Sparkles, RefreshCw, Zap, Clock, Users, User, ArrowLeft, Bookmark, Heart, Check, X, History } from 'lucide-react-native';
+import { Sparkles, RefreshCw, Zap, Clock, Users, User, ArrowLeft, Bookmark, Heart, Check, X, History, BookOpen, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, LevelColors } from '../theme/colors';
@@ -29,17 +29,19 @@ const LEVELS: { key: LK; label: string }[] = [
 const LI: Record<LK, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, gx: 4, pro: 5 };
 const FORMATS = ['Solo', 'Équipe 2', 'Équipe 3', 'Équipe 4', 'Équipe 6'];
 
-const HYROX_LEVELS = ['Open', 'Pro', 'Elite'];
+const HYROX_LEVELS = ['Women', 'Women Pro', 'Men', 'Men Pro'];
 const HYROX_FORMATS = ['Solo', 'Doubles', 'Relais', 'Mixed Relais'];
 const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force'];
 const HYROX_DURATIONS = [20, 30, 45, 60];
 const HYROX_EQ_LIST = [
   { key: 'ski',  label: 'SkiErg' },       { key: 'slp',  label: 'Sled Push' },
   { key: 'slpu', label: 'Sled Pull' },    { key: 'row',  label: 'RowErg' },
-  { key: 'bbj',  label: 'Burpee BJ' },   { key: 'fc',   label: 'Farmers Carry' },
-  { key: 'sbl',  label: 'Sandbag Lunge' },{ key: 'wb',   label: 'Wall Balls' },
-  { key: 'run',  label: 'Tapis course' }, { key: 'db2',  label: 'Haltères' },
+  { key: 'bike', label: 'BikeErg' },     { key: 'bbj',  label: 'Burpee BJ' },
+  { key: 'fc',   label: 'Farmers Carry' },{ key: 'sbl',  label: 'Sandbag Lunge' },
+  { key: 'wb',   label: 'Wall Balls' },  { key: 'run',  label: 'Tapis course' },
+  { key: 'db2',  label: 'Haltères' },
 ];
+
 
 interface HyroxWOD {
   name: string; level: string; format: string; type: string; duration: number;
@@ -76,11 +78,13 @@ const HYROX_COACHES: Record<string, string[]> = {
 };
 
 function generateHyroxWOD(level: string, format: string, type: string, duration: number, eqKeys: string[]): HyroxWOD {
-  const li   = ({ Open: 0, Pro: 1, Elite: 2 } as Record<string, number>)[level] ?? 0;
+  // ── Index 4 divisions officielles : Women=0, Women Pro=1, Men=2, Men Pro=3 ──
+  const li = ({ Women: 0, 'Women Pro': 1, Men: 2, 'Men Pro': 3 } as Record<string, number>)[level] ?? 2;
   const ski  = eqKeys.includes('ski');
   const slp  = eqKeys.includes('slp');
   const slpu = eqKeys.includes('slpu');
   const row  = eqKeys.includes('row');
+  const bike = eqKeys.includes('bike');
   const sbl  = eqKeys.includes('sbl');
   const wb   = eqKeys.includes('wb');
   const bbj  = eqKeys.includes('bbj');
@@ -88,35 +92,53 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const db   = eqKeys.includes('db2');
   const trd  = eqKeys.includes('run');
 
-  // ── Charges / volumes par catégorie ──
-  const sp_kg  = ['60','80','102'][li];
-  const sl_kg  = ['40','60','80'][li];
-  const wb_rep = [75, 100, 100][li];
-  const wb_kg  = ['6','9','9'][li];
-  const fc_kg  = ['16','24','32'][li];
-  const sb_kg  = ['10','20','20'][li];
-  const db_kg  = ['12.5','15','22.5'][li];
-  const ski_d  = ['800m','1000m','1000m'][li];
-  const row_d  = ['800m','1000m','1000m'][li];
-  const r1k    = trd ? '1 km Tapis' : '1 km Run';
-  const r800   = trd ? '800m Tapis' : '800m Run';
-  const r400   = trd ? '400m Tapis' : '400m Run';
+  // ── Standards officiels HYROX [Women, Women Pro, Men, Men Pro] ──
+  const sp_kg  = ['75','125','125','175'][li];
+  const sl_kg  = ['50','75','75','125'][li];
+  const wb_rep = [75, 100, 100, 100][li];
+  const wb_kg  = ['4','6','6','9'][li];
+  const fc_kg  = ['16','24','24','32'][li];
+  const sb_kg  = ['10','20','20','30'][li];
+  const db_kg  = ['12.5','15','15','22.5'][li];
+  const bbj_d  = '80m';
+
+  // ── Cardio ergs : toutes les divisions font 1000m ──
+  const ski_d  = '1000m';
+  const row_d  = '1000m';
+  const bike_d = '1000m';
+
+  // ── Run / Tapis : UNIQUEMENT si l'user a sélectionné tapis ou run ──
+  const hasCardioErg = ski || row || bike;
+  const r1k    = trd ? '1 km Tapis' : null;
+  const r800   = trd ? '800m Tapis' : null;
 
   // ── Stations disponibles (équipement strict + fallback bodyweight) ──
   const S = {
-    ski:  ski  ? `${ski_d} SkiErg`                                  : row ? `${row_d} RowErg`              : `${ski_d} Run`,
-    row:  row  ? `${row_d} RowErg`                                  : ski ? `${ski_d} SkiErg`              : `${row_d} Run`,
-    slp:  slp  ? `50m Sled Push (${sp_kg} kg)`                     : bbj ? `${[15,20,25][li]} Burpee Broad Jump` : `${[20,30,40][li]} Burpees`,
-    slpu: slpu ? `50m Sled Pull (${sl_kg} kg)`                     : fc  ? `${[150,200,200][li]}m Farmers Carry (${fc_kg} kg×2)` : `${[15,20,25][li]} Burpees`,
-    sbl:  sbl  ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)`: fc  ? `${[100,150,200][li]}m Farmers Carry (${fc_kg} kg×2)` : `${[40,60,80][li]} Walking Lunges`,
-    wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`              : `${[60,80,100][li]} Air Squats`,
-    fc:   fc   ? `${[200,200,200][li]}m Farmers Carry (${fc_kg} kg×2)` : sbl ? `${[50,75,100][li]}m Sandbag Lunges (${sb_kg} kg)` : `${[40,60,80][li]} Goblet Squats`,
-    bbj:  bbj  ? `${[15,20,25][li]} Burpee Broad Jump`             : `${[15,20,30][li]} Burpees`,
-    db:   db   ? `${[12,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,25][li]} Thrusters PVC`,
+    ski:  ski  ? `${ski_d} SkiErg`  : row ? `${row_d} RowErg` : bike ? `${bike_d} BikeErg` : null,
+    row:  row  ? `${row_d} RowErg`  : ski ? `${ski_d} SkiErg` : bike ? `${bike_d} BikeErg` : null,
+    bike: bike ? `${bike_d} BikeErg` : ski ? `${ski_d} SkiErg` : row ? `${row_d} RowErg` : null,
+    slp:  slp  ? `4×12.5m Sled Push (${sp_kg} kg)`            : bbj ? `${bbj_d} Burpee Broad Jump` : `${[20,25,25,30][li]} Burpees`,
+    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)`            : fc  ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[20,25,25,30][li]} Burpees`,
+    sbl:  sbl  ? `100m Sandbag Lunges (${sb_kg} kg)`          : fc  ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[40,50,50,60][li]} Walking Lunges`,
+    wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`         : `${[60,80,80,100][li]} Air Squats`,
+    fc:   fc   ? `200m Farmers Carry (${fc_kg} kg×2)`         : sbl ? `100m Sandbag Lunges (${sb_kg} kg)` : `${[40,50,50,60][li]} Goblet Squats`,
+    bbj:  bbj  ? `${bbj_d} Burpee Broad Jump`                 : `${[15,20,20,25][li]} Burpees`,
+    db:   db   ? `${[12,15,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,20,25][li]} Thrusters PVC`,
   };
 
-  // ── Pools cardio / force ──
-  const cardioPool = [S.ski, S.row, r800, r400, `${['250m','300m','400m'][li]} SkiErg`].filter(Boolean);
+  // ── Pools cardio (seulement équipements sélectionnés) / force ──
+  const cardioPool: string[] = [];
+  if (S.ski)  cardioPool.push(S.ski);
+  if (S.row && !cardioPool.includes(S.row))  cardioPool.push(S.row);
+  if (S.bike && !cardioPool.includes(S.bike)) cardioPool.push(S.bike);
+  if (r1k)   cardioPool.push(r1k);
+  if (r800)  cardioPool.push(r800);
+  // Fallback si aucun cardio sélectionné : burpees + jumping lunges
+  if (cardioPool.length === 0) {
+    cardioPool.push(`${[30,40,40,50][li]} Burpees`);
+    cardioPool.push(`${[40,50,50,60][li]} Jumping Lunges`);
+  }
+
   const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db];
   const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db];
 
@@ -132,20 +154,19 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     return arr;
   }
 
-  // ── Run distance par catégorie ──
-  function runForLevel(): string {
-    if (li === 0) return rand([r400, r800]);     // Open
-    if (li === 1) return rand([r800, r1k]);      // Pro
-    return r1k;                                   // Elite
+  // ── Cardio entre stations : erg ou tapis, jamais Run sans sélection ──
+  function cardioForTransition(): string {
+    return rand(cardioPool);
   }
 
   const name  = rand(HYROX_NAMES[type] ?? HYROX_NAMES['Race Simulation']);
   const coach = rand(HYROX_COACHES[type] ?? HYROX_COACHES['Race Simulation']);
   let stations: string[] = [];
   let scoring  = '';
+  const isPro = level.includes('Pro');
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 🏁 RACE SIMULATION — alternance Run + Station
+  // 🏁 RACE SIMULATION — alternance Cardio + Station
   // ═══════════════════════════════════════════════════════════════════════
   if (type === 'Race Simulation') {
     const blocCount = duration <= 20 ? rand([3,4])
@@ -153,33 +174,34 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
                     : duration <= 45 ? rand([6,7])
                     : 8;
     const picked = pick(allStations, Math.min(blocCount, allStations.length));
-    // Extend if more blocs needed than unique stations
     while (picked.length < blocCount) picked.push(rand(allStations.filter(s => s !== picked[picked.length - 1])));
     const result: string[] = [];
     for (let i = 0; i < blocCount; i++) {
-      result.push(runForLevel());
+      result.push(cardioForTransition());
       result.push(picked[i]);
     }
     stations = noConsecutive(result);
-    const timeTarget = level === 'Elite' ? `< ${duration - 5} min` : level === 'Pro' ? `< ${duration} min` : `< ${duration + 5} min`;
-    scoring = `For Time — ${blocCount} blocs Run + Station — objectif ${timeTarget}`;
+    const timeTarget = isPro ? `< ${duration} min` : `< ${duration + 5} min`;
+    scoring = `For Time — ${blocCount} blocs Cardio + Station — objectif ${timeTarget}`;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 🎯 STATION TRAINING — circuit sans run continu
+  // 🎯 STATION TRAINING — circuit sans cardio continu
   // ═══════════════════════════════════════════════════════════════════════
   else if (type === 'Station Training') {
     if (duration <= 20) {
-      // AMRAP Couplet / Triplet
       const n = rand([2, 3]);
       const mvs = pick(allStations, n);
       stations = [`AMRAP ${duration} min :`, ...mvs];
       scoring = `Max rounds + reps en ${duration} min — ${n === 3 ? 'Triplet' : 'Couplet'}`;
     } else if (duration <= 30) {
-      // For Time Chipper / Triplet
       const isChipper = Math.random() < 0.5;
       if (isChipper) {
-        const mvs = pick([...allStations, S.ski, S.row], Math.min(5, allStations.length + 2));
+        const pool = [...allStations];
+        if (S.ski) pool.push(S.ski);
+        if (S.row) pool.push(S.row);
+        if (S.bike) pool.push(S.bike);
+        const mvs = pick(pool, Math.min(5, pool.length));
         stations = ['For Time (Chipper) :', ...mvs];
         scoring = `Chipper — Temps (cap ${duration} min)`;
       } else {
@@ -189,11 +211,14 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
         scoring = `Triplet — Temps (cap ${duration} min)`;
       }
     } else if (duration <= 45) {
-      // EMOM + Chipper combiné
       const emomMins = rand([2, 3]);
       const emomMvs = pick(allStations, emomMins);
       const emomCycles = Math.floor(20 / emomMins);
-      const chipperMvs = pick(allStations.filter(s => !emomMvs.includes(s)).concat([S.ski, S.row]), 4);
+      const chipPool = allStations.filter(s => !emomMvs.includes(s));
+      if (S.ski) chipPool.push(S.ski);
+      if (S.row) chipPool.push(S.row);
+      if (S.bike) chipPool.push(S.bike);
+      const chipperMvs = pick(chipPool, Math.min(4, chipPool.length));
       stations = [
         `── Partie 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
         ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
@@ -202,10 +227,13 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
       ];
       scoring = `EMOM ${emomCycles * emomMins} min + Chipper restant`;
     } else {
-      // 60 min : Ladder + Chipper
       const ladderMvs = pick(allStations, 2);
-      const maxRung = [8, 10, 12][li];
-      const chipperMvs = pick(allStations.filter(s => !ladderMvs.includes(s)).concat([S.ski, S.row]), 5);
+      const maxRung = isPro ? 12 : 10;
+      const chipPool = allStations.filter(s => !ladderMvs.includes(s));
+      if (S.ski) chipPool.push(S.ski);
+      if (S.row) chipPool.push(S.row);
+      if (S.bike) chipPool.push(S.bike);
+      const chipperMvs = pick(chipPool, Math.min(5, chipPool.length));
       stations = [
         `── Partie 1 : Ladder 1→${maxRung} For Time ──`,
         ...ladderMvs,
@@ -228,7 +256,6 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     while (pC.length < nC) pC.push(rand(cardioPool.filter(c => c !== pC[pC.length - 1])));
     const pF = pick(forcePool, Math.min(nF, forcePool.length));
     while (pF.length < nF) pF.push(rand(forcePool.filter(f => f !== pF[pF.length - 1])));
-    // Strict alternation: cardio → force → cardio → force
     const combined: string[] = [];
     for (let i = 0; i < Math.max(nC, nF); i++) {
       if (pC[i]) combined.push(pC[i]);
@@ -279,48 +306,48 @@ interface GeneratedWOD {
 const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
   bb: [
     { mv: 'Clean & Jerks', scale: ['30/20','43/30','60/43','70/48','80/55','102/70'] },
-    { mv: 'Power Cleans', scale: ['40/28','50/35','60/43','70/48','80/55','90/63'] },
-    { mv: 'Cleans', scale: ['35/25','45/32','60/43','70/48','80/55','90/63'] },
-    { mv: 'Squat Cleans', scale: ['35/25','45/32','60/43','70/48','80/55','90/63'] },
-    { mv: 'Hang Cleans', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
-    { mv: 'Hang Squat Cleans', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
-    { mv: 'Hang Power Cleans', scale: ['35/25','45/32','60/43','70/48','80/55','90/63'] },
-    { mv: 'Hang Clean & Jerks', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
-    { mv: 'Hang Squat Clean & Jerks', scale: ['','30/20','43/30','50/35','60/42','70/48'] },
-    { mv: 'Thrusters', scale: ['30/20','40/28','43/30','50/35','60/42','70/48'] },
-    { mv: 'Clusters', scale: ['30/20','35/25','43/30','50/35','60/42','70/48'] },
-    { mv: 'Deadlifts', scale: ['70/50','100/70','120/80','140/95','160/110','180/120'] },
-    { mv: 'Snatches', scale: ['20/15','35/25','50/35','60/42','70/50','85/60'] },
-    { mv: 'Power Snatches', scale: ['20/15','35/25','50/35','60/42','70/50','85/60'] },
-    { mv: 'Squat Snatches', scale: ['','25/18','40/28','50/35','60/42','70/48'] },
-    { mv: 'Hang Snatches', scale: ['','25/18','35/25','43/30','50/35','60/42'] },
-    { mv: 'Front Squats', scale: ['40/28','55/38','70/48','85/58','100/68','120/80'] },
-    { mv: 'Back Squats', scale: ['50/35','60/42','70/48','85/58','100/68','120/80'] },
-    { mv: 'OHS', scale: ['20/15','35/25','50/35','60/42','70/48','80/55'] },
-    { mv: 'Push Press', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
-    { mv: 'Push Jerks', scale: ['30/20','40/28','50/35','60/42','70/48','80/55'] },
-    { mv: 'Strict Press', scale: ['20/15','30/20','40/28','50/35','55/38','60/42'] },
-    { mv: 'Shoulder to OH', scale: ['25/18','35/25','45/32','55/38','65/45','75/50'] },
-    { mv: 'Sumo Deadlift HP', scale: ['25/18','30/20','35/25','40/28','50/35','55/38'] },
+    { mv: 'Power Cleans', scale: ['30/20','43/30','60/43','70/48','80/55','90/63'] },
+    { mv: 'Cleans', scale: ['30/20','43/30','60/43','70/48','80/55','90/63'] },
+    { mv: 'Squat Cleans', scale: ['30/20','43/30','60/43','70/48','80/55','90/63'] },
+    { mv: 'Hang Cleans', scale: ['25/18','38/25','52/35','60/43','70/48','80/55'] },
+    { mv: 'Hang Squat Cleans', scale: ['25/18','38/25','52/35','60/43','70/48','80/55'] },
+    { mv: 'Hang Power Cleans', scale: ['30/20','43/30','60/43','70/48','80/55','90/63'] },
+    { mv: 'Hang Clean & Jerks', scale: ['25/18','38/25','52/35','60/43','70/48','80/55'] },
+    { mv: 'Hang Squat Clean & Jerks', scale: ['','30/20','52/35','60/43','70/48','80/55'] },
+    { mv: 'Thrusters', scale: ['20/15','30/20','43/30','52/35','60/43','70/48'] },
+    { mv: 'Clusters', scale: ['20/15','30/20','43/30','52/35','60/43','70/48'] },
+    { mv: 'Deadlifts', scale: ['50/35','70/48','100/70','120/84','140/95','160/110'] },
+    { mv: 'Snatches', scale: ['20/15','30/20','43/30','52/35','60/43','70/48'] },
+    { mv: 'Power Snatches', scale: ['20/15','30/20','43/30','52/35','60/43','70/48'] },
+    { mv: 'Squat Snatches', scale: ['','25/18','43/30','52/35','60/43','70/48'] },
+    { mv: 'Hang Snatches', scale: ['','20/15','38/25','43/30','52/35','60/43'] },
+    { mv: 'Front Squats', scale: ['30/20','43/30','60/43','75/52','85/58','102/70'] },
+    { mv: 'Back Squats', scale: ['35/25','50/35','70/48','85/58','100/68','120/80'] },
+    { mv: 'OHS', scale: ['20/15','30/20','43/30','52/35','60/43','70/48'] },
+    { mv: 'Push Press', scale: ['20/15','30/20','43/30','52/35','60/43','70/48'] },
+    { mv: 'Push Jerks', scale: ['20/15','30/20','43/30','52/35','60/43','70/48'] },
+    { mv: 'Strict Press', scale: ['15/10','25/18','35/25','43/30','50/35','60/43'] },
+    { mv: 'Shoulder to OH', scale: ['20/15','30/20','43/30','52/35','60/43','70/48'] },
+    { mv: 'Sumo Deadlift HP', scale: ['15/10','25/18','35/25','43/30','50/35','55/38'] },
     { mv: 'Burpee Over Bar', scale: ['—','—','—','—','—','—'] },
     { mv: 'Bar Facing Burpees', scale: ['—','—','—','—','—','—'] },
   ],
   db: [
-    { mv: 'DB Thrusters', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Snatches alt.', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Hang Snatches', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Squat Snatches', scale: ['','10/7','12/8','15/10','20/14','22/15'] },
-    { mv: "Devil's Press", scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Clean & Jerks', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Hang Clean & Jerks', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Deadlifts', scale: ['15/10','20/14','25/17','30/20','35/22','40/27'] },
-    { mv: 'DB Lunges', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB Walking Lunges', scale: ['10/7','15/10','20/14','22/15','25/17','30/20'] },
-    { mv: 'DB OH Walking Lunges', scale: ['10/7','12/8','15/10','17/12','20/14','22/15'] },
-    { mv: 'DB Push Press', scale: ['10/7','12/8','15/10','17/12','20/14','22/15'] },
-    { mv: 'DB Farmer Carry (m)', scale: ['25','25','50','50','50','75'] },
+    { mv: 'DB Thrusters', scale: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+    { mv: 'DB Snatches alt.', scale: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+    { mv: 'DB Hang Snatches', scale: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+    { mv: 'DB Squat Snatches', scale: ['','10/7','15/10','20/14','22.5/15','25/17'] },
+    { mv: "Devil's Press", scale: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+    { mv: 'DB Clean & Jerks', scale: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+    { mv: 'DB Hang Clean & Jerks', scale: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+    { mv: 'DB Deadlifts', scale: ['15/10','20/14','22.5/15','30/20','35/25','40/27'] },
+    { mv: 'DB Lunges', scale: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+    { mv: 'DB Walking Lunges', scale: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+    { mv: 'DB OH Walking Lunges', scale: ['7/5','10/7','15/10','20/14','22.5/15','25/17'] },
+    { mv: 'DB Push Press', scale: ['7/5','10/7','15/10','20/14','22.5/15','25/17'] },
+    { mv: 'DB Farmer Carry (m)', scale: ['25','25','50','50','75','75'] },
     { mv: 'Burpee Over DB', scale: ['—','—','—','—','—','—'] },
-    { mv: 'DB Step-ups', scale: ['10/7','12/8','15/10','17/12','20/14','22/15'] },
+    { mv: 'DB Step-ups', scale: ['7/5','10/7','15/10','20/14','22.5/15','25/17'] },
   ],
   kb: [
     { mv: 'KB Swings', scale: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
@@ -356,17 +383,17 @@ const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
     { mv: 'Double Cross Overs', scale: ['—','—','—','Double Cross Overs','Double Cross Overs','Double Cross Overs'] },
   ],
   pb: [
-    { mv: 'Pull-ups', scale: ['Ring Rows','Australian PU','Pull-ups','C2B','C2B stricts','Bar MU'] },
-    { mv: 'Toes to Bar', scale: ['K2E','K2C','T2B','T2B','T2B','T2B'] },
+    { mv: 'Pull-ups', scale: ['Ring Rows','Banded Pull-ups','Pull-ups','C2B','C2B stricts','Bar MU'] },
+    { mv: 'Toes to Bar', scale: ['K2E','K2C','T2B','T2B','T2B stricts','T2B stricts'] },
     { mv: 'Knees to Elbows', scale: ['K2E','K2E','K2E','T2B','T2B','T2B'] },
-    { mv: 'HSPU', scale: ['Pike PU','HSPU modif','HSPU Stricts','Wall Facing HSPU','Wall Facing HSPU','Wall Facing HSPU'] },
-    { mv: 'Kipping Pull-ups', scale: ['Ring Rows','Australian PU','Kipping PU','C2B','C2B','BMU'] },
-    { mv: 'Bar Muscle-ups', scale: ['—','—','—','BMU modif','BMU','BMU'] },
+    { mv: 'HSPU', scale: ['Pike PU','Box HSPU','HSPU (kipping)','HSPU Stricts','Deficit HSPU','Strict Deficit HSPU'] },
+    { mv: 'Kipping Pull-ups', scale: ['Ring Rows','Banded Pull-ups','Kipping PU','C2B','C2B','BMU'] },
+    { mv: 'Bar Muscle-ups', scale: ['—','C2B','BMU','BMU','BMU stricts','BMU stricts'] },
     { mv: 'Pull-Overs', scale: ['—','Pull-Over modif','Pull-Overs','Pull-Overs','Pull-Overs','Pull-Overs'] },
   ],
   ri: [
-    { mv: 'Ring Dips', scale: ['Ring Dip modif','Ring Dip modif','Ring Dips','Ring Dips','Ring Dips stricts','Ring Dips stricts'] },
-    { mv: 'Muscle-ups', scale: ['Ring Rows+Dips','Ring Rows+Dips','MU modif','MU modif','Muscle-ups','Muscle-ups'] },
+    { mv: 'Ring Dips', scale: ['Banded Ring Dips','Ring Dip modif','Ring Dips','Ring Dips stricts','Ring Dips stricts','Ring Dips lestés'] },
+    { mv: 'Muscle-ups', scale: ['Ring Rows+Dips','MU transitions','Muscle-ups','Muscle-ups','Strict MU','Strict MU'] },
     { mv: 'Ring Push-ups', scale: ['Ring PU genoux','Ring PU','Ring PU','Ring PU élargis','Ring PU + pause','Archer Ring PU'] },
     { mv: 'Ring Rows', scale: ['Incliné 45°','Horizontal','Horizontal','Pieds surélevés','Pieds surélevés+pause','Archer Ring Row'] },
     { mv: 'Toes to Rings', scale: ['—','K2R','T2R','T2R','T2R','T2R'] },
@@ -519,7 +546,7 @@ function fmtName(mv: { mv: string; scale: string[] }, li: number): string {
 }
 
 function scaleReps(base: number, li: number): number {
-  const factors = [0.6, 0.75, 1, 1.2, 1.4, 1.6];
+  const factors = [0.6, 0.8, 1, 1.15, 1.3, 1.5];
   return Math.round(base * factors[li]);
 }
 
@@ -834,7 +861,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const [equipment,   setEquipment]   = useState<string[]>(['bw']);
   const [wod,         setWod]         = useState<GeneratedWOD | null>(null);
   // Hybrid / Hyrox
-  const [hyroxLevel,  setHyroxLevel]  = useState('Open');
+  const [hyroxLevel,  setHyroxLevel]  = useState('Men');
   const [hyroxFormat, setHyroxFormat] = useState('Solo');
   const [hyroxType,   setHyroxType]   = useState('Race Simulation');
   const [hyroxDur,    setHyroxDur]    = useState(45);
@@ -999,6 +1026,13 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         </TouchableOpacity>
       </View>
 
+      {/* Programmation button */}
+      <TouchableOpacity style={s.progBtn} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
+        <BookOpen color={theme.accent} size={16} />
+        <Text style={s.progBtnTxt}>Programmation</Text>
+        <ChevronRight color={theme.textMuted} size={14} />
+      </TouchableOpacity>
+
       {/* Sport selector */}
       <View style={s.sportRow}>
         <TouchableOpacity
@@ -1021,7 +1055,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
 
       {sport === 'functional' ? (<>
       {/* Level */}
-      <Text style={s.optLabel}>NIVEAU</Text>
+      <Text style={s.optLabel}>CATÉGORIE</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
         {LEVELS.map(l => (
           <TouchableOpacity key={l.key} onPress={() => setLevel(l.key)} activeOpacity={0.7}
@@ -1056,7 +1090,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       </ScrollView>
 
       {/* Type */}
-      <Text style={s.optLabel}>TYPE</Text>
+      <Text style={s.optLabel}>TYPE D'ENTRAÎNEMENT</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
         {UI_WOD_TYPES.map(t => (
           <TouchableOpacity key={t} onPress={() => setWodType(t)} activeOpacity={0.7}
@@ -1067,7 +1101,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       </ScrollView>
 
       {/* Equipment */}
-      <Text style={s.optLabel}>MATÉRIEL</Text>
+      <Text style={s.optLabel}>ÉQUIPEMENT</Text>
       <View style={s.eqGrid}>
         {EQ_LIST.map(e => (
           <TouchableOpacity key={e.key} onPress={() => toggleEq(e.key)} activeOpacity={0.7}
@@ -1287,6 +1321,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         </View>
       )}
 
+
       {/* ── Score Modal ── */}
       <Modal visible={scoreModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setScoreModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
@@ -1479,4 +1514,10 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     backgroundColor: t.surface, borderRadius: 10, borderWidth: 1, borderColor: t.border,
     padding: 12, fontSize: 16, fontWeight: '700', color: t.text,
   },
+  progBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: t.card, borderRadius: 12, paddingVertical: 12,
+    borderWidth: 1, borderColor: t.border, marginBottom: 16,
+  },
+  progBtnTxt: { fontSize: 13, fontWeight: '800', color: t.text },
 }); }
