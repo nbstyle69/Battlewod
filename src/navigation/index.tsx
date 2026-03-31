@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
 import { navigationRef } from './navigationRef';
+import { linking } from './linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Image, ActivityIndicator, Platform } from 'react-native';
@@ -652,7 +653,7 @@ export default function AppNavigator() {
   const needsOnboarding = isAuthenticated && isB2BUser && !currentBox && !boxSkipped;
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           // ── Not logged in ──────────────────────────────

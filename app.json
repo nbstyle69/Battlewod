@@ -11,9 +11,11 @@
       "resizeMode": "contain",
       "backgroundColor": "#0A0A0F"
     },
+    "scheme": "athlex",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nbstyle.athlex",
+      "associatedDomains": ["applinks:athlex.app"],
       "icon": "./assets/logoapp.png",
       "config": {
         "usesNonExemptEncryption": false
@@ -45,7 +47,21 @@
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.athlex.app",
-      "versionCode": 18
+      "versionCode": 18,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "athlex.app",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
