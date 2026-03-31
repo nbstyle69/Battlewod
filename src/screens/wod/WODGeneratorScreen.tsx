@@ -118,13 +118,13 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     ski:  ski  ? `${ski_d} SkiErg`  : row ? `${row_d} RowErg` : bike ? `${bike_d} BikeErg` : null,
     row:  row  ? `${row_d} RowErg`  : ski ? `${ski_d} SkiErg` : bike ? `${bike_d} BikeErg` : null,
     bike: bike ? `${bike_d} BikeErg` : ski ? `${ski_d} SkiErg` : row ? `${row_d} RowErg` : null,
-    slp:  slp  ? `4×12.5m Sled Push (${sp_kg} kg)` : bbj ? `${bbj_d} Burpee Broad Jump` : `${[20,25,25,30][li]} Burpees`,
-    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[20,25,25,30][li]} Burpees`,
+    slp:  slp  ? `4×12.5m Sled Push (${sp_kg} kg)` : bbj ? `${bbj_d} Burpee Broad Jump` : `${[20,25,25,30][li]} Push-ups`,
+    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[15,20,20,25][li]}m Bear Crawl`,
     sbl:  sbl  ? `100m Sandbag Lunges (${sb_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[40,50,50,60][li]} Walking Lunges`,
     wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)` : `${[60,80,80,100][li]} Air Squats`,
     fc:   fc   ? `200m Farmers Carry (${fc_kg} kg×2)` : sbl ? `100m Sandbag Lunges (${sb_kg} kg)` : `${[40,50,50,60][li]} Goblet Squats`,
-    bbj:  bbj  ? `${bbj_d} Burpee Broad Jump` : `${[15,20,20,25][li]} Burpees`,
-    db:   db   ? `${[12,15,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,20,25][li]} Thrusters PVC`,
+    bbj:  bbj  ? `${bbj_d} Burpee Broad Jump` : `${[10,12,12,15][li]} Broad Jumps`,
+    db:   db   ? `${[12,15,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,20,25][li]} Jumping Squats`,
   };
 
   const cardioPool: string[] = [];
@@ -140,12 +140,19 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db];
   const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db];
 
+  // ── Anti-doublons : aucune station identique consécutive + dédup ──
   function noConsecutive(arr: string[]): string[] {
+    // Pass 1 — try to swap consecutive duplicates with a later different item
     for (let i = 1; i < arr.length; i++) {
       if (arr[i] === arr[i - 1]) {
+        let swapped = false;
         for (let j = i + 1; j < arr.length; j++) {
-          if (arr[j] !== arr[i]) { [arr[i], arr[j]] = [arr[j], arr[i]]; break; }
+          if (arr[j] !== arr[i] && (j + 1 >= arr.length || arr[j] !== arr[j + 1])) {
+            [arr[i], arr[j]] = [arr[j], arr[i]]; swapped = true; break;
+          }
         }
+        // Pass 2 — if swap failed, remove the duplicate entirely
+        if (!swapped) { arr.splice(i, 1); i--; }
       }
     }
     return arr;
