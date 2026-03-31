@@ -5,6 +5,8 @@ import { linking } from './linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Image, ActivityIndicator, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import OnboardingTutorialScreen, { ONBOARDING_KEY } from '../screens/onboarding/OnboardingTutorialScreen';
 import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock, Compass } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
 
@@ -625,13 +627,18 @@ export default function AppNavigator() {
   const { session, user, currentBox, boxRole, loading, boxSkipped } = useAuth();
   const { theme } = useTheme();
   const [splashDone, setSplashDone] = React.useState(false);
+  const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
     const t = setTimeout(() => setSplashDone(true), 1500);
     return () => clearTimeout(t);
   }, []);
 
-  if (loading || !splashDone) {
+  React.useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_KEY).then(v => setOnboardingDone(v === 'true'));
+  }, []);
+
+  if (loading || !splashDone || onboardingDone === null) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0A0A0F', justifyContent: 'center', alignItems: 'center', gap: 32 }}>
         <Image
@@ -641,6 +648,11 @@ export default function AppNavigator() {
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
+  }
+
+  // Show tutorial on first launch (before anything else)
+  if (!onboardingDone) {
+    return <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />;
   }
 
   const isAuthenticated = !!session && !!user;
