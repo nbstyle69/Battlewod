@@ -13,7 +13,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
-import { calculatePairwiseDeltas, RankedPlayer } from '../../utils/elo';
+import { calculatePairwiseDeltas, RankedPlayer, SCALED_MULTIPLIER } from '../../utils/elo';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
@@ -50,6 +50,15 @@ function formatScore(score: WODScore): string {
 
 // ── ELO Calculation (delegated to shared utility) ───────────────────────
 
+// Sort scores: RX always above Scaled, then by score_value
+function sortScoresRxFirst(scores: WODScore[], isTimeBased: boolean): WODScore[] {
+  return [...scores].sort((a, b) => {
+    const rxDiff = (a.rx ? 0 : 1) - (b.rx ? 0 : 1);
+    if (rxDiff !== 0) return rxDiff;
+    return isTimeBased ? a.score_value - b.score_value : b.score_value - a.score_value;
+  });
+}
+
 async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[], isTimeBased: boolean) {
   if (scores.length < 2) return;
 
@@ -65,21 +74,29 @@ async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[
   const eloMap: Record<string, number> = {};
   for (const p of profiles) eloMap[p.id] = p.elo ?? 1000;
 
-  // Sort scores: for time => ascending (lower is better), else descending (higher is better)
-  const sorted = [...scores].sort((a, b) =>
-    isTimeBased ? a.score_value - b.score_value : b.score_value - a.score_value
-  );
+  // Build rx lookup
+  const rxMap: Record<string, boolean> = {};
+  for (const s of scores) rxMap[s.member_id] = !!s.rx;
 
-  // Assign ranks (handle ties)
-  const ranked = sorted.map((s, i) => {
+  // Sort scores: RX first, then by score_value
+  const sorted = sortScoresRxFirst(scores, isTimeBased);
+
+  // Assign ranks (handle ties — same rx + same score = same rank)
+  const ranked: (RankedPlayer & { isScaled: boolean })[] = sorted.map((s, i) => {
     let rank = i + 1;
-    if (i > 0 && sorted[i].score_value === sorted[i - 1].score_value) {
+    if (i > 0 && sorted[i].score_value === sorted[i - 1].score_value && sorted[i].rx === sorted[i - 1].rx) {
       rank = ranked[i - 1]?.rank ?? rank;
     }
-    return { id: s.member_id, elo: eloMap[s.member_id] ?? 1000, rank };
+    return { id: s.member_id, elo: eloMap[s.member_id] ?? 1000, rank, isScaled: !s.rx };
   });
 
-  const deltas = calculatePairwiseDeltas(ranked);
+  const rawDeltas = calculatePairwiseDeltas(ranked);
+
+  // Apply SCALED_MULTIPLIER for Scaled players
+  const deltas = rawDeltas.map(d => ({
+    ...d,
+    delta: Math.round(d.delta * (rxMap[d.id] ? 1 : SCALED_MULTIPLIER)),
+  }));
 
   // Upsert elo_history
   const historyRows = deltas.map(d => ({
@@ -165,10 +182,9 @@ export default function WODDetailScreen() {
       const { data: scoreData } = await supabase
         .from('wod_scores')
         .select('*, profile:profiles(id, username, avatar_url, level, elo, gender)')
-        .eq('wod_id', w.id)
-        .order('score_value', { ascending: w.wod_type === 'for-time' });
+        .eq('wod_id', w.id);
 
-      const list = (scoreData ?? []) as WODScore[];
+      const list = sortScoresRxFirst((scoreData ?? []) as WODScore[], w.wod_type === 'for-time');
       setScores(list);
       setMyScore(list.find(sc => sc.member_id === user?.id) ?? null);
       setScoreType(allowedScoreTypes(w.wod_type).default);
@@ -305,10 +321,9 @@ export default function WODDetailScreen() {
     const { data: updatedScores } = await supabase
       .from('wod_scores')
       .select('*, profile:profiles(id, username, avatar_url, level, elo)')
-      .eq('wod_id', wod.id)
-      .order('score_value', { ascending: wod.wod_type === 'for-time' });
+      .eq('wod_id', wod.id);
 
-    const list = (updatedScores ?? []) as WODScore[];
+    const list = sortScoresRxFirst((updatedScores ?? []) as WODScore[], wod.wod_type === 'for-time');
 
     // Detect overtaken users: users who were ranked above my new position before
     const myNewIdx = list.findIndex(s => s.member_id === user.id);
@@ -624,6 +639,11 @@ export default function WODDetailScreen() {
                     </View>
                     <View style={S.leaderRight}>
                       <Text style={[S.leaderScore, i === 0 && S.leaderScoreGold]}>{formatScore(sc)}</Text>
+                      <View style={[S.leaderRxBadge, { backgroundColor: sc.rx ? `${theme.success}18` : `${theme.warning}18` }]}>
+                        <Text style={{ fontSize: 9, fontWeight: '800', color: sc.rx ? theme.success : theme.warning }}>
+                          {sc.rx ? 'RX' : 'Scaled'}
+                        </Text>
+                      </View>
                     </View>
                   </TouchableOpacity>
                 );
@@ -1105,9 +1125,10 @@ function createStyles(theme: AppTheme) {
   leaderSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   leaderMetaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: theme.surface, borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
   leaderMetaCount: { fontSize: 10, fontWeight: '700', color: theme.textMuted },
-  leaderRight: { alignItems: 'flex-end' },
+  leaderRight: { alignItems: 'flex-end', gap: 3 },
   leaderScore: { fontSize: 15, fontWeight: '900', color: theme.text, fontVariant: ['tabular-nums'] },
   leaderScoreGold: { color: theme.gold },
+  leaderRxBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
   modalContainer: { flex: 1, backgroundColor: theme.background },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

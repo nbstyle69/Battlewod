@@ -6,6 +6,7 @@
 export const K_PAIRWISE = 64;
 export const K_TOURNAMENT = 48;
 export const ELO_FLOOR = 100;
+export const SCALED_MULTIPLIER = 0.4; // Scaled players earn ×2.5 less ELO than RX
 
 export interface RankedPlayer {
   id: string;

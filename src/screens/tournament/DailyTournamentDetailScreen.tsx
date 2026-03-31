@@ -20,7 +20,7 @@ import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { formatScoreValue } from '../../utils/scoreFormat';
-import { calculatePairwiseDeltas } from '../../utils/elo';
+import { calculatePairwiseDeltas, SCALED_MULTIPLIER } from '../../utils/elo';
 
 import { HomeStackParamList, TimerType } from '../../navigation';
 
@@ -132,12 +132,14 @@ export default function DailyTournamentDetailScreen() {
       };
     });
 
-    // Sort: scored first (by best score), then unscored
+    // Sort: scored first, RX above Scaled within scored, then by score, then unscored
     const scoreMode = t?.score_mode ?? 'time';
     mapped.sort((a, b) => {
       if (a.score_value === null && b.score_value === null) return 0;
       if (a.score_value === null) return 1;
       if (b.score_value === null) return -1;
+      const rxDiff = (a.rx ? 0 : 1) - (b.rx ? 0 : 1);
+      if (rxDiff !== 0) return rxDiff;
       return scoreMode === 'time'
         ? a.score_value - b.score_value
         : b.score_value - a.score_value;
@@ -328,14 +330,25 @@ export default function DailyTournamentDetailScreen() {
   }
 
   async function computeAndSaveEloForTournament(tId: string, t: any, parts: Participant[]) {
-    // Get all scores sorted
-    const { data: allScores } = await supabase
+    // Get all scores sorted — include rx field for RX-first ranking
+    const { data: allScoresRaw } = await supabase
       .from('daily_tournament_scores')
-      .select('user_id, score_value')
-      .eq('tournament_id', tId)
-      .order('score_value', { ascending: t.score_mode === 'time' });
+      .select('user_id, score_value, rx')
+      .eq('tournament_id', tId);
 
-    if (!allScores || allScores.length < 2) return;
+    if (!allScoresRaw || allScoresRaw.length < 2) return;
+
+    // Sort: RX first, then by score_value
+    const isTimeBased = t.score_mode === 'time';
+    const allScores = [...allScoresRaw].sort((a, b) => {
+      const rxDiff = (a.rx ? 0 : 1) - (b.rx ? 0 : 1);
+      if (rxDiff !== 0) return rxDiff;
+      return isTimeBased ? a.score_value - b.score_value : b.score_value - a.score_value;
+    });
+
+    // Build rx lookup
+    const rxMap: Record<string, boolean> = {};
+    for (const s of allScores) rxMap[s.user_id] = !!s.rx;
 
     // Get current ELO for all participants
     const userIds = allScores.map(s => s.user_id);
@@ -351,18 +364,22 @@ export default function DailyTournamentDetailScreen() {
       profileMap[p.id] = { elo: p.elo ?? 1000, wins: p.wins ?? 0, total_matches: p.total_matches ?? 0 };
     }
 
-    // Assign ranks (handle ties)
+    // Assign ranks (handle ties — same rx + same score = same rank)
     const ranked = allScores.map((s, i) => {
       let rank = i + 1;
-      if (i > 0 && allScores[i].score_value === allScores[i - 1].score_value) {
+      if (i > 0 && allScores[i].score_value === allScores[i - 1].score_value && allScores[i].rx === allScores[i - 1].rx) {
         rank = ranked[i - 1]?.rank ?? rank;
       }
       const elo = profileMap[s.user_id]?.elo ?? 1000;
       return { id: s.user_id, elo, rank };
     });
 
-    // Calculate ELO deltas via shared utility
-    const deltas = calculatePairwiseDeltas(ranked);
+    // Calculate ELO deltas via shared utility + apply SCALED_MULTIPLIER
+    const rawDeltas = calculatePairwiseDeltas(ranked);
+    const deltas = rawDeltas.map(d => ({
+      ...d,
+      delta: Math.round(d.delta * (rxMap[d.id] ? 1 : SCALED_MULTIPLIER)),
+    }));
 
     // Update profiles via RPC (bypasses RLS) + write ELO history
     const historyRows = [];
