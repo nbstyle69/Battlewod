@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Zap, ChevronLeft, Building2, Dumbbell, User as UserIcon } from 'lucide-react-native';
+import { ChevronLeft, Building2, Dumbbell, User as UserIcon } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -57,9 +57,10 @@ export default function RegisterScreen({ navigation }: Props) {
           </TouchableOpacity>
 
           <View style={S.logoContainer}>
-            <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.logoBox}>
-              <Zap color="#fff" size={32} />
-            </LinearGradient>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={S.logo}
+            />
             <Text style={S.appName}>AthleX</Text>
           </View>
 
@@ -186,9 +187,8 @@ function createStyles(theme: AppTheme) {
   back: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   backText: { color: theme.textSecondary, fontSize: 15, marginLeft: 4 },
   logoContainer: { alignItems: 'center', marginBottom: 32 },
-  logoBox: {
-    width: 64, height: 64, borderRadius: 20,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 12,
+  logo: {
+    width: 90, height: 90, resizeMode: 'contain', marginBottom: 12,
   },
   appName: { fontSize: 34, fontFamily: 'Barlow_900Black', color: theme.text, letterSpacing: 3 },
   form: {

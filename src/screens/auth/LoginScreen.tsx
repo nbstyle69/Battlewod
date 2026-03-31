@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Zap } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -37,9 +36,10 @@ export default function LoginScreen({ navigation }: Props) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.flex}>
         <ScrollView contentContainerStyle={S.container} keyboardShouldPersistTaps="handled">
           <View style={S.logoContainer}>
-            <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.logoBox}>
-              <Zap color="#fff" size={40} />
-            </LinearGradient>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={S.logo}
+            />
             <Text style={S.appName}>AthleX</Text>
             <Text style={S.tagline}>Compétition • Partout • Maintenant</Text>
           </View>
@@ -107,9 +107,8 @@ function createStyles(theme: AppTheme) {
   flex: { flex: 1 },
   container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
   logoContainer: { alignItems: 'center', marginBottom: 48 },
-  logoBox: {
-    width: 80, height: 80, borderRadius: 24,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 16,
+  logo: {
+    width: 120, height: 120, resizeMode: 'contain', marginBottom: 16,
   },
   appName: { fontSize: 42, fontFamily: 'Barlow_900Black', color: theme.text, letterSpacing: 3 },
   tagline: { fontSize: 13, color: theme.textSecondary, marginTop: 4, letterSpacing: 1 },
