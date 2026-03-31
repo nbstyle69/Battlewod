@@ -15,7 +15,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nbstyle.athlex",
-      "associatedDomains": ["applinks:athlex.app"],
+      "associatedDomains": [
+        "applinks:athlex.app"
+      ],
       "icon": "./assets/logoapp.png",
       "config": {
         "usesNonExemptEncryption": false
@@ -59,7 +61,10 @@
               "pathPrefix": "/"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -109,7 +114,9 @@
           "organization": "nbs-innovation",
           "project": "athlex-mobile"
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
