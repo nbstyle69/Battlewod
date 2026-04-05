@@ -85,21 +85,18 @@ class VideoEncoder {
     val bufferInfo = MediaCodec.BufferInfo()
     val timeoutUs = if (endOfStream) 10_000L else 0L
 
-    while (true) {
+    var finished = false
+    while (!finished) {
       val index = enc.dequeueOutputBuffer(bufferInfo, timeoutUs)
-      when {
-        index == MediaCodec.INFO_TRY_AGAIN_LATER -> break
-
-        index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-          onFormat?.invoke(enc.outputFormat)
-        }
-
-        index >= 0 -> {
-          val buffer = enc.getOutputBuffer(index) ?: run {
-            enc.releaseOutputBuffer(index, false)
-            continue
-          }
-
+      if (index == MediaCodec.INFO_TRY_AGAIN_LATER) {
+        finished = true
+      } else if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+        onFormat?.invoke(enc.outputFormat)
+      } else if (index >= 0) {
+        val buffer = enc.getOutputBuffer(index)
+        if (buffer == null) {
+          enc.releaseOutputBuffer(index, false)
+        } else {
           // Skip codec-config buffers (SPS/PPS are in the format)
           if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
             bufferInfo.size = 0
@@ -113,7 +110,9 @@ class VideoEncoder {
 
           enc.releaseOutputBuffer(index, false)
 
-          if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+          if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+            finished = true
+          }
         }
       }
     }
