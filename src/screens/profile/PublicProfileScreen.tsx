@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Share,
 } from 'react-native';
-import { ChevronLeft, UserPlus, Check, Clock, Trophy, Zap, TrendingUp } from 'lucide-react-native';
+import { ChevronLeft, UserPlus, Check, Clock, Trophy, Zap, TrendingUp, Share2 } from 'lucide-react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -145,7 +145,9 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
           <ChevronLeft color={theme.text} size={24} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Profil</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity onPress={() => Share.share({ message: `Découvre mon profil sur AthleX ! athlex://profile/${route.params.userId}` })} style={S.backBtn}>
+          <Share2 color={theme.text} size={20} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>

@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Share, Alert,
 } from 'react-native';
-import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings } from 'lucide-react-native';
+import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings, Building2 } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -184,6 +184,7 @@ export default function BODashboardScreen({ navigation }: any) {
           <Text style={S.sectionTitle}>Actions rapides</Text>
           <View style={S.quickActions}>
             {[
+              { label: 'Infos box',         icon: Building2,     onPress: () => navigation.navigate('BOBoxInfo') },
               { label: 'Créer un WOD',      icon: ClipboardList, onPress: () => navigation.navigate('WODs') },
               { label: 'Gérer les membres', icon: Users,         onPress: () => navigation.navigate('Members') },
               { label: 'Tournois & Scores', icon: Trophy,        onPress: () => navigation.navigate('BOTournament') },
@@ -275,9 +276,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   scoreRight:  { alignItems: 'flex-end', gap: 2 },
   scoreValue:  { fontSize: 14, fontWeight: '900', color: theme.text },
   rxTag:       { fontSize: 10, fontWeight: '800' },
-  quickActions: { flexDirection: 'row', gap: 10 },
+  quickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   quickBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    flexBasis: '47%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: theme.card, borderRadius: 14, padding: 16,
     borderWidth: 1, borderColor: theme.border,
   },

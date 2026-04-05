@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Building2, Dumbbell, User as UserIcon } from 'lucide-react-native';
+import { ChevronLeft, Building2, Dumbbell, User as UserIcon, Eye, EyeOff } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -23,6 +23,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const [gender,      setGender]      = useState<Gender>('male');
   const [asBoxOwner,  setAsBoxOwner]  = useState(false);
   const [loading,     setLoading]     = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [acceptedCGU, setAcceptedCGU] = useState(false);
 
   async function handleRegister() {
@@ -76,6 +77,9 @@ export default function RegisterScreen({ navigation }: Props) {
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
+                autoComplete="username"
+                textContentType="username"
+                returnKeyType="next"
               />
             </View>
 
@@ -89,19 +93,37 @@ export default function RegisterScreen({ navigation }: Props) {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
               />
             </View>
 
             <View style={S.inputContainer}>
               <Text style={S.label}>Mot de passe</Text>
-              <TextInput
-                style={S.input}
-                placeholder="••••••••"
-                placeholderTextColor={theme.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View style={{ position: 'relative' }}>
+                <TextInput
+                  style={[S.input, { paddingRight: 48 }]}
+                  placeholder="••••••••"
+                  placeholderTextColor={theme.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  returnKeyType="done"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                >
+                  {showPassword
+                    ? <EyeOff color={theme.textMuted} size={20} />
+                    : <Eye color={theme.textMuted} size={20} />}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={S.inputContainer}>
@@ -151,7 +173,7 @@ export default function RegisterScreen({ navigation }: Props) {
             </View>
 
             <View style={S.cguRow}>
-              <TouchableOpacity onPress={() => setAcceptedCGU(!acceptedCGU)} style={S.cguCheckbox}>
+              <TouchableOpacity onPress={() => setAcceptedCGU(!acceptedCGU)} style={S.cguCheckbox} accessibilityLabel={acceptedCGU ? 'Décocher les CGU' : 'Accepter les CGU'} accessibilityRole="checkbox">
                 {acceptedCGU && <View style={S.cguChecked} />}
               </TouchableOpacity>
               <Text style={S.cguText}>
@@ -160,7 +182,7 @@ export default function RegisterScreen({ navigation }: Props) {
               </Text>
             </View>
 
-            <TouchableOpacity onPress={handleRegister} disabled={loading || !acceptedCGU} activeOpacity={0.8}>
+            <TouchableOpacity onPress={handleRegister} disabled={loading || !acceptedCGU} activeOpacity={0.8} accessibilityLabel="Créer un compte" accessibilityRole="button">
               <LinearGradient colors={[theme.accent, theme.accentDark]} style={[S.button, !acceptedCGU && { opacity: 0.5 }]}>
                 {loading
                   ? <ActivityIndicator color="#fff" />

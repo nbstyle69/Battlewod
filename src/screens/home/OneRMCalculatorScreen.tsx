@@ -82,7 +82,7 @@ export default function OneRMCalculatorScreen() {
       input,
       movement: selectedMovement,
       isLbs,
-    })).catch(() => {});
+    })).catch(e => captureError(e, { action: 'persistOneRM' }));
   }, [input, selectedMovement, isLbs]);
 
   useEffect(() => {

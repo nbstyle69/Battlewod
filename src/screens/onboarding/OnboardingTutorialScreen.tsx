@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Dumbbell, Clock, Trophy, Building2, Users, ChevronRight } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -61,7 +62,7 @@ function SlideIcon({ type, color }: { type: Slide['icon']; color: string }) {
       );
     case 'wod':
       return (
-        <View style={styles.iconRow}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Dumbbell size={size} color={color} />
           <Clock size={size} color={color} style={{ marginLeft: 16 }} />
         </View>
@@ -70,7 +71,7 @@ function SlideIcon({ type, color }: { type: Slide['icon']; color: string }) {
       return <Trophy size={80} color={color} />;
     case 'box':
       return (
-        <View style={styles.iconRow}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Building2 size={size} color={color} />
           <Users size={size} color={color} style={{ marginLeft: 16 }} />
         </View>
@@ -83,6 +84,8 @@ interface Props {
 }
 
 export default function OnboardingTutorialScreen({ onDone }: Props) {
+  const { theme } = useTheme();
+  const S = createStyles(theme);
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -111,11 +114,11 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
   const isLast = currentIndex === SLIDES.length - 1;
 
   return (
-    <View style={styles.container}>
+    <View style={S.container}>
       {/* Skip button */}
       {!isLast && (
-        <TouchableOpacity style={styles.skipBtn} onPress={handleDone} activeOpacity={0.7}>
-          <Text style={styles.skipText}>Passer</Text>
+        <TouchableOpacity style={S.skipBtn} onPress={handleDone} activeOpacity={0.7} accessibilityLabel="Passer l'introduction">
+          <Text style={S.skipText}>Passer</Text>
         </TouchableOpacity>
       )}
 
@@ -140,13 +143,13 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
           const translateY = scrollX.interpolate({ inputRange, outputRange: [40, 0, 40], extrapolate: 'clamp' });
 
           return (
-            <View style={styles.slide}>
-              <Animated.View style={[styles.slideContent, { opacity, transform: [{ translateY }] }]}>
-                <View style={[styles.iconCircle, { backgroundColor: item.color + '18' }]}>
+            <View style={S.slide}>
+              <Animated.View style={[S.slideContent, { opacity, transform: [{ translateY }] }]}>
+                <View style={[S.iconCircle, { backgroundColor: item.color + '18' }]}>
                   <SlideIcon type={item.icon} color={item.color} />
                 </View>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.description}>{item.description}</Text>
+                <Text style={S.title}>{item.title}</Text>
+                <Text style={S.description}>{item.description}</Text>
               </Animated.View>
             </View>
           );
@@ -154,9 +157,9 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
       />
 
       {/* Bottom: dots + button */}
-      <View style={styles.bottomContainer}>
+      <View style={S.bottomContainer}>
         {/* Dots */}
-        <View style={styles.dotsRow}>
+        <View style={S.dotsRow}>
           {SLIDES.map((_, i) => {
             const dotWidth = scrollX.interpolate({
               inputRange: [(i - 1) * width, i * width, (i + 1) * width],
@@ -171,7 +174,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
             return (
               <Animated.View
                 key={i}
-                style={[styles.dot, { width: dotWidth, opacity: dotOpacity, backgroundColor: SLIDES[currentIndex]?.color ?? '#059669' }]}
+                style={[S.dot, { width: dotWidth, opacity: dotOpacity, backgroundColor: SLIDES[currentIndex]?.color ?? '#059669' }]}
               />
             );
           })}
@@ -179,11 +182,13 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
 
         {/* CTA Button */}
         <TouchableOpacity
-          style={[styles.ctaBtn, { backgroundColor: SLIDES[currentIndex]?.color ?? '#059669' }]}
+          style={[S.ctaBtn, { backgroundColor: SLIDES[currentIndex]?.color ?? '#059669' }]}
           onPress={handleNext}
           activeOpacity={0.85}
+          accessibilityLabel={isLast ? "Commencer" : "Slide suivant"}
+          accessibilityRole="button"
         >
-          <Text style={styles.ctaText}>
+          <Text style={S.ctaText}>
             {isLast ? "C'est parti !" : 'Suivant'}
           </Text>
           {!isLast && <ChevronRight size={20} color="#fff" style={{ marginLeft: 4 }} />}
@@ -193,10 +198,10 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(t: AppTheme) { return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: t.background,
   },
   skipBtn: {
     position: 'absolute',
@@ -207,7 +212,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   skipText: {
-    color: '#A0A0B0',
+    color: t.textMuted,
     fontSize: 15,
     fontWeight: '500',
   },
@@ -229,21 +234,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
-  iconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#F5F5F7',
+    color: t.text,
     textAlign: 'center',
     marginBottom: 16,
   },
   description: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#A0A0B0',
+    color: t.textSecondary,
     textAlign: 'center',
     maxWidth: 320,
   },
@@ -275,4 +276,4 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-});
+}); }

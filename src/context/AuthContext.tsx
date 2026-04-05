@@ -5,16 +5,24 @@ import { User, Box, BoxMemberRole } from '../types';
 import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
 import { awardLevelBadge } from '../services/gamification';
-import { setUserContext, clearUserContext } from '../lib/sentry';
+import { setUserContext, clearUserContext, captureError } from '../lib/sentry';
 import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackBoxCreate, trackDeleteAccount } from '../lib/analytics';
 
 const BOX_SKIPPED_KEY = '@athlex:boxSkipped';
+const ACTIVE_BOX_KEY = '@athlex:activeBoxId';
+
+interface MyBoxEntry {
+  box: Box;
+  role: BoxMemberRole | 'owner';
+}
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   currentBox: Box | null;
   boxRole: BoxMemberRole | 'owner' | null;
+  myBoxes: MyBoxEntry[];
+  switchBox: (boxId: string) => Promise<void>;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, username: string, level: string, asBoxOwner?: boolean, gender?: string) => Promise<{ error: string | null }>;
@@ -44,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser]             = useState<User | null>(null);
   const [currentBox, setCurrentBox] = useState<Box | null>(null);
   const [boxRole, setBoxRole]       = useState<BoxMemberRole | 'owner' | null>(null);
+  const [myBoxes, setMyBoxes]       = useState<MyBoxEntry[]>([]);
   const [boxSkipped, setBoxSkipped] = useState(false);
   const [loading, setLoading]       = useState(true);
 
@@ -92,41 +101,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id]);
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (data) {
-      setUser(data as User);
-      setUserContext(data.id, data.email, data.username);
-      identifyUser(data.id, { email: data.email, username: data.username, role: data.role, level: data.level });
-      await fetchBox(userId, data.role);
-      // Register push token silently
-      registerForPushNotifications().then(token => {
-        if (token) savePushToken(userId, token);
-      }).catch(() => {});
-      // Schedule daily reminder if enabled
-      getNotificationPrefs(userId).then(prefs => {
-        if (prefs.daily_reminder) scheduleDailyReminder(prefs.reminder_hour);
-      }).catch(() => {});
-      scheduleScoreReminder().catch(() => {});
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      if (data) {
+        setUser(data as User);
+        setUserContext(data.id, data.email, data.username);
+        identifyUser(data.id, { email: data.email, username: data.username, role: data.role, level: data.level });
+        await fetchBox(userId, data.role);
+        // Register push token silently
+        registerForPushNotifications().then(token => {
+          if (token) savePushToken(userId, token);
+        }).catch(e => captureError(e, { action: 'registerPush' }));
+        // Schedule daily reminder if enabled
+        getNotificationPrefs(userId).then(prefs => {
+          if (prefs.daily_reminder) scheduleDailyReminder(prefs.reminder_hour);
+        }).catch(e => captureError(e, { action: 'scheduleDailyReminder' }));
+        scheduleScoreReminder().catch(e => captureError(e, { action: 'scheduleScoreReminder' }));
+      }
+    } catch (e) {
+      captureError(e, { action: 'fetchProfile', userId });
     }
     setLoading(false);
   }
 
   async function fetchBox(userId: string, role: string) {
-    if (role === 'box_owner') {
-      const { data } = await supabase
-        .from('boxes').select('*').eq('owner_id', userId).maybeSingle();
-      if (data) { setCurrentBox(data as Box); setBoxRole('owner'); }
-    } else {
-      const { data } = await supabase
+    try {
+      const entries: MyBoxEntry[] = [];
+      // Owner box
+      if (role === 'box_owner') {
+        const { data } = await supabase
+          .from('boxes').select('*').eq('owner_id', userId).maybeSingle();
+        if (data) entries.push({ box: data as Box, role: 'owner' });
+      }
+      // Member boxes (always fetch — owner can also be member of other boxes)
+      const { data: memberships } = await supabase
         .from('box_members')
         .select('box_id, role, boxes(*)')
         .eq('member_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
-      if (data?.boxes) {
-        setCurrentBox(data.boxes as unknown as Box);
-        setBoxRole((data.role as BoxMemberRole) ?? 'member');
+        .eq('status', 'active');
+      if (memberships) {
+        for (const m of memberships) {
+          if (m.boxes && !entries.find(e => e.box.id === (m.boxes as any).id)) {
+            entries.push({ box: m.boxes as unknown as Box, role: (m.role as BoxMemberRole) ?? 'member' });
+          }
+        }
       }
+      setMyBoxes(entries);
+      // Restore last active box from AsyncStorage, or pick first
+      const savedId = await AsyncStorage.getItem(ACTIVE_BOX_KEY);
+      const saved = savedId ? entries.find(e => e.box.id === savedId) : null;
+      const active = saved ?? entries[0] ?? null;
+      if (active) {
+        setCurrentBox(active.box);
+        setBoxRole(active.role);
+      } else {
+        setCurrentBox(null);
+        setBoxRole(null);
+      }
+    } catch (e) {
+      captureError(e, { action: 'fetchBox', userId });
     }
   }
 
@@ -161,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (profileError) return { error: `Profil: ${profileError.message}` };
       // Award welcome badge (level_scaled) silently
-      awardLevelBadge(data.user.id, 'level_scaled').catch(() => {});
+      awardLevelBadge(data.user.id, 'level_scaled').catch(e => captureError(e, { action: 'awardWelcomeBadge' }));
       if (!data.session) return { error: 'CONFIRM_EMAIL' };
       trackSignUp('email', role, level);
       // Profile is now in DB — explicitly refresh user state so navigation triggers
@@ -189,9 +222,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (joinErr.code === '23505') return { error: 'Tu as déjà rejoint cette box' };
       return { error: joinErr.message };
     }
+    const newEntry: MyBoxEntry = { box: box as Box, role: 'member' };
+    setMyBoxes(prev => [...prev, newEntry]);
     setCurrentBox(box as Box);
+    setBoxRole('member');
+    await AsyncStorage.setItem(ACTIVE_BOX_KEY, box.id);
     trackBoxJoin();
-    // Clear skip flag now that user has a box
     setBoxSkipped(false);
     await AsyncStorage.removeItem(BOX_SKIPPED_KEY);
     return { error: null };
@@ -210,11 +246,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .eq('member_id', user.id)
       .eq('box_id', currentBox.id);
     if (error) return { error: error.message };
-    setCurrentBox(null);
-    setBoxRole(null);
+    const remaining = myBoxes.filter(e => e.box.id !== currentBox.id);
+    setMyBoxes(remaining);
+    if (remaining.length > 0) {
+      setCurrentBox(remaining[0].box);
+      setBoxRole(remaining[0].role);
+      await AsyncStorage.setItem(ACTIVE_BOX_KEY, remaining[0].box.id);
+    } else {
+      setCurrentBox(null);
+      setBoxRole(null);
+      await AsyncStorage.removeItem(ACTIVE_BOX_KEY);
+    }
     setBoxSkipped(false);
     await AsyncStorage.removeItem(BOX_SKIPPED_KEY);
     return { error: null };
+  }
+
+  async function switchBox(boxId: string) {
+    const entry = myBoxes.find(e => e.box.id === boxId);
+    if (!entry) return;
+    setCurrentBox(entry.box);
+    setBoxRole(entry.role);
+    await AsyncStorage.setItem(ACTIVE_BOX_KEY, boxId);
   }
 
   async function createBox(name: string, description?: string): Promise<{ error: string | null; box?: Box }> {
@@ -237,7 +290,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error || !box) return { error: error?.message ?? 'Erreur création box' };
     await supabase.from('profiles').update({ role: 'box_owner' }).eq('id', user.id);
     updateUser({ role: 'box_owner' });
+    const newEntry: MyBoxEntry = { box: box as Box, role: 'owner' };
+    setMyBoxes(prev => [...prev, newEntry]);
     setCurrentBox(box as Box);
+    setBoxRole('owner');
+    await AsyncStorage.setItem(ACTIVE_BOX_KEY, box.id);
     trackBoxCreate();
     return { error: null, box: box as Box };
   }
@@ -248,7 +305,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
-    if (user) removePushToken(user.id).catch(() => {});
+    if (user) removePushToken(user.id).catch(e => captureError(e, { action: 'removePushSignOut' }));
     clearUserContext();
     resetUser();
     await supabase.auth.signOut();
@@ -256,11 +313,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setCurrentBox(null);
     setBoxRole(null);
+    setMyBoxes([]);
+    await AsyncStorage.removeItem(ACTIVE_BOX_KEY);
   }
 
   async function deleteAccount(): Promise<{ error: string | null }> {
     try {
-      if (user) removePushToken(user.id).catch(() => {});
+      if (user) removePushToken(user.id).catch(e => captureError(e, { action: 'removePushDelete' }));
       const { error } = await supabase.rpc('delete_user_account');
       if (error) return { error: error.message };
       trackDeleteAccount();
@@ -271,6 +330,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setCurrentBox(null);
       setBoxRole(null);
+      setMyBoxes([]);
+      await AsyncStorage.removeItem(ACTIVE_BOX_KEY);
       return { error: null };
     } catch (e: any) {
       return { error: e.message ?? 'Erreur inconnue' };
@@ -283,7 +344,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user, currentBox, boxRole, loading,
+      session, user, currentBox, boxRole, myBoxes, switchBox, loading,
       signIn, signUp, signOut, deleteAccount, resetPassword, updateUser,
       boxSkipped, skipBox, leaveBox,
       joinBox, createBox, refreshBox,

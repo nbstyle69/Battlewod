@@ -2,12 +2,12 @@ import React, { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Alert, RefreshControl,
+  ActivityIndicator, Alert, RefreshControl, Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronLeft, Users, Calendar, Zap, CheckCircle,
-  Lock, Clock, Timer, UserX, Shield, Star, XCircle, RotateCcw, MessageSquare,
+  Lock, Clock, Timer, UserX, Shield, Star, XCircle, RotateCcw, MessageSquare, Share2,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -150,7 +150,7 @@ export default function TournamentScreen() {
       await AsyncStorage.setItem(`@athlex:registered:${user.id}:${tournamentId}`, 'true');
       setIsRegistered(true);
       if (tournament?.start_date) {
-        scheduleTournamentReminder(tournamentId, tournament.name, tournament.start_date).catch(() => {});
+        scheduleTournamentReminder(tournamentId, tournament.name, tournament.start_date).catch(e => captureError(e, { action: 'scheduleTournamentReminder' }));
       }
       setParticipants(prev =>
         prev.some(p => p.athlete_id === user.id)
@@ -292,6 +292,9 @@ export default function TournamentScreen() {
           <ChevronLeft color="rgba(255,255,255,0.7)" size={24} />
         </TouchableOpacity>
         <View style={S.headerInfo}>
+          <TouchableOpacity onPress={() => Share.share({ message: `${tournament?.name ?? 'Tournoi'} — Inscris-toi sur AthleX ! athlex://tournament/${tournamentId}` })} style={{ position: 'absolute', right: 0, top: 0, padding: 4 }}>
+            <Share2 color="rgba(255,255,255,0.7)" size={20} />
+          </TouchableOpacity>
           <Text style={S.headerTitle} numberOfLines={1}>{tournament.name}</Text>
           <View style={S.headerMeta}>
             <View style={[S.levelBadge, { backgroundColor: `${levelColor}20` }]}>

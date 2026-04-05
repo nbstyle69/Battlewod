@@ -357,22 +357,22 @@ Réponds en français, sois concis et factuel.`;
       tournId,
       tournName,
       tp.map((p: any, i: number) => ({ athleteId: p.athlete_id, change: eloChanges[i].change })),
-    ).catch(() => {});
+    ).catch(e => captureError(e, { action: 'syncLevelAndBadges' }));
 
     // Gamification: increment counters + award badges
     for (let i = 0; i < tp.length; i++) {
       const p = tp[i];
       const rank = i + 1;
       const newElo = (tpProfileMap[p.athlete_id]?.elo ?? 1000) + eloChanges[i].change;
-      incrementCounter(p.athlete_id, 'total_tournaments').catch(() => {});
-      if (rank === 1) incrementCounter(p.athlete_id, 'total_tournament_wins').catch(() => {});
+      incrementCounter(p.athlete_id, 'total_tournaments', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementTournaments' }));
+      if (rank === 1) incrementCounter(p.athlete_id, 'total_tournament_wins', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementTournamentWins' }));
       if (rank <= 3) {
         supabase.from('athlete_badges').upsert(
           { athlete_id: p.athlete_id, badge_key: 'podium' },
           { onConflict: 'athlete_id,badge_key' },
         ).then(() => {});
       }
-      checkAndAwardBadges(p.athlete_id, { elo: newElo }).catch(() => {});
+      checkAndAwardBadges(p.athlete_id, { elo: newElo }).catch(e => captureError(e, { action: 'checkBadges' }));
     }
 
     return eloChanges;
@@ -741,8 +741,8 @@ Réponds en français, sois concis et factuel.`;
                         </View>
                       )}
 
-                      {/* AI analysis preview */}
-                      {score.ai_analysis ? (
+                      {/* AI analysis preview — désactivé (clé Anthropic retirée) */}
+                      {/* {score.ai_analysis ? (
                         <View style={s.aiPreview}>
                           <Text style={s.aiPreviewLabel}>🤖 Analyse IA</Text>
                           <Text style={s.aiPreviewTxt} numberOfLines={3}>{score.ai_analysis}</Text>
@@ -750,7 +750,7 @@ Réponds en français, sois concis et factuel.`;
                             <Text style={s.aiPreviewMore}>Voir tout →</Text>
                           </TouchableOpacity>
                         </View>
-                      ) : null}
+                      ) : null} */}
 
                       {/* Action buttons */}
                       {score.status === 'pending' && (
@@ -765,12 +765,14 @@ Réponds en français, sois concis et factuel.`;
                             <XCircle color={theme.error} size={16} />
                             <Text style={[s.actionBtnTxt, { color: theme.error }]}>Rejeter</Text>
                           </TouchableOpacity>
+                          {/* Bouton IA désactivé (clé Anthropic retirée)
                           <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.accent}10`, borderColor: `${theme.accent}20`, flex: 1.2 }]}
                             onPress={() => runAI(score)} disabled={aiLoading === score.id} activeOpacity={0.8}>
                             {aiLoading === score.id
                               ? <ActivityIndicator size="small" color={theme.accent} />
                               : <><Bot color={theme.accent} size={15} /><Text style={[s.actionBtnTxt, { color: theme.accent }]}>Évaluation du score</Text></>}
                           </TouchableOpacity>
+                          */}
                         </View>
                       )}
                     </View>
@@ -808,7 +810,7 @@ Réponds en français, sois concis et factuel.`;
         </View>
       </Modal>
 
-      {/* ── AI analysis modal ── */}
+      {/* ── AI analysis modal — désactivé (clé Anthropic retirée) ──
       <Modal visible={!!aiModal} transparent animationType="slide" onRequestClose={() => setAiModal(null)}>
         <View style={s.modalOverlay}>
           <View style={[s.modalSheet, { maxHeight: '85%' }]}>
@@ -849,6 +851,7 @@ Réponds en français, sois concis et factuel.`;
           </View>
         </View>
       </Modal>
+      */}
     </View>
   );
 }

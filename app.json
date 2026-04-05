@@ -2,7 +2,7 @@
   "expo": {
     "name": "AthleX",
     "slug": "TheHub",
-    "version": "1.0.22",
+    "version": "1.0.26",
     "orientation": "default",
     "icon": "./assets/logoapp.png",
     "userInterfaceStyle": "light",
@@ -15,9 +15,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nbstyle.athlex",
-      "associatedDomains": [
-        "applinks:athlex.app"
-      ],
       "icon": "./assets/logoapp.png",
       "config": {
         "usesNonExemptEncryption": false
@@ -27,7 +24,7 @@
         "NSMicrophoneUsageDescription": "AthleX utilise le micro pour les vidéos de performance.",
         "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos."
       },
-      "buildNumber": "10"
+      "buildNumber": "15"
     },
     "android": {
       "adaptiveIcon": {
@@ -46,10 +43,13 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_CAMERA",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ],
       "package": "com.athlex.app",
-      "versionCode": 18,
+      "versionCode": 22,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -78,8 +78,8 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 36,
-            "targetSdkVersion": 36,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
             "minSdkVersion": 24
           },
           "ios": {

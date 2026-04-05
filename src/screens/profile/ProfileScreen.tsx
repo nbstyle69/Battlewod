@@ -102,7 +102,7 @@ const BADGE_CATEGORY_MAP: Record<string, string> = {
 const CATEGORY_ORDER = ['activity', 'tournament', 'wod', 'elo', 'social'];
 
 export default function ProfileScreen() {
-  const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser } = useAuth();
+  const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser, myBoxes, switchBox } = useAuth();
   const { theme, mode, toggleTheme } = useTheme();
   const navigation = useNavigation<Nav>();
   const S = createStyles(theme);
@@ -116,7 +116,7 @@ export default function ProfileScreen() {
   // ── Badges & streaks
   const [badgesCatalog, setBadgesCatalog] = useState<BadgeDef[]>([]);
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]);
-  const [streak, setStreak] = useState<StreakInfo>({ current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '' });
+  const [streak, setStreak] = useState<StreakInfo>({ current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '', max_sessions_per_week: null });
   // ── Friends
   const [friends, setFriends] = useState<Array<{ id: string; username: string; level: string; avatar_url?: string }>>([]);
   // ── PR editing
@@ -148,7 +148,7 @@ export default function ProfileScreen() {
         supabase.from('profiles').select('personal_records').eq('id', user.id).single(),
         getBadgesCatalog(),
         getEarnedBadges(user.id),
-        getStreak(user.id),
+        getStreak(user.id, currentBox?.id),
         supabase.from('friendships').select('requester_id, addressee_id, requester:profiles!requester_id(id, username, level, avatar_url), addressee:profiles!addressee_id(id, username, level, avatar_url)').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status', 'accepted'),
       ]);
       return {
@@ -389,7 +389,7 @@ export default function ProfileScreen() {
     const [catalog, earned, streakData] = await Promise.all([
       getBadgesCatalog(),
       getEarnedBadges(user.id),
-      getStreak(user.id),
+      getStreak(user.id, currentBox?.id),
     ]);
     setBadgesCatalog(catalog);
     setEarnedBadges(earned);
@@ -581,9 +581,9 @@ export default function ProfileScreen() {
               <Text style={S.streakFire}>🔥</Text>
               <View style={{ flex: 1 }}>
                 <Text style={S.streakTitle}>Semaine {streak.current_streak}</Text>
-                <Text style={S.streakSub}>{streak.week_session_count}/3 sessions cette semaine</Text>
+                <Text style={S.streakSub}>{streak.week_session_count}/{streak.max_sessions_per_week ?? '∞'} sessions cette semaine</Text>
                 <View style={S.streakBar}>
-                  <View style={[S.streakBarFill, { width: `${Math.min(100, (streak.week_session_count / 3) * 100)}%` }]} />
+                  <View style={[S.streakBarFill, { width: `${Math.min(100, (streak.week_session_count / (streak.max_sessions_per_week ?? 3)) * 100)}%` }]} />
                 </View>
               </View>
             </View>
@@ -613,32 +613,55 @@ export default function ProfileScreen() {
         {activeTab === 3 && (
           <View style={S.compteSection}>
 
-            {/* ── Box ─────────────────────────────────── */}
+            {/* ── Mes Boxes ─────────────────────────────────── */}
             <View style={S.compteCard}>
-              <Text style={S.compteCardTitle}>Ma box</Text>
-              {currentBox ? (
+              <Text style={S.compteCardTitle}>Mes boxes</Text>
+              {myBoxes.length > 0 ? (
                 <>
-                  <View style={S.boxRow}>
-                    <Building2 color={theme.text} size={20} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={S.boxName}>{currentBox.name}</Text>
-                      {currentBox.description ? <Text style={S.boxDesc}>{currentBox.description}</Text> : null}
-                    </View>
-                    <View style={S.activeTag}><Text style={S.activeTagText}>Actif</Text></View>
-                  </View>
-                  <TouchableOpacity style={S.leaveBtn} onPress={handleLeaveBox} activeOpacity={0.8}>
-                    <Text style={S.leaveBtnText}>Quitter la box</Text>
-                  </TouchableOpacity>
+                  {myBoxes.map(entry => {
+                    const isActive = entry.box.id === currentBox?.id;
+                    return (
+                      <View key={entry.box.id} style={[S.boxRow, { marginBottom: 8 }]}>
+                        <Building2 color={isActive ? theme.accent : theme.text} size={20} />
+                        <TouchableOpacity style={{ flex: 1 }} onPress={() => switchBox(entry.box.id)} activeOpacity={0.7}>
+                          <Text style={[S.boxName, isActive && { color: theme.accent }]}>{entry.box.name}</Text>
+                          <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 1 }}>
+                            {entry.role === 'owner' ? 'Propriétaire' : entry.role === 'coach' ? 'Coach' : 'Membre'}
+                          </Text>
+                        </TouchableOpacity>
+                        {isActive && <View style={S.activeTag}><Text style={S.activeTagText}>Actif</Text></View>}
+                        {entry.role !== 'owner' && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              if (isActive) handleLeaveBox();
+                              else {
+                                Alert.alert('Quitter cette box ?', `Tu vas quitter « ${entry.box.name} ».`, [
+                                  { text: 'Annuler', style: 'cancel' },
+                                  { text: 'Quitter', style: 'destructive', onPress: async () => {
+                                    await switchBox(entry.box.id);
+                                    const { error } = await leaveBox();
+                                    if (error) Alert.alert('Erreur', error);
+                                  }},
+                                ]);
+                              }
+                            }}
+                            style={{ padding: 6 }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.error }}>Quitter</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
                 </>
               ) : (
-                <>
-                  <Text style={S.noBoxText}>Tu n'es rattaché à aucune box.</Text>
-                  <TouchableOpacity style={S.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
-                    <Hash color={theme.background} size={16} />
-                    <Text style={S.joinBtnText}>Rejoindre une box</Text>
-                  </TouchableOpacity>
-                </>
+                <Text style={S.noBoxText}>Tu n'es rattaché à aucune box.</Text>
               )}
+              <TouchableOpacity style={S.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
+                <Hash color={theme.background} size={16} />
+                <Text style={S.joinBtnText}>Rejoindre une box</Text>
+              </TouchableOpacity>
             </View>
 
             {/* ── Edit profile ─────────────────────────── */}

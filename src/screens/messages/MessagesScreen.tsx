@@ -444,7 +444,7 @@ export default function MessagesScreen() {
       });
       const grp = groups.find(g => g.id === activeTab);
       if (grp) {
-        sendNewMessageNotification(activeTab, grp.name, user.id, user.username, text || '📷 Image').catch(() => {});
+        sendNewMessageNotification(activeTab, grp.name, user.id, user.username, text || '📷 Image').catch(e => captureError(e, { action: 'sendMessageNotif' }));
       }
     } else {
       await supabase.from('messages').insert({
@@ -456,7 +456,7 @@ export default function MessagesScreen() {
         ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
       });
     }
-    if (user) incrementCounter(user.id, 'total_messages_sent').catch(() => {});
+    if (user) incrementCounter(user.id, 'total_messages_sent', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementMessagesSent' }));
     setSending(false);
   }
 

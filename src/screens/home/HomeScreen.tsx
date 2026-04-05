@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Image,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Modal, Pressable, RefreshControl, LayoutAnimation, UIManager, Platform,
 } from 'react-native';
-import { Zap, Trophy, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History, Bell } from 'lucide-react-native';
+import { Zap, Trophy, Flame, Timer, BarChart2, Sparkles, Target, User, Users, History, Bell, ChevronDown, Building2, Check, Plus } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useFocusQuery } from '../../hooks/useFocusQuery';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
@@ -15,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import { getStreak, StreakInfo } from '../../services/gamification';
+import AutoScrollCarousel from '../../components/AutoScrollCarousel';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
 
@@ -28,7 +34,8 @@ interface RecentScore {
 
 
 export default function HomeScreen() {
-  const { user, currentBox } = useAuth();
+  const { user, currentBox, myBoxes, switchBox } = useAuth();
+  const [boxPickerVisible, setBoxPickerVisible] = useState(false);
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const level = user?.level ?? 'scaled';
@@ -44,7 +51,7 @@ export default function HomeScreen() {
   const [competitions,   setCompetitions]   = useState<CompetitionSummary[]>([]);
   const [recentScores,   setRecentScores]   = useState<RecentScore[]>([]);
   const [rank,           setRank]           = useState<number | null>(null);
-  const [streak,         setStreak]         = useState<StreakInfo>({ current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '' });
+  const [streak,         setStreak]         = useState<StreakInfo>({ current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '', max_sessions_per_week: null });
   const [pendingFriends, setPendingFriends] = useState(0);
   const [unreadAccepted, setUnreadAccepted] = useState(0);
   const [unreadChangelog, setUnreadChangelog] = useState(0);
@@ -56,8 +63,9 @@ export default function HomeScreen() {
   const [weekActivity,    setWeekActivity]    = useState<number[]>([0,0,0,0,0,0,0]);
   const [favCount,        setFavCount]        = useState(0);
   const [bestScores,      setBestScores]      = useState<{name:string; value:string; type:string}[]>([]);
+  const [physComps,       setPhysComps]       = useState<{id:string; name:string; logo_url:string|null; mode:string}[]>([]);
 
-  const { data: homeData } = useFocusQuery(
+  const { data: homeData, isLoading: homeDataLoading, refetch: refetchHome } = useFocusQuery(
     ['home', user?.id, currentBox?.id],
     async () => {
     if (!user) return null;
@@ -68,7 +76,7 @@ export default function HomeScreen() {
       .select('id', { count: 'exact', head: true })
       .gt('elo', user.elo ?? 0);
     // Streak from gamification service
-    const streakData = await getStreak(user.id);
+    const streakData = await getStreak(user.id, currentBox?.id);
 
     // Unread changelog count
     const [{ count: totalCl }, { count: readCl }] = await Promise.all([
@@ -196,6 +204,14 @@ export default function HomeScreen() {
       status:       s.status,
     }));
 
+    // Physical competitions for carousel
+    const { data: physData } = await supabase
+      .from('physical_competitions')
+      .select('id, name, logo_url, mode')
+      .in('status', ['open', 'active'])
+      .order('date', { ascending: true })
+      .limit(20);
+
     return {
       rank: (count ?? 0) + 1,
       streak: streakData,
@@ -209,6 +225,7 @@ export default function HomeScreen() {
       weekActivity: weekArr,
       genStreak: gs,
       bestScores: bestScoresMapped,
+      physComps: (physData ?? []).map((p: any) => ({ id: p.id, name: p.name, logo_url: p.logo_url, mode: p.mode })),
     };
   },
     { enabled: !!user },
@@ -217,6 +234,7 @@ export default function HomeScreen() {
   // Sync cached data from React Query on remount (stale-while-revalidate)
   useEffect(() => {
     if (!homeData) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setRank(homeData.rank);
     setStreak(homeData.streak);
     setUnreadChangelog(homeData.unreadChangelog);
@@ -229,6 +247,7 @@ export default function HomeScreen() {
     setWeekActivity(homeData.weekActivity);
     setGenStreak(homeData.genStreak);
     setBestScores(homeData.bestScores);
+    setPhysComps(homeData.physComps);
   }, [homeData]);
 
   // Realtime: refresh badge when a new friend request targets this user
@@ -273,18 +292,43 @@ export default function HomeScreen() {
   const levelColor = LevelColors[level] ?? theme.text;
 
   return (
-    <ScrollView style={S.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
+    <ScrollView
+      style={S.container}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 48 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={homeDataLoading}
+          onRefresh={refetchHome}
+          tintColor={theme.accent}
+          colors={[theme.accent]}
+        />
+      }
+    >
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={S.header}>
         <View style={S.headerTop}>
           <View style={{ flex: 1 }}>
             <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
+            {currentBox && (
+              <TouchableOpacity
+                onPress={() => myBoxes.length > 1 ? setBoxPickerVisible(true) : null}
+                activeOpacity={myBoxes.length > 1 ? 0.7 : 1}
+                style={S.boxSwitchBtn}
+              >
+                <Building2 size={12} color={theme.textSecondary} />
+                <Text style={S.boxSwitchText} numberOfLines={1}>{currentBox.name}</Text>
+                {myBoxes.length > 1 && <ChevronDown size={12} color={theme.textMuted} />}
+              </TouchableOpacity>
+            )}
           </View>
           {currentBox?.logo_url ? (
-            <Image source={{ uri: currentBox.logo_url }} style={S.boxLogo} />
+            <TouchableOpacity onPress={() => navigation.navigate('BoxInfo')} activeOpacity={0.8}>
+              <Image source={{ uri: currentBox.logo_url }} style={S.boxLogo} />
+            </TouchableOpacity>
           ) : null}
-          <TouchableOpacity onPress={() => navigation.navigate('Changelog' as never)} activeOpacity={0.7} style={{ position: 'relative', marginLeft: 12 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('Changelog' as never)} activeOpacity={0.7} style={{ position: 'relative', marginLeft: 12 }} accessibilityLabel="Notifications" accessibilityRole="button">
             <Bell size={22} color={theme.text} />
             {unreadChangelog > 0 && (
               <View style={S.bellBadge}>
@@ -293,6 +337,38 @@ export default function HomeScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Box Picker Modal */}
+        <Modal visible={boxPickerVisible} transparent animationType="slide" onRequestClose={() => setBoxPickerVisible(false)}>
+          <Pressable style={S.boxPickerOverlay} onPress={() => setBoxPickerVisible(false)}>
+            <Pressable style={S.boxPickerSheet} onPress={() => {}}>
+              <View style={S.boxPickerHandle} />
+              <Text style={S.boxPickerTitle}>Mes boxes</Text>
+              {myBoxes.map(entry => {
+                const isActive = entry.box.id === currentBox?.id;
+                return (
+                  <TouchableOpacity
+                    key={entry.box.id}
+                    style={[S.boxPickerRow, isActive && S.boxPickerRowActive]}
+                    onPress={() => { switchBox(entry.box.id); setBoxPickerVisible(false); }}
+                    activeOpacity={0.7}
+                  >
+                    {entry.box.logo_url ? (
+                      <Image source={{ uri: entry.box.logo_url }} style={S.boxPickerLogo} />
+                    ) : (
+                      <View style={S.boxPickerIconWrap}><Building2 size={18} color={theme.textSecondary} /></View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[S.boxPickerName, isActive && { color: theme.accent }]}>{entry.box.name}</Text>
+                      <Text style={S.boxPickerRole}>{entry.role === 'owner' ? 'Propriétaire' : entry.role === 'coach' ? 'Coach' : 'Membre'}</Text>
+                    </View>
+                    {isActive && <Check size={18} color={theme.accent} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Hero: ELO + Level + Rank */}
         <View style={S.heroRow}>
@@ -308,7 +384,7 @@ export default function HomeScreen() {
           <View style={S.heroDivider} />
           <View style={S.heroStat}>
             <Text style={S.heroStatNum}>🔥 {streak.current_streak}</Text>
-            <Text style={S.heroStatLabel}>{streak.week_session_count}/3 sem.</Text>
+            <Text style={S.heroStatLabel}>{streak.week_session_count}/{streak.max_sessions_per_week ?? '∞'} sem.</Text>
           </View>
           <View style={S.heroDivider} />
           <View style={S.heroStat}>
@@ -326,7 +402,7 @@ export default function HomeScreen() {
 
         {/* Action buttons */}
         <View style={S.actionBtns}>
-          <TouchableOpacity style={S.actionBtn} onPress={() => navigation.navigate('Friends')} activeOpacity={0.75}>
+          <TouchableOpacity style={S.actionBtn} onPress={() => navigation.navigate('Friends')} activeOpacity={0.75} accessibilityLabel="Amis" accessibilityRole="button">
             <View style={{ position: 'relative' }}>
               <Users size={17} color={theme.text} />
               {(pendingFriends + unreadAccepted) > 0 && (
@@ -337,7 +413,7 @@ export default function HomeScreen() {
             </View>
             <Text style={S.actionBtnTxt}>Amis</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={S.actionBtn} onPress={() => navigation.navigate('Profile')} activeOpacity={0.75}>
+          <TouchableOpacity style={S.actionBtn} onPress={() => navigation.navigate('Profile')} activeOpacity={0.75} accessibilityLabel="Mon profil" accessibilityRole="button">
             <User size={17} color={theme.text} />
             <Text style={S.actionBtnTxt}>Profil</Text>
           </TouchableOpacity>
@@ -357,7 +433,7 @@ export default function HomeScreen() {
             {['L','M','M','J','V','S','D'].map((day, i) => {
               const max = Math.max(...weekActivity, 1);
               const h = Math.max(3, (weekActivity[i] / max) * 36);
-              const isToday = i === 6;
+              const isToday = i === (new Date().getDay() + 6) % 7;
               const active = weekActivity[i] > 0;
               return (
                 <View key={i} style={S.weekCol}>
@@ -417,11 +493,72 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* ── Compétitions ──────────────────────────────────────────────── */}
+      {/* ── Compétitions physiques (carousel) ─────────────────────────── */}
+      {physComps.length > 0 && (
+        <View style={S.section}>
+          <Text style={S.sectionTitle}>Compétitions</Text>
+          <AutoScrollCarousel
+            data={physComps}
+            itemWidth={140}
+            gap={12}
+            speed={30}
+            style={{ marginTop: 8 }}
+            renderItem={(item) => (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  const nav = navigation.getParent?.();
+                  if (nav) {
+                    nav.navigate('Competitions', {
+                      screen: 'PhysicalCompetition',
+                      params: { mode: item.mode as any, selectedId: item.id },
+                    });
+                  }
+                }}
+                style={{
+                  width: 140,
+                  height: 160,
+                  backgroundColor: '#1E1E1E',
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 10,
+                }}
+              >
+                {item.logo_url ? (
+                  <Image
+                    source={{ uri: item.logo_url }}
+                    style={{ width: 80, height: 80, borderRadius: 12 }}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }}>
+                    <Trophy color={theme.textMuted} size={32} />
+                  </View>
+                )}
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    color: '#fff',
+                    fontSize: 12,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                    marginTop: 8,
+                  }}
+                >
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
+
+      {/* ── Tournois ──────────────────────────────────────────────────── */}
       {competitions.length > 0 && (
         <View style={S.section}>
           <View style={S.sectionHeader}>
-            <Text style={S.sectionTitle}>Compétitions</Text>
+            <Text style={S.sectionTitle}>Tournois</Text>
             <TouchableOpacity activeOpacity={0.7}>
               <Text style={S.linkText}>Voir tout</Text>
             </TouchableOpacity>
@@ -633,5 +770,30 @@ function createStyles(t: AppTheme) {
     resultDate: { fontSize: 11, color: t.textMuted, marginTop: 1 },
     resultStatus: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
     resultScore: { fontSize: 11, color: t.textMuted, marginTop: 1 },
+
+    // ── Box Switcher ──
+    boxSwitchBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    boxSwitchText: { fontSize: 12, fontWeight: '600', color: t.textSecondary, maxWidth: 160 },
+
+    // ── Box Picker Modal ──
+    boxPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    boxPickerSheet: {
+      backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      paddingHorizontal: 20, paddingBottom: 40, paddingTop: 12,
+    },
+    boxPickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 16 },
+    boxPickerTitle: { fontSize: 16, fontWeight: '800', color: t.text, marginBottom: 16 },
+    boxPickerRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14, marginBottom: 4,
+    },
+    boxPickerRowActive: { backgroundColor: `${t.accent}15` },
+    boxPickerLogo: { width: 40, height: 40, borderRadius: 12, backgroundColor: t.surface },
+    boxPickerIconWrap: {
+      width: 40, height: 40, borderRadius: 12, backgroundColor: t.surface,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    boxPickerName: { fontSize: 14, fontWeight: '700', color: t.text },
+    boxPickerRole: { fontSize: 11, fontWeight: '500', color: t.textMuted, marginTop: 1 },
   });
 }

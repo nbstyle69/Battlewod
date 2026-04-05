@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { Sparkles, RefreshCw, Zap, Clock, Users, User, ArrowLeft, Bookmark, Heart, Check, X, History, BookOpen, ChevronRight } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, Share } from 'react-native';
+import { Sparkles, RefreshCw, Zap, Clock, Users, User, ArrowLeft, Bookmark, Heart, Check, X, History, BookOpen, ChevronRight, Share2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, LevelColors } from '../theme/colors';
@@ -12,6 +12,9 @@ import { useAuth } from '../context/AuthContext';
 import { incrementCounter, logMovementReps } from '../services/gamification';
 import { cancelTodayScoreReminder } from '../services/notifications';
 import { computeCompletedMovements } from '../utils/movementParser';
+import { captureError } from '../lib/sentry';
+import { hapticSuccess } from '../lib/haptics';
+import { useToast } from './Toast';
 
 const HYROX_ORANGE = '#F97316';
 type Sport = 'functional' | 'hybrid';
@@ -856,6 +859,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const navHook = useNavigation<Nav>();
   const navigation = navProp ?? navHook;
   const { theme } = useTheme();
+  const { showToast: toast } = useToast();
   const s = createStyles(theme);
 
   const [sport,       setSport]       = useState<Sport>('functional');
@@ -875,7 +879,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const [hyroxWod,    setHyroxWod]    = useState<HyroxWOD | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, currentBox } = useAuth();
 
   // Save & Score state
   const [savedWodId,   setSavedWodId]   = useState<string | null>(null);
@@ -943,18 +947,19 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     });
     setSubmitting(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
-    incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
-    cancelTodayScoreReminder().catch(() => {});
+    incrementCounter(user.id, 'total_scores_submitted', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementScores' }));
+    cancelTodayScoreReminder().catch(e => captureError(e, { action: 'cancelScoreReminder' }));
     // Log movement reps for badges
     if (wod) {
       const lines = wod.movements.split('\n').filter(Boolean);
       const completed = computeCompletedMovements(lines, wod.type, value, scoreType);
-      logMovementReps(user.id, completed, 'wod', savedWodId ?? undefined).catch(() => {});
+      logMovementReps(user.id, completed, 'wod', savedWodId ?? undefined).catch(e => captureError(e, { action: 'logMovementReps' }));
     }
+    hapticSuccess();
     setScoreModal(false);
     setScoreInput('');
     setScoreNotes('');
-    Alert.alert('✅ Score enregistré !', 'Tu peux suivre ta progression dans l\'historique.');
+    toast('Score enregistré !');
   }
 
   function openScoreModal(currentWod: GeneratedWOD | null) {
@@ -1000,7 +1005,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       setHyroxWod(null);
     }
     setLoading(false);
-    if (user) incrementCounter(user.id, 'total_wods_generated').catch(() => {});
+    if (user) incrementCounter(user.id, 'total_wods_generated', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementWodsGenerated' }));
   }
 
   return (
@@ -1225,7 +1230,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             <Text style={[s.coachLabel, { color: HYROX_ORANGE }]}>💡 Coach</Text>
             <Text style={s.coachTxt}>{hyroxWod.coach}</Text>
           </View>
-          {/* Save / Fav / Score actions */}
+          {/* Save / Fav / Score / Share actions */}
           <View style={s.actionRow}>
             {!savedWodId ? (
               <TouchableOpacity style={[s.actionBtn, { borderColor: HYROX_ORANGE }]} onPress={() => saveWod(null, hyroxWod)} disabled={saving} activeOpacity={0.7}>
@@ -1243,6 +1248,10 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
                 </TouchableOpacity>
               </>
             )}
+            <TouchableOpacity style={[s.actionBtn, { borderColor: HYROX_ORANGE }]} onPress={() => Share.share({ message: `${hyroxWod.name}\n${hyroxWod.scoring}\n\n${hyroxWod.stations.join('\n')}\n\nGénéré avec AthleX 💪` })} activeOpacity={0.7}>
+              <Share2 color={HYROX_ORANGE} size={14} />
+              <Text style={[s.actionBtnTxt, { color: HYROX_ORANGE }]}>Partager</Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={[s.startBtn, { backgroundColor: HYROX_ORANGE }]} activeOpacity={0.85}
@@ -1299,7 +1308,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             </View>
           ) : null}
 
-          {/* Save / Fav / Score actions */}
+          {/* Save / Fav / Score / Share actions */}
           <View style={s.actionRow}>
             {!savedWodId ? (
               <TouchableOpacity style={s.actionBtn} onPress={() => saveWod(wod, null)} disabled={saving} activeOpacity={0.7}>
@@ -1317,6 +1326,10 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
                 </TouchableOpacity>
               </>
             )}
+            <TouchableOpacity style={s.actionBtn} onPress={() => Share.share({ message: `${wod.name}\n${wod.scoring}\n\n${wod.movements}\n\nGénéré avec AthleX 💪` })} activeOpacity={0.7}>
+              <Share2 color={theme.accent} size={14} />
+              <Text style={s.actionBtnTxt}>Partager</Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={s.startBtn} activeOpacity={0.85}

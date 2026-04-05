@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.athlex.app",
+      "sha256_cert_fingerprints": [
+        "9B:B6:22:2A:80:03:FE:9F:ED:D5:D3:FF:DD:FB:9E:3B:A1:B1:6F:20:28:5C:63:AF:B9:F3:24:1D:C9:12:62:7E"
+      ]
+    }
+  }
+]

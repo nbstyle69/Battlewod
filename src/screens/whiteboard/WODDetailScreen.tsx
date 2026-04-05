@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, RefreshControl, FlatList,
+  ActivityIndicator, Alert, RefreshControl, FlatList, Share,
 } from 'react-native';
 import { ChevronLeft, Clock, Plus, RotateCcw, MessageSquare, Trophy, Heart, Send, X, Smile, Share2, Play } from 'lucide-react-native';
 import WebView from 'react-native-webview';
@@ -13,6 +13,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { hapticSuccess } from '../../lib/haptics';
 import { calculatePairwiseDeltas, RankedPlayer, SCALED_MULTIPLIER } from '../../utils/elo';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -303,15 +304,15 @@ export default function WODDetailScreen() {
     }, { onConflict: 'wod_id,member_id' });
 
     if (error) { setSubmitting(false); Alert.alert('Erreur', error.message); return; }
-    incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
-    cancelTodayScoreReminder().catch(() => {});
+    incrementCounter(user.id, 'total_scores_submitted', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementScores' }));
+    cancelTodayScoreReminder().catch(e => captureError(e, { action: 'cancelScoreReminder' }));
 
     // Log movement reps for badges (parse description as movement lines)
     if (wod.description) {
       const lines = wod.description.split('\n').filter(Boolean);
       const wodFormat = wod.wod_type === 'for-time' ? 'For Time' : wod.wod_type === 'amrap' ? 'AMRAP' : wod.wod_type === 'emom' ? 'EMOM' : wod.wod_type ?? 'For Time';
       const completed = computeCompletedMovements(lines, wodFormat, value, scoreType);
-      logMovementReps(user.id, completed, 'whiteboard', wod.id).catch(() => {});
+      logMovementReps(user.id, completed, 'whiteboard', wod.id).catch(e => captureError(e, { action: 'logMovementReps' }));
     }
 
     // Snapshot old rankings before reload
@@ -337,7 +338,7 @@ export default function WODDetailScreen() {
         .map(s => s.member_id)
         .filter(id => id !== user.id);
       if (overtaken.length > 0) {
-        sendScoreOvertakenNotification(overtaken, user.username, wod.title).catch(() => {});
+        sendScoreOvertakenNotification(overtaken, user.username, wod.title).catch(e => captureError(e, { action: 'sendOvertakenNotif' }));
       }
     }
     setScores(list);
@@ -345,6 +346,7 @@ export default function WODDetailScreen() {
 
     // ELO is now computed lazily after WOD closes (past midnight)
 
+    hapticSuccess();
     setSubmitting(false);
     setModalOpen(false);
     setScoreInput('');
@@ -405,7 +407,7 @@ export default function WODDetailScreen() {
           selectedScore.member_id,
           user.username ?? 'Quelqu\'un',
           'comment',
-        ).catch(() => {});
+        ).catch(e => captureError(e, { action: 'sendCommentNotif' }));
       }
     }
     setSendingComment(false);
@@ -429,7 +431,7 @@ export default function WODDetailScreen() {
           user.username ?? 'Quelqu\'un',
           'reaction',
           emoji,
-        ).catch(() => {});
+        ).catch(e => captureError(e, { action: 'sendReactionNotif' }));
       }
     }
     await loadScoreDetail(selectedScore.id);
@@ -476,7 +478,9 @@ export default function WODDetailScreen() {
           <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Text style={S.headerTitle} numberOfLines={1}>{wod.title}</Text>
-        <View style={{ width: 22 }} />
+        <TouchableOpacity onPress={() => Share.share({ message: `${wod.title} — Rejoins le WOD sur AthleX ! athlex://wod/${wodId}` })} style={S.backBtn}>
+          <Share2 color={theme.text} size={20} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -796,9 +800,9 @@ export default function WODDetailScreen() {
               />
 
               <TouchableOpacity
-                style={[S.submitBtn, (!(dnf ? capReps.trim() : scoreInput.trim()) || submitting) && S.submitBtnDisabled]}
+                style={[S.submitBtn, (!(dnf ? capReps.trim() : scoreType === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting) && S.submitBtnDisabled]}
                 onPress={submitScore}
-                disabled={!(dnf ? capReps.trim() : scoreInput.trim()) || submitting}
+                disabled={!(dnf ? capReps.trim() : scoreType === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting}
                 activeOpacity={0.85}
               >
                 {submitting

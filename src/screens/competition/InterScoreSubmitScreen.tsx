@@ -42,6 +42,13 @@ export default function InterScoreSubmitScreen() {
       return;
     }
 
+    // Validate video URL if provided
+    const trimmedVideo = videoUrl.trim();
+    if (trimmedVideo && !/^https?:\/\/.+/i.test(trimmedVideo)) {
+      Alert.alert('Lien vidéo invalide', 'Le lien vidéo doit commencer par http:// ou https://');
+      return;
+    }
+
     setSubmitting(true);
     const payload = {
       competition_id: competitionId,
@@ -49,7 +56,7 @@ export default function InterScoreSubmitScreen() {
       athlete_id: user.id,
       score_value: trimmed,
       score_display: trimmed,
-      video_url: videoUrl.trim() || null,
+      video_url: trimmedVideo || null,
       notes: notes.trim() || null,
       status: 'pending',
     };

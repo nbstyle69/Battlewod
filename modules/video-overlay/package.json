@@ -1,7 +1,0 @@
-{
-  "name": "video-overlay",
-  "version": "1.0.0",
-  "description": "Native video overlay module for burning timer/countdown overlays into videos",
-  "main": "src/index.ts",
-  "react-native": "src/index.ts"
-}

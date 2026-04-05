@@ -1,9 +1,0 @@
-{
-  "platforms": ["ios", "android"],
-  "ios": {
-    "modules": ["VideoOverlayModule"]
-  },
-  "android": {
-    "modules": ["expo.modules.videooverlay.VideoOverlayModule"]
-  }
-}

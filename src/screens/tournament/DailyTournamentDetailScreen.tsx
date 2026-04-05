@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
-  ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, Linking,
+  ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, Linking, Share,
 } from 'react-native';
 import {
   ArrowLeft, Users, Clock, Zap, Trophy, Crown, Medal, Check, X, Play, Edit3,
-  Youtube, AlertTriangle, ThumbsUp, Link,
+  Youtube, AlertTriangle, ThumbsUp, Link, Share2,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { hapticSuccess } from '../../lib/haptics';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -67,7 +68,7 @@ export default function DailyTournamentDetailScreen() {
   const S = createStyles(theme);
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { user } = useAuth();
+  const { user, currentBox } = useAuth();
   const { tournamentId } = route.params;
 
   const [tournament, setTournament] = useState<TournamentDetail | null>(null);
@@ -267,6 +268,14 @@ export default function DailyTournamentDetailScreen() {
       return;
     }
 
+    // Validate video URL if provided
+    const trimmedVideo = videoUrl.trim();
+    if (trimmedVideo && !/^https?:\/\/.+/i.test(trimmedVideo)) {
+      Alert.alert('Lien vidéo invalide', 'Le lien vidéo doit commencer par http:// ou https://');
+      setSubmitting(false);
+      return;
+    }
+
     // Cap validation for AMRAP / EMOM / Tabata
     const sType = tournament?.score_mode === 'time' ? 'time' : 'reps';
     const maxScore = computeMaxScore(
@@ -294,17 +303,18 @@ export default function DailyTournamentDetailScreen() {
 
     setSubmitting(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
-    incrementCounter(user.id, 'total_scores_submitted').catch(() => {});
-    cancelTodayScoreReminder().catch(() => {});
+    incrementCounter(user.id, 'total_scores_submitted', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementScores' }));
+    cancelTodayScoreReminder().catch(e => captureError(e, { action: 'cancelScoreReminder' }));
 
     // Log movement reps for badges
     if (tournament?.movements) {
       const lines = tournament.movements.split('\n').filter(Boolean);
       const sType = tournament.score_mode === 'time' ? 'time' : 'reps';
       const completed = computeCompletedMovements(lines, tournament.wod_type, value, sType);
-      logMovementReps(user.id, completed, 'daily', tournamentId).catch(() => {});
+      logMovementReps(user.id, completed, 'daily', tournamentId).catch(e => captureError(e, { action: 'logMovementReps' }));
     }
 
+    hapticSuccess();
     setScoreModal(false);
     setScoreInput('');
     setScoreNotes('');
@@ -465,7 +475,9 @@ export default function DailyTournamentDetailScreen() {
           <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Text style={S.headerTitle} numberOfLines={1}>{tournament.wod_name}</Text>
-        <View style={{ width: 22 }} />
+        <TouchableOpacity onPress={() => Share.share({ message: `${tournament.wod_name} — Rejoins le mini-tournoi sur AthleX ! athlex://daily/${tournamentId}` })} hitSlop={12}>
+          <Share2 color={theme.text} size={20} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -579,7 +591,18 @@ export default function DailyTournamentDetailScreen() {
                   <View style={S.playerActions}>
                     <View style={S.playerActionsTop}>
                       {p.video_url ? (
-                        <TouchableOpacity style={S.videoBtn} onPress={() => Linking.openURL(p.video_url!)} activeOpacity={0.8}>
+                        <TouchableOpacity style={S.videoBtn} onPress={async () => {
+                          try {
+                            const canOpen = await Linking.canOpenURL(p.video_url!);
+                            if (canOpen) {
+                              await Linking.openURL(p.video_url!);
+                            } else {
+                              Alert.alert('Lien invalide', `Impossible d'ouvrir ce lien vidéo.\n\n${p.video_url}`);
+                            }
+                          } catch (e: any) {
+                            Alert.alert('Erreur vidéo', e?.message ?? 'Erreur inconnue');
+                          }
+                        }} activeOpacity={0.8}>
                           <Youtube color="#FF0000" size={14} />
                           <Text style={S.videoBtnTxt}>Vidéo</Text>
                         </TouchableOpacity>

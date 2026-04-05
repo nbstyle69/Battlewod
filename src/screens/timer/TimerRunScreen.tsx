@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { incrementCounter } from '../../services/gamification';
 import { captureError } from '../../lib/sentry';
+import { hapticLight, hapticMedium, hapticHeavy } from '../../lib/haptics';
 
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
@@ -80,7 +81,7 @@ async function playTone(hz: number, ms: number, fadeOutMs = 20): Promise<void> {
     const path = (FileSystem.cacheDirectory ?? '') + `bwod_tone_${hz}_${ms}.wav`;
     await FileSystem.writeAsStringAsync(path, wav, { encoding: FileSystem.EncodingType.Base64 });
     const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
-    setTimeout(() => { sound.unloadAsync().catch(() => {}); }, ms + 500);
+    setTimeout(() => { sound.unloadAsync().catch(e => captureError(e, { action: 'unloadTone' })); }, ms + 500);
   } catch (e) { captureError(e, { screen: 'TimerRun', action: 'playTone', hz, ms }); }
 }
 
@@ -488,10 +489,10 @@ export default function TimerRunScreen() {
     }
     setup();
     return () => {
-      sndTickRef.current.forEach(s => { s.unloadAsync().catch(() => {}); });
+      sndTickRef.current.forEach(s => { s.unloadAsync().catch(e => captureError(e, { action: 'unloadTick' })); });
       sndTickRef.current = [];
-      sndGoRef.current?.unloadAsync().catch(() => {});
-      sndDoneRef.current?.unloadAsync().catch(() => {});
+      sndGoRef.current?.unloadAsync().catch(e => captureError(e, { action: 'unloadGo' }));
+      sndDoneRef.current?.unloadAsync().catch(e => captureError(e, { action: 'unloadDone' }));
     };
   }, []);
 
@@ -504,19 +505,19 @@ export default function TimerRunScreen() {
   // Screen orientation lock/unlock
   useEffect(() => {
     if (displayOpts.allowRotation) {
-      ScreenOrientation.unlockAsync().catch(() => {});
+      ScreenOrientation.unlockAsync().catch(e => captureError(e, { action: 'unlockOrientation' }));
     } else {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(e => captureError(e, { action: 'lockOrientation' }));
     }
     return () => {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(e => captureError(e, { action: 'lockOrientation' }));
     };
   }, [displayOpts.allowRotation]);
 
   function setDisplayOpts(update: Partial<TimerDisplayOpts>) {
     setDisplayOptsRaw(prev => {
       const next = { ...prev, ...update };
-      AsyncStorage.setItem(DISPLAY_OPTS_KEY, JSON.stringify(next)).catch(() => {});
+      AsyncStorage.setItem(DISPLAY_OPTS_KEY, JSON.stringify(next)).catch(e => captureError(e, { action: 'saveDisplayOpts' }));
       return next;
     });
   }
@@ -525,12 +526,15 @@ export default function TimerRunScreen() {
     if (!displayOptsRef.current.bipsEnabled || !soundReadyRef.current) return;
     try {
       if (type === 'tick') {
+        hapticLight();
         const s = sndTickRef.current[sndTickIdxRef.current % 3];
         sndTickIdxRef.current++;
         s?.replayAsync();
       } else if (type === 'go') {
+        hapticMedium();
         sndGoRef.current?.replayAsync();
       } else {
+        hapticHeavy();
         sndDoneRef.current?.replayAsync();
       }
     } catch (e) { captureError(e, { screen: 'TimerRun', action: 'playBeep' }); }
@@ -542,7 +546,7 @@ export default function TimerRunScreen() {
       timerStopOffsetRef.current = Date.now() - videoStartTimeRef.current;
       setPhase('stopped');
     } else {
-      if (user) incrementCounter(user.id, 'total_timer_sessions').catch(() => {});
+      if (user) incrementCounter(user.id, 'total_timer_sessions', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementTimerSessions' }));
       setPhase('done');
     }
   }
@@ -874,7 +878,7 @@ export default function TimerRunScreen() {
 
   function handleReset() {
     clearTimer();
-    if (withCamera && recordingActiveRef.current) { nativeStopRec().catch(() => {}); recordingActiveRef.current = false; setIsRecordingActive(false); }
+    if (withCamera && recordingActiveRef.current) { nativeStopRec().catch(e => captureError(e, { action: 'stopRecReset' })); recordingActiveRef.current = false; setIsRecordingActive(false); }
     setIsCameraReady(withCamera);
     setCountdownVal(countdown);
     setSavedUri(null); setSaving(false);
@@ -886,7 +890,7 @@ export default function TimerRunScreen() {
 
   function handleClose() {
     clearTimer();
-    if (withCamera && recordingActiveRef.current) { nativeStopRec().catch(() => {}); recordingActiveRef.current = false; setIsRecordingActive(false); }
+    if (withCamera && recordingActiveRef.current) { nativeStopRec().catch(e => captureError(e, { action: 'stopRecClose' })); recordingActiveRef.current = false; setIsRecordingActive(false); }
     navigation.goBack();
   }
 

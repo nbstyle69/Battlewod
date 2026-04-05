@@ -16,6 +16,12 @@ export interface Box {
   name: string;
   description?: string;
   logo_url?: string;
+  address?: string;
+  website_url?: string;
+  contact_email?: string;
+  phone?: string;
+  google_maps_url?: string;
+  founded_at?: string;
   invite_code: string;
   is_active: boolean;
   created_at: string;
@@ -45,6 +51,7 @@ export interface BoxWOD {
   video_url?: string;
   is_published: boolean;
   leaderboard_enabled?: boolean;
+  sort_order?: number;
   created_at: string;
   scores?: WODScore[];
 }

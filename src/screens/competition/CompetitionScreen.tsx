@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, RefreshControl, Alert,
+  ActivityIndicator, RefreshControl, Alert, LayoutAnimation,
 } from 'react-native';
 import { Trophy, Users, Clock, Zap, ChevronRight, ChevronLeft, Plus, MapPin, Flame, Globe2, Info } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -160,7 +160,7 @@ export default function CompetitionScreen() {
         {TABS.map((tab, i) => (
           <TouchableOpacity
             key={tab}
-            onPress={() => setActiveTab(i)}
+            onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setActiveTab(i); }}
             style={[S.tab, activeTab === i && S.tabActive]}
           >
             <Text style={[S.tabText, activeTab === i && S.tabTextActive]}>{tab}</Text>

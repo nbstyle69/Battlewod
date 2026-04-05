@@ -48,16 +48,14 @@ dependencies {
   implementation project(':expo-modules-core')
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${getKotlinVersion()}"
 
-  // CameraX
-  def camerax_version = "1.3.4"
-  implementation "androidx.camera:camera-core:${camerax_version}"
-  implementation "androidx.camera:camera-camera2:${camerax_version}"
-  implementation "androidx.camera:camera-lifecycle:${camerax_version}"
-  implementation "androidx.camera:camera-view:${camerax_version}"
+  // Camera2 API is part of the Android SDK — no external dependency needed
 
-  // Lifecycle
+  // Lifecycle (for ProcessLifecycleOwner fallback)
   implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
   implementation "androidx.lifecycle:lifecycle-process:2.7.0"
+
+  // Core KTX
+  implementation "androidx.core:core-ktx:1.13.1"
 }
 
 def getKotlinVersion() {

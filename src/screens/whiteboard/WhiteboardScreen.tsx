@@ -5,7 +5,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { Clock, ChevronRight, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper, Play } from 'lucide-react-native';
+import { Clock, ChevronRight, ChevronUp, ChevronDown, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper, Play } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -114,7 +114,7 @@ export default function WhiteboardScreen() {
       .select('*')
       .eq('box_id', currentBox.id)
       .eq('scheduled_date', selectedDate)
-      .order('block_name');
+      .order('sort_order');
     if (!isStaff) query = query.eq('is_published', true);
     const { data: dayData } = await query;
 
@@ -160,6 +160,21 @@ export default function WhiteboardScreen() {
     if (wodData) { setDayWODs(wodData); setLoading(false); setRefreshing(false); }
     else if (wodQueryLoading) setLoading(true);
   }, [wodData, wodQueryLoading]);
+
+  const isStaff = boxRole === 'owner' || boxRole === 'coach' || user?.id === currentBox?.owner_id;
+
+  async function moveWod(index: number, direction: 'up' | 'down') {
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= dayWODs.length) return;
+    const updated = [...dayWODs];
+    [updated[index], updated[target]] = [updated[target], updated[index]];
+    setDayWODs(updated);
+    // Persist new sort_order for both swapped WODs
+    const promises = updated.map((w, i) =>
+      supabase.from('box_wods').update({ sort_order: i }).eq('id', w.id)
+    );
+    await Promise.all(promises);
+  }
 
   async function handleJoin() {
     if (!joinCode.trim()) return;
@@ -337,42 +352,63 @@ export default function WhiteboardScreen() {
           </Text>
           {dayWODs.length > 0 ? (
             <View style={S.dayGroup}>
-              {dayWODs.map(wod => {
+              {dayWODs.map((wod, idx) => {
                 const tc = TYPE_COLORS[wod.wod_type ?? 'custom'] ?? '#6B7280';
                 return (
-                  <TouchableOpacity
-                    key={wod.id}
-                    style={S.wodCard}
-                    onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
-                    activeOpacity={0.8}
-                  >
-                    <View style={S.wodCardTop}>
-                      <WodTypeBadge type={wod.wod_type} />
-                      
-                      {wod.video_url && (
-                        <View style={[S.timeCap, { backgroundColor: '#EF444418', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
-                          <Play color="#EF4444" size={10} />
-                          <Text style={[S.timeCapText, { color: '#EF4444' }]}>Vidéo</Text>
-                        </View>
-                      )}
-                      {wod.time_cap_seconds != null && (
-                        <View style={S.timeCap}>
-                          <Clock color={theme.textMuted} size={12} />
-                          <Text style={S.timeCapText}>
-                            Cap {Math.floor(wod.time_cap_seconds / 60)} min
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={S.wodTitle}>{wod.title}</Text>
-                    {wod.description && (
-                      <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text>
+                  <View key={wod.id} style={S.wodRow}>
+                    {isStaff && dayWODs.length > 1 && (
+                      <View style={S.reorderCol}>
+                        <TouchableOpacity
+                          onPress={() => moveWod(idx, 'up')}
+                          disabled={idx === 0}
+                          style={[S.reorderBtn, idx === 0 && { opacity: 0.25 }]}
+                          hitSlop={{ top: 8, bottom: 4, left: 8, right: 8 }}
+                        >
+                          <ChevronUp color={theme.textSecondary} size={16} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => moveWod(idx, 'down')}
+                          disabled={idx === dayWODs.length - 1}
+                          style={[S.reorderBtn, idx === dayWODs.length - 1 && { opacity: 0.25 }]}
+                          hitSlop={{ top: 4, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <ChevronDown color={theme.textSecondary} size={16} />
+                        </TouchableOpacity>
+                      </View>
                     )}
-                    <View style={S.wodCardAction}>
-                      <Text style={S.wodCardActionText}>Voir détails & score</Text>
-                      <ChevronRight color={theme.accent} size={14} />
-                    </View>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[S.wodCard, { flex: 1 }]}
+                      onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
+                      activeOpacity={0.8}
+                    >
+                      <View style={S.wodCardTop}>
+                        <WodTypeBadge type={wod.wod_type} />
+                        
+                        {wod.video_url && (
+                          <View style={[S.timeCap, { backgroundColor: '#EF444418', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
+                            <Play color="#EF4444" size={10} />
+                            <Text style={[S.timeCapText, { color: '#EF4444' }]}>Vidéo</Text>
+                          </View>
+                        )}
+                        {wod.time_cap_seconds != null && (
+                          <View style={S.timeCap}>
+                            <Clock color={theme.textMuted} size={12} />
+                            <Text style={S.timeCapText}>
+                              Cap {Math.floor(wod.time_cap_seconds / 60)} min
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={S.wodTitle}>{wod.title}</Text>
+                      {wod.description && (
+                        <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text>
+                      )}
+                      <View style={S.wodCardAction}>
+                        <Text style={S.wodCardActionText}>Voir détails & score</Text>
+                        <ChevronRight color={theme.accent} size={14} />
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 );
               })}
             </View>
@@ -483,6 +519,9 @@ function createStyles(theme: AppTheme) {
   section:      { paddingHorizontal: 16, marginTop: 20 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
   dayGroup:     { gap: 10 },
+  wodRow:       { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  reorderCol:   { alignItems: 'center', justifyContent: 'center', gap: 2 },
+  reorderBtn:   { padding: 4, borderRadius: 8, backgroundColor: `${theme.surface}` },
   wodCard: {
     backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: theme.border, gap: 10,

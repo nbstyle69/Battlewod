@@ -9,6 +9,7 @@ import { WODStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { incrementCounter } from '../../services/gamification';
+import { captureError } from '../../lib/sentry';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WODType } from '../../types';
 
@@ -341,36 +342,36 @@ const MVTS: Mvt[] = [
   { name: 'Sumo Deadlift HP',     eq: ['Barre + Disques'],   reps: [6,8,10,12,12,15],   load: ['25','30','35','40','50','55'] },
   { name: 'High Sumo Deadlift',   eq: ['Barre + Disques'],   reps: [6,8,10,12,12,15],   load: ['30','35','40','50','55','60'] },
   // ── Haltères ──
-  { name: 'DB Snatch',            eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10','12.5','15','20','22.5','25'] },
-  { name: 'DB Hang Snatch',       eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10','12.5','15','20','22.5','25'] },
-  { name: 'DB Squat Snatch',      eq: ['Haltères'],          reps: [0,5,8,10,12,12],    load: ['','10','12.5','15','20','22.5'] },
-  { name: 'DB Thrusters',         eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10','12.5','15','20','22.5','25'] },
-  { name: 'DB Clean & Jerk',      eq: ['Haltères'],          reps: [5,6,8,10,10,12],    load: ['10','12.5','15','20','22.5','25'] },
-  { name: 'DB Hang Clean & Jerk', eq: ['Haltères'],          reps: [5,6,8,10,10,12],    load: ['10','12.5','15','20','22.5','25'] },
-  { name: 'DB Lunges',            eq: ['Haltères'],          reps: [8,10,12,16,16,20],  load: ['10','12.5','15','17.5','20','22.5'] },
-  { name: 'Devil Press',          eq: ['Haltères'],          reps: [4,5,6,8,10,10],     load: ['10','12.5','15','20','22.5','25'] },
-  { name: 'DB Push Press',        eq: ['Haltères'],          reps: [6,8,10,12,12,15],   load: ['10','12.5','15','17.5','20','22.5'] },
-  { name: 'DB Walking Lunge',     eq: ['Haltères'],          reps: [8,10,12,16,16,20],  load: ['10','12.5','15','17.5','20','22.5'] },
-  { name: 'DB OH Walking Lunge',  eq: ['Haltères'],          reps: [6,8,10,12,14,16],   load: ['10','12.5','15','17.5','20','22.5'] },
-  { name: 'DB Farmer Carry',      eq: ['Haltères'],          reps: [25,25,50,50,50,75], load: ['15','17.5','20','22.5','25','30'], unit: 'm' },
+  { name: 'DB Snatch',            eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+  { name: 'DB Hang Snatch',       eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+  { name: 'DB Squat Snatch',      eq: ['Haltères'],          reps: [0,5,8,10,12,12],    load: ['','10/7','15/10','20/14','22.5/15','25/17'] },
+  { name: 'DB Thrusters',         eq: ['Haltères'],          reps: [6,8,10,12,15,15],   load: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+  { name: 'DB Clean & Jerk',      eq: ['Haltères'],          reps: [5,6,8,10,10,12],    load: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+  { name: 'DB Hang Clean & Jerk', eq: ['Haltères'],          reps: [5,6,8,10,10,12],    load: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+  { name: 'DB Lunges',            eq: ['Haltères'],          reps: [8,10,12,16,16,20],  load: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+  { name: 'Devil Press',          eq: ['Haltères'],          reps: [4,5,6,8,10,10],     load: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+  { name: 'DB Push Press',        eq: ['Haltères'],          reps: [6,8,10,12,12,15],   load: ['7/5','10/7','15/10','20/14','22.5/15','25/17'] },
+  { name: 'DB Walking Lunge',     eq: ['Haltères'],          reps: [8,10,12,16,16,20],  load: ['10/7','15/10','22.5/15','25/17','30/20','35/25'] },
+  { name: 'DB OH Walking Lunge',  eq: ['Haltères'],          reps: [6,8,10,12,14,16],   load: ['7/5','10/7','15/10','20/14','22.5/15','25/17'] },
+  { name: 'DB Farmer Carry',      eq: ['Haltères'],          reps: [25,25,50,50,50,75], load: ['15/10','17.5/12','22.5/15','25/17','30/20','35/25'], unit: 'm' },
   // ── Kettlebell ──
-  { name: 'KB Swings',            eq: ['Kettlebell'],        reps: [10,12,15,20,20,25], load: ['12','16','20','24','28','32'] },
-  { name: 'Goblet Squats',        eq: ['Kettlebell'],        reps: [8,10,12,15,15,20],  load: ['12','16','20','24','28','32'] },
-  { name: 'KB Snatch',            eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
-  { name: 'KB Clean',             eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
-  { name: 'KB Clean & Jerk',      eq: ['Kettlebell'],        reps: [3,5,6,8,8,10],      load: ['12','16','20','24','28','32'] },
-  { name: 'KB Shoulder to OH',    eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
-  { name: 'KB Clean & Press',     eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12','16','20','24','28','32'] },
-  { name: 'Double KB Snatch',     eq: ['Kettlebell'],        reps: [0,4,6,8,8,10],      load: ['','12','16','20','24','28'] },
-  { name: 'Double KB Clean',      eq: ['Kettlebell'],        reps: [0,4,6,8,8,10],      load: ['','12','16','20','24','28'] },
-  { name: 'Double KB Clean & Jerk', eq: ['Kettlebell'],      reps: [0,3,5,6,8,8],       load: ['','12','16','20','24','28'] },
-  { name: 'KB Overhead Squat',    eq: ['Kettlebell'],        reps: [0,5,6,8,8,10],      load: ['','12','16','20','24','28'] },
-  { name: 'Double KB OH Squat',   eq: ['Kettlebell'],        reps: [0,0,5,6,8,8],       load: ['','','12','16','20','24'] },
-  { name: 'Turkish Get-up',       eq: ['Kettlebell'],        reps: [2,2,3,4,4,5],       load: ['8','12','16','20','24','28'] },
-  { name: 'KB Thruster',          eq: ['Kettlebell'],        reps: [6,8,10,12,12,15],   load: ['12','16','20','24','28','32'] },
-  { name: 'KB Farmer Carry',      eq: ['Kettlebell'],        reps: [25,25,50,50,50,75], load: ['16','20','24','28','32','36'], unit: 'm' },
-  { name: 'KB Walking Lunge',     eq: ['Kettlebell'],        reps: [8,10,12,16,16,20],  load: ['12','16','20','24','28','32'] },
-  { name: 'KB OH Walking Lunge',  eq: ['Kettlebell'],        reps: [6,8,10,12,14,16],   load: ['12','16','20','24','28','32'] },
+  { name: 'KB Swings',            eq: ['Kettlebell'],        reps: [10,12,15,20,20,25], load: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
+  { name: 'Goblet Squats',        eq: ['Kettlebell'],        reps: [8,10,12,15,15,20],  load: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
+  { name: 'KB Snatch',            eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
+  { name: 'KB Clean',             eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['16/12','20/16','24/16','28/20','32/24','36/28'] },
+  { name: 'KB Clean & Jerk',      eq: ['Kettlebell'],        reps: [3,5,6,8,8,10],      load: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+  { name: 'KB Shoulder to OH',    eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+  { name: 'KB Clean & Press',     eq: ['Kettlebell'],        reps: [5,6,8,10,10,12],    load: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+  { name: 'Double KB Snatch',     eq: ['Kettlebell'],        reps: [0,4,6,8,8,10],      load: ['','12/8','16/12','20/16','24/16','28/20'] },
+  { name: 'Double KB Clean',      eq: ['Kettlebell'],        reps: [0,4,6,8,8,10],      load: ['','12/8','16/12','20/16','24/16','28/20'] },
+  { name: 'Double KB Clean & Jerk', eq: ['Kettlebell'],      reps: [0,3,5,6,8,8],       load: ['','12/8','16/12','20/16','24/16','28/20'] },
+  { name: 'KB Overhead Squat',    eq: ['Kettlebell'],        reps: [0,5,6,8,8,10],      load: ['','12/8','16/12','20/16','24/16','28/20'] },
+  { name: 'Double KB OH Squat',   eq: ['Kettlebell'],        reps: [0,0,5,6,8,8],       load: ['','','12/8','16/12','20/16','24/16'] },
+  { name: 'Turkish Get-up',       eq: ['Kettlebell'],        reps: [2,2,3,4,4,5],       load: ['10/8','14/10','16/12','20/14','24/16','28/20'] },
+  { name: 'KB Thruster',          eq: ['Kettlebell'],        reps: [6,8,10,12,12,15],   load: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+  { name: 'KB Farmer Carry',      eq: ['Kettlebell'],        reps: [25,25,50,50,50,75], load: ['16/12','20/16','24/16','28/20','32/24','36/28'], unit: 'm' },
+  { name: 'KB Walking Lunge',     eq: ['Kettlebell'],        reps: [8,10,12,16,16,20],  load: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
+  { name: 'KB OH Walking Lunge',  eq: ['Kettlebell'],        reps: [6,8,10,12,14,16],   load: ['12/8','16/12','20/16','24/16','28/20','32/24'] },
   // ── Box ──
   { name: 'Box Jump',             eq: ['Box'],               reps: [8,10,12,15,18,20] },
   { name: 'Box Jump Over',        eq: ['Box'],               reps: [6,8,10,12,15,18] },
@@ -379,8 +380,8 @@ const MVTS: Mvt[] = [
   { name: 'Burpee Box Jump',      eq: ['Box'],               reps: [4,5,6,8,10,12] },
   { name: 'Burpee Box Jump Over', eq: ['Box'],               reps: [4,5,6,8,10,12] },
   { name: 'Med-Ball Box Step-Overs', eq: ['Box'],            reps: [6,8,10,12,15,18] },
-  { name: 'DB Step Up',           eq: ['Haltères','Box'],    reps: [8,10,12,16,16,20],  load: ['10','12.5','15','17.5','20','22.5'] },
-  { name: 'Double DB Step Up',    eq: ['Haltères','Box'],    reps: [6,8,10,12,14,16],   load: ['10','12.5','15','17.5','20','22.5'] },
+  { name: 'DB Step Up',           eq: ['Haltères','Box'],    reps: [8,10,12,16,16,20],  load: ['7/5','10/7','15/10','20/14','22.5/15','25/17'] },
+  { name: 'Double DB Step Up',    eq: ['Haltères','Box'],    reps: [6,8,10,12,14,16],   load: ['7/5','10/7','15/10','20/14','22.5/15','25/17'] },
   // ── Corde à sauter ──
   { name: 'Single Unders',        eq: ['Corde à sauter'],    reps: [30,40,50,50,60,75] },
   { name: 'Double Unders',        eq: ['Corde à sauter'],    reps: [0,10,20,30,40,50] },
@@ -569,13 +570,13 @@ function fmtMvt(m: Mvt, li: number): string {
   if (u === 'm')        return `${r}m ${m.name}`;
   if (u === 'cal')      return `${r} Cal ${m.name}`;
   if (u === '×7.62m')   return `${r}×7.62m ${m.name}`;
-  if (ld)               return `${r} ${m.name} (${ld} kg)`;
+  if (ld)               return `${r} ${m.name} (${ld} kg${ld.includes('/') ? ' H/F' : ''})`;
   return `${r} ${m.name}`;
 }
 
 function fmtMvtLabel(m: Mvt, li: number): string {
   const ld = m.load?.[li];
-  if (ld) return `${m.name} (${ld} kg)`;
+  if (ld) return `${m.name} (${ld} kg${ld.includes('/') ? ' H/F' : ''})`;
   return m.name;
 }
 
@@ -847,7 +848,7 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
 export default function WODGeneratorScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<WODStackParamList>>();
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, currentBox } = useAuth();
   const S = createStyles(theme);
 
   const [sport,        setSport]        = useState<Sport>('functional');
@@ -892,7 +893,7 @@ export default function WODGeneratorScreen() {
       setGeneratedHyrox(null);
     }
     setLoading(false);
-    if (user) incrementCounter(user.id, 'total_wods_generated').catch(() => {});
+    if (user) incrementCounter(user.id, 'total_wods_generated', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementWodsGenerated' }));
   }
 
   return (

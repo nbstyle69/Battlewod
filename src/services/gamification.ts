@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import * as Notifications from 'expo-notifications';
 import { captureError } from '../lib/sentry';
+import { hapticHeavy } from '../lib/haptics';
 
 // ── Badge title cache (avoid re-fetching) ───────────────────────────
 let badgeTitleCache: Record<string, { title: string; icon: string }> = {};
@@ -32,6 +33,7 @@ export interface StreakInfo {
   longest_streak: number;
   week_session_count: number;
   week_start: string;
+  max_sessions_per_week: number | null;
 }
 
 // ── Fetch helpers ───────────────────────────────────────────────────
@@ -52,14 +54,30 @@ export async function getEarnedBadges(userId: string): Promise<EarnedBadge[]> {
   return (data ?? []) as unknown as EarnedBadge[];
 }
 
-export async function getStreak(userId: string): Promise<StreakInfo> {
+export async function getStreak(userId: string, boxId?: string): Promise<StreakInfo> {
   const { data } = await supabase
     .from('athlete_streaks')
     .select('*')
     .eq('athlete_id', userId)
     .single();
-  if (!data) return { current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '' };
-  return data as StreakInfo;
+
+  // Fetch the user's plan limit for the current box
+  let maxSessions: number | null = null;
+  if (boxId) {
+    const { data: membership } = await supabase
+      .from('box_members')
+      .select('plan_id, membership_plans(max_sessions_per_week)')
+      .eq('member_id', userId)
+      .eq('box_id', boxId)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (membership?.membership_plans) {
+      maxSessions = (membership.membership_plans as any).max_sessions_per_week ?? null;
+    }
+  }
+
+  if (!data) return { current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '', max_sessions_per_week: maxSessions };
+  return { ...data, max_sessions_per_week: maxSessions } as StreakInfo;
 }
 
 // ── Award badge (idempotent) ────────────────────────────────────────
@@ -79,8 +97,9 @@ async function awardBadge(userId: string, badgeKey: string): Promise<boolean> {
     .insert({ athlete_id: userId, badge_key: badgeKey });
   if (error) return false;
 
-  // Send local notification for badge unlock
+  // Send local notification + haptic for badge unlock
   try {
+    hapticHeavy();
     const { title, icon } = await getBadgeTitle(badgeKey);
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -103,8 +122,22 @@ export async function awardLevelBadge(userId: string, badgeKey: string): Promise
 
 // ── Record activity for streak tracking ─────────────────────────────
 
-export async function recordActivity(userId: string): Promise<string[]> {
+export async function recordActivity(userId: string, boxId?: string): Promise<string[]> {
   const newBadges: string[] = [];
+
+  // Fetch the user's plan limit (default 3 if no plan assigned)
+  let threshold = 3;
+  if (boxId) {
+    const { data: membership } = await supabase
+      .from('box_members')
+      .select('plan_id, membership_plans(max_sessions_per_week)')
+      .eq('member_id', userId)
+      .eq('box_id', boxId)
+      .eq('status', 'active')
+      .maybeSingle();
+    const planMax = (membership?.membership_plans as any)?.max_sessions_per_week;
+    if (planMax != null) threshold = planMax;
+  }
 
   // Get or create streak row
   const { data: existing } = await supabase
@@ -138,8 +171,8 @@ export async function recordActivity(userId: string): Promise<string[]> {
       updated_at: now.toISOString(),
     }).eq('athlete_id', userId);
 
-    // Check if we just hit 3 sessions this week → validate the week
-    if (existing.week_session_count < 3 && newCount >= 3) {
+    // Check if we just hit the plan threshold → validate the week
+    if (existing.week_session_count < threshold && newCount >= threshold) {
       const newStreak = existing.current_streak + 1;
       const newLongest = Math.max(existing.longest_streak, newStreak);
       await supabase.from('athlete_streaks').update({
@@ -155,15 +188,14 @@ export async function recordActivity(userId: string): Promise<string[]> {
       }
     }
   } else {
-    // Different week
+    // Different week — reset counter, check if last week was validated
     const lastWeekEnd = new Date(storedWeekStart);
     lastWeekEnd.setDate(lastWeekEnd.getDate() + 7);
     const isConsecutive = currentWeekStart === getWeekStart(lastWeekEnd) ||
                           daysBetween(storedWeekStart, currentWeekStart) === 7;
 
-    // If last week was validated (>=3) and this is the next week, keep streak
-    // If last week was NOT validated or gap > 1 week, reset streak
-    const lastWeekValidated = existing.week_session_count >= 3;
+    // If last week reached the threshold and this is consecutive, keep streak
+    const lastWeekValidated = existing.week_session_count >= threshold;
     let currentStreak = existing.current_streak;
 
     if (!isConsecutive || !lastWeekValidated) {
@@ -238,6 +270,7 @@ export async function incrementCounter(
   userId: string,
   field: string,
   amount: number = 1,
+  boxId?: string,
 ): Promise<string[]> {
   // Increment counter
   const { data: profile } = await supabase
@@ -253,8 +286,8 @@ export async function incrementCounter(
 
   await supabase.from('profiles').update({ [field]: newVal }).eq('id', userId);
 
-  // Record activity for streak
-  const streakBadges = await recordActivity(userId);
+  // Record activity for streak (using plan limit from box membership)
+  const streakBadges = await recordActivity(userId, boxId);
 
   // Check cumulative badges with updated counter
   const updatedCounters = { ...(profile as Record<string, any>), [field]: newVal };

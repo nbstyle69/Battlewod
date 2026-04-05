@@ -1,7 +1,6 @@
 package expo.modules.realtimerecorder
 
 import android.util.Log
-import androidx.camera.core.CameraSelector
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
@@ -12,7 +11,7 @@ class RealtimeRecorderModule : Module() {
     private const val TAG = "RealtimeRecorder"
   }
 
-  private val engine: RecorderEngine get() = RecorderEngine.shared
+  private val engine: VideoRecorderEngine get() = VideoRecorderEngine.shared
 
   override fun definition() = ModuleDefinition {
     Name("RealtimeRecorder")
@@ -45,11 +44,7 @@ class RealtimeRecorderModule : Module() {
           return@AsyncFunction
         }
 
-        engine.currentFacing = if (facing == "front") {
-          CameraSelector.LENS_FACING_FRONT
-        } else {
-          CameraSelector.LENS_FACING_BACK
-        }
+        engine.useFrontCamera = (facing == "front")
 
         // Clean path (remove file:// prefix if present)
         val cleanPath = if (outputPath.startsWith("file://")) {
@@ -110,11 +105,7 @@ class RealtimeRecorderModule : Module() {
     Function("switchCamera") {
       try {
         val context = appContext.currentActivity ?: appContext.reactContext ?: return@Function null
-        engine.currentFacing = if (engine.currentFacing == CameraSelector.LENS_FACING_BACK) {
-          CameraSelector.LENS_FACING_FRONT
-        } else {
-          CameraSelector.LENS_FACING_BACK
-        }
+        engine.useFrontCamera = !engine.useFrontCamera
         engine.setupSession(context)
       } catch (e: Exception) {
         Log.e(TAG, "switchCamera failed", e)
@@ -127,13 +118,9 @@ class RealtimeRecorderModule : Module() {
 
       Prop("facing") { view: RealtimeRecorderHostView, facing: String ->
         try {
-          val newFacing = if (facing == "front") {
-            CameraSelector.LENS_FACING_FRONT
-          } else {
-            CameraSelector.LENS_FACING_BACK
-          }
-          if (newFacing != engine.currentFacing) {
-            engine.currentFacing = newFacing
+          val newFront = (facing == "front")
+          if (newFront != engine.useFrontCamera) {
+            engine.useFrontCamera = newFront
             engine.setupSession(view.context)
           }
         } catch (e: Exception) {

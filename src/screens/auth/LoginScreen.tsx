@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -18,6 +19,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin() {
     if (!email || !password) { Alert.alert('Erreur', 'Remplis tous les champs'); return; }
@@ -57,26 +59,45 @@ export default function LoginScreen({ navigation }: Props) {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
               />
             </View>
 
             <View style={S.inputContainer}>
               <Text style={S.label}>Mot de passe</Text>
-              <TextInput
-                style={S.input}
-                placeholder="••••••••"
-                placeholderTextColor={theme.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View style={{ position: 'relative' }}>
+                <TextInput
+                  style={[S.input, { paddingRight: 48 }]}
+                  placeholder="••••••••"
+                  placeholderTextColor={theme.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoComplete="password"
+                  textContentType="password"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                >
+                  {showPassword
+                    ? <EyeOff color={theme.textMuted} size={20} />
+                    : <Eye color={theme.textMuted} size={20} />}
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={S.forgotLink}>
+            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={S.forgotLink} accessibilityLabel="Mot de passe oublié">
               <Text style={S.forgotText}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8}>
+            <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8} accessibilityLabel="Se connecter" accessibilityRole="button">
               <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
                 {loading
                   ? <ActivityIndicator color="#fff" />
@@ -84,7 +105,7 @@ export default function LoginScreen({ navigation }: Props) {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => navigation.navigate('Register')} style={S.registerLink}>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')} style={S.registerLink} accessibilityLabel="Créer un compte" accessibilityRole="button">
               <Text style={S.registerText}>
                 Pas encore de compte ? <Text style={S.registerHighlight}>Créer un compte</Text>
               </Text>

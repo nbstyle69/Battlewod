@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { ChevronLeft, Calendar, Clock, Check, Timer, X as XIcon } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -148,6 +148,38 @@ export default function MyReservationsScreen() {
                     </View>
                   </View>
                   {s.coach && <Text style={S.coach}>Coach : {s.coach}</Text>}
+                  {!isPast && (
+                    <TouchableOpacity
+                      style={S.cancelBtn}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        Alert.alert(
+                          isConfirmed ? 'Annuler la réservation' : 'Quitter la liste d\'attente',
+                          isConfirmed
+                            ? 'Ta place sera libérée et le premier en liste d\'attente sera inscrit.'
+                            : 'Tu seras retiré(e) de la liste d\'attente.',
+                          [
+                            { text: 'Non', style: 'cancel' },
+                            {
+                              text: 'Oui, annuler',
+                              style: 'destructive',
+                              onPress: async () => {
+                                const { error } = await supabase
+                                  .from('class_reservations')
+                                  .delete()
+                                  .eq('id', item.id);
+                                if (error) Alert.alert('Erreur', error.message);
+                                else load();
+                              },
+                            },
+                          ],
+                        );
+                      }}
+                    >
+                      <XIcon color={'#ef4444'} size={13} />
+                      <Text style={S.cancelBtnText}>Annuler</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             );
@@ -209,5 +241,12 @@ function createStyles(t: AppTheme) {
     detailRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     detailText: { fontSize: 12, color: t.textMuted, fontWeight: '600' },
     coach: { fontSize: 12, color: t.textSecondary, marginTop: 4 },
+    cancelBtn: {
+      flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end',
+      gap: 5, marginTop: 10, paddingHorizontal: 12, paddingVertical: 7,
+      borderRadius: 8, backgroundColor: 'rgba(239,68,68,0.10)',
+      borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)',
+    },
+    cancelBtnText: { fontSize: 12, fontWeight: '700', color: '#ef4444' },
   });
 }

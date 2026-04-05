@@ -206,7 +206,7 @@ export default function ReservationScreen() {
       // Check weekly limit before booking
       try {
         const { data: limitData } = await supabase.rpc('check_weekly_limit', {
-          p_user_id: user.id, p_box_id: currentBox.id,
+          p_user_id: user.id, p_box_id: currentBox.id, p_target_date: item.scheduled_date,
         });
         const wl = limitData as { allowed: boolean; max: number; used: number } | null;
         if (wl && !wl.allowed) {

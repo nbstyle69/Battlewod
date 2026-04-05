@@ -73,6 +73,8 @@ import ExplorerScreen from '../screens/explorer/ExplorerScreen';
 import ProgrammationScreen from '../screens/explorer/ProgrammationScreen';
 import ProgramAffiliatesScreen from '../screens/explorer/ProgramAffiliatesScreen';
 import AffiliateDetailScreen from '../screens/explorer/AffiliateDetailScreen';
+import BoxInfoScreen from '../screens/home/BoxInfoScreen';
+import BOBoxInfoScreen from '../screens/backoffice/BOBoxInfoScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -124,6 +126,7 @@ export type BODashboardStackParamList = {
   BOGamification: undefined;
   BOArticles: undefined;
   BOSettings: undefined;
+  BOBoxInfo: undefined;
 };
 
 export type AuthStackParamList = {
@@ -178,6 +181,7 @@ export type CompetitionSummary = {
 
 export type HomeStackParamList = {
   HomeList: undefined;
+  BoxInfo: undefined;
   Changelog: undefined;
   WODGenerator: undefined;
   WodHistory: undefined;
@@ -360,6 +364,7 @@ function HomeNavigator() {
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="HomeList" component={HomeScreen} />
+      <HomeStack.Screen name="BoxInfo" component={BoxInfoScreen} />
       <HomeStack.Screen name="Changelog" component={ChangelogScreen} />
       <HomeStack.Screen name="WODGenerator" component={HomeWODGeneratorScreen} />
       <HomeStack.Screen name="OneRMCalculator" component={OneRMCalculatorScreen} />
@@ -465,6 +470,7 @@ function BODashboardNavigator() {
       <BODashStack.Screen name="BOGamification" component={BOGamificationScreen} />
       <BODashStack.Screen name="BOArticles" component={BOArticlesScreen} />
       <BODashStack.Screen name="BOSettings" component={BOSettingsScreen} />
+      <BODashStack.Screen name="BOBoxInfo" component={BOBoxInfoScreen} />
     </BODashStack.Navigator>
   );
 }

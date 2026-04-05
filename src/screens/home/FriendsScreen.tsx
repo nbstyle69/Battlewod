@@ -40,7 +40,7 @@ const LEVEL_COLORS: Record<string, string> = {
 };
 
 export default function FriendsScreen() {
-  const { user } = useAuth();
+  const { user, currentBox } = useAuth();
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const S = createStyles(theme);
@@ -123,7 +123,7 @@ export default function FriendsScreen() {
       else Alert.alert('Erreur', error.message);
       return;
     }
-    sendFriendRequestNotification(targetId, user.username).catch(() => {});
+    sendFriendRequestNotification(targetId, user.username).catch(e => captureError(e, { action: 'sendFriendRequest' }));
     Alert.alert('✅', 'Invitation envoyée !');
     load();
   }
@@ -133,9 +133,9 @@ export default function FriendsScreen() {
     // Notify the requester
     const req = pendingReceived.find(r => r.id === requestId);
     if (req && user) {
-      sendFriendAcceptedNotification(req.requester_id, user.username).catch(() => {});
-      incrementCounter(user.id, 'total_friends').catch(() => {});
-      incrementCounter(req.requester_id, 'total_friends').catch(() => {});
+      sendFriendAcceptedNotification(req.requester_id, user.username).catch(e => captureError(e, { action: 'sendFriendAccepted' }));
+      incrementCounter(user.id, 'total_friends', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementFriends' }));
+      incrementCounter(req.requester_id, 'total_friends', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementFriendsRequester' }));
     }
     load();
   }

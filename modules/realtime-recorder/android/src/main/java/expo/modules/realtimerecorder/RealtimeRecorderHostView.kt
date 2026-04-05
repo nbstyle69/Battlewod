@@ -2,8 +2,8 @@ package expo.modules.realtimerecorder
 
 import android.content.Context
 import android.util.Log
+import android.view.TextureView
 import android.widget.LinearLayout
-import androidx.camera.view.PreviewView
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.viewevent.EventDispatcher
 import expo.modules.kotlin.views.ExpoView
@@ -17,19 +17,16 @@ class RealtimeRecorderHostView(context: Context, appContext: AppContext) : ExpoV
 
   private val onReady by EventDispatcher()
 
-  val previewView: PreviewView = PreviewView(context).apply {
+  val textureView: TextureView = TextureView(context).apply {
     layoutParams = LinearLayout.LayoutParams(
       LinearLayout.LayoutParams.MATCH_PARENT,
       LinearLayout.LayoutParams.MATCH_PARENT
     )
-    implementationMode = PreviewView.ImplementationMode.COMPATIBLE  // TextureView — works with RN view hierarchy
-    scaleType = PreviewView.ScaleType.FILL_CENTER
   }
 
   init {
-    // Ensure the LinearLayout fills its parent and stacks correctly
     orientation = VERTICAL
-    addView(previewView)
+    addView(textureView)
   }
 
   fun markReady() {
@@ -44,7 +41,7 @@ class RealtimeRecorderHostView(context: Context, appContext: AppContext) : ExpoV
     super.onAttachedToWindow()
     Log.i(TAG, "View attached to window")
     try {
-      val engine = RecorderEngine.shared
+      val engine = VideoRecorderEngine.shared
       engine.hostView = WeakReference(this)
       engine.setReadyCallback {
         post { markReady() }
@@ -55,10 +52,22 @@ class RealtimeRecorderHostView(context: Context, appContext: AppContext) : ExpoV
     }
   }
 
+  override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+    super.onLayout(changed, l, t, r, b)
+    // Force TextureView to fill the entire ExpoView bounds
+    // React Native's Yoga layout engine may not properly propagate dimensions
+    // to native child views, causing the TextureView to have 0 size (black screen)
+    val w = r - l
+    val h = b - t
+    if (w > 0 && h > 0) {
+      textureView.layout(0, 0, w, h)
+    }
+  }
+
   override fun onDetachedFromWindow() {
     Log.i(TAG, "View detached from window")
     try {
-      val engine = RecorderEngine.shared
+      val engine = VideoRecorderEngine.shared
       engine.releaseSession()
       engine.hostView = null
       engine.setReadyCallback(null)

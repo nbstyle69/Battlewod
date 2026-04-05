@@ -1,11 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, RefreshControl, Image, Linking, TextInput,
+  ActivityIndicator, RefreshControl, Image, Linking, TextInput, Share,
 } from 'react-native';
 import {
   ChevronLeft, ChevronRight, MapPin, Calendar,
-  Video, Clock, Zap, Play, ExternalLink, Info, DollarSign, Search,
+  Video, Clock, Zap, Play, ExternalLink, Info, DollarSign, Search, Share2,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -72,6 +72,7 @@ export default function PhysicalCompetitionScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<CompetitionStackParamList, 'PhysicalCompetition'>>();
   const modeFilter = route.params.mode;
+  const selectedId = (route.params as any).selectedId as string | undefined;
   const S = createStyles(theme);
 
   const [competitions, setCompetitions] = useState<PhysComp[]>([]);
@@ -79,6 +80,7 @@ export default function PhysicalCompetitionScreen() {
   const [refreshing,   setRefreshing]   = useState(false);
   const [selected,     setSelected]     = useState<PhysComp | null>(null);
   const [searchQuery,  setSearchQuery]  = useState('');
+  const autoOpenedRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -86,11 +88,26 @@ export default function PhysicalCompetitionScreen() {
       .from('physical_competitions')
       .select('*')
       .order('date', { ascending: true });
-    setCompetitions((data ?? []) as PhysComp[]);
+    const list = (data ?? []) as PhysComp[];
+    setCompetitions(list);
+
+    // Auto-open a specific competition if selectedId is provided
+    if (selectedId && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      const target = list.find(c => c.id === selectedId);
+      if (target) {
+        const { data: wData } = await supabase
+          .from('physical_wods')
+          .select('*')
+          .eq('competition_id', target.id)
+          .order('order_index', { ascending: true });
+        setSelected({ ...target, wods: (wData ?? []) as PhysWOD[] });
+      }
+    }
     } catch (e) { captureError(e, { screen: 'PhysicalCompetition', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [selectedId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -127,7 +144,7 @@ export default function PhysicalCompetitionScreen() {
   }
 
   function openURL(url: string) {
-    Linking.openURL(url).catch(() => {});
+    Linking.openURL(url).catch(e => captureError(e, { action: 'openURL' }));
   }
 
   // ── Detail view (selected competition)
@@ -152,6 +169,9 @@ export default function PhysicalCompetitionScreen() {
               ) : null}
             </View>
           </View>
+          <TouchableOpacity onPress={() => Share.share({ message: `${selected.name} — Découvre cette compétition sur AthleX ! athlex://inter/${selected.id}` })} style={{ padding: 4 }}>
+            <Share2 color={theme.text} size={20} />
+          </TouchableOpacity>
           {selected.logo_url ? (
             <Image source={{ uri: selected.logo_url }} style={S.headerLogo} />
           ) : null}

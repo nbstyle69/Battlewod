@@ -85,7 +85,8 @@ export default function BOWODsScreen({ navigation }: any) {
       .eq('box_id', currentBox.id)
       .gte('scheduled_date', start)
       .lte('scheduled_date', end)
-      .order('scheduled_date');
+      .order('scheduled_date')
+      .order('sort_order');
     setWods((data ?? []) as BoxWOD[]);
     setLoading(false);
     setRefreshing(false);
@@ -143,14 +144,21 @@ export default function BOWODsScreen({ navigation }: any) {
         ? `${date}T${publishHour.padStart(2, '0')}:${publishMin.padStart(2, '0')}:00`
         : null,
     };
-    const { error } = editWOD
-      ? await supabase.from('box_wods').update(payload).eq('id', editWOD.id)
-      : await supabase.from('box_wods').insert(payload);
+    let dbError: any;
+    if (editWOD) {
+      const { error } = await supabase.from('box_wods').update(payload).eq('id', editWOD.id);
+      dbError = error;
+    } else {
+      const dayCount = wods.filter(w => w.scheduled_date === date).length;
+      const { error } = await supabase.from('box_wods').insert({ ...payload, sort_order: dayCount });
+      dbError = error;
+    }
+    const error = dbError;
     setSubmitting(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
     // Only send notification if publishing now (no future schedule)
     if (published && publishMode === 'now' && currentBox && user) {
-      sendWodPublishedNotification(currentBox.id, title.trim(), user.id).catch(() => {});
+      sendWodPublishedNotification(currentBox.id, title.trim(), user.id).catch(e => captureError(e, { action: 'sendWodPublishedNotif' }));
     }
     setModalOpen(false);
     load();
@@ -160,7 +168,7 @@ export default function BOWODsScreen({ navigation }: any) {
     const newPublished = !wod.is_published;
     await supabase.from('box_wods').update({ is_published: newPublished }).eq('id', wod.id);
     if (newPublished && currentBox && user) {
-      sendWodPublishedNotification(currentBox.id, wod.title, user.id).catch(() => {});
+      sendWodPublishedNotification(currentBox.id, wod.title, user.id).catch(e => captureError(e, { action: 'sendWodPublishedNotif' }));
     }
     load();
   }

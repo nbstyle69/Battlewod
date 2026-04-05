@@ -484,6 +484,7 @@ export type Database = {
           publish_at: string | null
           rounds: number | null
           scheduled_date: string
+          sort_order: number
           time_cap_seconds: number | null
           title: string
           wod_type: string | null
@@ -502,6 +503,7 @@ export type Database = {
           publish_at?: string | null
           rounds?: number | null
           scheduled_date: string
+          sort_order?: number
           time_cap_seconds?: number | null
           title: string
           wod_type?: string | null
@@ -520,6 +522,7 @@ export type Database = {
           publish_at?: string | null
           rounds?: number | null
           scheduled_date?: string
+          sort_order?: number
           time_cap_seconds?: number | null
           title?: string
           wod_type?: string | null

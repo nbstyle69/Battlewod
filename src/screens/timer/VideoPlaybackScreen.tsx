@@ -5,7 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation';
-import { X, Play, Pause } from 'lucide-react-native';
+import { X, Play, Pause, Share2 } from 'lucide-react-native';
+import * as Sharing from 'expo-sharing';
 
 type Route = RouteProp<HomeStackParamList, 'VideoPlayback'>;
 type Nav   = NativeStackNavigationProp<HomeStackParamList, 'VideoPlayback'>;
@@ -119,9 +120,14 @@ export default function VideoPlaybackScreen() {
             {!overlaysBurned && title ? <Text style={styles.titleText} numberOfLines={2}>{title}</Text> : null}
             {!overlaysBurned && recordedAt ? <Text style={styles.timestampText}>{formatRecordedAt(recordedAt)}</Text> : null}
           </View>
-          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
-            <X color="#fff" size={22} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity style={styles.closeBtn} onPress={async () => { if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(videoURL); }} activeOpacity={0.8}>
+              <Share2 color="#fff" size={22} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+              <X color="#fff" size={22} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* DÉCOMPTE — centré, visible avant le chrono */}
