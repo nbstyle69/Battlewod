@@ -201,7 +201,10 @@ export default function MessagesScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    load();
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 300);
+  }, [load]));
 
   const loadOlderMessages = useCallback(async () => {
     if (!currentBox || !user || loadingOlder || !hasOlder) return;
@@ -248,10 +251,11 @@ export default function MessagesScreen() {
             .select('username, avatar_url')
             .eq('id', newMsg.sender_id)
             .single();
-          setMessages(prev => [
-            ...prev,
-            { ...newMsg, group_id: null, sender: profile ?? null } as unknown as MsgRow,
-          ]);
+          setMessages(prev => {
+            const filtered = prev.filter(m => !(m.id.startsWith('temp-') && m.sender_id === newMsg.sender_id));
+            if (filtered.some(m => m.id === newMsg.id)) return filtered;
+            return [...filtered, { ...newMsg, group_id: null, sender: profile ?? null, reactions: [] } as unknown as MsgRow];
+          });
           setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
         }
       )
@@ -288,8 +292,9 @@ export default function MessagesScreen() {
             sender: profile ? { username: profile.username, avatar_url: profile.avatar_url ?? undefined } : { username: 'Inconnu' },
           };
           setMessages(prev => {
-            if (prev.some(m => m.id === msgRow.id)) return prev;
-            return [...prev, msgRow];
+            const filtered = prev.filter(m => !(m.id.startsWith('temp-') && m.sender_id === raw.sender_id));
+            if (filtered.some(m => m.id === msgRow.id)) return filtered;
+            return [...filtered, msgRow];
           });
           setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
         })
@@ -435,22 +440,41 @@ export default function MessagesScreen() {
       setPendingImage(null);
     }
 
+    const content = text || (attachmentUrl ? '📷 Image' : '');
+
+    const tempMsg: MsgRow = {
+      id: `temp-${Date.now()}`,
+      box_id: currentBox.id,
+      sender_id: user.id,
+      group_id: activeTab ?? null,
+      content,
+      message_type: 'general' as MessageType,
+      is_announcement: false,
+      attachment_url: attachmentUrl ?? undefined,
+      created_at: new Date().toISOString(),
+      read_by: [],
+      sender: { username: user.username ?? '?' },
+      reactions: [],
+    };
+    setMessages(prev => [...prev, tempMsg]);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+
     if (activeTab) {
       await supabase.from('group_messages').insert({
         group_id: activeTab,
         sender_id: user.id,
-        content: text || (attachmentUrl ? '📷 Image' : ''),
+        content,
         ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
       });
       const grp = groups.find(g => g.id === activeTab);
       if (grp) {
-        sendNewMessageNotification(activeTab, grp.name, user.id, user.username, text || '📷 Image').catch(e => captureError(e, { action: 'sendMessageNotif' }));
+        sendNewMessageNotification(activeTab, grp.name, user.id, user.username, content).catch(e => captureError(e, { action: 'sendMessageNotif' }));
       }
     } else {
       await supabase.from('messages').insert({
         box_id: currentBox.id,
         sender_id: user.id,
-        content: text || (attachmentUrl ? '📷 Image' : ''),
+        content,
         message_type: 'general',
         is_announcement: false,
         ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
