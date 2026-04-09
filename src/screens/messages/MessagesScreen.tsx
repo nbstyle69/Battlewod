@@ -669,6 +669,15 @@ export default function MessagesScreen() {
         </View>
       )}
 
+      {/* Character counter */}
+      {input.length >= 400 && (
+        <View style={S.charCounterBar}>
+          <Text style={[S.charCounterText, input.length >= 500 && { color: '#ef4444' }]}>
+            {input.length}/500
+          </Text>
+        </View>
+      )}
+
       {/* Input bar */}
       <View style={S.inputBar}>
         <TouchableOpacity onPress={pickImage} style={S.imgBtn} activeOpacity={0.7}>
@@ -876,4 +885,7 @@ function createStyles(theme: AppTheme) {
   gifSearchInput:  { flex: 1, fontSize: 15, color: theme.text },
   gifItem:         { flex: 1, margin: 4, borderRadius: 10, overflow: 'hidden', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
   gifImage:        { width: '100%', height: (SCREEN_W - 36) / 2 * 0.75, borderRadius: 10 },
+
+  charCounterBar:  { alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 2, backgroundColor: theme.card, borderTopWidth: 1, borderTopColor: theme.border },
+  charCounterText: { fontSize: 11, fontWeight: '600', color: theme.textMuted },
 }); }
