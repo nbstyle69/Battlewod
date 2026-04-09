@@ -1,6 +1,6 @@
 {
   "name": "athlex",
-  "version": "1.0.25",
+  "version": "1.0.28",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
