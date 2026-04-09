@@ -14,7 +14,7 @@ export interface OverlayState {
 
 interface RealtimeRecorderNative {
   updateOverlayState(state: Partial<OverlayState>): void;
-  startRecording(options: { outputPath: string; facing?: string }): Promise<void>;
+  startRecording(options: { outputPath: string; facing?: string; isLandscape?: boolean }): Promise<void>;
   stopRecording(): Promise<string>;
   switchCamera(): void;
 }
@@ -31,7 +31,7 @@ export function updateOverlayState(state: Partial<OverlayState>): void {
   getModule().updateOverlayState(state);
 }
 
-export async function startRecording(options: { outputPath: string; facing?: string }): Promise<void> {
+export async function startRecording(options: { outputPath: string; facing?: string; isLandscape?: boolean }): Promise<void> {
   return getModule().startRecording(options);
 }
 

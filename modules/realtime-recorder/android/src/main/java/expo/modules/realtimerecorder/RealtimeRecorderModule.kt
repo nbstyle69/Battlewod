@@ -38,6 +38,7 @@ class RealtimeRecorderModule : Module() {
       try {
         val outputPath = options["outputPath"] as? String ?: ""
         val facing = options["facing"] as? String ?: "back"
+        val landscape = options["isLandscape"] as? Boolean ?: false
 
         if (outputPath.isEmpty()) {
           promise.reject("ERR", "outputPath is required", null)
@@ -45,6 +46,7 @@ class RealtimeRecorderModule : Module() {
         }
 
         engine.useFrontCamera = (facing == "front")
+        engine.isLandscape = landscape
 
         // Clean path (remove file:// prefix if present)
         val cleanPath = if (outputPath.startsWith("file://")) {
@@ -60,8 +62,12 @@ class RealtimeRecorderModule : Module() {
 
         // Ensure session is running
         if (engine.hostView?.get() == null) {
-          engine.setupSession(context)
-          android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+          // Track whether promise has been settled (resolved or rejected)
+          val settled = java.util.concurrent.atomic.AtomicBoolean(false)
+
+          engine.setReadyCallback {
+            if (settled.getAndSet(true)) return@setReadyCallback
+            engine.setReadyCallback(null)
             try {
               val success = engine.startRecording(cleanPath)
               if (success) {
@@ -70,10 +76,20 @@ class RealtimeRecorderModule : Module() {
                 promise.reject("ERR", "Failed to start recording", null)
               }
             } catch (e: Exception) {
-              Log.e(TAG, "startRecording delayed failed", e)
+              Log.e(TAG, "startRecording callback failed", e)
               promise.reject("ERR", e.message ?: "Unknown error", null)
             }
-          }, 500)
+          }
+
+          engine.setupSession(context)
+
+          // Safety timeout: reject if camera never opens (10s)
+          android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (settled.getAndSet(true)) return@postDelayed
+            engine.setReadyCallback(null)
+            Log.e(TAG, "Camera ready timeout (10s)")
+            promise.reject("ERR", "Camera setup timeout", null)
+          }, 10_000)
         } else {
           val success = engine.startRecording(cleanPath)
           if (success) {

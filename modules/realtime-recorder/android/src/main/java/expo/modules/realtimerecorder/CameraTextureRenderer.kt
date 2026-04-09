@@ -86,8 +86,8 @@ class CameraTextureRenderer {
   private var videoWidth = 1080
   private var videoHeight = 1920
 
-  private var overlayBitmap: Bitmap? = null
-  private var overlayDirty = true
+  private var overlayTextureInitialized = false
+  private var hasOverlay = false
 
   /**
    * Must be called on the GL thread after EGL context is current.
@@ -123,29 +123,35 @@ class CameraTextureRenderer {
   }
 
   /**
-   * Set or update the overlay bitmap. Call from any thread.
-   * The bitmap will be uploaded to GPU on the next drawFrame() call.
+   * Upload overlay bitmap to GPU. First call uses glTexImage2D (full alloc),
+   * subsequent calls use glTexSubImage2D (fast update, no GPU realloc).
+   * Must be called on the GL thread.
    */
-  fun setOverlayBitmap(bitmap: Bitmap?) {
-    synchronized(this) {
-      overlayBitmap?.recycle()
-      overlayBitmap = bitmap
-      overlayDirty = true
+  fun updateOverlayTexture(bitmap: Bitmap) {
+    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTextureId)
+    if (!overlayTextureInitialized) {
+      GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+      overlayTextureInitialized = true
+    } else {
+      GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, bitmap)
     }
+    hasOverlay = true
   }
 
   /**
    * Draw a complete frame: camera background + overlay on top.
    * Must be called on the GL thread with EGL context current.
+   * @param drawOverlay false for preview (RN handles its own UI), true for encoder (burn overlay)
    */
-  fun drawFrame(cameraTexMatrix: FloatArray, mirror: Boolean = false) {
+  fun drawFrame(cameraTexMatrix: FloatArray, mirror: Boolean = false, drawOverlay: Boolean = true) {
     GLES20.glViewport(0, 0, videoWidth, videoHeight)
     GLES20.glClearColor(0f, 0f, 0f, 1f)
     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
     drawCameraTexture(cameraTexMatrix, mirror)
-    uploadOverlayIfDirty()
-    drawOverlayTexture()
+    if (drawOverlay && hasOverlay) {
+      drawOverlayTexture()
+    }
   }
 
   // ============================================================
@@ -187,21 +193,7 @@ class CameraTextureRenderer {
   //  Overlay texture (2D with alpha)
   // ============================================================
 
-  private fun uploadOverlayIfDirty() {
-    if (!overlayDirty) return
-    val bmp: Bitmap?
-    synchronized(this) {
-      bmp = overlayBitmap
-      if (bmp == null || bmp.isRecycled) return
-      overlayDirty = false
-    }
-
-    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTextureId)
-    GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
-  }
-
   private fun drawOverlayTexture() {
-    if (overlayBitmap == null) return
 
     GLES20.glEnable(GLES20.GL_BLEND)
     GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
@@ -251,10 +243,8 @@ class CameraTextureRenderer {
     overlayTextureId = 0
     if (programOES != 0) { GLES20.glDeleteProgram(programOES); programOES = 0 }
     if (program2D != 0) { GLES20.glDeleteProgram(program2D); program2D = 0 }
-    synchronized(this) {
-      overlayBitmap?.recycle()
-      overlayBitmap = null
-    }
+    overlayTextureInitialized = false
+    hasOverlay = false
     Log.i(TAG, "CameraTextureRenderer released")
   }
 

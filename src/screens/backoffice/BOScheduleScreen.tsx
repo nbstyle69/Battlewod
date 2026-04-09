@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, RefreshControl,
+  ActivityIndicator, Alert, RefreshControl, Share,
 } from 'react-native';
-import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Users, CalendarClock, Timer } from 'lucide-react-native';
+import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Users, CalendarClock, Timer, Check, X, UserPlus, Search, Download, ClipboardCheck } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +25,19 @@ interface ClassSchedule {
   waiting_count: number;
 }
 
+interface Reservation {
+  id: string;
+  member_id: string;
+  status: string;
+  attended: boolean | null;
+  username: string;
+}
+
+interface BoxMember {
+  id: string;
+  username: string;
+}
+
 const CLASS_TYPES = [
   'WOD', 'Haltérophilie', 'Cardio', 'Open Gym', 'Strength', 'Mobility', 'Kids', 'Teens', 'Autre',
 ];
@@ -32,7 +45,9 @@ const CLASS_TYPES = [
 function getWeekDates(offset = 0): Date[] {
   const today = new Date();
   const monday = new Date(today);
-  monday.setDate(today.getDate() - today.getDay() + 1 + offset * 7);
+  const day = today.getDay();
+  monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  monday.setHours(0, 0, 0, 0);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
@@ -45,7 +60,7 @@ function toISO(d: Date): string {
 }
 
 export default function BOScheduleScreen({ navigation }: any) {
-  const { user, currentBox } = useAuth();
+  const { user, currentBox, boxRole } = useAuth();
   const { theme } = useTheme();
   const S = createStyles(theme);
 
@@ -66,7 +81,39 @@ export default function BOScheduleScreen({ navigation }: any) {
   const [maxCapacity, setMaxCapacity] = useState('15');
   const [submitting,  setSubmitting]  = useState(false);
 
+  const [coaches, setCoaches] = useState<{ id: string; username: string }[]>([]);
+
+  // ── Attendance modal state ──
+  const [attendanceOpen, setAttendanceOpen]     = useState(false);
+  const [attendanceSlot, setAttendanceSlot]     = useState<ClassSchedule | null>(null);
+  const [reservations, setReservations]         = useState<Reservation[]>([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [addMemberOpen, setAddMemberOpen]       = useState(false);
+  const [memberSearch, setMemberSearch]         = useState('');
+  const [boxMembers, setBoxMembers]             = useState<BoxMember[]>([]);
+  const [membersLoading, setMembersLoading]     = useState(false);
+
+  const isOwner = boxRole === 'owner';
+
   const weekDates = getWeekDates(weekOffset);
+
+  // Fetch coaches list for the current box
+  useEffect(() => {
+    if (!currentBox) return;
+    (async () => {
+      const { data } = await supabase
+        .from('box_members')
+        .select('member_id, profiles:member_id(username)')
+        .eq('box_id', currentBox.id)
+        .eq('role', 'coach');
+      setCoaches(
+        (data ?? []).map((c: any) => ({
+          id: c.member_id,
+          username: (Array.isArray(c.profiles) ? c.profiles[0] : c.profiles)?.username ?? 'Coach',
+        }))
+      );
+    })();
+  }, [currentBox]);
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
@@ -175,6 +222,137 @@ export default function BOScheduleScreen({ navigation }: any) {
     ]);
   }
 
+  // ── Attendance helpers ──
+
+  async function openAttendance(slot: ClassSchedule) {
+    setAttendanceSlot(slot);
+    setAttendanceOpen(true);
+    setAttendanceLoading(true);
+    setAddMemberOpen(false);
+    setMemberSearch('');
+    try {
+      const { data } = await supabase
+        .from('class_reservations')
+        .select('id, member_id, status, attended, profiles:member_id(username)')
+        .eq('schedule_id', slot.id);
+      setReservations(
+        (data ?? []).map((r: any) => ({
+          id: r.id,
+          member_id: r.member_id,
+          status: r.status,
+          attended: r.attended,
+          username: (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles)?.username ?? '—',
+        }))
+      );
+    } catch (e) { captureError(e, { screen: 'BOSchedule', action: 'openAttendance' }); }
+    setAttendanceLoading(false);
+  }
+
+  async function toggleAttended(resId: string, current: boolean | null) {
+    const next = current === true ? false : true;
+    setReservations(prev => prev.map(r => r.id === resId ? { ...r, attended: next } : r));
+    const { error } = await supabase
+      .from('class_reservations')
+      .update({ attended: next })
+      .eq('id', resId);
+    if (error) {
+      Alert.alert('Erreur', error.message);
+      setReservations(prev => prev.map(r => r.id === resId ? { ...r, attended: current } : r));
+    }
+  }
+
+  async function loadBoxMembers() {
+    if (!currentBox) return;
+    setMembersLoading(true);
+    try {
+      const { data } = await supabase
+        .from('box_members')
+        .select('member_id, profiles:member_id(username)')
+        .eq('box_id', currentBox.id)
+        .eq('status', 'active');
+      setBoxMembers(
+        (data ?? []).map((m: any) => ({
+          id: m.member_id,
+          username: (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles)?.username ?? '—',
+        }))
+      );
+    } catch (e) { captureError(e, { screen: 'BOSchedule', action: 'loadBoxMembers' }); }
+    setMembersLoading(false);
+  }
+
+  function openAddMember() {
+    setAddMemberOpen(true);
+    setMemberSearch('');
+    loadBoxMembers();
+  }
+
+  async function addMemberToSlot(memberId: string, username: string) {
+    if (!attendanceSlot || !currentBox) return;
+    const { error } = await supabase
+      .from('class_reservations')
+      .insert({
+        schedule_id: attendanceSlot.id,
+        member_id: memberId,
+        box_id: currentBox.id,
+        status: 'confirmed',
+        attended: true,
+      });
+    if (error) {
+      if (error.code === '23505') Alert.alert('Déjà inscrit', 'Ce membre est déjà inscrit à ce créneau.');
+      else Alert.alert('Erreur', error.message);
+      return;
+    }
+    setReservations(prev => [
+      ...prev,
+      { id: `tmp-${memberId}`, member_id: memberId, status: 'confirmed', attended: true, username },
+    ]);
+    setAddMemberOpen(false);
+    load();
+  }
+
+  async function exportAttendance(mode: 'day' | 'week') {
+    if (!currentBox) return;
+    try {
+      let targetSchedules: ClassSchedule[] = [];
+      if (mode === 'day' && attendanceSlot) {
+        targetSchedules = schedules.filter(s => s.scheduled_date === attendanceSlot.scheduled_date);
+      } else {
+        targetSchedules = schedules;
+      }
+
+      if (targetSchedules.length === 0) {
+        Alert.alert('Aucun créneau', 'Pas de cours à exporter pour cette période.');
+        return;
+      }
+
+      const ids = targetSchedules.map(s => s.id);
+      const { data: allRes } = await supabase
+        .from('class_reservations')
+        .select('schedule_id, member_id, status, attended, profiles:member_id(username)')
+        .in('schedule_id', ids);
+
+      let csv = 'Date,Heure,Cours,Coach,Membre,Statut,Present\n';
+      for (const s of targetSchedules) {
+        const slotRes = (allRes ?? []).filter((r: any) => r.schedule_id === s.id);
+        if (slotRes.length === 0) {
+          csv += `${s.scheduled_date},${s.start_time}-${s.end_time},${s.title},${s.coach ?? ''},—,—,—\n`;
+        } else {
+          for (const r of slotRes) {
+            const uname = (Array.isArray((r as any).profiles) ? (r as any).profiles[0] : (r as any).profiles)?.username ?? '—';
+            const att = r.attended === true ? 'Oui' : r.attended === false ? 'Non' : '—';
+            csv += `${s.scheduled_date},${s.start_time}-${s.end_time},${s.title},${s.coach ?? ''},${uname},${r.status},${att}\n`;
+          }
+        }
+      }
+
+      const label = mode === 'day'
+        ? `Présences ${attendanceSlot?.scheduled_date}`
+        : `Présences semaine ${toISO(weekDates[0])} — ${toISO(weekDates[6])}`;
+
+      await Share.share({ title: label, message: csv });
+    } catch (e) { captureError(e, { screen: 'BOSchedule', action: 'exportAttendance' }); }
+  }
+
   const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
   const todayISO = toISO(new Date());
 
@@ -228,7 +406,7 @@ export default function BOScheduleScreen({ navigation }: any) {
                     </TouchableOpacity>
                   ) : (
                     dayItems.map(item => (
-                      <View key={item.id} style={S.slotCard}>
+                      <TouchableOpacity key={item.id} style={S.slotCard} activeOpacity={0.7} onPress={() => openAttendance(item)}>
                         <View style={S.slotLeft}>
                           <Text style={S.slotTime}>{item.start_time} – {item.end_time}</Text>
                           <Text style={S.slotTitle}>{item.title}</Text>
@@ -236,15 +414,12 @@ export default function BOScheduleScreen({ navigation }: any) {
                         </View>
                         <View style={S.slotRight}>
                           <View style={S.capacityRow}>
-                            <View style={[
-                              S.capacityBadge,
-                              item.confirmed_count >= item.max_capacity && S.capacityFull,
-                            ]}>
+                            <TouchableOpacity onPress={() => openAttendance(item)} style={S.capacityBadge}>
                               <Users color={item.confirmed_count >= item.max_capacity ? theme.error : theme.accent} size={12} />
                               <Text style={[S.capacityText, item.confirmed_count >= item.max_capacity && { color: theme.error }]}>
                                 {item.confirmed_count}/{item.max_capacity}
                               </Text>
-                            </View>
+                            </TouchableOpacity>
                             {item.waiting_count > 0 && (
                               <View style={S.waitingBadge}>
                                 <Timer color="#f59e0b" size={11} />
@@ -253,15 +428,19 @@ export default function BOScheduleScreen({ navigation }: any) {
                             )}
                           </View>
                           <View style={S.slotActions}>
-                            <TouchableOpacity onPress={() => openEdit(item)} style={S.actionBtn}>
-                              <Pencil color={theme.textMuted} size={16} />
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => deleteItem(item)} style={S.actionBtn}>
-                              <Trash2 color={theme.error} size={16} />
-                            </TouchableOpacity>
+                            {isOwner && (
+                              <>
+                                <TouchableOpacity onPress={() => openEdit(item)} style={S.actionBtn}>
+                                  <Pencil color={theme.textMuted} size={16} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => deleteItem(item)} style={S.actionBtn}>
+                                  <Trash2 color={theme.error} size={16} />
+                                </TouchableOpacity>
+                              </>
+                            )}
                           </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     ))
                   )}
                 </View>
@@ -311,14 +490,29 @@ export default function BOScheduleScreen({ navigation }: any) {
                 </>
               )}
 
-              <Text style={S.fieldLabel}>Coaches (optionnel)</Text>
-              <TextInput
-                style={S.input}
-                value={coach}
-                onChangeText={setCoach}
-                placeholder="Nom du coach"
-                placeholderTextColor={theme.textMuted}
-              />
+              <Text style={S.fieldLabel}>Coach (optionnel)</Text>
+              {coaches.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                  {coaches.map(c => {
+                    const selected = coach === c.username;
+                    return (
+                      <TouchableOpacity
+                        key={c.id}
+                        style={[S.typePill, selected && S.typePillActive]}
+                        onPress={() => setCoach(selected ? '' : c.username)}
+                      >
+                        <Text style={[S.typePillText, selected && S.typePillTextActive]}>
+                          {c.username}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 12 }}>
+                  Aucun coach assigné à cette box
+                </Text>
+              )}
 
               <Text style={S.fieldLabel}>Date (YYYY-MM-DD)</Text>
               <TextInput
@@ -387,6 +581,124 @@ export default function BOScheduleScreen({ navigation }: any) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ── Attendance Modal ── */}
+      <Modal visible={attendanceOpen} animationType="slide" transparent>
+        <View style={S.modalOverlay}>
+          <View style={S.modalSheet}>
+            <View style={S.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={S.modalTitle}>
+                  {attendanceSlot?.title} — {attendanceSlot?.start_time}–{attendanceSlot?.end_time}
+                </Text>
+                {attendanceSlot?.coach ? (
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Coach: {attendanceSlot.coach}</Text>
+                ) : null}
+              </View>
+              <TouchableOpacity onPress={() => setAttendanceOpen(false)}>
+                <Text style={S.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {reservations.length} inscrit{reservations.length !== 1 ? 's' : ''} / {attendanceSlot?.max_capacity ?? '—'} max
+            </Text>
+
+            {attendanceLoading ? (
+              <ActivityIndicator style={{ marginVertical: 30 }} color={theme.accent} />
+            ) : reservations.length === 0 ? (
+              <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginVertical: 30 }}>
+                Aucun inscrit pour ce créneau
+              </Text>
+            ) : (
+              <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={{ paddingBottom: 8 }}>
+                {reservations.map(r => (
+                  <View key={r.id} style={S.attRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={S.attName}>{r.username}</Text>
+                      <Text style={S.attStatus}>
+                        {r.status === 'waiting' ? 'En attente' : 'Confirmé'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => toggleAttended(r.id, r.attended)}
+                      style={[
+                        S.attToggle,
+                        r.attended === true && S.attTogglePresent,
+                        r.attended === false && S.attToggleAbsent,
+                      ]}
+                    >
+                      {r.attended === true ? (
+                        <Check color="#fff" size={18} />
+                      ) : r.attended === false ? (
+                        <X color="#fff" size={18} />
+                      ) : (
+                        <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: theme.textMuted }} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* Add member button */}
+            <TouchableOpacity onPress={openAddMember} style={S.attAddBtn}>
+              <UserPlus color={theme.accent} size={16} />
+              <Text style={{ color: theme.accent, fontSize: 14, fontWeight: '700', marginLeft: 8 }}>Ajouter un membre</Text>
+            </TouchableOpacity>
+
+            {/* Add member sub-modal */}
+            {addMemberOpen && (
+              <View style={S.attAddSection}>
+                <View style={S.attSearchRow}>
+                  <Search color={theme.textMuted} size={16} />
+                  <TextInput
+                    style={S.attSearchInput}
+                    value={memberSearch}
+                    onChangeText={setMemberSearch}
+                    placeholder="Rechercher un membre…"
+                    placeholderTextColor={theme.textMuted}
+                    autoFocus
+                  />
+                  <TouchableOpacity onPress={() => setAddMemberOpen(false)}>
+                    <X color={theme.textMuted} size={16} />
+                  </TouchableOpacity>
+                </View>
+                {membersLoading ? (
+                  <ActivityIndicator style={{ marginVertical: 16 }} color={theme.accent} />
+                ) : (
+                  <ScrollView style={{ maxHeight: 180 }}>
+                    {boxMembers
+                      .filter(m => !reservations.some(r => r.member_id === m.id))
+                      .filter(m => memberSearch === '' || m.username.toLowerCase().includes(memberSearch.toLowerCase()))
+                      .map(m => (
+                        <TouchableOpacity key={m.id} style={S.attMemberRow} onPress={() => addMemberToSlot(m.id, m.username)}>
+                          <Text style={{ color: theme.text, fontSize: 14 }}>{m.username}</Text>
+                          <Plus color={theme.accent} size={16} />
+                        </TouchableOpacity>
+                      ))
+                    }
+                  </ScrollView>
+                )}
+              </View>
+            )}
+
+            {/* Export buttons (owner only) */}
+            {isOwner && (
+              <View style={S.attExportRow}>
+                <TouchableOpacity style={S.attExportBtn} onPress={() => exportAttendance('day')}>
+                  <Download color={theme.accent} size={14} />
+                  <Text style={S.attExportText}>Export jour</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={S.attExportBtn} onPress={() => exportAttendance('week')}>
+                  <Download color={theme.accent} size={14} />
+                  <Text style={S.attExportText}>Export semaine</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -437,5 +749,20 @@ function createStyles(t: AppTheme) {
     typePillTextActive: { color: '#fff' },
     saveBtn:         { backgroundColor: t.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
     saveBtnText:     { fontSize: 16, fontWeight: '800', color: '#fff' },
+    // ── Attendance styles ──
+    attRow:          { flexDirection: 'row', alignItems: 'center', backgroundColor: t.card, borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: t.border },
+    attName:         { fontSize: 15, fontWeight: '700', color: t.text },
+    attStatus:       { fontSize: 11, color: t.textMuted, marginTop: 1 },
+    attToggle:       { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: t.card, borderWidth: 2, borderColor: t.border },
+    attTogglePresent:{ backgroundColor: '#22c55e', borderColor: '#22c55e' },
+    attToggleAbsent: { backgroundColor: '#ef4444', borderColor: '#ef4444' },
+    attAddBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 8, borderWidth: 1, borderColor: t.accent, borderRadius: 12, borderStyle: 'dashed' },
+    attAddSection:   { marginTop: 10, backgroundColor: t.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: t.border },
+    attSearchRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    attSearchInput:  { flex: 1, color: t.text, fontSize: 14, paddingVertical: 6 },
+    attMemberRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: t.border },
+    attExportRow:    { flexDirection: 'row', gap: 10, marginTop: 14 },
+    attExportBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, backgroundColor: `${t.accent}15`, borderRadius: 10, borderWidth: 1, borderColor: `${t.accent}30` },
+    attExportText:   { fontSize: 13, fontWeight: '700', color: t.accent },
   });
 }

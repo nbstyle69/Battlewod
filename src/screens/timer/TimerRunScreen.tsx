@@ -504,15 +504,35 @@ export default function TimerRunScreen() {
 
   // Screen orientation lock/unlock
   useEffect(() => {
-    if (displayOpts.allowRotation) {
-      ScreenOrientation.unlockAsync().catch(e => captureError(e, { action: 'unlockOrientation' }));
+    if (withCamera) {
+      // Camera mode: allow rotation before recording, lock once recording starts
+      if (isRecordingActive) {
+        // Lock to whatever orientation the user chose before pressing record
+        ScreenOrientation.getOrientationAsync().then(orientation => {
+          const lock =
+            orientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT
+              ? ScreenOrientation.OrientationLock.LANDSCAPE_LEFT
+              : orientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT
+                ? ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT
+                : ScreenOrientation.OrientationLock.PORTRAIT_UP;
+          ScreenOrientation.lockAsync(lock).catch(e => captureError(e, { action: 'lockOrientation' }));
+        }).catch(e => captureError(e, { action: 'getOrientation' }));
+      } else {
+        // Before recording: allow rotation so user can choose portrait or landscape
+        ScreenOrientation.unlockAsync().catch(e => captureError(e, { action: 'unlockOrientation' }));
+      }
     } else {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(e => captureError(e, { action: 'lockOrientation' }));
+      // Non-camera mode: controlled by the allowRotation display setting
+      if (displayOpts.allowRotation) {
+        ScreenOrientation.unlockAsync().catch(e => captureError(e, { action: 'unlockOrientation' }));
+      } else {
+        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(e => captureError(e, { action: 'lockOrientation' }));
+      }
     }
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(e => captureError(e, { action: 'lockOrientation' }));
     };
-  }, [displayOpts.allowRotation]);
+  }, [withCamera, isRecordingActive, displayOpts.allowRotation]);
 
   function setDisplayOpts(update: Partial<TimerDisplayOpts>) {
     setDisplayOptsRaw(prev => {
@@ -580,7 +600,7 @@ export default function TimerRunScreen() {
 
     // Start native realtime recording (overlays burned on each frame)
     const outputPath = (FileSystem.documentDirectory ?? '') + `bwod_video_${videoStartTimeRef.current}.mp4`;
-    nativeStartRec({ outputPath, facing }).catch((err: any) => {
+    nativeStartRec({ outputPath, facing, isLandscape }).catch((err: any) => {
       captureError(err, { screen: 'TimerRun', action: 'nativeStartRec' });
       recordingActiveRef.current = false;
       setIsRecordingActive(false);

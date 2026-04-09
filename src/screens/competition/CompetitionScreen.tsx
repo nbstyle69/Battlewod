@@ -4,7 +4,8 @@ import {
   ActivityIndicator, RefreshControl, Alert, LayoutAnimation,
 } from 'react-native';
 import { Trophy, Users, Clock, Zap, ChevronRight, ChevronLeft, Plus, MapPin, Flame, Globe2, Info } from 'lucide-react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
@@ -46,10 +47,11 @@ interface Tournament {
 
 export default function CompetitionScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<CompetitionStackParamList, 'CompetitionList'>>();
   const { theme } = useTheme();
   const { currentBox } = useAuth();
   const S = createStyles(theme);
-  const [activeTab,    setActiveTab]    = useState(0);
+  const [activeTab,    setActiveTab]    = useState(route.params?.initialTab ?? 0);
   const [tournaments,  setTournaments]  = useState<Tournament[]>([]);
   const [tLoading,     setTLoading]     = useState(false);
   const [tRefreshing,  setTRefreshing]  = useState(false);
@@ -57,6 +59,10 @@ export default function CompetitionScreen() {
   const [miniTournaments, setMiniTournaments] = useState<MiniTournament[]>([]);
   const [miniLoading, setMiniLoading] = useState(false);
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (route.params?.initialTab !== undefined) setActiveTab(route.params.initialTab);
+  }, [route.params?.initialTab]);
 
   const loadTournaments = useCallback(async () => {
     setTLoading(true);

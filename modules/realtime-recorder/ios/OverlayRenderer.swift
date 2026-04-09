@@ -142,6 +142,7 @@ final class OverlayRenderer {
     let width = CVPixelBufferGetWidth(pixelBuffer)
     let height = CVPixelBufferGetHeight(pixelBuffer)
     let size = CGSize(width: CGFloat(width), height: CGFloat(height))
+    let isLandscape = size.width > size.height
 
     CVPixelBufferLockBaseAddress(pixelBuffer, [])
     defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
@@ -164,14 +165,17 @@ final class OverlayRenderer {
     loadBoxLogoIfNeeded(url: state.boxLogoUrl)
     loadCompLogoIfNeeded(url: state.competitionLogoUrl)
 
-    let margin: CGFloat = 24
-    let safeTop: CGFloat = 60  // safe area for notch
+    // Use min dimension as reference so elements stay the same physical size
+    let refDim = min(size.width, size.height)
+    let scale = refDim / 1080.0
+    let margin: CGFloat = 24 * scale
+    let safeTop: CGFloat = isLandscape ? 24 * scale : 60 * (size.height / 1920.0)
 
     // ─── 0. Competition logo (top left — rounded square, no white bg) ───
+    let logoSize: CGFloat = isLandscape ? 120 * scale : 200 * scale
     if let compImg = cachedCompLogo {
-      let logoSize: CGFloat = 200
       let logoRect = CGRect(x: margin, y: safeTop, width: logoSize, height: logoSize)
-      let cornerRadius: CGFloat = 32
+      let cornerRadius: CGFloat = isLandscape ? 20 * scale : 32 * scale
       UIGraphicsPushContext(context)
       context.saveGState()
       let path = UIBezierPath(roundedRect: logoRect, cornerRadius: cornerRadius)
@@ -183,16 +187,15 @@ final class OverlayRenderer {
 
     // ─── 1. Title (top center) ───
     if !state.title.isEmpty {
-      let titleX = cachedCompLogo != nil ? (margin + 200 + 12) : margin
-      let titleW = size.width - titleX - (cachedBoxLogo != nil ? (200 + margin + 12) : margin)
+      let titleX = cachedCompLogo != nil ? (margin + logoSize + 12 * scale) : margin
+      let titleW = size.width - titleX - (cachedBoxLogo != nil ? (logoSize + margin + 12 * scale) : margin)
       drawText(context: context, text: state.title,
-               rect: CGRect(x: titleX, y: safeTop, width: titleW, height: 40),
-               fontSize: 28, bold: true, color: .white, alignment: .center, shadow: true)
+               rect: CGRect(x: titleX, y: safeTop, width: titleW, height: 40 * scale),
+               fontSize: 28 * scale, bold: true, color: .white, alignment: .center, shadow: true)
     }
 
-    // ─── 2. Box logo (top right — circle, 200px, no background) ───
+    // ─── 2. Box logo (top right — circle, no background) ───
     if let boxImg = cachedBoxLogo {
-      let logoSize: CGFloat = 200
       let logoRect = CGRect(x: size.width - logoSize - margin, y: safeTop, width: logoSize, height: logoSize)
       let cornerRadius: CGFloat = logoSize / 2  // circle
       UIGraphicsPushContext(context)
@@ -207,28 +210,31 @@ final class OverlayRenderer {
     // ─── 3. Countdown (center, extra large, bold) ───
     if state.countdownValue > 0 {
       let cdStr = "\(state.countdownValue)"
+      let cdFontSize: CGFloat = isLandscape ? 180 * scale : 260 * scale
+      let cdH: CGFloat = isLandscape ? 220 * scale : 320 * scale
       drawText(context: context, text: cdStr,
-               rect: CGRect(x: 0, y: (size.height - 320) / 2, width: size.width, height: 320),
-               fontSize: 260, bold: true, color: .white, alignment: .center, weight: .bold)
+               rect: CGRect(x: 0, y: (size.height - cdH) / 2, width: size.width, height: cdH),
+               fontSize: cdFontSize, bold: true, color: .white, alignment: .center, weight: .bold)
     }
 
     // ════════════════════════════════════════════
     //  BOTTOM ROW — AthleX (left) | Timer (center) | Timestamp (right)
     //  Logo centered above "AthleX" text
     // ════════════════════════════════════════════
-    let safeBottom: CGFloat = 140
+    let safeBottom: CGFloat = isLandscape ? 40 * scale : 140 * scale
 
     // ─── 6. "AthleX" branded text — reference baseline for bottom row ───
-    let brandH: CGFloat = 50
+    let brandH: CGFloat = isLandscape ? 40 * scale : 50 * scale
     let brandY = size.height - safeBottom - brandH
-    let brandTextW: CGFloat = 160  // estimated "AthleX" width at 40pt
+    let brandFontSize: CGFloat = isLandscape ? 30 * scale : 40 * scale
+    let brandTextW: CGFloat = isLandscape ? 120 * scale : 160 * scale
     drawBrandText(context: context,
-                  rect: CGRect(x: margin, y: brandY, width: 280, height: brandH),
-                  fontSize: 40, color: .white, shadow: true)
+                  rect: CGRect(x: margin, y: brandY, width: 280 * scale, height: brandH),
+                  fontSize: brandFontSize, color: .white, shadow: true)
 
     // ─── 5. ATHLEX logo (centered horizontally above "AthleX" text) ───
-    let atlLogoH: CGFloat = 120
-    let atlLogoY = brandY - atlLogoH - 4
+    let atlLogoH: CGFloat = isLandscape ? 80 * scale : 120 * scale
+    let atlLogoY = brandY - atlLogoH - 4 * scale
     if let atlImg = cachedAthlexLogo {
       let atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
       let brandCenterX = margin + brandTextW / 2
@@ -241,23 +247,25 @@ final class OverlayRenderer {
 
     // ─── 4. Timer display (center, same row as AthleX text) ───
     if state.showTimer && state.countdownValue <= 0 {
-      let timerH: CGFloat = 110
+      let timerFontSize: CGFloat = isLandscape ? 70 * scale : 90 * scale
+      let timerH: CGFloat = isLandscape ? 85 * scale : 110 * scale
       let timerCenterY = brandY + brandH / 2
       let timerY = timerCenterY - timerH / 2
       drawText(context: context, text: state.timerDisplay,
                rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
-               fontSize: 90, bold: false, color: .white, alignment: .center,
+               fontSize: timerFontSize, bold: false, color: .white, alignment: .center,
                weight: .medium, shadow: true, dsDigital: true)
     }
 
     // ─── 7. Timestamp (right, same row as AthleX text) ───
     if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
-      let tsH: CGFloat = 34
+      let tsW: CGFloat = 260 * scale
+      let tsH: CGFloat = 34 * scale
       let tsCenterY = brandY + brandH / 2
       let tsY = tsCenterY - tsH / 2
       drawText(context: context, text: state.timestamp,
-               rect: CGRect(x: size.width - 260 - margin, y: tsY, width: 260, height: tsH),
-               fontSize: 24, bold: false, color: UIColor.white.withAlphaComponent(0.8),
+               rect: CGRect(x: size.width - tsW - margin, y: tsY, width: tsW, height: tsH),
+               fontSize: 24 * scale, bold: false, color: UIColor.white.withAlphaComponent(0.8),
                alignment: .right, shadow: true)
     }
   }

@@ -11,9 +11,20 @@ import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, Messag
 import KettlebellIcon from '../components/KettlebellIcon';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as NavigationBar from 'expo-navigation-bar';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
+
+function useAndroidNavBar(bgColor: string, mode: 'light' | 'dark') {
+  React.useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    try {
+      NavigationBar.setBackgroundColorAsync(bgColor);
+      NavigationBar.setButtonStyleAsync(mode === 'dark' ? 'light' : 'dark');
+    } catch (_) {}
+  }, [bgColor, mode]);
+}
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -230,7 +241,7 @@ export type WODStackParamList = {
 };
 
 export type CompetitionStackParamList = {
-  CompetitionList: undefined;
+  CompetitionList: { initialTab?: number } | undefined;
   PhysicalCompetition: { mode: 'qualification' | 'info' };
   DailyTournaments: undefined;
   DailyTournamentDetail: { tournamentId: string };
@@ -476,8 +487,9 @@ function BODashboardNavigator() {
 }
 
 function BoxOwnerTabs() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const insets = useSafeAreaInsets();
+  useAndroidNavBar(theme.tabBar, mode);
   const tabStyle = {
     backgroundColor: theme.tabBar,
     borderTopColor: theme.tabBarBorder,
@@ -531,8 +543,9 @@ function BOProfileNavigator() {
 }
 
 function CoachTabs() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const insets = useSafeAreaInsets();
+  useAndroidNavBar(theme.tabBar, mode);
   const tabStyle = {
     backgroundColor: theme.tabBar,
     borderTopColor: theme.tabBarBorder,
@@ -571,9 +584,10 @@ function CoachTabs() {
 }
 
 function MainTabs() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
+  useAndroidNavBar(theme.tabBar, mode);
   return (
     <Tab.Navigator
       initialRouteName="Home"

@@ -629,6 +629,7 @@ export type Database = {
       }
       class_reservations: {
         Row: {
+          attended: boolean | null
           box_id: string | null
           created_at: string | null
           id: string
@@ -637,6 +638,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          attended?: boolean | null
           box_id?: string | null
           created_at?: string | null
           id?: string
@@ -645,6 +647,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          attended?: boolean | null
           box_id?: string | null
           created_at?: string | null
           id?: string

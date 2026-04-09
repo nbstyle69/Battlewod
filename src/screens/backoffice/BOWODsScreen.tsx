@@ -31,7 +31,9 @@ const TYPE_COLORS: Record<string, string> = {
 function getWeekDates(offset = 0): Date[] {
   const today = new Date();
   const monday = new Date(today);
-  monday.setDate(today.getDate() - today.getDay() + 1 + offset * 7);
+  const day = today.getDay();
+  monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  monday.setHours(0, 0, 0, 0);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);

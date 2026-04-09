@@ -60,6 +60,14 @@ interface SlotParticipant {
   status: 'confirmed' | 'waiting';
 }
 
+const REGISTER_CUTOFF_MIN = 15;
+const CANCEL_CUTOFF_MIN   = 20;
+
+function minutesUntilSlot(scheduled_date: string, start_time: string): number {
+  const slotTime = new Date(`${scheduled_date}T${start_time}:00`);
+  return (slotTime.getTime() - Date.now()) / 60_000;
+}
+
 const WOD_TYPE_LABELS: Record<string, string> = {
   'for-time': 'For Time', amrap: 'AMRAP', emom: 'EMOM',
   tabata: 'Tabata', strength: 'Strength', custom: 'Custom',
@@ -177,7 +185,17 @@ export default function ReservationScreen() {
     if (!user || !currentBox) return;
     setBooking(item.id);
 
+    const minsLeft = minutesUntilSlot(item.scheduled_date, item.start_time);
+
     if (item.my_status) {
+      if (minsLeft < CANCEL_CUTOFF_MIN) {
+        Alert.alert(
+          'Trop tard',
+          `La désinscription n'est plus possible moins de ${CANCEL_CUTOFF_MIN} minutes avant le cours.`,
+        );
+        setBooking(null);
+        return;
+      }
       const label = item.my_status === 'confirmed'
         ? 'Annuler ta réservation ? Ta place sera libérée et le premier en liste d\'attente sera inscrit.'
         : 'Quitter la liste d\'attente ?';
@@ -203,6 +221,15 @@ export default function ReservationScreen() {
         ]
       );
     } else {
+      if (minsLeft < REGISTER_CUTOFF_MIN) {
+        Alert.alert(
+          'Trop tard',
+          `L'inscription n'est plus possible moins de ${REGISTER_CUTOFF_MIN} minutes avant le cours.`,
+        );
+        setBooking(null);
+        return;
+      }
+
       // Check weekly limit before booking
       try {
         const { data: limitData } = await supabase.rpc('check_weekly_limit', {
@@ -314,7 +341,14 @@ export default function ReservationScreen() {
         ? <ActivityIndicator style={{ marginTop: 60 }} size="large" color={theme.accent} />
         : (() => {
           const isPast   = selectedDate < todayISO;
-          const dayItems = schedules.filter(s => s.scheduled_date === selectedDate);
+          const dayItems = schedules.filter(s => {
+            if (s.scheduled_date !== selectedDate) return false;
+            // Hide slots whose registration window has closed (today only)
+            if (s.scheduled_date === todayISO) {
+              return minutesUntilSlot(s.scheduled_date, s.start_time) >= REGISTER_CUTOFF_MIN;
+            }
+            return true;
+          });
           const dayWod   = wods.find(w => w.scheduled_date === selectedDate);
 
           return (

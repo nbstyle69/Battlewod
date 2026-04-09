@@ -23,6 +23,13 @@ interface ReservationRow {
   } | null;
 }
 
+const CANCEL_CUTOFF_MIN = 20;
+
+function minutesUntilSlot(scheduled_date: string, start_time: string): number {
+  const slotTime = new Date(`${scheduled_date}T${start_time}:00`);
+  return (slotTime.getTime() - Date.now()) / 60_000;
+}
+
 export default function MyReservationsScreen() {
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
@@ -148,11 +155,19 @@ export default function MyReservationsScreen() {
                     </View>
                   </View>
                   {s.coach && <Text style={S.coach}>Coach : {s.coach}</Text>}
-                  {!isPast && (
+                  {!isPast && minutesUntilSlot(s.scheduled_date, s.start_time) >= CANCEL_CUTOFF_MIN && (
                     <TouchableOpacity
                       style={S.cancelBtn}
                       activeOpacity={0.8}
                       onPress={() => {
+                        const minsLeft = minutesUntilSlot(s.scheduled_date, s.start_time);
+                        if (minsLeft < CANCEL_CUTOFF_MIN) {
+                          Alert.alert(
+                            'Trop tard',
+                            `La désinscription n'est plus possible moins de ${CANCEL_CUTOFF_MIN} minutes avant le cours.`,
+                          );
+                          return;
+                        }
                         Alert.alert(
                           isConfirmed ? 'Annuler la réservation' : 'Quitter la liste d\'attente',
                           isConfirmed

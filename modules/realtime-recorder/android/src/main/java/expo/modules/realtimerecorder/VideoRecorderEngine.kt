@@ -34,13 +34,19 @@ class VideoRecorderEngine private constructor() {
 
   companion object {
     private const val TAG = "RealtimeRecorder"
-    private const val VIDEO_WIDTH = 1080
-    private const val VIDEO_HEIGHT = 1920
+    private const val BASE_SHORT = 1080
+    private const val BASE_LONG = 1920
     private const val FPS = 30
     private const val FRAME_INTERVAL_NS = 1_000_000_000L / FPS
 
     val shared = VideoRecorderEngine()
   }
+
+  // Landscape mode — set before startRecording, swaps encoder dimensions
+  var isLandscape = false
+
+  private val videoWidth: Int get() = if (isLandscape) BASE_LONG else BASE_SHORT
+  private val videoHeight: Int get() = if (isLandscape) BASE_SHORT else BASE_LONG
 
   // Overlay state (updated from JS thread)
   var overlayState = OverlayState()
@@ -88,6 +94,7 @@ class VideoRecorderEngine private constructor() {
 
   // Overlay bitmap cache
   private var lastOverlayState: OverlayState? = null
+  private var overlayBitmap: Bitmap? = null
 
   // Context ref for foreground service
   private var appContext: WeakReference<Context>? = null
@@ -215,10 +222,10 @@ class VideoRecorderEngine private constructor() {
   }
 
   private fun initRenderer() {
-    renderer = CameraTextureRenderer().apply { initialize(VIDEO_WIDTH, VIDEO_HEIGHT) }
+    renderer = CameraTextureRenderer().apply { initialize(videoWidth, videoHeight) }
 
     cameraSurfaceTexture = SurfaceTexture(renderer!!.cameraTextureId).apply {
-      setDefaultBufferSize(VIDEO_WIDTH, VIDEO_HEIGHT)
+      setDefaultBufferSize(videoWidth, videoHeight)
       setOnFrameAvailableListener { frameAvailable.set(true) }
     }
     cameraSurface = Surface(cameraSurfaceTexture)
@@ -280,17 +287,17 @@ class VideoRecorderEngine private constructor() {
 
       updateOverlayBitmap()
 
-      // --- Render to preview surface ---
+      // --- Render to preview surface (NO overlay — RN draws its own UI) ---
       if (eglPreviewSurface != EGL14.EGL_NO_SURFACE) {
         eglCore?.makeCurrent(eglPreviewSurface)
-        renderer?.drawFrame(texMatrix, mirror)
+        renderer?.drawFrame(texMatrix, mirror, drawOverlay = false)
         eglCore?.swapBuffers(eglPreviewSurface)
       }
 
-      // --- Render to encoder surface (only during recording) ---
+      // --- Render to encoder surface (WITH overlay burned in) ---
       if (isRecording.get() && eglEncoderSurface != EGL14.EGL_NO_SURFACE) {
         eglCore?.makeCurrent(eglEncoderSurface)
-        renderer?.drawFrame(texMatrix, mirror)
+        renderer?.drawFrame(texMatrix, mirror, drawOverlay = true)
 
         val ptsNanos = System.nanoTime() - recordingStartNanos
         eglCore?.setPresentationTime(eglEncoderSurface, ptsNanos)
@@ -317,9 +324,19 @@ class VideoRecorderEngine private constructor() {
     lastOverlayState = state
 
     val or = overlayRenderer ?: return
-    val overlayBmp = Bitmap.createBitmap(VIDEO_WIDTH, VIDEO_HEIGHT, Bitmap.Config.ARGB_8888)
-    or.render(overlayBmp, state)
-    renderer?.setOverlayBitmap(overlayBmp)
+
+    // Reuse the same bitmap — allocate only once
+    var bmp = overlayBitmap
+    if (bmp == null || bmp.width != videoWidth || bmp.height != videoHeight) {
+      bmp?.recycle()
+      bmp = Bitmap.createBitmap(videoWidth, videoHeight, Bitmap.Config.ARGB_8888)
+      overlayBitmap = bmp
+    } else {
+      bmp.eraseColor(android.graphics.Color.TRANSPARENT)
+    }
+
+    or.render(bmp, state)
+    renderer?.updateOverlayTexture(bmp)
   }
 
   // ================================================================
@@ -336,8 +353,8 @@ class VideoRecorderEngine private constructor() {
     try { File(path).delete() } catch (_: Exception) {}
 
     try {
-      // 1. Video encoder
-      videoEncoder = VideoEncoder().apply { configure() }
+      // 1. Video encoder (landscape swaps dimensions)
+      videoEncoder = VideoEncoder().apply { configure(width = videoWidth, height = videoHeight) }
 
       // 2. Muxer
       muxer = VideoMuxer()
@@ -493,6 +510,10 @@ class VideoRecorderEngine private constructor() {
     if (eglEncoderSurface != EGL14.EGL_NO_SURFACE) {
       eglEncoderSurface = eglCore?.destroySurface(eglEncoderSurface) ?: EGL14.EGL_NO_SURFACE
     }
+
+    overlayBitmap?.recycle()
+    overlayBitmap = null
+    lastOverlayState = null
 
     eglCore?.release()
     eglCore = null

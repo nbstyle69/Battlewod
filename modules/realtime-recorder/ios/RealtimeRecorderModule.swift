@@ -23,6 +23,7 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
   private var isSessionStarted = false
   private var outputURL: URL?
   var currentFacing: AVCaptureDevice.Position = .back
+  var isLandscape = false
 
   private let renderer = OverlayRenderer()
   var overlayState = OverlayState()
@@ -82,10 +83,18 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       if session.canAddOutput(vOutput) { session.addOutput(vOutput) }
 
       if let connection = vOutput.connection(with: .video) {
-        if #available(iOS 17.0, *) {
-          connection.videoRotationAngle = 90
+        if self.isLandscape {
+          if #available(iOS 17.0, *) {
+            connection.videoRotationAngle = 0
+          } else {
+            connection.videoOrientation = .landscapeRight
+          }
         } else {
-          connection.videoOrientation = .portrait
+          if #available(iOS 17.0, *) {
+            connection.videoRotationAngle = 90
+          } else {
+            connection.videoOrientation = .portrait
+          }
         }
         if self.currentFacing == .front {
           connection.isVideoMirrored = true
@@ -138,10 +147,13 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 
     let writer = try AVAssetWriter(url: url, fileType: .mp4)
 
+    let vidW = isLandscape ? 1920 : 1080
+    let vidH = isLandscape ? 1080 : 1920
+
     let videoSettings: [String: Any] = [
       AVVideoCodecKey: AVVideoCodecType.h264,
-      AVVideoWidthKey: 1080,
-      AVVideoHeightKey: 1920,
+      AVVideoWidthKey: vidW,
+      AVVideoHeightKey: vidH,
       AVVideoCompressionPropertiesKey: [
         AVVideoAverageBitRateKey: 6_000_000,
         AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
@@ -152,8 +164,8 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 
     let adaptorAttrs: [String: Any] = [
       kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-      kCVPixelBufferWidthKey as String: 1080,
-      kCVPixelBufferHeightKey as String: 1920,
+      kCVPixelBufferWidthKey as String: vidW,
+      kCVPixelBufferHeightKey as String: vidH,
     ]
     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
       assetWriterInput: vInput,
@@ -295,8 +307,10 @@ public class RealtimeRecorderModule: Module {
     AsyncFunction("startRecording") { (options: [String: Any], promise: Promise) in
       let outputPath = options["outputPath"] as? String ?? ""
       let facing = options["facing"] as? String ?? "back"
+      let landscape = options["isLandscape"] as? Bool ?? false
 
       self.engine.currentFacing = facing == "front" ? .front : .back
+      self.engine.isLandscape = landscape
 
       guard !outputPath.isEmpty else {
         promise.reject("ERR", "outputPath is required")
@@ -310,19 +324,9 @@ public class RealtimeRecorderModule: Module {
         url = URL(fileURLWithPath: outputPath)
       }
 
-      // Ensure session is running before recording
-      if self.engine.captureSession == nil || !(self.engine.captureSession?.isRunning ?? false) {
-        self.engine.setupSession()
-        // Small delay to let session start
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-          do {
-            try self.engine.startRecording(url: url)
-            promise.resolve(nil)
-          } catch {
-            promise.reject("ERR", error.localizedDescription)
-          }
-        }
-      } else {
+      // Always re-setup session so video orientation matches isLandscape
+      self.engine.setupSession()
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
         do {
           try self.engine.startRecording(url: url)
           promise.resolve(nil)

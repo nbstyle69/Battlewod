@@ -33,6 +33,12 @@ class OverlayRenderer(private val context: Context) {
   private var blackOpsTypeface: Typeface? = null
   private var dsDigitalTypeface: Typeface? = null
 
+  // Pre-allocated objects to avoid GC pressure on every frame
+  private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+  private val brandPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+  private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+  private val reusableClipPath = Path()
+
   init {
     loadAthlexLogo()
     loadBlackOpsFont()
@@ -118,31 +124,35 @@ class OverlayRenderer(private val context: Context) {
     val canvas = Canvas(bitmap)
     val width = bitmap.width.toFloat()
     val height = bitmap.height.toFloat()
+    val isLandscape = width > height
 
     loadBoxLogoIfNeeded(state.boxLogoUrl)
     loadCompLogoIfNeeded(state.competitionLogoUrl)
 
-    val margin = 24f * (width / 1080f) // Scale margin to resolution
-    val safeTop = 60f * (height / 1920f)
-    val scale = width / 1080f // Reference: 1080x1920
+    // Use min dimension as reference so elements stay the same physical size
+    val refDim = minOf(width, height)
+    val scale = refDim / 1080f
+    val margin = 24f * scale
+    val safeTop = if (isLandscape) 24f * scale else 60f * (height / 1920f)
 
     // ─── 0. Competition logo (top left — rounded square, no white bg) ───
+    val logoSize = if (isLandscape) 120f * scale else 200f * scale
     cachedCompLogo?.let { compImg ->
-      val logoSize = 200f * scale
       val logoRect = RectF(margin, safeTop, margin + logoSize, safeTop + logoSize)
-      val cornerRadius = 32f * scale
+      val cornerRadius = if (isLandscape) 20f * scale else 32f * scale
 
       canvas.save()
-      val clipPath = Path().apply { addRoundRect(logoRect, cornerRadius, cornerRadius, Path.Direction.CW) }
-      canvas.clipPath(clipPath)
-      canvas.drawBitmap(compImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
+      reusableClipPath.reset()
+      reusableClipPath.addRoundRect(logoRect, cornerRadius, cornerRadius, Path.Direction.CW)
+      canvas.clipPath(reusableClipPath)
+      canvas.drawBitmap(compImg, null, logoRect, bitmapPaint)
       canvas.restore()
     }
 
     // ─── 1. Title (top center, adjusted for logos) ───
     if (state.title.isNotEmpty()) {
-      val titleLeft = if (cachedCompLogo != null) margin + 200f * scale + 12f * scale else margin
-      val titleRight = if (cachedBoxLogo != null) width - 200f * scale - margin - 12f * scale else width - margin
+      val titleLeft = if (cachedCompLogo != null) margin + logoSize + 12f * scale else margin
+      val titleRight = if (cachedBoxLogo != null) width - logoSize - margin - 12f * scale else width - margin
       drawText(
         canvas, state.title,
         RectF(titleLeft, safeTop, titleRight, safeTop + 40f * scale),
@@ -151,9 +161,8 @@ class OverlayRenderer(private val context: Context) {
       )
     }
 
-    // ─── 2. Box logo (top right — circle, 200px, no background) ───
+    // ─── 2. Box logo (top right — circle, no background) ───
     cachedBoxLogo?.let { boxImg ->
-      val logoSize = 200f * scale
       val logoRect = RectF(
         width - logoSize - margin, safeTop,
         width - margin, safeTop + logoSize
@@ -161,17 +170,18 @@ class OverlayRenderer(private val context: Context) {
       val cornerRadius = logoSize / 2f  // circle
 
       canvas.save()
-      val clipPath = Path().apply { addRoundRect(logoRect, cornerRadius, cornerRadius, Path.Direction.CW) }
-      canvas.clipPath(clipPath)
-      canvas.drawBitmap(boxImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
+      reusableClipPath.reset()
+      reusableClipPath.addRoundRect(logoRect, cornerRadius, cornerRadius, Path.Direction.CW)
+      canvas.clipPath(reusableClipPath)
+      canvas.drawBitmap(boxImg, null, logoRect, bitmapPaint)
       canvas.restore()
     }
 
     // ─── 3. Countdown (center, extra large, bold) ───
     if (state.countdownValue > 0) {
       val cdStr = "${state.countdownValue}"
-      val cdFontSize = 260f * scale
-      val cdH = 320f * scale
+      val cdFontSize = if (isLandscape) 180f * scale else 260f * scale
+      val cdH = if (isLandscape) 220f * scale else 320f * scale
       val cdY = (height - cdH) / 2f
       drawText(
         canvas, cdStr,
@@ -185,38 +195,40 @@ class OverlayRenderer(private val context: Context) {
     //  BOTTOM ROW — AthleX (left) | Timer (center) | Timestamp (right)
     //  Logo centered above "AthleX" text
     // ════════════════════════════════════════════
-    val safeBottom = 140f * scale
+    val safeBottom = if (isLandscape) 40f * scale else 140f * scale
 
     // ─── 6. "AthleX" branded text — reference baseline for bottom row ───
-    val brandH = 50f * scale
+    val brandH = if (isLandscape) 40f * scale else 50f * scale
     val brandY = height - safeBottom - brandH
-    val brandTextW = 160f * scale  // estimated "AthleX" width at 40pt
+    val brandFontSize = if (isLandscape) 30f * scale else 40f * scale
+    val brandTextW = if (isLandscape) 120f * scale else 160f * scale
     drawBrandText(
       canvas,
       RectF(margin, brandY, margin + 280f * scale, brandY + brandH),
-      fontSize = 40f * scale, color = Color.WHITE, shadow = true
+      fontSize = brandFontSize, color = Color.WHITE, shadow = true
     )
 
     // ─── 5. ATHLEX logo (centered horizontally above "AthleX" text) ───
-    val atlLogoH = 120f * scale
+    val atlLogoH = if (isLandscape) 80f * scale else 120f * scale
     val atlLogoY = brandY - atlLogoH - 4f * scale
     cachedAthlexLogo?.let { atlImg ->
       val atlLogoW = atlLogoH * (atlImg.width.toFloat() / atlImg.height.toFloat())
       val brandCenterX = margin + brandTextW / 2f
       val logoX = brandCenterX - atlLogoW / 2f
       val logoRect = RectF(logoX, atlLogoY, logoX + atlLogoW, atlLogoY + atlLogoH)
-      canvas.drawBitmap(atlImg, null, logoRect, Paint(Paint.FILTER_BITMAP_FLAG))
+      canvas.drawBitmap(atlImg, null, logoRect, bitmapPaint)
     }
 
     // ─── 4. Timer display (center, same row as AthleX text) ───
     if (state.showTimer && state.countdownValue <= 0) {
-      val timerH = 110f * scale
+      val timerFontSize = if (isLandscape) 70f * scale else 90f * scale
+      val timerH = if (isLandscape) 85f * scale else 110f * scale
       val timerCenterY = brandY + brandH / 2f
       val timerY = timerCenterY - timerH / 2f
       drawText(
         canvas, state.timerDisplay,
         RectF(0f, timerY, width, timerY + timerH),
-        fontSize = 90f * scale, bold = false, color = Color.WHITE,
+        fontSize = timerFontSize, bold = false, color = Color.WHITE,
         alignment = Layout.Alignment.ALIGN_CENTER,
         shadow = true, dsDigital = true
       )
@@ -244,22 +256,22 @@ class OverlayRenderer(private val context: Context) {
     canvas: Canvas, rect: RectF,
     fontSize: Float, color: Int, shadow: Boolean
   ) {
-    val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-      this.color = color
-      textSize = fontSize
-      typeface = blackOpsTypeface ?: Typeface.DEFAULT_BOLD
-      textAlign = Paint.Align.LEFT
-      if (shadow) {
-        setShadowLayer(6f, 2f, 2f, Color.argb(179, 0, 0, 0))
-      }
+    brandPaint.reset()
+    brandPaint.isAntiAlias = true
+    brandPaint.color = color
+    brandPaint.textSize = fontSize
+    brandPaint.typeface = blackOpsTypeface ?: Typeface.DEFAULT_BOLD
+    brandPaint.textAlign = Paint.Align.LEFT
+    if (shadow) {
+      brandPaint.setShadowLayer(6f, 2f, 2f, Color.argb(179, 0, 0, 0))
     }
 
     // Vertically center in rect
-    val fm = paint.fontMetrics
+    val fm = brandPaint.fontMetrics
     val textH = fm.descent - fm.ascent
     val y = rect.top + (rect.height() - textH) / 2f - fm.ascent
 
-    canvas.drawText("AthleX", rect.left, y, paint)
+    canvas.drawText("AthleX", rect.left, y, brandPaint)
   }
 
   // MARK: - Text drawing helper
@@ -272,18 +284,18 @@ class OverlayRenderer(private val context: Context) {
     monospace: Boolean = false,
     dsDigital: Boolean = false
   ) {
-    val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-      this.color = color
-      textSize = fontSize
-      typeface = when {
-        dsDigital -> dsDigitalTypeface ?: Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
-        monospace -> Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
-        bold -> Typeface.DEFAULT_BOLD
-        else -> Typeface.DEFAULT
-      }
-      if (shadow) {
-        setShadowLayer(4f, 1f, 1f, Color.argb(179, 0, 0, 0))
-      }
+    textPaint.reset()
+    textPaint.isAntiAlias = true
+    textPaint.color = color
+    textPaint.textSize = fontSize
+    textPaint.typeface = when {
+      dsDigital -> dsDigitalTypeface ?: Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+      monospace -> Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
+      bold -> Typeface.DEFAULT_BOLD
+      else -> Typeface.DEFAULT
+    }
+    if (shadow) {
+      textPaint.setShadowLayer(4f, 1f, 1f, Color.argb(179, 0, 0, 0))
     }
 
     // Use StaticLayout for proper alignment
@@ -291,7 +303,7 @@ class OverlayRenderer(private val context: Context) {
 
     @Suppress("DEPRECATION")
     val layout = StaticLayout(
-      text, paint, layoutWidth,
+      text, textPaint, layoutWidth,
       alignment, 1f, 0f, false
     )
 

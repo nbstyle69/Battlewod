@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import {
   ChevronLeft, ChevronRight, MapPin, Calendar,
-  Video, Clock, Zap, Play, ExternalLink, Info, DollarSign, Search, Share2,
+  Video, Clock, Zap, Play, ExternalLink, Info, DollarSign, Search, Share2, Users, Filter,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -80,6 +80,8 @@ export default function PhysicalCompetitionScreen() {
   const [refreshing,   setRefreshing]   = useState(false);
   const [selected,     setSelected]     = useState<PhysComp | null>(null);
   const [searchQuery,  setSearchQuery]  = useState('');
+  const [filterFormat,  setFilterFormat]  = useState<'all' | 'individual' | 'team'>('all');
+  const [filterPrice,   setFilterPrice]   = useState(false);
   const autoOpenedRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -287,7 +289,13 @@ export default function PhysicalCompetitionScreen() {
     .filter(c => c.mode === modeFilter)
     .filter(c => !query || c.name.toLowerCase().includes(query)
       || (c.location && c.location.toLowerCase().includes(query))
-      || (c.description && c.description.toLowerCase().includes(query)));
+      || (c.description && c.description.toLowerCase().includes(query)))
+    .filter(c => {
+      if (filterFormat === 'individual') return c.format === 'individual' || c.format === 'both' || (c as any).has_individual;
+      if (filterFormat === 'team') return c.format === 'team' || c.format === 'both' || (c as any).has_team;
+      return true;
+    })
+    .filter(c => !filterPrice || (c.price && c.price.trim() !== ''));
 
   // ── Filtered list view
   const isQualifList = modeFilter === 'qualification';
@@ -318,6 +326,31 @@ export default function PhysicalCompetitionScreen() {
           onChangeText={setSearchQuery}
           autoCorrect={false}
         />
+      </View>
+
+      <View style={S.filterRow}>
+        {[
+          { key: 'all',        label: 'Tout' },
+          { key: 'individual', label: 'Individuel' },
+          { key: 'team',       label: 'Équipe' },
+        ].map(f => (
+          <TouchableOpacity
+            key={f.key}
+            onPress={() => setFilterFormat(f.key as any)}
+            style={[S.filterChip, filterFormat === f.key && S.filterChipActive]}
+            activeOpacity={0.7}
+          >
+            <Text style={[S.filterChipTxt, filterFormat === f.key && S.filterChipTxtActive]}>{f.label}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity
+          onPress={() => setFilterPrice(v => !v)}
+          style={[S.filterChip, filterPrice && S.filterChipActive]}
+          activeOpacity={0.7}
+        >
+          <DollarSign size={12} color={filterPrice ? '#fff' : theme.textMuted} />
+          <Text style={[S.filterChipTxt, filterPrice && S.filterChipTxtActive]}>Prix</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -453,5 +486,18 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1, borderColor: theme.border,
     },
     searchInput: { flex: 1, fontSize: 14, color: theme.text, padding: 0 },
+    filterRow: {
+      flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 10, marginBottom: 4, flexWrap: 'wrap',
+    },
+    filterChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      backgroundColor: theme.card, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
+      borderWidth: 1, borderColor: theme.border,
+    },
+    filterChipActive: {
+      backgroundColor: theme.accent, borderColor: theme.accent,
+    },
+    filterChipTxt: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
+    filterChipTxtActive: { color: '#fff' },
   });
 }

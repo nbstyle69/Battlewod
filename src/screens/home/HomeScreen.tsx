@@ -496,7 +496,20 @@ export default function HomeScreen() {
       {/* ── Compétitions physiques (carousel) ─────────────────────────── */}
       {physComps.length > 0 && (
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Compétitions</Text>
+          <View style={S.sectionHeader}>
+            <Text style={S.sectionTitle}>Compétitions</Text>
+            <TouchableOpacity
+              onPress={() => {
+                const nav = navigation.getParent?.();
+                if (nav) nav.navigate('Competitions', { screen: 'CompetitionList', params: { initialTab: 2 } });
+              }}
+              activeOpacity={0.7}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            >
+              <Text style={S.linkText}>Voir la liste</Text>
+              <Text style={S.linkText}>›</Text>
+            </TouchableOpacity>
+          </View>
           <AutoScrollCarousel
             data={physComps}
             itemWidth={140}
