@@ -74,7 +74,7 @@ class CameraController {
         override fun onOpened(camera: CameraDevice) {
           cameraDevice = camera
           Log.i(TAG, "Camera opened: $cameraId")
-          createCaptureSession(camera, surfaceTexture, handler)
+          createCaptureSession(camera, surfaceTexture, handler, context)
         }
 
         override fun onDisconnected(camera: CameraDevice) {
@@ -98,7 +98,8 @@ class CameraController {
   private fun createCaptureSession(
     camera: CameraDevice,
     surfaceTexture: SurfaceTexture,
-    handler: Handler
+    handler: Handler,
+    context: Context? = null
   ) {
     val glSurface = Surface(surfaceTexture)
     val targets = listOf(glSurface)
@@ -108,12 +109,13 @@ class CameraController {
         override fun onConfigured(session: CameraCaptureSession) {
           captureSession = session
 
+          val fpsRange = chooseBestFpsRange(context, camera.id)
           val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
             addTarget(glSurface)
             set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
             set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
             set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(30, 30))
+            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
           }
 
           try {
@@ -188,5 +190,42 @@ class CameraController {
       .filter { maxOf(it.width, it.height) <= 1920 }
       .maxByOrNull { it.width.toLong() * it.height.toLong() }
       ?: sizes.first()
+  }
+
+  /**
+   * Pick the best FPS range from device capabilities.
+   * Prefers [30,30], then any range containing 30, then the highest available.
+   */
+  private fun chooseBestFpsRange(context: Context?, cameraId: String): Range<Int> {
+    val fallback = Range(24, 30)
+    if (context == null) return fallback
+    try {
+      val mgr = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+      val chars = mgr.getCameraCharacteristics(cameraId)
+      val ranges = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+        ?: return fallback
+
+      // 1. Exact [30,30]
+      ranges.find { it.lower == 30 && it.upper == 30 }?.let {
+        Log.i(TAG, "FPS range: [30,30]")
+        return it
+      }
+      // 2. Any range whose upper is 30 (e.g. [15,30], [24,30])
+      val containing30 = ranges.filter { it.upper == 30 }
+        .maxByOrNull { it.lower }
+      if (containing30 != null) {
+        Log.i(TAG, "FPS range: [${containing30.lower},${containing30.upper}]")
+        return containing30
+      }
+      // 3. Highest upper FPS
+      val best = ranges.maxByOrNull { it.upper }
+      if (best != null) {
+        Log.i(TAG, "FPS range fallback: [${best.lower},${best.upper}]")
+        return best
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to query FPS ranges", e)
+    }
+    return fallback
   }
 }

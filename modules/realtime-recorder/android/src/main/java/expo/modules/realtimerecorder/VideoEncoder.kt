@@ -32,15 +32,18 @@ class VideoEncoder {
   fun configure(
     width: Int = 1080,
     height: Int = 1920,
-    bitrate: Int = 10_000_000,
+    bitrate: Int = 6_000_000,
     fps: Int = 30,
-    iFrameInterval: Int = 1
+    iFrameInterval: Int = 2
   ) {
     val format = MediaFormat.createVideoFormat(MIME, width, height).apply {
       setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
       setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
       setInteger(MediaFormat.KEY_FRAME_RATE, fps)
       setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, iFrameInterval)
+      // Baseline profile for fastest HW encoding & universal playback
+      setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
+      setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel4)
     }
 
     encoder = MediaCodec.createEncoderByType(MIME).apply {

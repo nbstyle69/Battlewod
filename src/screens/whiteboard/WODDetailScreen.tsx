@@ -14,7 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { hapticSuccess } from '../../lib/haptics';
-import { calculatePairwiseDeltas, RankedPlayer, SCALED_MULTIPLIER } from '../../utils/elo';
+import { computeAndSaveElo, sortScoresRxFirst } from '../../services/eloCompute';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
@@ -51,80 +51,6 @@ function formatScore(score: WODScore): string {
 }
 
 // ── ELO Calculation (delegated to shared utility) ───────────────────────
-
-// Sort scores: RX always above Scaled, then by score_value
-function sortScoresRxFirst(scores: WODScore[], isTimeBased: boolean): WODScore[] {
-  return [...scores].sort((a, b) => {
-    const rxDiff = (a.rx ? 0 : 1) - (b.rx ? 0 : 1);
-    if (rxDiff !== 0) return rxDiff;
-    return isTimeBased ? a.score_value - b.score_value : b.score_value - a.score_value;
-  });
-}
-
-async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[], isTimeBased: boolean) {
-  if (scores.length < 2) return;
-
-  // Get current ELO for all participants
-  const memberIds = scores.map(s => s.member_id);
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, elo')
-    .in('id', memberIds);
-
-  if (!profiles) return;
-
-  const eloMap: Record<string, number> = {};
-  for (const p of profiles) eloMap[p.id] = p.elo ?? 1000;
-
-  // Build rx lookup
-  const rxMap: Record<string, boolean> = {};
-  for (const s of scores) rxMap[s.member_id] = !!s.rx;
-
-  // Sort scores: RX first, then by score_value
-  const sorted = sortScoresRxFirst(scores, isTimeBased);
-
-  // Assign ranks (handle ties — same rx + same score = same rank)
-  const ranked: (RankedPlayer & { isScaled: boolean })[] = sorted.map((s, i) => {
-    let rank = i + 1;
-    if (i > 0 && sorted[i].score_value === sorted[i - 1].score_value && sorted[i].rx === sorted[i - 1].rx) {
-      rank = ranked[i - 1]?.rank ?? rank;
-    }
-    return { id: s.member_id, elo: eloMap[s.member_id] ?? 1000, rank, isScaled: !s.rx };
-  });
-
-  const rawDeltas = calculatePairwiseDeltas(ranked);
-
-  // Apply SCALED_MULTIPLIER for Scaled players
-  const deltas = rawDeltas.map(d => ({
-    ...d,
-    delta: Math.round(d.delta * (rxMap[d.id] ? 1 : SCALED_MULTIPLIER)),
-  }));
-
-  // Upsert elo_history
-  const historyRows = deltas.map(d => ({
-    box_id: boxId,
-    wod_id: wodId,
-    member_id: d.id,
-    elo_before: d.elo,
-    elo_after: d.elo + d.delta,
-    elo_delta: d.delta,
-    rank: d.rank,
-  }));
-
-  await supabase.from('elo_history').upsert(historyRows, { onConflict: 'wod_id,member_id' });
-
-  // Update profiles via RPC (bypasses RLS) + sync level & badges
-  for (const d of deltas) {
-    const newElo = d.elo + d.delta;
-    await supabase.rpc('update_user_elo', {
-      p_user_id: d.id,
-      p_new_elo: newElo,
-      p_increment_matches: 1,
-      p_increment_wins: d.rank === 1 ? 1 : 0,
-    });
-    await syncLevelAndBadges(d.id, newElo);
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────
 

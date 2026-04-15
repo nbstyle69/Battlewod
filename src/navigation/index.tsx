@@ -129,6 +129,7 @@ export type CoachTabParamList = {
 export type BOProfileStackParamList = {
   ProfileMain: undefined;
   EloHistory: undefined;
+  WODDetail: { wodId: string; scrollToLeaderboard?: boolean };
   Legal: undefined;
   PublicProfile: { userId: string };
   NotificationSettings: undefined;
@@ -219,6 +220,7 @@ export type HomeStackParamList = {
   Leaderboard: undefined;
   Profile: undefined;
   EloHistory: undefined;
+  WODDetail: { wodId: string; scrollToLeaderboard?: boolean };
   Legal: undefined;
   Friends: undefined;
   CompetitionDetail: { competition: CompetitionSummary };
@@ -407,6 +409,7 @@ function HomeNavigator() {
       <HomeStack.Screen name="CompetitionDetail" component={CompetitionDetailScreen} />
       <HomeStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <HomeStack.Screen name="EloHistory" component={EloHistoryScreen} />
+      <HomeStack.Screen name="WODDetail" component={WODDetailScreen} />
       <HomeStack.Screen name="Legal" component={LegalScreen} />
     </HomeStack.Navigator>
   );
@@ -557,6 +560,7 @@ function BOProfileNavigator() {
     <BOProfileStack.Navigator screenOptions={{ headerShown: false }}>
       <BOProfileStack.Screen name="ProfileMain" component={user?.role === 'admin' || user?.role === 'super_admin' ? AdminScreen : ProfileScreen} />
       <BOProfileStack.Screen name="EloHistory" component={EloHistoryScreen} />
+      <BOProfileStack.Screen name="WODDetail" component={WODDetailScreen} />
       <BOProfileStack.Screen name="Legal" component={LegalScreen} />
       <BOProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <BOProfileStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />

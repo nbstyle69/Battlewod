@@ -193,7 +193,8 @@ export default function LeaderboardScreen() {
             const heights = [56, 76, 44];
             const medals = ['🥈', '🥇', '🥉'];
             return (
-              <View key={idx} style={S.podiumCol}>
+              <TouchableOpacity key={idx} style={S.podiumCol} activeOpacity={0.7}
+                onPress={() => p?.id && p.id !== user?.id && navigation.navigate('PublicProfile', { userId: p.id })}>
                 <UserAvatar
                   uri={p?.avatar_url}
                   name={p?.username ?? '?'}
@@ -207,7 +208,7 @@ export default function LeaderboardScreen() {
                   <Text style={S.podiumName} numberOfLines={1}>{p?.username}</Text>
                   <Text style={S.podiumElo}>{p?.elo}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -259,7 +260,11 @@ export default function LeaderboardScreen() {
                 </View>
               }
               renderItem={({ item }: { item: any }) => (
-                <View style={[S.row, item.isMe && S.rowMe]}>
+                <TouchableOpacity
+                  style={[S.row, item.isMe && S.rowMe]}
+                  activeOpacity={0.7}
+                  onPress={() => !item.isMe && navigation.navigate('PublicProfile', { userId: item.id })}
+                >
                   <View style={S.rankCell}><RankBadge rank={item.rank} /></View>
                   <UserAvatar
                     uri={item.avatar_url}
@@ -294,7 +299,7 @@ export default function LeaderboardScreen() {
                     <Text style={S.eloValue}>{item.elo ?? 1000}</Text>
                     <Text style={S.eloLabel}>ELO</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               )}
             />
           )}

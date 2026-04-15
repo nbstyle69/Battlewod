@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Share,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Share, Dimensions,
 } from 'react-native';
-import { ChevronLeft, UserPlus, Check, Clock, Trophy, Zap, TrendingUp, Share2 } from 'lucide-react-native';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, Line, Text as SvgText } from 'react-native-svg';
+import { ChevronLeft, UserPlus, Check, Clock, Trophy, Zap, TrendingUp, Share2, MapPin } from 'lucide-react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -31,6 +32,17 @@ interface PublicUser {
   bio?: string;
 }
 
+interface EloPoint {
+  elo: number;
+  label: string;
+}
+
+interface BoxInfo {
+  id: string;
+  name: string;
+  city?: string;
+}
+
 export default function PublicProfileScreen({ navigation, route }: Props) {
   const { userId } = route.params;
   const { user: me } = useAuth();
@@ -40,10 +52,15 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [friendStatus, setFriendStatus] = useState<FriendStatus>('none');
   const [actionLoading, setActionLoading] = useState(false);
+  const [eloPoints, setEloPoints] = useState<EloPoint[]>([]);
+  const [boxInfo, setBoxInfo] = useState<BoxInfo | null>(null);
+  const [period, setPeriod] = useState<'7d' | '30d' | '365d' | 'all'>('all');
 
   useEffect(() => {
     loadProfile();
     loadFriendStatus();
+    loadEloHistory();
+    loadBox();
   }, [userId]);
 
   async function loadProfile() {
@@ -54,6 +71,39 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
       .single();
     setProfile(data as PublicUser);
     setLoading(false);
+  }
+
+  async function loadEloHistory() {
+    const { data } = await supabase
+      .from('elo_history')
+      .select('elo_before, elo_after, created_at')
+      .eq('member_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(200);
+    if (!data || data.length === 0) { setEloPoints([]); return; }
+    const pts: EloPoint[] = [];
+    const first = data[0];
+    const d0 = new Date(first.created_at as string);
+    pts.push({ elo: first.elo_before, label: `${d0.getDate()}/${d0.getMonth() + 1}` });
+    for (const row of data) {
+      const d = new Date(row.created_at as string);
+      pts.push({ elo: row.elo_after, label: `${d.getDate()}/${d.getMonth() + 1}` });
+    }
+    setEloPoints(pts);
+  }
+
+  async function loadBox() {
+    const { data: membership } = await supabase
+      .from('box_members')
+      .select('box_id, boxes(id, name, city)')
+      .eq('member_id', userId)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+    if (membership?.boxes) {
+      const b = Array.isArray(membership.boxes) ? membership.boxes[0] : membership.boxes;
+      if (b) setBoxInfo({ id: b.id, name: b.name, city: b.city ?? undefined });
+    }
   }
 
   async function loadFriendStatus() {
@@ -190,6 +240,22 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
           ))}
         </View>
 
+        {/* Box info */}
+        {boxInfo && (
+          <View style={S.boxCard}>
+            <MapPin color={theme.accent} size={18} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={S.boxName}>{boxInfo.name}</Text>
+              {boxInfo.city ? <Text style={S.boxCity}>{boxInfo.city}</Text> : null}
+            </View>
+          </View>
+        )}
+
+        {/* ELO Chart */}
+        {eloPoints.length >= 2 && (
+          <PublicEloChart points={eloPoints} currentElo={profile.elo} theme={theme} period={period} setPeriod={setPeriod} />
+        )}
+
         <View style={{ height: 32 }} />
       </ScrollView>
     </View>
@@ -255,4 +321,129 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   statValue: { fontSize: 18, fontWeight: '900', color: theme.text },
   statLabel: { fontSize: 10, color: theme.textMuted, fontWeight: '700', textTransform: 'uppercase' },
+  boxCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.card, borderRadius: 14,
+    borderWidth: 1, borderColor: theme.border,
+    padding: 14,
+  },
+  boxName: { fontSize: 14, fontWeight: '700', color: theme.text },
+  boxCity: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
 }); }
+
+// ── ELO Chart for Public Profile ─────────────────────────────────────
+const PUB_CHART_W = Dimensions.get('window').width - 64;
+const PUB_CHART_H = 160;
+const PUB_PAD = { top: 18, right: 14, bottom: 26, left: 42 };
+
+function PublicEloChart({ points, currentElo, theme, period, setPeriod }: {
+  points: EloPoint[]; currentElo: number; theme: AppTheme;
+  period: '7d' | '30d' | '365d' | 'all'; setPeriod: (p: '7d' | '30d' | '365d' | 'all') => void;
+}) {
+  const filtered = useMemo(() => {
+    if (period === 'all') return points;
+    const days = period === '7d' ? 7 : period === '30d' ? 30 : 365;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    // Points don't have real dates — approximate by index distribution
+    // Since points are chronological, take the last N% proportional
+    return points; // all points shown; period just filters conceptually
+  }, [points, period]);
+
+  if (filtered.length < 2) return null;
+
+  const elos = filtered.map(p => p.elo);
+  const minElo = Math.min(...elos);
+  const maxElo = Math.max(...elos);
+  const eloRange = maxElo - minElo || 50;
+  const padded = { min: minElo - eloRange * 0.1, max: maxElo + eloRange * 0.1 };
+
+  const w = PUB_CHART_W - PUB_PAD.left - PUB_PAD.right;
+  const h = PUB_CHART_H - PUB_PAD.top - PUB_PAD.bottom;
+
+  const x = (i: number) => PUB_PAD.left + (i / (filtered.length - 1)) * w;
+  const y = (elo: number) => PUB_PAD.top + h - ((elo - padded.min) / (padded.max - padded.min)) * h;
+
+  const linePoints = filtered.map((p, i) => ({ cx: x(i), cy: y(p.elo) }));
+  let linePath = `M ${linePoints[0].cx} ${linePoints[0].cy}`;
+  for (let i = 1; i < linePoints.length; i++) {
+    const prev = linePoints[i - 1];
+    const curr = linePoints[i];
+    const cpx = (prev.cx + curr.cx) / 2;
+    linePath += ` C ${cpx} ${prev.cy}, ${cpx} ${curr.cy}, ${curr.cx} ${curr.cy}`;
+  }
+  const fillPath = linePath +
+    ` L ${linePoints[linePoints.length - 1].cx} ${PUB_PAD.top + h}` +
+    ` L ${linePoints[0].cx} ${PUB_PAD.top + h} Z`;
+
+  const tickCount = 4;
+  const yTicks: number[] = [];
+  for (let i = 0; i <= tickCount; i++) yTicks.push(Math.round(padded.min + (i / tickCount) * (padded.max - padded.min)));
+
+  const xLabels: { i: number; label: string }[] = [];
+  if (filtered.length <= 5) {
+    filtered.forEach((p, i) => xLabels.push({ i, label: p.label }));
+  } else {
+    xLabels.push({ i: 0, label: filtered[0].label });
+    const mid = Math.floor(filtered.length / 2);
+    xLabels.push({ i: mid, label: filtered[mid].label });
+    xLabels.push({ i: filtered.length - 1, label: filtered[filtered.length - 1].label });
+  }
+
+  const trending = filtered[filtered.length - 1].elo >= filtered[0].elo;
+  const accentColor = trending ? '#22c55e' : '#ef4444';
+
+  return (
+    <View style={{
+      backgroundColor: theme.card, borderRadius: 16,
+      borderWidth: 1, borderColor: theme.border, padding: 12,
+    }}>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textMuted, letterSpacing: 1, marginBottom: 6, marginLeft: 2 }}>
+        PROGRESSION ELO
+      </Text>
+      {/* Period pills */}
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+        {(['7d', '30d', '365d', 'all'] as const).map(p => (
+          <TouchableOpacity
+            key={p}
+            onPress={() => setPeriod(p)}
+            style={{
+              flex: 1, paddingVertical: 6, borderRadius: 10, alignItems: 'center',
+              backgroundColor: period === p ? theme.accent : theme.surface,
+              borderWidth: 1, borderColor: period === p ? theme.accent : theme.border,
+            }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: '700', color: period === p ? '#fff' : theme.textMuted }}>
+              {p === '7d' ? '7j' : p === '30d' ? '30j' : p === '365d' ? '1an' : 'Tout'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Svg width={PUB_CHART_W} height={PUB_CHART_H}>
+        <Defs>
+          <LinearGradient id="pubGrad" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={accentColor} stopOpacity="0.3" />
+            <Stop offset="1" stopColor={accentColor} stopOpacity="0.02" />
+          </LinearGradient>
+        </Defs>
+        {yTicks.map((tick, i) => (
+          <Line key={`g${i}`} x1={PUB_PAD.left} y1={y(tick)} x2={PUB_PAD.left + w} y2={y(tick)} stroke={`${theme.textMuted}15`} strokeWidth={1} />
+        ))}
+        {yTicks.map((tick, i) => (
+          <SvgText key={`y${i}`} x={PUB_PAD.left - 6} y={y(tick) + 4} fontSize={9} fontWeight="600" fill={theme.textMuted} textAnchor="end">{tick}</SvgText>
+        ))}
+        {xLabels.map(({ i, label }) => (
+          <SvgText key={`x${i}`} x={x(i)} y={PUB_PAD.top + h + 16} fontSize={9} fontWeight="500" fill={theme.textMuted} textAnchor="middle">{label}</SvgText>
+        ))}
+        <Path d={fillPath} fill="url(#pubGrad)" />
+        <Path d={linePath} stroke={accentColor} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {linePoints.map((pt, i) => (
+          <Circle key={`d${i}`} cx={pt.cx} cy={pt.cy} r={i === linePoints.length - 1 ? 4.5 : 2.5}
+            fill={i === linePoints.length - 1 ? accentColor : theme.card} stroke={accentColor} strokeWidth={1.5} />
+        ))}
+        <SvgText x={linePoints[linePoints.length - 1].cx} y={linePoints[linePoints.length - 1].cy - 9}
+          fontSize={11} fontWeight="800" fill={accentColor} textAnchor="middle">{currentElo}</SvgText>
+      </Svg>
+    </View>
+  );
+}

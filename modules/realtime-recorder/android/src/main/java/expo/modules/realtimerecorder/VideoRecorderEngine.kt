@@ -95,6 +95,11 @@ class VideoRecorderEngine private constructor() {
   // Overlay bitmap cache
   private var lastOverlayState: OverlayState? = null
   private var overlayBitmap: Bitmap? = null
+  private var overlayDirty = AtomicBoolean(false)
+
+  // Encoder drain thread — keeps GL thread free
+  private var drainThread: HandlerThread? = null
+  private var drainHandler: Handler? = null
 
   // Context ref for foreground service
   private var appContext: WeakReference<Context>? = null
@@ -309,7 +314,8 @@ class VideoRecorderEngine private constructor() {
         eglCore?.setPresentationTime(eglEncoderSurface, ptsNanos)
         eglCore?.swapBuffers(eglEncoderSurface)
 
-        drainVideoEncoder(false)
+        // Drain encoder on a separate thread to keep GL thread free
+        drainHandler?.post { drainVideoEncoder(false) }
       }
     } catch (e: Exception) {
       Log.e(TAG, "renderFrame error", e)
@@ -342,6 +348,7 @@ class VideoRecorderEngine private constructor() {
     }
 
     or.render(bmp, state)
+    overlayDirty.set(true)
     renderer?.updateOverlayTexture(bmp)
   }
 
@@ -391,7 +398,11 @@ class VideoRecorderEngine private constructor() {
       // Wire video encoder callbacks to muxer
       // (called from drainVideoEncoder on GL thread)
 
-      // 4. Create encoder EGLSurface on GL thread
+      // 4. Start encoder drain thread
+      drainThread = HandlerThread("EncoderDrainThread").apply { start() }
+      drainHandler = Handler(drainThread!!.looper)
+
+      // 5. Create encoder EGLSurface on GL thread
       val latch = CountDownLatch(1)
       glHandler?.post {
         try {
@@ -408,7 +419,7 @@ class VideoRecorderEngine private constructor() {
       }
       latch.await(2, TimeUnit.SECONDS)
 
-      // 5. Start recording
+      // 6. Start recording
       isRecording.set(true)
       recordingStartNanos = System.nanoTime()
 
@@ -428,17 +439,21 @@ class VideoRecorderEngine private constructor() {
     }
   }
 
+  private val drainLock = Object()
+
   private fun drainVideoEncoder(endOfStream: Boolean) {
-    videoEncoder?.drainOutput(
-      endOfStream = endOfStream,
-      onFormat = { format ->
-        muxer?.addVideoTrack(format)
-      },
-      onData = { buffer, info ->
-        val m = muxer ?: return@drainOutput
-        m.writeSampleData(m.videoTrackIndex, buffer, info)
-      }
-    )
+    synchronized(drainLock) {
+      videoEncoder?.drainOutput(
+        endOfStream = endOfStream,
+        onFormat = { format ->
+          muxer?.addVideoTrack(format)
+        },
+        onData = { buffer, info ->
+          val m = muxer ?: return@drainOutput
+          m.writeSampleData(m.videoTrackIndex, buffer, info)
+        }
+      )
+    }
   }
 
   // ================================================================
@@ -458,20 +473,32 @@ class VideoRecorderEngine private constructor() {
         // 1. Stop audio
         audioEncoder?.stop()
 
-        // 2. Drain remaining video on GL thread
-        val latch = CountDownLatch(1)
+        // 2. Signal EOS on GL thread, then drain on drain thread
+        val signalLatch = CountDownLatch(1)
         glHandler?.post {
           try {
             if (eglEncoderSurface != EGL14.EGL_NO_SURFACE) {
               eglCore?.makeCurrent(eglEncoderSurface)
               videoEncoder?.signalEndOfInputStream()
-              drainVideoEncoder(true)
               eglEncoderSurface = eglCore?.destroySurface(eglEncoderSurface) ?: EGL14.EGL_NO_SURFACE
             }
           } catch (_: Exception) {}
-          latch.countDown()
-        } ?: latch.countDown()
-        latch.await(3, TimeUnit.SECONDS)
+          signalLatch.countDown()
+        } ?: signalLatch.countDown()
+        signalLatch.await(2, TimeUnit.SECONDS)
+
+        // Final drain on drain thread (blocking)
+        val drainLatch = CountDownLatch(1)
+        val dh = drainHandler
+        if (dh != null) {
+          dh.post {
+            drainVideoEncoder(true)
+            drainLatch.countDown()
+          }
+          drainLatch.await(3, TimeUnit.SECONDS)
+        } else {
+          drainVideoEncoder(true)
+        }
 
         // 3. Stop encoders
         videoEncoder?.stop()
@@ -485,6 +512,11 @@ class VideoRecorderEngine private constructor() {
         audioEncoder?.release()
         audioEncoder = null
         muxer = null
+
+        // 6. Stop drain thread
+        drainThread?.quitSafely()
+        drainThread = null
+        drainHandler = null
 
         stopForegroundService()
 
@@ -579,6 +611,9 @@ class VideoRecorderEngine private constructor() {
     videoEncoder = null
     muxer?.stop()
     muxer = null
+    drainThread?.quitSafely()
+    drainThread = null
+    drainHandler = null
     stopForegroundService()
   }
 }

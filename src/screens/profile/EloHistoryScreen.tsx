@@ -1,18 +1,24 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Dimensions,
 } from 'react-native';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, Line, Text as SvgText } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Zap } from 'lucide-react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Zap, ChevronRight } from 'lucide-react-native';
+import { HomeStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { computeAndSaveElo } from '../../services/eloCompute';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { WODScore } from '../../types';
 
 interface EloEntry {
   id: string;
   type: 'wod' | 'tournament' | 'daily';
+  refId: string;
   label: string;
   delta: number;
   eloBefore: number;
@@ -21,8 +27,10 @@ interface EloEntry {
   date: string;
 }
 
+type Nav = NativeStackNavigationProp<HomeStackParamList>;
+
 export default function EloHistoryScreen() {
-  const nav = useNavigation();
+  const nav = useNavigation<Nav>();
   const { user } = useAuth();
   const { theme, mode } = useTheme();
   const isDark = mode === 'dark';
@@ -31,25 +39,81 @@ export default function EloHistoryScreen() {
   const [entries, setEntries] = useState<EloEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [period, setPeriod] = useState<'7d' | '30d' | '365d' | 'all'>('all');
 
   const load = useCallback(async () => {
     if (!user) return;
     try {
     const results: EloEntry[] = [];
 
+    // 0. Batch-compute ELO for expired WODs that have no history yet
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().split('T')[0];
+
+    // Find WODs where this user submitted a score, WOD is expired, and leaderboard enabled
+    const { data: userScores, error: scErr } = await supabase
+      .from('wod_scores')
+      .select('wod_id, box_wods!inner(id, box_id, scheduled_date, wod_type, leaderboard_enabled)')
+      .eq('member_id', user.id);
+
+    console.log('[EloHistory] user.id=', user.id, 'yStr=', yStr);
+    console.log('[EloHistory] userScores count=', userScores?.length ?? 0, 'error=', scErr?.message);
+
+    if (userScores && userScores.length > 0) {
+      try {
+        const wodIds = userScores.map((s: any) => s.wod_id).filter(Boolean);
+        console.log('[EloHistory] wodIds to check=', wodIds);
+        const { data: existingHistory } = await supabase
+          .from('elo_history')
+          .select('wod_id')
+          .in('wod_id', wodIds.length > 0 ? wodIds : ['__none__']);
+
+        const computedWodIds = new Set((existingHistory ?? []).map((h: any) => h.wod_id));
+        console.log('[EloHistory] already computed=', computedWodIds.size);
+
+        for (const sc of userScores) {
+          const wod = Array.isArray((sc as any).box_wods) ? (sc as any).box_wods[0] : (sc as any).box_wods;
+          if (!wod) { console.log('[EloHistory] skip: no wod for', sc.wod_id); continue; }
+          if (computedWodIds.has(sc.wod_id)) { continue; }
+          if (wod.leaderboard_enabled === false) { continue; }
+          if (wod.scheduled_date > yStr) { console.log('[EloHistory] skip: not expired', sc.wod_id, wod.scheduled_date); continue; }
+
+          console.log('[EloHistory] computing ELO for WOD', sc.wod_id, 'box=', wod.box_id);
+          const wodId = sc.wod_id as string;
+          const { data: allScores } = await supabase
+            .from('wod_scores')
+            .select('*')
+            .eq('wod_id', wodId);
+
+          console.log('[EloHistory] scores for WOD', wodId, '=', allScores?.length ?? 0);
+          if (allScores && allScores.length >= 2) {
+            const isTimeBased = wod.wod_type === 'for-time';
+            await computeAndSaveElo(wodId, wod.box_id, allScores as WODScore[], isTimeBased);
+            console.log('[EloHistory] ELO computed for', wodId);
+          }
+        }
+      } catch (batchErr: any) {
+        console.log('[EloHistory] batch compute error:', batchErr?.message, batchErr);
+      }
+    }
+
     // 1. WOD elo_history
-    const { data: wodHistory } = await supabase
+    const { data: wodHistory, error: wodErr } = await supabase
       .from('elo_history')
-      .select('id, wod_id, elo_before, elo_after, elo_delta, rank, created_at, box_wods(title, type)')
+      .select('id, wod_id, elo_before, elo_after, elo_delta, rank, created_at, box_wods(title, wod_type)')
       .eq('member_id', user.id)
       .order('created_at', { ascending: false })
       .limit(100);
+
+    console.log('[EloHistory] wodHistory count=', wodHistory?.length ?? 0, 'error=', wodErr?.message);
 
     for (const h of wodHistory ?? []) {
       const wod = Array.isArray(h.box_wods) ? h.box_wods[0] : h.box_wods;
       results.push({
         id: h.id,
         type: 'wod',
+        refId: h.wod_id,
         label: wod?.title ?? 'WOD',
         delta: h.elo_delta,
         eloBefore: h.elo_before,
@@ -60,18 +124,21 @@ export default function EloHistoryScreen() {
     }
 
     // 2. Tournament elo_history
-    const { data: tournHistory } = await supabase
+    const { data: tournHistory, error: tournErr } = await supabase
       .from('tournament_elo_history')
       .select('id, tournament_id, elo_before, elo_after, elo_change, final_rank, calculated_at, tournaments(name)')
       .eq('athlete_id', user.id)
       .order('calculated_at', { ascending: false })
       .limit(100);
 
+    console.log('[EloHistory] tournHistory count=', tournHistory?.length ?? 0, 'error=', tournErr?.message);
+
     for (const h of tournHistory ?? []) {
       const tourn = Array.isArray(h.tournaments) ? h.tournaments[0] : h.tournaments;
       results.push({
         id: h.id,
         type: 'tournament',
+        refId: h.tournament_id,
         label: tourn?.name ?? 'Tournoi',
         delta: h.elo_change,
         eloBefore: h.elo_before,
@@ -94,6 +161,7 @@ export default function EloHistoryScreen() {
       results.push({
         id: h.id,
         type: 'daily',
+        refId: h.tournament_id,
         label: dt?.wod_name ?? 'Mini-Tournoi',
         delta: h.elo_delta,
         eloBefore: h.elo_before,
@@ -116,8 +184,17 @@ export default function EloHistoryScreen() {
   const onRefresh = () => { setRefreshing(true); load(); };
 
   const currentElo = user?.elo ?? 1000;
-  const totalGain = entries.reduce((sum, e) => sum + (e.delta > 0 ? e.delta : 0), 0);
-  const totalLoss = entries.reduce((sum, e) => sum + (e.delta < 0 ? e.delta : 0), 0);
+
+  const filtered = React.useMemo(() => {
+    if (period === 'all') return entries;
+    const days = period === '7d' ? 7 : period === '30d' ? 30 : 365;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return entries.filter(e => new Date(e.date) >= cutoff);
+  }, [entries, period]);
+
+  const totalGain = filtered.reduce((sum, e) => sum + (e.delta > 0 ? e.delta : 0), 0);
+  const totalLoss = filtered.reduce((sum, e) => sum + (e.delta < 0 ? e.delta : 0), 0);
 
   function formatDate(iso: string) {
     const d = new Date(iso);
@@ -166,10 +243,32 @@ export default function EloHistoryScreen() {
           </View>
         </View>
 
+        {/* Period filter */}
+        {!loading && entries.length > 0 && (
+          <View style={S.filterRow}>
+            {(['7d', '30d', '365d', 'all'] as const).map(p => (
+              <TouchableOpacity
+                key={p}
+                onPress={() => setPeriod(p)}
+                style={[S.filterPill, period === p && { backgroundColor: theme.accent }]}
+              >
+                <Text style={[S.filterPillText, period === p && { color: '#fff' }]}>
+                  {p === '7d' ? '7j' : p === '30d' ? '30j' : p === '365d' ? '1an' : 'Tout'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* ELO Chart */}
+        {!loading && filtered.length >= 2 && (
+          <EloChart entries={filtered} currentElo={currentElo} theme={theme} isDark={isDark} />
+        )}
+
         {/* History list */}
         {loading ? (
           <ActivityIndicator color={theme.accent} size="large" style={{ marginTop: 40 }} />
-        ) : entries.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <View style={S.emptyState}>
             <Trophy color={theme.textMuted} size={40} />
             <Text style={S.emptyText}>Aucun historique ELO</Text>
@@ -177,9 +276,18 @@ export default function EloHistoryScreen() {
           </View>
         ) : (
           <View style={S.list}>
-            <Text style={S.sectionTitle}>HISTORIQUE ({entries.length})</Text>
-            {entries.map((entry) => (
-              <View key={entry.id} style={S.row}>
+            <Text style={S.sectionTitle}>HISTORIQUE ({filtered.length})</Text>
+            {filtered.map((entry) => (
+              <TouchableOpacity
+                key={entry.id}
+                style={S.row}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (entry.type === 'wod' && entry.refId) {
+                    nav.navigate('WODDetail', { wodId: entry.refId, scrollToLeaderboard: true });
+                  }
+                }}
+              >
                 <View style={[S.rowIcon, { backgroundColor: entry.type === 'tournament' ? '#8b5cf620' : entry.type === 'daily' ? '#ef444420' : `${theme.accent}20` }]}>
                   {entry.type === 'tournament'
                     ? <Trophy color="#8b5cf6" size={18} />
@@ -204,11 +312,184 @@ export default function EloHistoryScreen() {
                   </Text>
                   <Text style={S.rowEloAfter}>{entry.eloAfter}</Text>
                 </View>
-              </View>
+                {entry.type === 'wod' && (
+                  <ChevronRight color={theme.textMuted} size={16} />
+                )}
+              </TouchableOpacity>
             ))}
           </View>
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+// ── ELO Progression Chart ────────────────────────────────────────────
+const CHART_WIDTH = Dimensions.get('window').width - 32;
+const CHART_HEIGHT = 180;
+const PADDING = { top: 20, right: 16, bottom: 28, left: 44 };
+
+function EloChart({ entries, currentElo, theme, isDark }: {
+  entries: EloEntry[]; currentElo: number; theme: AppTheme; isDark: boolean;
+}) {
+  // Build chronological data points (oldest → newest, then current)
+  const sorted = [...entries].reverse();
+  const points: { elo: number; label: string }[] = [];
+
+  // Start with elo_before of the oldest entry
+  if (sorted.length > 0) {
+    const oldest = sorted[0];
+    const d = new Date(oldest.date);
+    points.push({ elo: oldest.eloBefore, label: `${d.getDate()}/${d.getMonth() + 1}` });
+  }
+
+  for (const e of sorted) {
+    const d = new Date(e.date);
+    points.push({ elo: e.eloAfter, label: `${d.getDate()}/${d.getMonth() + 1}` });
+  }
+
+  if (points.length < 2) return null;
+
+  const elos = points.map(p => p.elo);
+  const minElo = Math.min(...elos);
+  const maxElo = Math.max(...elos);
+  const eloRange = maxElo - minElo || 50;
+  const padded = { min: minElo - eloRange * 0.1, max: maxElo + eloRange * 0.1 };
+
+  const w = CHART_WIDTH - PADDING.left - PADDING.right;
+  const h = CHART_HEIGHT - PADDING.top - PADDING.bottom;
+
+  const x = (i: number) => PADDING.left + (i / (points.length - 1)) * w;
+  const y = (elo: number) => PADDING.top + h - ((elo - padded.min) / (padded.max - padded.min)) * h;
+
+  // Build smooth path
+  const linePoints = points.map((p, i) => ({ cx: x(i), cy: y(p.elo) }));
+  let linePath = `M ${linePoints[0].cx} ${linePoints[0].cy}`;
+  for (let i = 1; i < linePoints.length; i++) {
+    const prev = linePoints[i - 1];
+    const curr = linePoints[i];
+    const cpx = (prev.cx + curr.cx) / 2;
+    linePath += ` C ${cpx} ${prev.cy}, ${cpx} ${curr.cy}, ${curr.cx} ${curr.cy}`;
+  }
+
+  // Fill path (close at bottom)
+  const fillPath = linePath +
+    ` L ${linePoints[linePoints.length - 1].cx} ${PADDING.top + h}` +
+    ` L ${linePoints[0].cx} ${PADDING.top + h} Z`;
+
+  // Y-axis labels (3-4 ticks)
+  const tickCount = 4;
+  const yTicks: number[] = [];
+  for (let i = 0; i <= tickCount; i++) {
+    yTicks.push(Math.round(padded.min + (i / tickCount) * (padded.max - padded.min)));
+  }
+
+  // X-axis labels — show first, middle, last
+  const xLabels: { i: number; label: string }[] = [];
+  if (points.length <= 5) {
+    points.forEach((p, i) => xLabels.push({ i, label: p.label }));
+  } else {
+    xLabels.push({ i: 0, label: points[0].label });
+    const mid = Math.floor(points.length / 2);
+    xLabels.push({ i: mid, label: points[mid].label });
+    xLabels.push({ i: points.length - 1, label: points[points.length - 1].label });
+  }
+
+  // Color: green if trending up, red if down
+  const lastPoint = points[points.length - 1];
+  const firstPoint = points[0];
+  const trending = lastPoint.elo >= firstPoint.elo;
+  const accentColor = trending ? '#22c55e' : '#ef4444';
+
+  return (
+    <View style={{
+      marginHorizontal: 16, marginBottom: 16, borderRadius: 20,
+      backgroundColor: isDark ? theme.card : '#f8f8f8',
+      borderWidth: 1, borderColor: theme.border, padding: 12,
+    }}>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textMuted, letterSpacing: 1, marginBottom: 8, marginLeft: 4 }}>
+        PROGRESSION ELO
+      </Text>
+      <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+        <Defs>
+          <LinearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={accentColor} stopOpacity="0.3" />
+            <Stop offset="1" stopColor={accentColor} stopOpacity="0.02" />
+          </LinearGradient>
+        </Defs>
+
+        {/* Grid lines */}
+        {yTicks.map((tick, i) => (
+          <Line
+            key={`grid-${i}`}
+            x1={PADDING.left} y1={y(tick)}
+            x2={PADDING.left + w} y2={y(tick)}
+            stroke={isDark ? '#ffffff10' : '#00000010'}
+            strokeWidth={1}
+          />
+        ))}
+
+        {/* Y-axis labels */}
+        {yTicks.map((tick, i) => (
+          <SvgText
+            key={`ytick-${i}`}
+            x={PADDING.left - 6}
+            y={y(tick) + 4}
+            fontSize={10}
+            fontWeight="600"
+            fill={theme.textMuted}
+            textAnchor="end"
+          >
+            {tick}
+          </SvgText>
+        ))}
+
+        {/* X-axis labels */}
+        {xLabels.map(({ i, label }) => (
+          <SvgText
+            key={`xtick-${i}`}
+            x={x(i)}
+            y={PADDING.top + h + 18}
+            fontSize={10}
+            fontWeight="500"
+            fill={theme.textMuted}
+            textAnchor="middle"
+          >
+            {label}
+          </SvgText>
+        ))}
+
+        {/* Gradient fill */}
+        <Path d={fillPath} fill="url(#chartGrad)" />
+
+        {/* Line */}
+        <Path d={linePath} stroke={accentColor} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* Data points */}
+        {linePoints.map((pt, i) => (
+          <Circle
+            key={`dot-${i}`}
+            cx={pt.cx}
+            cy={pt.cy}
+            r={i === linePoints.length - 1 ? 5 : 3}
+            fill={i === linePoints.length - 1 ? accentColor : isDark ? theme.card : '#fff'}
+            stroke={accentColor}
+            strokeWidth={2}
+          />
+        ))}
+
+        {/* Current ELO label on last point */}
+        <SvgText
+          x={linePoints[linePoints.length - 1].cx}
+          y={linePoints[linePoints.length - 1].cy - 10}
+          fontSize={12}
+          fontWeight="800"
+          fill={accentColor}
+          textAnchor="middle"
+        >
+          {currentElo}
+        </SvgText>
+      </Svg>
     </View>
   );
 }
@@ -243,6 +524,19 @@ function createStyles(theme: AppTheme, isDark: boolean) {
     emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
     emptyText: { fontSize: 16, fontWeight: '700', color: theme.text, marginTop: 16 },
     emptySubtext: { fontSize: 13, color: theme.textMuted, textAlign: 'center', marginTop: 8 },
+
+    // Filter pills
+    filterRow: {
+      flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 12,
+    },
+    filterPill: {
+      flex: 1, paddingVertical: 8, borderRadius: 12, alignItems: 'center',
+      backgroundColor: isDark ? theme.card : '#f0f0f0',
+      borderWidth: 1, borderColor: theme.border,
+    },
+    filterPillText: {
+      fontSize: 13, fontWeight: '700', color: theme.textMuted,
+    },
 
     // List
     list: { paddingHorizontal: 16 },
