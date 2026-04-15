@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronLeft, Dumbbell, Zap } from 'lucide-react-native';
+import { ChevronLeft, Dumbbell, Zap, Building2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -60,6 +60,24 @@ export default function ProgrammationScreen() {
           </View>
           <View style={[s.categoryArrow, { backgroundColor: `${HYROX_ORANGE}15` }]}>
             <Text style={[s.categoryArrowTxt, { color: HYROX_ORANGE }]}>→</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Programmes des Boxes */}
+        <TouchableOpacity
+          style={s.categoryBtn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('BoxPrograms')}
+        >
+          <View style={[s.categoryIcon, { backgroundColor: '#3B82F615' }]}>
+            <Building2 color="#3B82F6" size={28} />
+          </View>
+          <View style={s.categoryContent}>
+            <Text style={s.categoryTitle}>Programmes des Boxes</Text>
+            <Text style={s.categoryDesc}>Découvre les programmations proposées par les boxes</Text>
+          </View>
+          <View style={[s.categoryArrow, { backgroundColor: '#3B82F615' }]}>
+            <Text style={[s.categoryArrowTxt, { color: '#3B82F6' }]}>→</Text>
           </View>
         </TouchableOpacity>
       </View>

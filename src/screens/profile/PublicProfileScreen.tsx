@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { HomeStackParamList } from '../../navigation';
+import UserAvatar from '../../components/UserAvatar';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'PublicProfile'>;
@@ -153,9 +154,17 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
         {/* Avatar + name */}
         <View style={S.heroCard}>
-          <View style={[S.avatarCircle, { borderColor: levelColor }]}>
-            <Text style={S.avatarLetter}>{profile.username?.[0]?.toUpperCase() ?? '?'}</Text>
-          </View>
+          <UserAvatar
+            uri={profile.avatar_url}
+            name={profile.username ?? '?'}
+            size={80}
+            borderRadius={40}
+            borderWidth={3}
+            borderColor={levelColor}
+            backgroundColor={theme.surface}
+            textColor={theme.text}
+            fontSize={32}
+          />
           <Text style={S.username}>{profile.username}</Text>
           {profile.full_name ? <Text style={S.fullName}>{profile.full_name}</Text> : null}
           <View style={[S.levelPill, { backgroundColor: `${levelColor}20` }]}>

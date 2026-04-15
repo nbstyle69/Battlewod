@@ -12,6 +12,7 @@ import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navig
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
@@ -65,7 +66,7 @@ export default function InterTeamScreen() {
       setTeam(t);
       const { data: m } = await supabase
         .from('inter_team_members')
-        .select('*, profile:profiles!user_id(username, level)')
+        .select('*, profile:profiles!user_id(username, level, avatar_url)')
         .eq('team_id', t.id);
       setMembers((m ?? []).map((x: any) => ({
         id: x.id,
@@ -134,13 +135,13 @@ export default function InterTeamScreen() {
       if (userIds.length === 0) { setAllBoxMembers([]); setLoadingMembers(false); return; }
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, username, level, elo')
+        .select('id, username, level, elo, avatar_url')
         .in('id', userIds);
       setAllBoxMembers((profiles ?? []).map((p: any) => ({ id: p.id, username: p.username, level: p.level, elo: p.elo })));
     } else {
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, level, elo')
+        .select('id, username, level, elo, avatar_url')
         .neq('id', user?.id ?? '')
         .limit(50);
       const list = (data ?? []).filter((p: any) => !alreadyInvited.has(p.id));
@@ -156,7 +157,7 @@ export default function InterTeamScreen() {
     if (currentBox) {
       const { data } = await supabase
         .from('box_members')
-        .select('user_id, profile:profiles!user_id(id, username, level)')
+        .select('user_id, profile:profiles!user_id(id, username, level, avatar_url)')
         .eq('box_id', currentBox.id)
         .neq('user_id', user?.id ?? '');
       results = (data ?? []).map((x: any) => ({
@@ -167,7 +168,7 @@ export default function InterTeamScreen() {
     } else {
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, level')
+        .select('id, username, level, avatar_url')
         .ilike('username', `%${searchQuery.trim()}%`)
         .neq('id', user?.id ?? '')
         .limit(20);
@@ -328,9 +329,7 @@ export default function InterTeamScreen() {
 
                 {/* Captain row */}
                 <View style={S.memberRow}>
-                  <View style={S.memberAvatar}>
-                    <Text style={S.memberAvatarText}>{(user?.username ?? '?')[0].toUpperCase()}</Text>
-                  </View>
+                  <UserAvatar uri={user?.avatar_url} name={user?.username ?? '?'} size={34} borderRadius={10} backgroundColor={`${theme.accent}20`} textColor={theme.accent} fontSize={13} />
                   <View style={{ flex: 1 }}>
                     <Text style={S.memberName}>{user?.username ?? '—'} {isCaptain ? '(moi)' : ''}</Text>
                     <Text style={S.memberLevel}>{user?.level ?? ''}</Text>
@@ -344,9 +343,7 @@ export default function InterTeamScreen() {
                 {/* Members */}
                 {members.map(m => (
                   <View key={m.id} style={[S.memberRow, m.status === 'declined' && { opacity: 0.5 }]}>
-                    <View style={S.memberAvatar}>
-                      <Text style={S.memberAvatarText}>{m.username[0]?.toUpperCase() ?? '?'}</Text>
-                    </View>
+                    <UserAvatar uri={(m as any).avatar_url} name={m.username ?? '?'} size={34} borderRadius={10} backgroundColor={`${theme.accent}20`} textColor={theme.accent} fontSize={13} />
                     <View style={{ flex: 1 }}>
                       <Text style={S.memberName}>{m.username}</Text>
                       <Text style={S.memberLevel}>{m.level}</Text>
@@ -430,9 +427,7 @@ export default function InterTeamScreen() {
                           <View style={S.modalRank}>
                             <Text style={S.modalRankText}>{index + 1}</Text>
                           </View>
-                          <View style={S.memberAvatar}>
-                            <Text style={S.memberAvatarText}>{(item.username ?? '?')[0].toUpperCase()}</Text>
-                          </View>
+                          <UserAvatar uri={(item as any).avatar_url} name={item.username ?? '?'} size={34} borderRadius={10} backgroundColor={`${theme.accent}20`} textColor={theme.accent} fontSize={13} />
                           <View style={{ flex: 1 }}>
                             <Text style={S.memberName}>{item.username}</Text>
                             <Text style={S.memberLevel}>{item.level?.toUpperCase() ?? ''}</Text>

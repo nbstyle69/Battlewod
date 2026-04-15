@@ -10,6 +10,9 @@ export type MessageType = 'general' | 'group' | 'direct';
 export type EventRegStatus = 'registered' | 'waitlist' | 'cancelled';
 export type CompetitionStatus = 'draft' | 'open' | 'ongoing' | 'finished';
 
+export type SubscriptionPlanTier = 'trial' | 'complete';
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'expired';
+
 export interface Box {
   id: string;
   owner_id: string;
@@ -25,6 +28,49 @@ export interface Box {
   invite_code: string;
   is_active: boolean;
   created_at: string;
+  city?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  sport_type?: string[];
+  services?: string[];
+  cover_url?: string;
+  instagram_url?: string;
+  is_listed?: boolean;
+  tagline?: string;
+  opening_hours?: Record<string, string>;
+  member_count?: number;
+  slug?: string;
+}
+
+export interface BoxProgram {
+  id: string;
+  box_id: string;
+  name: string;
+  description?: string;
+  price?: number;
+  currency: string;
+  url: string;
+  image_url?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BoxSubscription {
+  id: string;
+  box_id: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  plan_tier: SubscriptionPlanTier;
+  status: SubscriptionStatus;
+  trial_ends_at?: string;
+  current_period_end?: string;
+  is_early_adopter: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BoxMember {
@@ -261,4 +307,22 @@ export interface LeaderboardEntry {
   elo: number;
   wins: number;
   total_matches: number;
+}
+
+export type PartnerCategory = 'nutrition' | 'equipment' | 'apparel' | 'supplements' | 'recovery' | 'coaching' | 'software' | 'other';
+
+export interface Partner {
+  id: string;
+  name: string;
+  logo_url?: string;
+  description?: string;
+  website_url?: string;
+  instagram_url?: string;
+  offer_title?: string;
+  offer_description?: string;
+  offer_code?: string;
+  category: PartnerCategory;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
 }

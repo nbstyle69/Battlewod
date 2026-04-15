@@ -13,6 +13,7 @@ import { LevelColors } from '../../theme/colors';
 import { AthleteLevel } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
 
 const LEVELS: (AthleteLevel | 'all')[] = ['all', 'scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
@@ -53,7 +54,7 @@ export default function LeaderboardScreen() {
     async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, level, elo, wins, total_matches')
+        .select('id, username, level, elo, wins, total_matches, avatar_url')
         .order('elo', { ascending: false })
         .limit(ATHLETE_PAGE_SIZE);
       return (data ?? []).map((p: any, i: number) => ({ ...p, rank: i + 1, isMe: p.id === user?.id }));
@@ -77,7 +78,7 @@ export default function LeaderboardScreen() {
     const from = nextPage * ATHLETE_PAGE_SIZE;
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, level, elo, wins, total_matches')
+      .select('id, username, level, elo, wins, total_matches, avatar_url')
       .order('elo', { ascending: false })
       .range(from, from + ATHLETE_PAGE_SIZE - 1);
     const newItems = (data ?? []).map((p: any, i: number) => ({ ...p, rank: from + i + 1, isMe: p.id === user?.id }));
@@ -193,9 +194,14 @@ export default function LeaderboardScreen() {
             const medals = ['🥈', '🥇', '🥉'];
             return (
               <View key={idx} style={S.podiumCol}>
-                <View style={[S.podiumAvatar, idx === 1 && S.podiumAvatarFirst]}>
-                  <Text style={S.podiumAvatarText}>{p?.username[0]}</Text>
-                </View>
+                <UserAvatar
+                  uri={p?.avatar_url}
+                  name={p?.username ?? '?'}
+                  size={idx === 1 ? 56 : 44}
+                  borderRadius={idx === 1 ? 20 : 16}
+                  backgroundColor={theme.surface}
+                  textColor={theme.text}
+                />
                 <View style={[S.podiumBase, { height: heights[idx] }]}>
                   <Text style={S.podiumMedal}>{medals[idx]}</Text>
                   <Text style={S.podiumName} numberOfLines={1}>{p?.username}</Text>
@@ -217,8 +223,9 @@ export default function LeaderboardScreen() {
       </View>
 
       {mainTab === 0 && (
-        <>
+        <View style={{ flex: 1 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0 }}
             contentContainerStyle={S.levelFilters}>
             {LEVELS.map((l) => {
               const isAll = l === 'all';
@@ -238,6 +245,7 @@ export default function LeaderboardScreen() {
             <ActivityIndicator style={{ marginTop: 40 }} color={theme.accent} />
           ) : (
             <FlatList
+              style={{ flex: 1 }}
               data={filtered}
               keyExtractor={(item: any) => item.id}
               contentContainerStyle={S.list}
@@ -253,9 +261,16 @@ export default function LeaderboardScreen() {
               renderItem={({ item }: { item: any }) => (
                 <View style={[S.row, item.isMe && S.rowMe]}>
                   <View style={S.rankCell}><RankBadge rank={item.rank} /></View>
-                  <View style={[S.avatarBox, { borderColor: LevelColors[item.level as AthleteLevel] ?? theme.border }]}>
-                    <Text style={S.avatarText}>{(item.username ?? '?')[0].toUpperCase()}</Text>
-                  </View>
+                  <UserAvatar
+                    uri={item.avatar_url}
+                    name={item.username ?? '?'}
+                    size={40}
+                    borderRadius={20}
+                    borderWidth={2}
+                    borderColor={LevelColors[item.level as AthleteLevel] ?? theme.border}
+                    backgroundColor={theme.surface}
+                    textColor={theme.text}
+                  />
                   <View style={S.info}>
                     <Text style={[S.name, item.isMe && { color: theme.accent }]}>
                       {item.username}{item.isMe ? ' 👈' : ''}
@@ -283,7 +298,7 @@ export default function LeaderboardScreen() {
               )}
             />
           )}
-        </>
+        </View>
       )}
 
       {mainTab === 1 && (

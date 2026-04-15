@@ -1465,6 +1465,7 @@ export default function TimerRunScreen() {
               ref={cameraRef}
               style={StyleSheet.absoluteFill as any}
               facing={facing}
+              isLandscape={isLandscape}
               onReady={() => setIsCameraReady(true)}
             />
           : <View style={[StyleSheet.absoluteFill, styles.noCamera]}><Text style={styles.noCameraText}>Caméra non disponible</Text></View>

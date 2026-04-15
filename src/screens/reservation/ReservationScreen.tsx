@@ -10,6 +10,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import WeekDayPicker from '../../components/WeekDayPicker';
+import UserAvatar from '../../components/UserAvatar';
 
 interface ClassSchedule {
   id: string;
@@ -170,12 +171,12 @@ export default function ReservationScreen() {
     setDetailLoading(true);
     const { data } = await supabase
       .from('class_reservations')
-      .select('member_id, status, profile:profiles(username)')
+      .select('member_id, status, profile:profiles(username, avatar_url)')
       .eq('schedule_id', item.id)
       .order('created_at', { ascending: true });
     const list: SlotParticipant[] = (data ?? []).map((r: any) => {
       const p = Array.isArray(r.profile) ? r.profile[0] : r.profile;
-      return { member_id: r.member_id, username: p?.username ?? '?', status: r.status };
+      return { member_id: r.member_id, username: p?.username ?? '?', avatar_url: p?.avatar_url, status: r.status };
     });
     setParticipants(list);
     setDetailLoading(false);
@@ -527,11 +528,15 @@ export default function ReservationScreen() {
                   const isConfirmed = p.status === 'confirmed';
                   return (
                     <View style={S.participantRow}>
-                      <View style={[S.participantAvatar, { backgroundColor: isConfirmed ? `${theme.accent}20` : 'rgba(245,158,11,0.15)' }]}>
-                        <Text style={[S.participantAvatarText, { color: isConfirmed ? theme.accent : '#f59e0b' }]}>
-                          {p.username[0].toUpperCase()}
-                        </Text>
-                      </View>
+                      <UserAvatar
+                        uri={(p as any).avatar_url}
+                        name={p.username ?? '?'}
+                        size={32}
+                        borderRadius={10}
+                        backgroundColor={isConfirmed ? `${theme.accent}20` : 'rgba(245,158,11,0.15)'}
+                        textColor={isConfirmed ? theme.accent : '#f59e0b'}
+                        fontSize={12}
+                      />
                       <View style={{ flex: 1 }}>
                         <Text style={[S.participantName, isMe && { color: theme.accent }]}>
                           {p.username}{isMe ? ' (toi)' : ''}

@@ -7,6 +7,7 @@ import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.os.Handler
 import android.util.Log
+import android.util.Range
 import android.util.Size
 import android.view.Surface
 import androidx.core.content.ContextCompat
@@ -112,6 +113,7 @@ class CameraController {
             set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
             set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
             set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(30, 30))
           }
 
           try {

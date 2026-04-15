@@ -4,6 +4,7 @@ import { ViewStyle } from 'react-native';
 
 interface RealtimeRecorderViewProps {
   facing?: 'front' | 'back';
+  isLandscape?: boolean;
   style?: ViewStyle;
   onReady?: () => void;
 }
@@ -11,11 +12,12 @@ interface RealtimeRecorderViewProps {
 const NativeView = requireNativeViewManager('RealtimeRecorder');
 
 const RealtimeRecorderView = React.forwardRef<any, RealtimeRecorderViewProps>(
-  ({ facing = 'back', style, onReady }, ref) => {
+  ({ facing = 'back', isLandscape = false, style, onReady }, ref) => {
     return (
       <NativeView
         ref={ref}
         facing={facing}
+        isLandscape={isLandscape}
         style={style}
         onReady={onReady ? () => onReady() : undefined}
       />

@@ -3,12 +3,14 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Share, Alert,
 } from 'react-native';
-import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings, Building2 } from 'lucide-react-native';
+import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings, Building2, CreditCard } from 'lucide-react-native';
+import TrialBanner from '../../components/TrialBanner';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { formatScoreValue } from '../../utils/scoreFormat';
+import UserAvatar from '../../components/UserAvatar';
 
 interface Stats {
   memberCount: number;
@@ -17,7 +19,7 @@ interface Stats {
 }
 
 export default function BODashboardScreen({ navigation }: any) {
-  const { user, currentBox, signOut } = useAuth();
+  const { user, currentBox, signOut, boxSubscription, isBoxActive, daysLeftTrial } = useAuth();
   const { theme } = useTheme();
   const S = createStyles(theme);
   const [stats, setStats]         = useState<Stats>({ memberCount: 0, todayWOD: null, recentScores: [] });
@@ -94,6 +96,16 @@ export default function BODashboardScreen({ navigation }: any) {
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
       >
+        {/* Subscription Banner */}
+        {boxSubscription && (
+          <TrialBanner
+            daysLeft={daysLeftTrial}
+            status={boxSubscription.status}
+            isEarlyAdopter={boxSubscription.is_early_adopter}
+            onUpgrade={() => navigation.navigate('BOSubscription')}
+          />
+        )}
+
         {/* Code d'invitation */}
         <View style={S.inviteCard}>
           <Text style={S.inviteLabel}>CODE D'INVITATION</Text>
@@ -158,9 +170,7 @@ export default function BODashboardScreen({ navigation }: any) {
             <View style={S.scoreList}>
               {stats.recentScores.map((sc, i) => (
                 <View key={i} style={S.scoreRow}>
-                  <View style={S.scoreAvatar}>
-                    <Text style={S.scoreAvatarText}>{sc.username[0].toUpperCase()}</Text>
-                  </View>
+                  <UserAvatar uri={(sc as any).avatar_url} name={sc.username} size={32} borderRadius={10} backgroundColor={`${theme.accent}20`} textColor={theme.accent} fontSize={12} />
                   <View style={{ flex: 1 }}>
                     <Text style={S.scoreName}>{sc.username}</Text>
                     <Text style={S.scoreWod}>{sc.wod_title}</Text>
@@ -184,6 +194,7 @@ export default function BODashboardScreen({ navigation }: any) {
           <Text style={S.sectionTitle}>Actions rapides</Text>
           <View style={S.quickActions}>
             {[
+              { label: 'Abonnement',        icon: CreditCard,    onPress: () => navigation.navigate('BOSubscription') },
               { label: 'Infos box',         icon: Building2,     onPress: () => navigation.navigate('BOBoxInfo') },
               { label: 'Créer un WOD',      icon: ClipboardList, onPress: () => navigation.navigate('WODs') },
               { label: 'Gérer les membres', icon: Users,         onPress: () => navigation.navigate('Members') },

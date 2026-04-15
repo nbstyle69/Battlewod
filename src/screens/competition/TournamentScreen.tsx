@@ -13,6 +13,7 @@ import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navig
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { scheduleTournamentReminder } from '../../services/notifications';
@@ -104,7 +105,7 @@ export default function TournamentScreen() {
     if (allAthleteIds.length > 0) {
       const { data: profs } = await supabase
         .from('profiles')
-        .select('id, username, elo, level, box_members(box:boxes(name))')
+        .select('id, username, elo, level, avatar_url, box_members(box:boxes(name))')
         .in('id', allAthleteIds);
       (profs ?? []).forEach((p: any) => { profileMap[p.id] = p; });
     }
@@ -608,9 +609,14 @@ export default function TournamentScreen() {
                         : i === 2 ? <Text style={S.rankEmoji}>🥉</Text>
                         : <Text style={S.rankNumber}>#{i + 1}</Text>}
                     </View>
-                    <View style={S.rankAvatar}>
-                      <Text style={S.rankAvatarText}>{(p.profile?.username ?? '?')[0].toUpperCase()}</Text>
-                    </View>
+                    <UserAvatar
+                      uri={p.profile?.avatar_url}
+                      name={p.profile?.username ?? '?'}
+                      size={40}
+                      borderRadius={20}
+                      backgroundColor={theme.surface}
+                      textColor={theme.text}
+                    />
                     <View style={S.rankInfo}>
                       <Text style={[S.rankName, isMe && { color: theme.accent }]}>
                         {p.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
@@ -650,9 +656,14 @@ export default function TournamentScreen() {
                             : i === 2 ? <Text style={S.rankEmoji}>🥉</Text>
                             : <Text style={S.rankNumber}>#{i + 1}</Text>}
                         </View>
-                        <View style={S.rankAvatar}>
-                          <Text style={S.rankAvatarText}>{(profile?.username ?? '?')[0].toUpperCase()}</Text>
-                        </View>
+                        <UserAvatar
+                          uri={profile?.avatar_url}
+                          name={profile?.username ?? '?'}
+                          size={40}
+                          borderRadius={20}
+                          backgroundColor={theme.surface}
+                          textColor={theme.text}
+                        />
                         <View style={S.rankInfo}>
                           <Text style={[S.rankName, isMe && { color: theme.accent }]}>
                             {profile?.username ?? '?'}{isMe ? ' (toi)' : ''}

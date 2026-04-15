@@ -40,6 +40,17 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     captureQueue.async { [weak self] in
       guard let self = self else { return }
 
+      // Auto-detect landscape from device orientation if not explicitly set by startRecording
+      DispatchQueue.main.sync {
+        let orientation = UIDevice.current.orientation
+        if orientation == .landscapeLeft || orientation == .landscapeRight {
+          self.isLandscape = true
+        } else if orientation == .portrait || orientation == .portraitUpsideDown {
+          self.isLandscape = false
+        }
+        // .unknown / .faceUp / .faceDown → keep current value
+      }
+
       if let existing = self.captureSession, existing.isRunning {
         existing.stopRunning()
       }
@@ -359,6 +370,13 @@ public class RealtimeRecorderModule: Module {
         let newFacing: AVCaptureDevice.Position = val == "front" ? .front : .back
         if newFacing != self.engine.currentFacing {
           self.engine.currentFacing = newFacing
+          self.engine.setupSession()
+        }
+      }
+
+      Prop("isLandscape") { (view: RealtimeRecorderHostView, landscape: Bool) in
+        if landscape != self.engine.isLandscape {
+          self.engine.isLandscape = landscape
           self.engine.setupSession()
         }
       }

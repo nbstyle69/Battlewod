@@ -11,6 +11,7 @@ import { AthleteLevel } from '../../types';
 import { HomeStackParamList, TimerType } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import UserAvatar from '../../components/UserAvatar';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'CompetitionDetail'>;
@@ -220,13 +221,15 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
                   <View style={S.participantRank}>
                     <Text style={S.participantRankText}>{i + 1}</Text>
                   </View>
-                  {p.avatar_url ? (
-                    <Image source={{ uri: p.avatar_url }} style={S.participantAvatarImg} />
-                  ) : (
-                    <View style={S.participantAvatar}>
-                      <Text style={S.participantAvatarText}>{(p.username[0] ?? '?').toUpperCase()}</Text>
-                    </View>
-                  )}
+                  <UserAvatar
+                    uri={p.avatar_url}
+                    name={p.username ?? '?'}
+                    size={38}
+                    borderRadius={19}
+                    backgroundColor={`${theme.accent}20`}
+                    textColor={theme.accent}
+                    fontSize={16}
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={S.participantName}>{p.username}</Text>
                     <Text style={S.participantElo}>ELO {p.elo}</Text>

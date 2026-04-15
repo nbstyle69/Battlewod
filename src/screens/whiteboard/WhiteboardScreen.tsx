@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList,
@@ -15,6 +17,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
 import WeekDayPicker from '../../components/WeekDayPicker';
+import UserAvatar from '../../components/UserAvatar';
 
 function toISO(d: Date): string {
   const y = d.getFullYear();
@@ -71,6 +74,41 @@ export default function WhiteboardScreen() {
   const [joinModal, setJoinModal] = useState(false);
   const [joinCode,  setJoinCode]  = useState('');
   const [joining,   setJoining]   = useState(false);
+
+  // Unread badges
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadArticles, setUnreadArticles] = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    if (!user || !currentBox) return;
+    (async () => {
+      try {
+        const [lastMsg, lastArt] = await Promise.all([
+          AsyncStorage.getItem(`lastSeenMessages_${user.id}_${currentBox.id}`),
+          AsyncStorage.getItem(`lastSeenArticles_${user.id}_${currentBox.id}`),
+        ]);
+        // Unread messages (general, not from me, after last seen)
+        let msgQuery = supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('box_id', currentBox.id)
+          .eq('message_type', 'general')
+          .neq('sender_id', user.id);
+        if (lastMsg) msgQuery = msgQuery.gt('created_at', lastMsg);
+        const { count: msgCount } = await msgQuery;
+        setUnreadMessages(msgCount ?? 0);
+
+        // Unread articles (after last seen)
+        let artQuery = supabase
+          .from('box_articles')
+          .select('id', { count: 'exact', head: true })
+          .eq('box_id', currentBox.id);
+        if (lastArt) artQuery = artQuery.gt('created_at', lastArt);
+        const { count: artCount } = await artQuery;
+        setUnreadArticles(artCount ?? 0);
+      } catch (_) {}
+    })();
+  }, [user, currentBox]));
 
   const loadMembers = useCallback(async () => {
     if (!currentBox) return;
@@ -277,7 +315,14 @@ export default function WhiteboardScreen() {
             onPress={() => navigation.navigate('Messages')}
             activeOpacity={0.8}
           >
-            <MessageCircle size={16} color={theme.accent} />
+            <View style={{ position: 'relative' }}>
+              <MessageCircle size={16} color={theme.accent} />
+              {unreadMessages > 0 && (
+                <View style={S.unreadDot}>
+                  <Text style={S.unreadDotTxt}>{unreadMessages > 9 ? '9+' : unreadMessages}</Text>
+                </View>
+              )}
+            </View>
             <Text style={S.membersBtnText}>Messages</Text>
           </TouchableOpacity>
         </View>
@@ -295,7 +340,14 @@ export default function WhiteboardScreen() {
             onPress={() => navigation.navigate('Articles')}
             activeOpacity={0.8}
           >
-            <Newspaper size={16} color={theme.accent} />
+            <View style={{ position: 'relative' }}>
+              <Newspaper size={16} color={theme.accent} />
+              {unreadArticles > 0 && (
+                <View style={S.unreadDot}>
+                  <Text style={S.unreadDotTxt}>{unreadArticles > 9 ? '9+' : unreadArticles}</Text>
+                </View>
+              )}
+            </View>
             <Text style={S.membersBtnText}>Actualités</Text>
           </TouchableOpacity>
         </View>
@@ -446,9 +498,7 @@ export default function WhiteboardScreen() {
                   activeOpacity={0.75}
                 >
                   <Text style={S.memberRank}>{index + 1}</Text>
-                  <View style={S.memberAvatar}>
-                    <Text style={S.memberAvatarText}>{item.username[0].toUpperCase()}</Text>
-                  </View>
+                  <UserAvatar uri={item.avatar_url} name={item.username} size={40} backgroundColor={theme.accentShadow} />
                   <View style={{ flex: 1 }}>
                     <Text style={S.memberName}>{item.username}</Text>
                     <Text style={S.memberLevel}>{item.level?.toUpperCase()}</Text>
@@ -492,6 +542,13 @@ function createStyles(theme: AppTheme) {
     borderWidth: 1, borderColor: `${theme.accent}25`,
   },
   membersBtnText: { fontSize: 13, fontWeight: '700', color: theme.accent },
+  unreadDot: {
+    position: 'absolute', top: -6, right: -8,
+    backgroundColor: theme.error ?? '#EF4444', borderRadius: 9,
+    minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 2, borderWidth: 1.5, borderColor: isDark ? theme.surface : theme.card,
+  } as any,
+  unreadDotTxt: { fontSize: 8, fontWeight: '900' as const, color: '#fff' },
   membersContainer: { flex: 1, backgroundColor: theme.background },
   membersHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

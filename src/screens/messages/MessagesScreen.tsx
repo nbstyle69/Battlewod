@@ -9,6 +9,7 @@ import { Send, Megaphone, ImagePlus, X, Search, ChevronLeft } from 'lucide-react
 
 const TENOR_API_KEY = process.env.EXPO_PUBLIC_TENOR_KEY ?? '';
 interface GifResult { id: string; url: string; preview: string; }
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -17,6 +18,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { sendNewMessageNotification } from '../../services/notifications';
 import { incrementCounter } from '../../services/gamification';
 import { MessageType } from '../../types';
+import UserAvatar from '../../components/UserAvatar';
 
 const REACTION_EMOJIS = ['❤️', '🔥', '💪', '😂', '👏', '👀'];
 const SCREEN_W = Dimensions.get('window').width;
@@ -67,9 +69,6 @@ export default function MessagesScreen() {
   const [gifLoading, setGifLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
-  const [hasOlder, setHasOlder] = useState(false);
-  const [loadingOlder, setLoadingOlder] = useState(false);
-  const MSG_PAGE_SIZE = 60;
 
   const load = useCallback(async () => {
     if (!currentBox || !user) { setLoading(false); setRefreshing(false); return; }
@@ -85,25 +84,9 @@ export default function MessagesScreen() {
       g ? { id: g.id, name: g.name, color: g.color } : null
     ).filter(Boolean) as Group[];
     setGroups(userGroups);
+    if (userGroups.length > 0 && activeTab === null) setActiveTab(userGroups[0].id);
 
-    // 2. Messages du chat membre
-    const { data: chatData } = await supabase
-      .from('messages')
-      .select('id, box_id, sender_id, content, message_type, is_announcement, attachment_url, created_at, read_by, sender:profiles!messages_sender_id_fkey(username, avatar_url)')
-      .eq('box_id', currentBox.id)
-      .eq('message_type', 'general')
-      .order('created_at', { ascending: false })
-      .limit(MSG_PAGE_SIZE);
-
-    const chatReversed = (chatData ?? []).reverse();
-    setHasOlder((chatData ?? []).length >= MSG_PAGE_SIZE);
-    const chatRows: MsgRow[] = chatReversed.map((m: any) => ({
-      ...m,
-      group_id:        null,
-      sender:          Array.isArray(m.sender) ? m.sender[0] ?? null : m.sender,
-    }));
-
-    // 3. Annonces admin depuis box_messages (filtrées par groupe si besoin)
+    // 2. Annonces admin depuis box_messages (filtrées par groupe si besoin)
     let adminQuery = supabase
       .from('box_messages')
       .select('id, box_id, title, body, type, sent_at, target_group_id')
@@ -168,7 +151,7 @@ export default function MessagesScreen() {
     }
 
     // 5. Merge + tri chronologique
-    const all = [...chatRows, ...adminRows, ...groupChatRows].sort(
+    const all = [...adminRows, ...groupChatRows].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
 
@@ -202,66 +185,17 @@ export default function MessagesScreen() {
   useEffect(() => { load(); }, [load]);
 
   useFocusEffect(useCallback(() => {
-    load();
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 300);
-  }, [load]));
+    load().then(() => {
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
+    });
+    if (user && currentBox) {
+      AsyncStorage.setItem(`lastSeenMessages_${user.id}_${currentBox.id}`, new Date().toISOString());
+    }
+  }, [load, user, currentBox]));
 
-  const loadOlderMessages = useCallback(async () => {
-    if (!currentBox || !user || loadingOlder || !hasOlder) return;
-    const oldest = messages.filter(m => !m.id.startsWith('admin-') && !m.id.startsWith('gc-'))[0];
-    if (!oldest) return;
-    setLoadingOlder(true);
-    const { data: olderData } = await supabase
-      .from('messages')
-      .select('id, box_id, sender_id, content, message_type, is_announcement, attachment_url, created_at, read_by, sender:profiles!messages_sender_id_fkey(username, avatar_url)')
-      .eq('box_id', currentBox.id)
-      .eq('message_type', 'general')
-      .lt('created_at', oldest.created_at)
-      .order('created_at', { ascending: false })
-      .limit(MSG_PAGE_SIZE);
-    const older = (olderData ?? []).reverse().map((m: any) => ({
-      ...m,
-      group_id: null,
-      sender: Array.isArray(m.sender) ? m.sender[0] ?? null : m.sender,
-      reactions: [],
-    }));
-    setHasOlder((olderData ?? []).length >= MSG_PAGE_SIZE);
-    setMessages(prev => [...older, ...prev]);
-    setLoadingOlder(false);
-  }, [currentBox, user, messages, loadingOlder, hasOlder]);
-
-  // Supabase Realtime — general messages
   useEffect(() => {
-    if (!currentBox) return;
-    const channel = supabase
-      .channel(`box-messages-${currentBox.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `box_id=eq.${currentBox.id}`,
-        },
-        async (payload) => {
-          const newMsg = payload.new as MsgRow;
-          if (newMsg.message_type !== 'general') return;
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('username, avatar_url')
-            .eq('id', newMsg.sender_id)
-            .single();
-          setMessages(prev => {
-            const filtered = prev.filter(m => !(m.id.startsWith('temp-') && m.sender_id === newMsg.sender_id));
-            if (filtered.some(m => m.id === newMsg.id)) return filtered;
-            return [...filtered, { ...newMsg, group_id: null, sender: profile ?? null, reactions: [] } as unknown as MsgRow];
-          });
-          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [currentBox]);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 50);
+  }, [activeTab]);
 
   // Supabase Realtime — group chat messages
   useEffect(() => {
@@ -342,15 +276,6 @@ export default function MessagesScreen() {
         group_id: activeTab,
         sender_id: user.id,
         content: 'GIF',
-        attachment_url: gifUrl,
-      });
-    } else {
-      await supabase.from('messages').insert({
-        box_id: currentBox.id,
-        sender_id: user.id,
-        content: 'GIF',
-        message_type: 'general',
-        is_announcement: false,
         attachment_url: gifUrl,
       });
     }
@@ -470,15 +395,6 @@ export default function MessagesScreen() {
       if (grp) {
         sendNewMessageNotification(activeTab, grp.name, user.id, user.username, content).catch(e => captureError(e, { action: 'sendMessageNotif' }));
       }
-    } else {
-      await supabase.from('messages').insert({
-        box_id: currentBox.id,
-        sender_id: user.id,
-        content,
-        message_type: 'general',
-        is_announcement: false,
-        ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
-      });
     }
     if (user) incrementCounter(user.id, 'total_messages_sent', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementMessagesSent' }));
     setSending(false);
@@ -562,12 +478,6 @@ export default function MessagesScreen() {
       {groups.length > 0 && (
         <View style={S.tabsContainer}>
           <View style={S.tabsContent}>
-            <TouchableOpacity
-              style={[S.tab, activeTab === null && S.tabActive]}
-              onPress={() => setActiveTab(null)}
-            >
-              <Text style={[S.tabText, activeTab === null && S.tabTextActive]}>Tous</Text>
-            </TouchableOpacity>
             {groups.map(g => (
               <TouchableOpacity
                 key={g.id}
@@ -598,17 +508,7 @@ export default function MessagesScreen() {
             onRefresh={() => { setRefreshing(true); load(); }}
           />
         }
-        ListHeaderComponent={hasOlder ? (
-          <TouchableOpacity
-            onPress={loadOlderMessages}
-            style={{ alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 20, marginBottom: 8, borderRadius: 16, backgroundColor: `${theme.accent}18` }}
-            disabled={loadingOlder}
-          >
-            {loadingOlder
-              ? <ActivityIndicator size="small" color={theme.accent} />
-              : <Text style={{ color: theme.accent, fontWeight: '700', fontSize: 13 }}>Charger les messages précédents</Text>}
-          </TouchableOpacity>
-        ) : null}
+        ListHeaderComponent={null}
         renderItem={({ item }) => {
           if ('type' in item && item.type === 'date') {
             return (
@@ -621,14 +521,13 @@ export default function MessagesScreen() {
           }
           const msg = item as MsgRow & { _showSender: boolean };
           const isMe = msg.sender_id === user?.id;
-          const initial = (msg.sender?.username?.[0] ?? '?').toUpperCase();
           const showSender = msg._showSender;
           const hasReactions = (msg.reactions?.length ?? 0) > 0;
           return (
             <View style={[S.msgRow, isMe && S.msgRowMe, !showSender && S.msgRowGrouped]}>
               {!isMe && (
                 showSender
-                  ? <View style={S.avatar}><Text style={S.avatarText}>{initial}</Text></View>
+                  ? <UserAvatar uri={msg.sender?.avatar_url} name={msg.sender?.username ?? '?'} size={28} borderRadius={10} backgroundColor={theme.accentShadow} />
                   : <View style={S.avatarSpacer} />
               )}
               <Pressable

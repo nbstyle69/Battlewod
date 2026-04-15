@@ -143,13 +143,21 @@ class VideoRecorderEngine private constructor() {
     cameraController?.closeCamera()
     cameraController = null
 
-    // Release GL on GL thread
-    glHandler?.post {
-      releaseGL()
-      glThread?.quitSafely()
-      glThread = null
-      glHandler = null
-    } ?: run {
+    // Capture local refs BEFORE posting — prevents race condition on camera switch
+    val oldHandler = glHandler
+    val oldThread = glThread
+    glHandler = null
+    glThread = null
+
+    if (oldHandler != null) {
+      val latch = CountDownLatch(1)
+      oldHandler.post {
+        releaseGL()
+        latch.countDown()
+      }
+      latch.await(2, TimeUnit.SECONDS)
+      oldThread?.quitSafely()
+    } else {
       releaseGL()
     }
 
@@ -262,13 +270,8 @@ class VideoRecorderEngine private constructor() {
 
   private fun startRenderLoop() {
     renderLoopRunning.set(true)
-    scheduleNextFrame()
+    renderFrame()
     Log.i(TAG, "Render loop started")
-  }
-
-  private fun scheduleNextFrame() {
-    if (!renderLoopRunning.get()) return
-    glHandler?.post { renderFrame() }
   }
 
   private fun renderFrame() {
@@ -290,7 +293,10 @@ class VideoRecorderEngine private constructor() {
       // --- Render to preview surface (NO overlay — RN draws its own UI) ---
       if (eglPreviewSurface != EGL14.EGL_NO_SURFACE) {
         eglCore?.makeCurrent(eglPreviewSurface)
-        renderer?.drawFrame(texMatrix, mirror, drawOverlay = false)
+        val view = hostView?.get()
+        val pw = view?.textureView?.width ?: videoWidth
+        val ph = view?.textureView?.height ?: videoHeight
+        renderer?.drawFrame(texMatrix, mirror, drawOverlay = false, viewportWidth = pw, viewportHeight = ph)
         eglCore?.swapBuffers(eglPreviewSurface)
       }
 
@@ -311,7 +317,7 @@ class VideoRecorderEngine private constructor() {
 
     val elapsed = System.nanoTime() - frameStart
     val delayMs = maxOf(1L, (FRAME_INTERVAL_NS - elapsed) / 1_000_000)
-    glHandler?.postDelayed({ scheduleNextFrame() }, delayMs)
+    glHandler?.postDelayed({ renderFrame() }, delayMs)
   }
 
   private fun updateOverlayBitmap() {

@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CommunityStackParamList } from '../../navigation';
+import UserAvatar from '../../components/UserAvatar';
 
 type Nav = NativeStackNavigationProp<CommunityStackParamList, 'CommunityMain'>;
 
@@ -130,11 +131,7 @@ export default function CommunityScreen() {
                 activeOpacity={0.75}
               >
                 <Text style={S.rank}>{medal ?? `${index + 1}`}</Text>
-                <View style={[S.avatar, { backgroundColor: `${levelColor}30` }]}>
-                  <Text style={[S.avatarText, { color: levelColor }]}>
-                    {item.username[0].toUpperCase()}
-                  </Text>
-                </View>
+                <UserAvatar uri={item.avatar_url} name={item.username} size={40} borderRadius={20} backgroundColor={`${levelColor}30`} textColor={levelColor} />
                 <View style={S.info}>
                   <Text style={S.name}>{item.username}{isMe ? ' (moi)' : ''}</Text>
                   <View style={S.pills}>

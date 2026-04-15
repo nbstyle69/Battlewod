@@ -84,8 +84,16 @@ import ExplorerScreen from '../screens/explorer/ExplorerScreen';
 import ProgrammationScreen from '../screens/explorer/ProgrammationScreen';
 import ProgramAffiliatesScreen from '../screens/explorer/ProgramAffiliatesScreen';
 import AffiliateDetailScreen from '../screens/explorer/AffiliateDetailScreen';
+import BoxDirectoryScreen from '../screens/explorer/BoxDirectoryScreen';
+import BoxDirectoryMapScreen from '../screens/explorer/BoxDirectoryMapScreen';
+import BoxDirectoryDetailScreen from '../screens/explorer/BoxDirectoryDetailScreen';
+import PartnersScreen from '../screens/explorer/PartnersScreen';
+import PartnerDetailScreen from '../screens/explorer/PartnerDetailScreen';
+import BoxProgramsScreen from '../screens/explorer/BoxProgramsScreen';
 import BoxInfoScreen from '../screens/home/BoxInfoScreen';
 import BOBoxInfoScreen from '../screens/backoffice/BOBoxInfoScreen';
+import BOSubscriptionScreen from '../screens/backoffice/BOSubscriptionScreen';
+import BOPaywallScreen from '../screens/backoffice/BOPaywallScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -138,6 +146,7 @@ export type BODashboardStackParamList = {
   BOArticles: undefined;
   BOSettings: undefined;
   BOBoxInfo: undefined;
+  BOSubscription: undefined;
 };
 
 export type AuthStackParamList = {
@@ -160,6 +169,12 @@ export type ExplorerStackParamList = {
   Programmation: undefined;
   ProgramAffiliates: { category: 'functional' | 'hybrid' };
   AffiliateDetail: { affiliateId: string; affiliateName: string };
+  BoxDirectory: undefined;
+  BoxDirectoryMap: { boxes: any[] };
+  BoxDirectoryDetail: { boxId: string };
+  Partners: undefined;
+  PartnerDetail: { partnerId: string };
+  BoxPrograms: undefined;
 };
 
 export type TimerType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'ywyr' | 'libre';
@@ -445,6 +460,12 @@ function ExplorerNavigator() {
       <ExplStack.Screen name="Programmation" component={ProgrammationScreen} />
       <ExplStack.Screen name="ProgramAffiliates" component={ProgramAffiliatesScreen} />
       <ExplStack.Screen name="AffiliateDetail" component={AffiliateDetailScreen} />
+      <ExplStack.Screen name="BoxDirectory" component={BoxDirectoryScreen} />
+      <ExplStack.Screen name="BoxDirectoryMap" component={BoxDirectoryMapScreen} />
+      <ExplStack.Screen name="BoxDirectoryDetail" component={BoxDirectoryDetailScreen} />
+      <ExplStack.Screen name="Partners" component={PartnersScreen} />
+      <ExplStack.Screen name="PartnerDetail" component={PartnerDetailScreen} />
+      <ExplStack.Screen name="BoxPrograms" component={BoxProgramsScreen} />
     </ExplStack.Navigator>
   );
 }
@@ -482,6 +503,7 @@ function BODashboardNavigator() {
       <BODashStack.Screen name="BOArticles" component={BOArticlesScreen} />
       <BODashStack.Screen name="BOSettings" component={BOSettingsScreen} />
       <BODashStack.Screen name="BOBoxInfo" component={BOBoxInfoScreen} />
+      <BODashStack.Screen name="BOSubscription" component={BOSubscriptionScreen} />
     </BODashStack.Navigator>
   );
 }
@@ -644,7 +666,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { session, user, currentBox, boxRole, loading, boxSkipped } = useAuth();
+  const { session, user, currentBox, boxRole, loading, boxSkipped, isBoxActive, boxSubscription } = useAuth();
   const { theme } = useTheme();
   const [splashDone, setSplashDone] = React.useState(false);
   const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
@@ -693,6 +715,9 @@ export default function AppNavigator() {
         ) : needsOnboarding ? (
           // ── Logged in but no box yet ───────────────────
           <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
+        ) : isBoxOwner && !isBoxActive ? (
+          // ── Box owner with expired subscription ────────
+          <RootStack.Screen name="BoxOwner" component={BOPaywallScreen} />
         ) : isBoxOwner ? (
           // ── Box owner with their box ───────────────────
           <RootStack.Screen name="BoxOwner" component={BoxOwnerTabs} />

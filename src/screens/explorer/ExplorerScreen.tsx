@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { BookOpen, ChevronRight, Compass } from 'lucide-react-native';
+import { BookOpen, ChevronRight, Compass, Building2, Handshake } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -21,11 +21,27 @@ export default function ExplorerScreen() {
         </View>
         <View>
           <Text style={s.headerTitle}>Explorer</Text>
-          <Text style={s.headerSub}>Découvre les meilleurs programmes d'entraînement</Text>
+          <Text style={s.headerSub}>Découvre les boxes, programmes et partenaires</Text>
         </View>
       </View>
 
-      <ScrollView style={s.content} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView style={s.content} contentContainerStyle={{ paddingBottom: 40, gap: 10 }}>
+        {/* Annuaire des Boxes */}
+        <TouchableOpacity
+          style={s.sectionBtn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('BoxDirectory')}
+        >
+          <View style={[s.sectionIcon, { backgroundColor: `${theme.accent}15` }]}>
+            <Building2 color={theme.accent} size={24} />
+          </View>
+          <View style={s.sectionContent}>
+            <Text style={s.sectionTitle}>Annuaire des Boxes</Text>
+            <Text style={s.sectionDesc}>Trouve une box près de chez toi, explore la carte</Text>
+          </View>
+          <ChevronRight color={theme.textMuted} size={20} />
+        </TouchableOpacity>
+
         {/* Programmation */}
         <TouchableOpacity
           style={s.sectionBtn}
@@ -42,10 +58,21 @@ export default function ExplorerScreen() {
           <ChevronRight color={theme.textMuted} size={20} />
         </TouchableOpacity>
 
-        {/* Future sections placeholder */}
-        <View style={s.comingSoon}>
-          <Text style={s.comingSoonTxt}>D'autres sections arrivent bientôt...</Text>
-        </View>
+        {/* Partenaires */}
+        <TouchableOpacity
+          style={s.sectionBtn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Partners')}
+        >
+          <View style={[s.sectionIcon, { backgroundColor: `${theme.accent}15` }]}>
+            <Handshake color={theme.accent} size={24} />
+          </View>
+          <View style={s.sectionContent}>
+            <Text style={s.sectionTitle}>Partenaires</Text>
+            <Text style={s.sectionDesc}>Offres exclusives de nos marques partenaires</Text>
+          </View>
+          <ChevronRight color={theme.textMuted} size={20} />
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -78,6 +105,4 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   sectionContent: { flex: 1 },
   sectionTitle: { fontSize: 16, fontWeight: '900', color: t.text },
   sectionDesc: { fontSize: 12, color: t.textMuted, marginTop: 3 },
-  comingSoon: { alignItems: 'center', marginTop: 40 },
-  comingSoonTxt: { fontSize: 12, color: t.textMuted, fontStyle: 'italic' },
 }); }

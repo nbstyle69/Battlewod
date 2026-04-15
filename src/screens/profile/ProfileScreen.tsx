@@ -16,6 +16,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
+import UserAvatar from '../../components/UserAvatar';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
@@ -307,15 +308,40 @@ export default function ProfileScreen() {
   async function handleSaveProfile() {
     if (!user) return;
     setSaving(true);
-    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-    const updates: Record<string, string> = { full_name: fullName, username: editUsername.trim() };
-    if (avatarUrl.trim()) updates.avatar_url = avatarUrl.trim();
-    if (editBio.trim() !== undefined) updates.bio = editBio.trim();
-    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-    setSaving(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
-    updateUser({ full_name: fullName, avatar_url: avatarUrl.trim() || user.avatar_url, username: editUsername.trim() });
-    setEditing(false);
+    try {
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const updates: Record<string, string> = { full_name: fullName, username: editUsername.trim() };
+      if (avatarUrl.trim()) updates.avatar_url = avatarUrl.trim();
+      if (editBio.trim() !== undefined) updates.bio = editBio.trim();
+
+      // Handle email change via Supabase Auth
+      const newEmail = editEmail.trim().toLowerCase();
+      const emailChanged = newEmail && newEmail !== (user.email ?? '').toLowerCase();
+      if (emailChanged) {
+        const { error: authErr } = await supabase.auth.updateUser({ email: newEmail });
+        if (authErr) {
+          setSaving(false);
+          Alert.alert('Erreur email', authErr.message);
+          return;
+        }
+      }
+
+      const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+      setSaving(false);
+      if (error) { Alert.alert('Erreur', error.message); return; }
+      updateUser({ full_name: fullName, avatar_url: avatarUrl.trim() || user.avatar_url, username: editUsername.trim() });
+      setEditing(false);
+
+      if (emailChanged) {
+        Alert.alert(
+          'Confirmation requise',
+          'Un email de confirmation a été envoyé à ta nouvelle adresse. Clique sur le lien dans l\'email pour valider le changement.',
+        );
+      }
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert('Erreur', e.message ?? 'Une erreur est survenue');
+    }
   }
 
   const winRate = user?.total_matches
@@ -411,13 +437,17 @@ export default function ProfileScreen() {
     <View style={S.container}>
       <View style={S.header}>
         <View style={S.headerTop}>
-          {user?.avatar_url ? (
-            <Image source={{ uri: user.avatar_url }} style={[S.avatar, { borderColor: levelColor }]} />
-          ) : (
-            <View style={[S.avatar, { borderColor: levelColor }]}>
-              <Text style={S.avatarText}>{user?.username?.[0]?.toUpperCase() ?? 'A'}</Text>
-            </View>
-          )}
+          <UserAvatar
+            uri={user?.avatar_url}
+            name={user?.username ?? 'A'}
+            size={72}
+            borderRadius={24}
+            borderWidth={3}
+            borderColor={levelColor}
+            backgroundColor={theme.surface}
+            textColor={theme.text}
+            fontSize={28}
+          />
           <View style={S.userInfo}>
             <Text style={S.username}>{user?.username ?? 'Athlète'}</Text>
             <Text style={S.email}>{user?.email}</Text>
@@ -778,13 +808,17 @@ export default function ProfileScreen() {
                         onPress={() => navigation.navigate('PublicProfile', { userId: f.id })}
                         activeOpacity={0.8}
                       >
-                        {f.avatar_url ? (
-                          <Image source={{ uri: f.avatar_url }} style={[S.friendAvatar, { borderColor: fc }]} />
-                        ) : (
-                          <View style={[S.friendAvatar, { borderColor: fc, backgroundColor: `${fc}20`, justifyContent: 'center', alignItems: 'center' }]}>
-                            <Text style={[S.friendAvatarLetter, { color: fc }]}>{f.username?.[0]?.toUpperCase()}</Text>
-                          </View>
-                        )}
+                        <UserAvatar
+                          uri={f.avatar_url}
+                          name={f.username ?? '?'}
+                          size={36}
+                          borderRadius={12}
+                          borderWidth={2}
+                          borderColor={fc}
+                          backgroundColor={`${fc}20`}
+                          textColor={fc}
+                          fontSize={14}
+                        />
                         <View style={{ flex: 1 }}>
                           <Text style={S.friendName}>{f.username}</Text>
                           <Text style={[S.friendLevel, { color: fc }]}>{f.level?.toUpperCase()}</Text>
@@ -985,7 +1019,7 @@ function createStyles(t: AppTheme) {
   tabActive: { borderBottomColor: t.accent },
   tabText: { fontSize: 13, fontWeight: '600', color: t.textMuted },
   tabTextActive: { color: t.text, fontWeight: '700' },
-  content: { padding: 20 },
+  content: { padding: 20, paddingBottom: 120 },
   gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   gridCard: {
     width: '47%', backgroundColor: isDark ? t.surface : t.card, borderRadius: 14,

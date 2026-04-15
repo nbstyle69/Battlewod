@@ -4,7 +4,8 @@ import {
   TouchableOpacity, TextInput, Image, KeyboardAvoidingView, Platform, FlatList,
 } from 'react-native';
 import { Newspaper, Heart, MessageCircle, Send, Trash2, ArrowLeft } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -83,6 +84,13 @@ export default function ArticlesScreen() {
   }, [currentBox, user]);
 
   useEffect(() => { load(); }, [load]);
+
+  useFocusEffect(useCallback(() => {
+    load();
+    if (user && currentBox) {
+      AsyncStorage.setItem(`lastSeenArticles_${user.id}_${currentBox.id}`, new Date().toISOString());
+    }
+  }, [load, user, currentBox]));
 
   async function toggleLike(article: Article) {
     if (!user) return;

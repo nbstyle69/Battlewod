@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import UserAvatar from '../../components/UserAvatar';
 
 interface BoxInfo {
   name: string;
@@ -230,13 +231,7 @@ export default function BoxInfoScreen({ navigation }: any) {
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
                     {info.coaches.map(c => (
                       <View key={c.id} style={S.coachChip}>
-                        {c.avatar_url ? (
-                          <Image source={{ uri: c.avatar_url }} style={S.coachAvatar} />
-                        ) : (
-                          <View style={[S.coachAvatar, { backgroundColor: theme.accent + '30', justifyContent: 'center', alignItems: 'center' }]}>
-                            <Text style={{ fontSize: 9, fontWeight: '900', color: theme.accent }}>{c.username[0]?.toUpperCase()}</Text>
-                          </View>
-                        )}
+                        <UserAvatar uri={c.avatar_url} name={c.username} size={22} borderRadius={11} backgroundColor={`${theme.accent}30`} textColor={theme.accent} fontSize={9} />
                         <Text style={S.coachName}>{c.username}</Text>
                       </View>
                     ))}

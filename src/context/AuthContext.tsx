@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { User, Box, BoxMemberRole } from '../types';
+import { User, Box, BoxMemberRole, BoxSubscription } from '../types';
 import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
 import { awardLevelBadge } from '../services/gamification';
@@ -22,6 +22,9 @@ interface AuthContextType {
   currentBox: Box | null;
   boxRole: BoxMemberRole | 'owner' | null;
   myBoxes: MyBoxEntry[];
+  boxSubscription: BoxSubscription | null;
+  isBoxActive: boolean;
+  daysLeftTrial: number;
   switchBox: (boxId: string) => Promise<void>;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
@@ -36,6 +39,7 @@ interface AuthContextType {
   joinBox: (inviteCode: string) => Promise<{ error: string | null }>;
   createBox: (name: string, description?: string) => Promise<{ error: string | null; box?: Box }>;
   refreshBox: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,7 +58,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [boxRole, setBoxRole]       = useState<BoxMemberRole | 'owner' | null>(null);
   const [myBoxes, setMyBoxes]       = useState<MyBoxEntry[]>([]);
   const [boxSkipped, setBoxSkipped] = useState(false);
+  const [boxSubscription, setBoxSubscription] = useState<BoxSubscription | null>(null);
   const [loading, setLoading]       = useState(true);
+
+  const isBoxActive = (() => {
+    if (!boxSubscription) return true;
+    if (boxSubscription.status === 'active') return true;
+    if (boxSubscription.status === 'trialing' && boxSubscription.trial_ends_at) {
+      return new Date(boxSubscription.trial_ends_at).getTime() > Date.now();
+    }
+    return false;
+  })();
+
+  const daysLeftTrial = (() => {
+    if (!boxSubscription?.trial_ends_at) return 0;
+    if (boxSubscription.status !== 'trialing') return 0;
+    const diff = new Date(boxSubscription.trial_ends_at).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  })();
 
   useEffect(() => {
     AsyncStorage.getItem(BOX_SKIPPED_KEY).then(val => {
@@ -154,13 +175,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (active) {
         setCurrentBox(active.box);
         setBoxRole(active.role);
+        if (active.role === 'owner') {
+          await fetchSubscription(active.box.id);
+        }
       } else {
         setCurrentBox(null);
         setBoxRole(null);
+        setBoxSubscription(null);
       }
     } catch (e) {
       captureError(e, { action: 'fetchBox', userId });
     }
+  }
+
+  async function fetchSubscription(boxId: string) {
+    try {
+      const { data } = await (supabase.from as any)('box_subscriptions')
+        .select('*')
+        .eq('box_id', boxId)
+        .maybeSingle();
+      setBoxSubscription(data as BoxSubscription | null);
+    } catch (e) {
+      captureError(e, { action: 'fetchSubscription', boxId });
+    }
+  }
+
+  async function refreshSubscription() {
+    if (currentBox) await fetchSubscription(currentBox.id);
   }
 
   async function refreshBox() {
@@ -290,6 +331,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error || !box) return { error: error?.message ?? 'Erreur création box' };
     await supabase.from('profiles').update({ role: 'box_owner' }).eq('id', user.id);
     updateUser({ role: 'box_owner' });
+
+    // Determine early adopter status (first 5 boxes)
+    let isEarlyAdopter = false;
+    try {
+      const { data: countData } = await (supabase.rpc as any)('get_total_box_count');
+      isEarlyAdopter = (Number(countData) || 0) <= 5;
+    } catch (_) { /* ignore */ }
+
+    const trialDays = isEarlyAdopter ? 60 : 30;
+    const trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString();
+
+    // Create trial subscription
+    const { data: subData } = await (supabase.from as any)('box_subscriptions').insert({
+      box_id: box.id,
+      plan_tier: 'trial',
+      status: 'trialing',
+      trial_ends_at: trialEndsAt,
+      is_early_adopter: isEarlyAdopter,
+    }).select().single();
+
+    setBoxSubscription(subData as BoxSubscription | null);
+
     const newEntry: MyBoxEntry = { box: box as Box, role: 'owner' };
     setMyBoxes(prev => [...prev, newEntry]);
     setCurrentBox(box as Box);
@@ -344,10 +407,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user, currentBox, boxRole, myBoxes, switchBox, loading,
+      session, user, currentBox, boxRole, myBoxes, boxSubscription, isBoxActive, daysLeftTrial,
+      switchBox, loading,
       signIn, signUp, signOut, deleteAccount, resetPassword, updateUser,
       boxSkipped, skipBox, leaveBox,
-      joinBox, createBox, refreshBox,
+      joinBox, createBox, refreshBox, refreshSubscription,
     }}>
       {children}
     </AuthContext.Provider>

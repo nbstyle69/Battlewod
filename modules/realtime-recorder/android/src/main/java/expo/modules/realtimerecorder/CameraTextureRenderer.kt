@@ -143,8 +143,9 @@ class CameraTextureRenderer {
    * Must be called on the GL thread with EGL context current.
    * @param drawOverlay false for preview (RN handles its own UI), true for encoder (burn overlay)
    */
-  fun drawFrame(cameraTexMatrix: FloatArray, mirror: Boolean = false, drawOverlay: Boolean = true) {
-    GLES20.glViewport(0, 0, videoWidth, videoHeight)
+  fun drawFrame(cameraTexMatrix: FloatArray, mirror: Boolean = false, drawOverlay: Boolean = true,
+                viewportWidth: Int = videoWidth, viewportHeight: Int = videoHeight) {
+    GLES20.glViewport(0, 0, viewportWidth, viewportHeight)
     GLES20.glClearColor(0f, 0f, 0f, 1f)
     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 

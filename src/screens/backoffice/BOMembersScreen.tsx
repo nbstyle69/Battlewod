@@ -9,6 +9,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
+import UserAvatar from '../../components/UserAvatar';
 
 interface MemberRow {
   id: string;
@@ -163,9 +164,7 @@ export default function BOMembersScreen({ navigation }: any) {
             onPress={() => openMemberDetail(m)}
             activeOpacity={0.7}
           >
-            <View style={S.avatar}>
-              <Text style={S.avatarText}>{m.profile.username[0].toUpperCase()}</Text>
-            </View>
+            <UserAvatar uri={m.profile.avatar_url} name={m.profile.username} size={40} borderRadius={14} backgroundColor={theme.accentShadow} />
             <View style={S.mid}>
               <View style={S.nameRow}>
                 <Text style={[S.name, m.status === 'banned' && S.nameBanned]}>{m.profile.username}</Text>
@@ -200,11 +199,16 @@ export default function BOMembersScreen({ navigation }: any) {
             {/* Modal header */}
             <View style={S.modalHeader}>
               <View style={S.modalHeaderLeft}>
-                <View style={[S.modalAvatar, { borderColor: LevelColors[selectedMember?.profile?.level ?? ''] ?? theme.accent }]}>
-                  <Text style={S.modalAvatarText}>
-                    {selectedMember?.profile?.username?.[0]?.toUpperCase()}
-                  </Text>
-                </View>
+                <UserAvatar
+                  uri={selectedMember?.profile?.avatar_url}
+                  name={selectedMember?.profile?.username ?? '?'}
+                  size={44}
+                  borderRadius={16}
+                  borderWidth={2}
+                  borderColor={LevelColors[selectedMember?.profile?.level ?? ''] ?? theme.accent}
+                  backgroundColor={theme.surface}
+                  textColor={theme.text}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={S.modalName}>{selectedMember?.profile?.username}</Text>
                   <Text style={S.modalSub}>

@@ -14,6 +14,7 @@ import { captureError } from '../../lib/sentry';
 import { sendFriendRequestNotification, sendFriendAcceptedNotification } from '../../services/notifications';
 import { incrementCounter } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
+import UserAvatar from '../../components/UserAvatar';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -60,7 +61,7 @@ export default function FriendsScreen() {
     try {
     const { data: received } = await supabase
       .from('friendships')
-      .select('*, requester:profiles!friendships_requester_id_fkey(id, username, level, elo)')
+      .select('*, requester:profiles!friendships_requester_id_fkey(id, username, level, elo, avatar_url)')
       .eq('addressee_id', user.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
@@ -68,7 +69,7 @@ export default function FriendsScreen() {
 
     const { data: sent } = await supabase
       .from('friendships')
-      .select('*, addressee:profiles!friendships_addressee_id_fkey(id, username, level, elo)')
+      .select('*, addressee:profiles!friendships_addressee_id_fkey(id, username, level, elo, avatar_url)')
       .eq('requester_id', user.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
@@ -76,7 +77,7 @@ export default function FriendsScreen() {
 
     const { data: accepted } = await supabase
       .from('friendships')
-      .select('requester_id, addressee_id, requester:profiles!friendships_requester_id_fkey(id, username, level, elo), addressee:profiles!friendships_addressee_id_fkey(id, username, level, elo)')
+      .select('requester_id, addressee_id, requester:profiles!friendships_requester_id_fkey(id, username, level, elo, avatar_url), addressee:profiles!friendships_addressee_id_fkey(id, username, level, elo, avatar_url)')
       .eq('status', 'accepted')
       .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
 
@@ -103,7 +104,7 @@ export default function FriendsScreen() {
     setSearching(true);
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, level, elo')
+      .select('id, username, level, elo, avatar_url')
       .ilike('username', `%${searchQuery.trim()}%`)
       .neq('id', user.id)
       .limit(10);
@@ -219,9 +220,7 @@ export default function FriendsScreen() {
                     onPress={() => navigation.navigate('PublicProfile', { userId: friend.id })}
                     activeOpacity={0.75}
                   >
-                    <View style={S.avatar}>
-                      <Text style={S.avatarText}>{friend.username[0].toUpperCase()}</Text>
-                    </View>
+                    <UserAvatar uri={(friend as any).avatar_url} name={friend.username} size={44} backgroundColor={theme.accentShadow} />
                     <View style={S.friendInfo}>
                       <Text style={S.friendName}>{friend.username}</Text>
                       <View style={S.levelPill}>
@@ -248,9 +247,7 @@ export default function FriendsScreen() {
                     const sender = req.requester as any;
                     return (
                       <View key={req.id} style={S.requestRow}>
-                        <View style={S.avatar}>
-                          <Text style={S.avatarText}>{sender?.username?.[0]?.toUpperCase() ?? '?'}</Text>
-                        </View>
+                        <UserAvatar uri={sender?.avatar_url} name={sender?.username ?? '?'} size={44} backgroundColor={theme.accentShadow} />
                         <View style={S.friendInfo}>
                           <Text style={S.friendName}>{sender?.username ?? 'Athlète'}</Text>
                           <View style={S.levelPill}>
@@ -280,9 +277,7 @@ export default function FriendsScreen() {
                     const receiver = req.addressee as any;
                     return (
                       <View key={req.id} style={S.requestRow}>
-                        <View style={S.avatar}>
-                          <Text style={S.avatarText}>{receiver?.username?.[0]?.toUpperCase() ?? '?'}</Text>
-                        </View>
+                        <UserAvatar uri={receiver?.avatar_url} name={receiver?.username ?? '?'} size={44} backgroundColor={theme.accentShadow} />
                         <View style={S.friendInfo}>
                           <Text style={S.friendName}>{receiver?.username ?? 'Athlète'}</Text>
                           <Text style={S.pendingLabel}>En attente…</Text>
@@ -332,9 +327,7 @@ export default function FriendsScreen() {
                     onPress={() => navigation.navigate('PublicProfile', { userId: result.id })}
                     activeOpacity={0.75}
                   >
-                    <View style={S.avatar}>
-                      <Text style={S.avatarText}>{result.username[0].toUpperCase()}</Text>
-                    </View>
+                    <UserAvatar uri={(result as any).avatar_url} name={result.username} size={44} backgroundColor={theme.accentShadow} />
                     <View style={S.friendInfo}>
                       <Text style={S.friendName}>{result.username}</Text>
                       <View style={S.levelPill}>

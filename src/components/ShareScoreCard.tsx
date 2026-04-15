@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { View, Text, Image, StyleSheet, Dimensions } from 'react-native';
 import { formatScoreValue } from '../utils/scoreFormat';
+import UserAvatar from './UserAvatar';
 
 const CARD_W = 1080;
 const CARD_H = 1920;
@@ -15,6 +16,7 @@ interface ShareScoreCardProps {
   rank: number | null;
   totalParticipants: number;
   username: string;
+  avatarUrl?: string | null;
   boxName: string;
   date: string;
 }
@@ -38,7 +40,7 @@ function medalEmoji(rank: number | null): string {
 }
 
 const ShareScoreCard = forwardRef<View, ShareScoreCardProps>(
-  ({ wodTitle, wodType, score, scoreType, rx, rank, totalParticipants, username, boxName, date }, ref) => {
+  ({ wodTitle, wodType, score, scoreType, rx, rank, totalParticipants, username, avatarUrl, boxName, date }, ref) => {
     const typeColor = TYPE_COLORS[wodType ?? 'custom'] ?? '#6B7280';
     const typeLabel = TYPE_LABELS[wodType ?? 'custom'] ?? 'WOD';
     const medal = medalEmoji(rank);
@@ -105,9 +107,15 @@ const ShareScoreCard = forwardRef<View, ShareScoreCardProps>(
         <View style={styles.bottomSection}>
           <View style={styles.divider} />
           <View style={styles.athleteRow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{(username[0] ?? '?').toUpperCase()}</Text>
-            </View>
+            <UserAvatar
+              uri={avatarUrl}
+              name={username}
+              size={80}
+              borderRadius={40}
+              backgroundColor={'#C9A22730'}
+              textColor={'#C9A227'}
+              fontSize={34}
+            />
             <View style={styles.athleteInfo}>
               <Text style={styles.athleteName}>{username}</Text>
               <Text style={styles.boxName}>{boxName}</Text>

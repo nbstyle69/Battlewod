@@ -143,6 +143,16 @@ class RealtimeRecorderModule : Module() {
           Log.e(TAG, "Prop facing failed", e)
         }
       }
+
+      Prop("isLandscape") { view: RealtimeRecorderHostView, landscape: Boolean ->
+        try {
+          if (landscape != engine.isLandscape) {
+            engine.isLandscape = landscape
+          }
+        } catch (e: Exception) {
+          Log.e(TAG, "Prop isLandscape failed", e)
+        }
+      }
     }
   }
 }

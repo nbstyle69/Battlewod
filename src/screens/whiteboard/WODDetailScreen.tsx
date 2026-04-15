@@ -25,6 +25,7 @@ import { formatScoreValue, DNF_BASE } from '../../utils/scoreFormat';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
+import UserAvatar from '../../components/UserAvatar';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -611,11 +612,15 @@ export default function WODDetailScreen() {
                     activeOpacity={0.75}
                   >
                     <Text style={S.leaderRank}>{medal ?? `${i + 1}`}</Text>
-                    <View style={S.leaderAvatar}>
-                      <Text style={S.leaderAvatarText}>
-                        {((sc.profile as any)?.username?.[0] ?? '?').toUpperCase()}
-                      </Text>
-                    </View>
+                    <UserAvatar
+                      uri={(sc.profile as any)?.avatar_url}
+                      name={(sc.profile as any)?.username ?? '?'}
+                      size={32}
+                      borderRadius={12}
+                      backgroundColor={theme.surface}
+                      textColor={theme.text}
+                      fontSize={13}
+                    />
                     <View style={S.leaderMid}>
                       <Text style={S.leaderName}>
                         {(sc.profile as any)?.username ?? 'Athlète'}{isMe ? ' (moi)' : ''}
@@ -838,6 +843,7 @@ export default function WODDetailScreen() {
                       rank={myRank}
                       totalParticipants={scores.length}
                       username={user?.username ?? 'Athlète'}
+                      avatarUrl={user?.avatar_url}
                       boxName={currentBox?.name ?? 'Ma Box'}
                       date={wod.scheduled_date}
                     />
@@ -891,11 +897,14 @@ export default function WODDetailScreen() {
             {selectedScore && (
               <View style={S.sdScoreCard}>
                 <View style={S.sdScoreRow}>
-                  <View style={S.sdAvatar}>
-                    <Text style={S.sdAvatarText}>
-                      {((selectedScore.profile as any)?.username?.[0] ?? '?').toUpperCase()}
-                    </Text>
-                  </View>
+                  <UserAvatar
+                    uri={(selectedScore.profile as any)?.avatar_url}
+                    name={(selectedScore.profile as any)?.username ?? '?'}
+                    size={40}
+                    borderRadius={14}
+                    backgroundColor={theme.surface}
+                    textColor={theme.text}
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={S.sdAthleteName}>{(selectedScore.profile as any)?.username}</Text>
                     <Text style={S.sdLevel}>{(selectedScore.profile as any)?.level?.toUpperCase()}</Text>
@@ -984,9 +993,15 @@ export default function WODDetailScreen() {
                   return (
                     <View style={[S.sdComment, isMyComment && S.sdCommentMine]}>
                       <View style={S.sdCommentHeader}>
-                        <View style={S.sdCommentAvatar}>
-                          <Text style={S.sdCommentAvatarText}>{(author?.username?.[0] ?? '?').toUpperCase()}</Text>
-                        </View>
+                        <UserAvatar
+                          uri={author?.avatar_url}
+                          name={author?.username ?? '?'}
+                          size={24}
+                          borderRadius={8}
+                          backgroundColor={theme.surface}
+                          textColor={theme.text}
+                          fontSize={10}
+                        />
                         <Text style={S.sdCommentAuthor}>{author?.username ?? 'Inconnu'}</Text>
                         <Text style={S.sdCommentTime}>{timeLabel}</Text>
                       </View>
