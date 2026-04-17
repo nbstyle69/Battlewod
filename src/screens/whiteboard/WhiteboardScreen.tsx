@@ -150,6 +150,17 @@ export default function WhiteboardScreen() {
     const todayISO = toISO(new Date());
     const isFutureDate = selectedDate > todayISO;
 
+    // Fetch user's active program memberships for this box
+    let myProgramIds = new Set<string>();
+    if (user) {
+      const { data: progMem } = await supabase
+        .from('program_members')
+        .select('program_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+      for (const r of (progMem ?? []) as any[]) myProgramIds.add(r.program_id);
+    }
+
     const isStaff = boxRole === 'owner' || boxRole === 'coach' || user?.id === currentBox.owner_id;
     let query = supabase
       .from('box_wods')
@@ -164,6 +175,7 @@ export default function WhiteboardScreen() {
 
     // 2. Fetch group access restrictions
     let accessMap: Record<string, string[]> = {};
+    let programAccessMap: Record<string, string[]> = {};
     if (allWodIds.length > 0) {
       const { data: accessRows } = await supabase
         .from('wod_group_access')
@@ -173,24 +185,48 @@ export default function WhiteboardScreen() {
         if (!accessMap[r.wod_id]) accessMap[r.wod_id] = [];
         accessMap[r.wod_id].push(r.group_id);
       }
+      // Fetch program access
+      const { data: progAccessRows } = await supabase
+        .from('wod_program_access')
+        .select('wod_id, program_id')
+        .in('wod_id', allWodIds);
+      for (const r of (progAccessRows ?? []) as any[]) {
+        if (!programAccessMap[r.wod_id]) programAccessMap[r.wod_id] = [];
+        programAccessMap[r.wod_id].push(r.program_id);
+      }
     }
 
-    // 3. Filter by group access + visibility mode
+    // 3. Filter by group access + program access + visibility mode
     function canSee(wod: any): boolean {
       if (isStaff) return true;
-      const restricted = accessMap[wod.id];
-      // No group restriction → visible to all
-      if (!restricted || restricted.length === 0) return true;
-      // Check if user belongs to any restricted group
-      const myMatchingGroups = restricted.filter(gid => myGroupIds.has(gid));
-      if (myMatchingGroups.length === 0) return false;
-      // If future date, check visibility mode:
-      // hidden only if ALL matching groups are 'daily'
-      if (isFutureDate) {
-        const hasWeekly = myMatchingGroups.some(gid => groupVisibility[gid] === 'weekly');
-        if (!hasWeekly) return false;
+      const restrictedGroups = accessMap[wod.id];
+      const restrictedPrograms = programAccessMap[wod.id];
+      const hasGroupRestriction = restrictedGroups && restrictedGroups.length > 0;
+      const hasProgramRestriction = restrictedPrograms && restrictedPrograms.length > 0;
+
+      // No restriction at all → visible to all
+      if (!hasGroupRestriction && !hasProgramRestriction) return true;
+
+      // Check program access: if user is member of any assigned program → visible
+      if (hasProgramRestriction) {
+        const matchesProgram = restrictedPrograms!.some(pid => myProgramIds.has(pid));
+        if (matchesProgram) return true;
       }
-      return true;
+
+      // Check group access
+      if (hasGroupRestriction) {
+        const myMatchingGroups = restrictedGroups!.filter(gid => myGroupIds.has(gid));
+        if (myMatchingGroups.length > 0) {
+          if (isFutureDate) {
+            const hasWeekly = myMatchingGroups.some(gid => groupVisibility[gid] === 'weekly');
+            if (hasWeekly) return true;
+          } else {
+            return true;
+          }
+        }
+      }
+
+      return false;
     }
 
     return (dayData ?? []).filter(canSee) as BoxWOD[];
