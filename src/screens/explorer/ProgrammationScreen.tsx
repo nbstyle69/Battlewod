@@ -1,12 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronLeft, Dumbbell, Zap, Building2 } from 'lucide-react-native';
+import { ChevronLeft, Building2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
 
-const HYROX_ORANGE = '#FF6B00';
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
 export default function ProgrammationScreen() {
@@ -27,42 +26,6 @@ export default function ProgrammationScreen() {
       </View>
 
       <View style={s.content}>
-        {/* Functional Fitness */}
-        <TouchableOpacity
-          style={s.categoryBtn}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('ProgramAffiliates', { category: 'functional' })}
-        >
-          <View style={[s.categoryIcon, { backgroundColor: `${theme.accent}15` }]}>
-            <Dumbbell color={theme.accent} size={28} />
-          </View>
-          <View style={s.categoryContent}>
-            <Text style={s.categoryTitle}>Functional Fitness</Text>
-            <Text style={s.categoryDesc}>HWPO, Mayhem, CompTrain, FitProcess, EMF...</Text>
-          </View>
-          <View style={[s.categoryArrow, { backgroundColor: `${theme.accent}15` }]}>
-            <Text style={[s.categoryArrowTxt, { color: theme.accent }]}>→</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Hybrid */}
-        <TouchableOpacity
-          style={s.categoryBtn}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('ProgramAffiliates', { category: 'hybrid' })}
-        >
-          <View style={[s.categoryIcon, { backgroundColor: `${HYROX_ORANGE}15` }]}>
-            <Zap color={HYROX_ORANGE} size={28} />
-          </View>
-          <View style={s.categoryContent}>
-            <Text style={s.categoryTitle}>Hybrid / Hyrox</Text>
-            <Text style={s.categoryDesc}>HYROX Training Club, The Progrm, Hybrid Performance...</Text>
-          </View>
-          <View style={[s.categoryArrow, { backgroundColor: `${HYROX_ORANGE}15` }]}>
-            <Text style={[s.categoryArrowTxt, { color: HYROX_ORANGE }]}>→</Text>
-          </View>
-        </TouchableOpacity>
-
         {/* Programmes des Boxes */}
         <TouchableOpacity
           style={s.categoryBtn}

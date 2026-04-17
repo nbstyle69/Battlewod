@@ -84,8 +84,6 @@ import LegalScreen from '../screens/documents/LegalScreen';
 import ChangelogScreen from '../screens/home/ChangelogScreen';
 import ExplorerScreen from '../screens/explorer/ExplorerScreen';
 import ProgrammationScreen from '../screens/explorer/ProgrammationScreen';
-import ProgramAffiliatesScreen from '../screens/explorer/ProgramAffiliatesScreen';
-import AffiliateDetailScreen from '../screens/explorer/AffiliateDetailScreen';
 import BoxDirectoryScreen from '../screens/explorer/BoxDirectoryScreen';
 import BoxDirectoryMapScreen from '../screens/explorer/BoxDirectoryMapScreen';
 import BoxDirectoryDetailScreen from '../screens/explorer/BoxDirectoryDetailScreen';
@@ -172,8 +170,6 @@ export type MainTabParamList = {
 export type ExplorerStackParamList = {
   ExplorerMain: undefined;
   Programmation: undefined;
-  ProgramAffiliates: { category: 'functional' | 'hybrid' };
-  AffiliateDetail: { affiliateId: string; affiliateName: string };
   BoxDirectory: undefined;
   BoxDirectoryMap: { boxes: any[] };
   BoxDirectoryDetail: { boxId: string };
@@ -465,8 +461,6 @@ function ExplorerNavigator() {
     <ExplStack.Navigator screenOptions={{ headerShown: false }}>
       <ExplStack.Screen name="ExplorerMain" component={ExplorerScreen} />
       <ExplStack.Screen name="Programmation" component={ProgrammationScreen} />
-      <ExplStack.Screen name="ProgramAffiliates" component={ProgramAffiliatesScreen} />
-      <ExplStack.Screen name="AffiliateDetail" component={AffiliateDetailScreen} />
       <ExplStack.Screen name="BoxDirectory" component={BoxDirectoryScreen} />
       <ExplStack.Screen name="BoxDirectoryMap" component={BoxDirectoryMapScreen} />
       <ExplStack.Screen name="BoxDirectoryDetail" component={BoxDirectoryDetailScreen} />
