@@ -60,6 +60,8 @@ import BONotificationsScreen from '../screens/backoffice/BONotificationsScreen';
 import BOGamificationScreen from '../screens/backoffice/BOGamificationScreen';
 import BOArticlesScreen from '../screens/backoffice/BOArticlesScreen';
 import BOSettingsScreen from '../screens/backoffice/BOSettingsScreen';
+import BOProgramsScreen from '../screens/backoffice/BOProgramsScreen';
+import BOProgramEditorScreen from '../screens/backoffice/BOProgramEditorScreen';
 import ArticlesScreen from '../screens/whiteboard/ArticlesScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import CommunityScreen from '../screens/community/CommunityScreen';
@@ -148,6 +150,8 @@ export type BODashboardStackParamList = {
   BOSettings: undefined;
   BOBoxInfo: undefined;
   BOSubscription: undefined;
+  BOPrograms: undefined;
+  BOProgramEditor: { programId: string; programTitle: string; durationWeeks?: number; daysPerWeek?: number; progType: string };
 };
 
 export type AuthStackParamList = {
@@ -507,6 +511,8 @@ function BODashboardNavigator() {
       <BODashStack.Screen name="BOSettings" component={BOSettingsScreen} />
       <BODashStack.Screen name="BOBoxInfo" component={BOBoxInfoScreen} />
       <BODashStack.Screen name="BOSubscription" component={BOSubscriptionScreen} />
+      <BODashStack.Screen name="BOPrograms" component={BOProgramsScreen} />
+      <BODashStack.Screen name="BOProgramEditor" component={BOProgramEditorScreen} />
     </BODashStack.Navigator>
   );
 }

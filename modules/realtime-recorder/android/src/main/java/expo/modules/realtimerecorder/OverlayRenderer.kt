@@ -12,14 +12,14 @@ import java.net.URL
  * Draws overlay graphics directly onto a Bitmap (video frame) using Android Canvas.
  * Mirrors the iOS OverlayRenderer.swift layout exactly:
  *
+ * - Competition logo: top left (rounded square)
  * - Title: top center (28pt bold)
- * - Box logo: top right (240px rounded square)
- * - Countdown: center screen (180pt bold)
- * - Bottom row (160px height):
- *   - Left: "AthleX" text (Black Ops One font, 48pt)
- *   - Center: Timer monospace (90pt)
- *   - Right: ATHLEX logo (160px height)
- * - Timestamp: centered above bottom row
+ * - Box logo: top right (circle)
+ * - Countdown: center screen (260pt bold)
+ * - Bottom row (all vertically centered):
+ *   - Left: ATHLEX logo (160px)
+ *   - Center: Timer DS-Digital (180pt)
+ *   - Right: Timestamp
  */
 class OverlayRenderer(private val context: Context) {
 
@@ -30,18 +30,15 @@ class OverlayRenderer(private val context: Context) {
   @Volatile private var cachedCompLogo: Bitmap? = null
   @Volatile private var cachedCompLogoUrl: String = ""
   @Volatile private var compLogoLoading = false
-  private var blackOpsTypeface: Typeface? = null
   private var dsDigitalTypeface: Typeface? = null
 
   // Pre-allocated objects to avoid GC pressure on every frame
   private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
-  private val brandPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
   private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
   private val reusableClipPath = Path()
 
   init {
     loadAthlexLogo()
-    loadBlackOpsFont()
     loadDSDigitalFont()
   }
 
@@ -60,14 +57,6 @@ class OverlayRenderer(private val context: Context) {
           cachedAthlexLogo = BitmapFactory.decodeResource(context.resources, resId)
         }
       } catch (_: Exception) {}
-    }
-  }
-
-  private fun loadBlackOpsFont() {
-    try {
-      blackOpsTypeface = Typeface.createFromAsset(context.assets, "realtime-recorder/BlackOpsOne.ttf")
-    } catch (e: Exception) {
-      blackOpsTypeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
   }
 
@@ -192,39 +181,28 @@ class OverlayRenderer(private val context: Context) {
     }
 
     // ════════════════════════════════════════════
-    //  BOTTOM ROW — AthleX (left) | Timer (center) | Timestamp (right)
-    //  Logo centered above "AthleX" text
+    //  BOTTOM ROW — AthleX logo (left) | Timer (center) | Timestamp (right)
+    //  All elements vertically centered on the same row
     // ════════════════════════════════════════════
     val safeBottom = if (isLandscape) 40f * scale else 140f * scale
 
-    // ─── 6. "AthleX" branded text — reference baseline for bottom row ───
-    val brandH = if (isLandscape) 40f * scale else 50f * scale
-    val brandY = height - safeBottom - brandH
-    val brandFontSize = if (isLandscape) 30f * scale else 40f * scale
-    val brandTextW = if (isLandscape) 120f * scale else 160f * scale
-    drawBrandText(
-      canvas,
-      RectF(margin, brandY, margin + 280f * scale, brandY + brandH),
-      fontSize = brandFontSize, color = Color.WHITE, shadow = true
-    )
+    // Row height driven by the timer (largest element)
+    val timerFontSize = if (isLandscape) 140f * scale else 180f * scale
+    val timerH = if (isLandscape) 170f * scale else 220f * scale
+    val rowCenterY = height - safeBottom - timerH / 2f
 
-    // ─── 5. ATHLEX logo (centered horizontally above "AthleX" text) ───
-    val atlLogoH = if (isLandscape) 80f * scale else 120f * scale
-    val atlLogoY = brandY - atlLogoH - 4f * scale
+    // ─── 4. AthleX logo (bottom-left, vertically centered) ───
+    val atlLogoH = if (isLandscape) 120f * scale else 160f * scale
     cachedAthlexLogo?.let { atlImg ->
       val atlLogoW = atlLogoH * (atlImg.width.toFloat() / atlImg.height.toFloat())
-      val brandCenterX = margin + brandTextW / 2f
-      val logoX = brandCenterX - atlLogoW / 2f
-      val logoRect = RectF(logoX, atlLogoY, logoX + atlLogoW, atlLogoY + atlLogoH)
+      val logoY = rowCenterY - atlLogoH / 2f
+      val logoRect = RectF(margin, logoY, margin + atlLogoW, logoY + atlLogoH)
       canvas.drawBitmap(atlImg, null, logoRect, bitmapPaint)
     }
 
-    // ─── 4. Timer display (center, same row as AthleX text) ───
+    // ─── 5. Timer display (center, x2 size) ───
     if (state.showTimer && state.countdownValue <= 0) {
-      val timerFontSize = if (isLandscape) 70f * scale else 90f * scale
-      val timerH = if (isLandscape) 85f * scale else 110f * scale
-      val timerCenterY = brandY + brandH / 2f
-      val timerY = timerCenterY - timerH / 2f
+      val timerY = rowCenterY - timerH / 2f
       drawText(
         canvas, state.timerDisplay,
         RectF(0f, timerY, width, timerY + timerH),
@@ -234,12 +212,11 @@ class OverlayRenderer(private val context: Context) {
       )
     }
 
-    // ─── 7. Timestamp (right, same row as AthleX text) ───
+    // ─── 6. Timestamp (right, vertically centered on same row) ───
     if (state.timestamp.isNotEmpty() && state.showTimer && state.countdownValue <= 0) {
       val tsW = 260f * scale
       val tsH = 34f * scale
-      val tsCenterY = brandY + brandH / 2f
-      val tsY = tsCenterY - tsH / 2f
+      val tsY = rowCenterY - tsH / 2f
       drawText(
         canvas, state.timestamp,
         RectF(width - tsW - margin, tsY, width - margin, tsY + tsH),
@@ -248,30 +225,6 @@ class OverlayRenderer(private val context: Context) {
         alignment = Layout.Alignment.ALIGN_OPPOSITE, shadow = true
       )
     }
-  }
-
-  // MARK: - Brand text (Black Ops One)
-
-  private fun drawBrandText(
-    canvas: Canvas, rect: RectF,
-    fontSize: Float, color: Int, shadow: Boolean
-  ) {
-    brandPaint.reset()
-    brandPaint.isAntiAlias = true
-    brandPaint.color = color
-    brandPaint.textSize = fontSize
-    brandPaint.typeface = blackOpsTypeface ?: Typeface.DEFAULT_BOLD
-    brandPaint.textAlign = Paint.Align.LEFT
-    if (shadow) {
-      brandPaint.setShadowLayer(6f, 2f, 2f, Color.argb(179, 0, 0, 0))
-    }
-
-    // Vertically center in rect
-    val fm = brandPaint.fontMetrics
-    val textH = fm.descent - fm.ascent
-    val y = rect.top + (rect.height() - textH) / 2f - fm.ascent
-
-    canvas.drawText("AthleX", rect.left, y, brandPaint)
   }
 
   // MARK: - Text drawing helper

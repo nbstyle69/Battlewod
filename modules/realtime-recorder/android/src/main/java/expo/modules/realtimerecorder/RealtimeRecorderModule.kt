@@ -148,6 +148,7 @@ class RealtimeRecorderModule : Module() {
         try {
           if (landscape != engine.isLandscape) {
             engine.isLandscape = landscape
+            engine.setupSession(view.context)
           }
         } catch (e: Exception) {
           Log.e(TAG, "Prop isLandscape failed", e)

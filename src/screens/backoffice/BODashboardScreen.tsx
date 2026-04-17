@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Share, Alert,
 } from 'react-native';
-import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings, Building2, CreditCard } from 'lucide-react-native';
+import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings, Building2, CreditCard, BookOpen } from 'lucide-react-native';
 import TrialBanner from '../../components/TrialBanner';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -199,6 +199,7 @@ export default function BODashboardScreen({ navigation }: any) {
               { label: 'Créer un WOD',      icon: ClipboardList, onPress: () => navigation.navigate('WODs') },
               { label: 'Gérer les membres', icon: Users,         onPress: () => navigation.navigate('Members') },
               { label: 'Tournois & Scores', icon: Trophy,        onPress: () => navigation.navigate('BOTournament') },
+              { label: 'Programmes',        icon: BookOpen,      onPress: () => navigation.navigate('BOPrograms') },
             ].map(({ label, icon: Icon, onPress }) => (
               <TouchableOpacity key={label} style={S.quickBtn} onPress={onPress} activeOpacity={0.8}>
                 <Icon color={theme.accent} size={18} />

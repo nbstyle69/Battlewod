@@ -7,7 +7,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { Clock, ChevronRight, ChevronUp, ChevronDown, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper, Play } from 'lucide-react-native';
+import { Clock, ChevronRight, ChevronUp, ChevronDown, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper, Play, BookOpen } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -69,6 +69,10 @@ export default function WhiteboardScreen() {
   const [membersModal,  setMembersModal]  = useState(false);
   const [members,       setMembers]       = useState<BoxMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
+
+  // Program WODs
+  interface ProgWodEntry { programTitle: string; weekNumber: number; dayLabel: string; wod: { id: string; title: string; description: string; wod_type: string; time_cap_seconds?: number } }
+  const [programWods, setProgramWods] = useState<ProgWodEntry[]>([]);
 
   // Join box state
   const [joinModal, setJoinModal] = useState(false);
@@ -193,6 +197,63 @@ export default function WhiteboardScreen() {
   },
     { enabled: !!currentBox },
   );
+
+  // Fetch program WODs for selected date
+  useEffect(() => {
+    if (!user) { setProgramWods([]); return; }
+    (async () => {
+      try {
+        const { data: memberships } = await supabase
+          .from('program_members')
+          .select('program_id, start_date, programs:program_id(id, title, type, duration_weeks, days_per_week)')
+          .eq('user_id', user.id)
+          .eq('status', 'active');
+        if (!memberships || memberships.length === 0) { setProgramWods([]); return; }
+
+        const entries: ProgWodEntry[] = [];
+        const DAY_NAMES = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+        for (const m of memberships as any[]) {
+          const prog = m.programs;
+          if (!prog) continue;
+
+          if (prog.type === 'fixed') {
+            const startDate = new Date(m.start_date + 'T00:00:00');
+            const selDate = new Date(selectedDate + 'T00:00:00');
+            const diffDays = Math.floor((selDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays < 0) continue;
+            const dayNumber = diffDays + 1;
+            const totalDays = (prog.duration_weeks ?? 6) * 7;
+            if (dayNumber > totalDays) continue;
+            const weekNum = Math.ceil(dayNumber / 7);
+            const dayInWeek = ((dayNumber - 1) % 7);
+
+            const { data: wods } = await supabase
+              .from('program_wods')
+              .select('id, title, description, wod_type, time_cap_seconds')
+              .eq('program_id', prog.id)
+              .eq('day_number', dayNumber)
+              .order('sort_order');
+            for (const w of (wods ?? []) as any[]) {
+              entries.push({ programTitle: prog.title, weekNumber: weekNum, dayLabel: `S${weekNum} ${DAY_NAMES[dayInWeek]}`, wod: w });
+            }
+          } else {
+            // ongoing: match by scheduled_date
+            const { data: wods } = await supabase
+              .from('program_wods')
+              .select('id, title, description, wod_type, time_cap_seconds, week_number')
+              .eq('program_id', prog.id)
+              .eq('scheduled_date', selectedDate)
+              .order('sort_order');
+            for (const w of (wods ?? []) as any[]) {
+              entries.push({ programTitle: prog.title, weekNumber: w.week_number ?? 0, dayLabel: '', wod: w });
+            }
+          }
+        }
+        setProgramWods(entries);
+      } catch (_) { setProgramWods([]); }
+    })();
+  }, [user, selectedDate]);
 
   useEffect(() => {
     if (wodData) { setDayWODs(wodData); setLoading(false); setRefreshing(false); }
@@ -470,6 +531,42 @@ export default function WhiteboardScreen() {
               <Text style={S.noWodText}>Pas de WOD publié ce jour</Text>
             </View>
           )}
+
+          {/* ── Programme WODs ─────────────────────── */}
+          {programWods.length > 0 && programWods.reduce<{ title: string; wods: ProgWodEntry[] }[]>((acc, entry) => {
+            const existing = acc.find(g => g.title === entry.programTitle);
+            if (existing) existing.wods.push(entry);
+            else acc.push({ title: entry.programTitle, wods: [entry] });
+            return acc;
+          }, []).map(group => (
+            <View key={group.title} style={{ marginTop: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <BookOpen color={theme.accent} size={16} />
+                <Text style={[S.sectionTitle, { marginBottom: 0 }]}>{group.title}</Text>
+                {group.wods[0] && <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600' }}>{group.wods[0].dayLabel}</Text>}
+              </View>
+              <View style={S.dayGroup}>
+                {group.wods.map(entry => {
+                  const tc = TYPE_COLORS[entry.wod.wod_type ?? 'custom'] ?? '#6B7280';
+                  return (
+                    <View key={entry.wod.id} style={[S.wodCard, { borderLeftWidth: 3, borderLeftColor: theme.accent }]}>
+                      <View style={S.wodCardTop}>
+                        <WodTypeBadge type={entry.wod.wod_type} />
+                        {entry.wod.time_cap_seconds != null && (
+                          <View style={S.timeCap}>
+                            <Clock color={theme.textMuted} size={12} />
+                            <Text style={S.timeCapText}>Cap {Math.floor(entry.wod.time_cap_seconds / 60)} min</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={S.wodTitle}>{entry.wod.title}</Text>
+                      {entry.wod.description ? <Text style={S.wodDesc} numberOfLines={3}>{entry.wod.description}</Text> : null}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
         </View>
       </ScrollView>
 

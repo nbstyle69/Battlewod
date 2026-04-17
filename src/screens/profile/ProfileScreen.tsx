@@ -5,7 +5,7 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
   Image, Share, Switch,
 } from 'react-native';
-import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell } from 'lucide-react-native';
+import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +16,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
+import { Program } from '../../types';
 import UserAvatar from '../../components/UserAvatar';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
@@ -129,6 +130,12 @@ export default function ProfileScreen() {
   const [joinCode, setJoinCode]     = useState('');
   const [joining, setJoining]       = useState(false);
 
+  // ── Program join modal
+  const [progModal, setProgModal]   = useState(false);
+  const [progCode, setProgCode]     = useState('');
+  const [joiningProg, setJoiningProg] = useState(false);
+  const [myPrograms, setMyPrograms] = useState<(Program & { start_date: string; status: string })[]>([]);
+
   // ── Edit profile
   const [editing, setEditing]       = useState(false);
   const [editUsername, setEditUsername] = useState(user?.username ?? '');
@@ -139,6 +146,64 @@ export default function ProfileScreen() {
   const [editBio, setEditBio]       = useState(user?.bio ?? '');
   const [saving, setSaving]         = useState(false);
   const [pickingPhoto, setPickingPhoto] = useState(false);
+
+  // Load my programs
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('program_members')
+        .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+      const mapped = (data ?? []).map((r: any) => ({ ...r.programs, start_date: r.start_date, status: r.status })).filter(Boolean);
+      setMyPrograms(mapped);
+    })();
+  }, [user]);
+
+  async function handleJoinProgram() {
+    if (!progCode.trim() || !user) return;
+    setJoiningProg(true);
+    try {
+      const { data: prog } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('invite_code', progCode.trim().toUpperCase())
+        .eq('is_active', true)
+        .single();
+      if (!prog) { Alert.alert('Erreur', 'Code programme invalide.'); setJoiningProg(false); return; }
+      // Check not already member
+      const { data: existing } = await supabase
+        .from('program_members')
+        .select('id')
+        .eq('program_id', prog.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (existing) { Alert.alert('Déjà inscrit', 'Tu fais déjà partie de ce programme.'); setJoiningProg(false); return; }
+      // For now: free join (Stripe integration later)
+      const today = new Date().toISOString().split('T')[0];
+      const { error } = await supabase.from('program_members').insert({
+        program_id: prog.id,
+        user_id: user.id,
+        start_date: today,
+        amount_cents: prog.price_cents,
+        platform_fee_cents: Math.round(prog.price_cents * 0.04),
+      });
+      if (error) throw error;
+      Alert.alert('Bienvenue !', `Tu as rejoint le programme « ${prog.title} ».`);
+      setProgModal(false); setProgCode('');
+      // Refresh programs
+      const { data: refreshed } = await supabase
+        .from('program_members')
+        .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+      setMyPrograms((refreshed ?? []).map((r: any) => ({ ...r.programs, start_date: r.start_date, status: r.status })).filter(Boolean));
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message);
+    }
+    setJoiningProg(false);
+  }
 
   const { data: profileData } = useFocusQuery(
     ['profile', user?.id],
@@ -694,6 +759,43 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* ── Mes Programmes ─────────────────────────── */}
+            <View style={S.compteCard}>
+              <Text style={S.compteCardTitle}>Mes programmes</Text>
+              {myPrograms.length > 0 ? (
+                <>
+                  {myPrograms.map(prog => {
+                    const startDate = new Date(prog.start_date + 'T00:00:00');
+                    const now = new Date();
+                    const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                    const currentWeek = Math.floor(daysSinceStart / 7) + 1;
+                    return (
+                      <View key={prog.id} style={[S.boxRow, { marginBottom: 8 }]}>
+                        <BookOpen color={theme.accent} size={20} />
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>{prog.title}</Text>
+                          <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                            {prog.type === 'fixed'
+                              ? `S${currentWeek}/${prog.duration_weeks} · ${prog.days_per_week}j/sem`
+                              : `Ongoing · ${prog.days_per_week}j/sem`}
+                          </Text>
+                        </View>
+                        <View style={{ backgroundColor: `${theme.success}18`, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: theme.success }}>Actif</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
+              ) : (
+                <Text style={S.noBoxText}>Aucun programme rejoint.</Text>
+              )}
+              <TouchableOpacity style={[S.joinBtn, { backgroundColor: theme.accent }]} onPress={() => setProgModal(true)} activeOpacity={0.8}>
+                <BookOpen color={theme.background} size={16} />
+                <Text style={S.joinBtnText}>Rejoindre un programme</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* ── Edit profile ─────────────────────────── */}
             <View style={S.compteCard}>
               <View style={S.compteCardHeader}>
@@ -949,6 +1051,38 @@ export default function ProfileScreen() {
               {joining ? <ActivityIndicator color={theme.background} size="small" /> : <><Hash color={theme.background} size={16} /><Text style={S.joinBtnText}>Rejoindre</Text></>}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setJoinModal(false)} style={S.modalCancel}>
+              <Text style={S.modalCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Join program modal ──────────────────────────────────── */}
+      <Modal visible={progModal} transparent animationType="slide" onRequestClose={() => setProgModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
+          <View style={S.modalSheet}>
+            <View style={S.modalHandle} />
+            <Text style={S.modalTitle}>Rejoindre un programme</Text>
+            <Text style={S.modalSub}>Entre le code du programme (6 caractères)</Text>
+            <TextInput
+              style={S.codeInput}
+              value={progCode}
+              onChangeText={t => setProgCode(t.toUpperCase())}
+              placeholder="Ex : FORCE6"
+              placeholderTextColor={theme.textMuted}
+              maxLength={6}
+              autoCapitalize="characters"
+              autoFocus
+            />
+            <TouchableOpacity
+              style={[S.joinBtn, { backgroundColor: theme.accent }, (!progCode.trim() || joiningProg) && { opacity: 0.5 }]}
+              onPress={handleJoinProgram}
+              disabled={!progCode.trim() || joiningProg}
+              activeOpacity={0.85}
+            >
+              {joiningProg ? <ActivityIndicator color={theme.background} size="small" /> : <><BookOpen color={theme.background} size={16} /><Text style={S.joinBtnText}>Rejoindre</Text></>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setProgModal(false)} style={S.modalCancel}>
               <Text style={S.modalCancelText}>Annuler</Text>
             </TouchableOpacity>
           </View>

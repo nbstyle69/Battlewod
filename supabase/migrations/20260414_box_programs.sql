@@ -1,96 +1,164 @@
 -- ═══════════════════════════════════════════════════════════════
--- AthleX — slug sur boxes + table box_programs
+-- AthleX — Programmes payants (marketplace Stripe Connect)
 -- ═══════════════════════════════════════════════════════════════
 
--- ── 1. Ajouter slug unique sur boxes ─────────────────────────
+-- ── 1. Slug unique sur boxes (inchangé) ──────────────────────
 ALTER TABLE boxes ADD COLUMN IF NOT EXISTS slug text UNIQUE;
-
 CREATE INDEX IF NOT EXISTS idx_boxes_slug ON boxes(slug) WHERE slug IS NOT NULL;
 
--- ── 2. Générer un slug par défaut pour les boxes existantes ──
 DO $$
-DECLARE
-  r RECORD;
-  base_slug text;
-  final_slug text;
-  counter int;
+DECLARE r RECORD; base_slug text; final_slug text; counter int;
 BEGIN
   FOR r IN SELECT id, name FROM boxes WHERE slug IS NULL ORDER BY created_at LOOP
     base_slug := LOWER(REGEXP_REPLACE(REPLACE(r.name, ' ', '-'), '[^a-z0-9\-]', '', 'g'));
-    -- Trim trailing dashes
     base_slug := REGEXP_REPLACE(base_slug, '-+$', '');
     IF base_slug = '' THEN base_slug := 'box'; END IF;
-    final_slug := base_slug;
-    counter := 1;
+    final_slug := base_slug; counter := 1;
     WHILE EXISTS (SELECT 1 FROM boxes WHERE slug = final_slug AND id <> r.id) LOOP
-      counter := counter + 1;
-      final_slug := base_slug || '-' || counter;
+      counter := counter + 1; final_slug := base_slug || '-' || counter;
     END LOOP;
     UPDATE boxes SET slug = final_slug WHERE id = r.id;
   END LOOP;
 END $$;
 
--- ── 3. Table box_programs ────────────────────────────────────
-CREATE TABLE IF NOT EXISTS box_programs (
-  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  box_id        uuid NOT NULL REFERENCES boxes(id) ON DELETE CASCADE,
-  name          text NOT NULL,
-  description   text,
-  price         numeric(10,2),
-  currency      text NOT NULL DEFAULT 'EUR',
-  url           text NOT NULL,
-  image_url     text,
-  is_active     boolean DEFAULT true,
-  sort_order    int DEFAULT 0,
-  created_at    timestamptz DEFAULT now(),
-  updated_at    timestamptz DEFAULT now()
+-- ── 2. Stripe Connect sur boxes ──────────────────────────────
+ALTER TABLE boxes ADD COLUMN IF NOT EXISTS stripe_account_id text;
+ALTER TABLE boxes ADD COLUMN IF NOT EXISTS stripe_onboarding_complete boolean DEFAULT false;
+
+-- ── 3. Table programmes ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS programs (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  box_id          uuid NOT NULL REFERENCES boxes(id) ON DELETE CASCADE,
+  owner_id        uuid NOT NULL REFERENCES auth.users(id),
+  title           text NOT NULL,
+  description     text,
+  price_cents     integer NOT NULL CHECK (price_cents >= 0),
+  currency        text NOT NULL DEFAULT 'eur',
+  type            text NOT NULL CHECK (type IN ('fixed','ongoing')),
+  duration_weeks  integer,
+  days_per_week   integer DEFAULT 5,
+  invite_code     text UNIQUE NOT NULL,
+  stripe_price_id text,
+  image_url       text,
+  is_active       boolean DEFAULT true,
+  created_at      timestamptz DEFAULT now(),
+  updated_at      timestamptz DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_box_programs_box ON box_programs(box_id, is_active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_programs_box  ON programs(box_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_programs_code ON programs(invite_code);
 
--- ── 4. RLS box_programs ──────────────────────────────────────
-ALTER TABLE box_programs ENABLE ROW LEVEL SECURITY;
+-- ── 4. WODs d'un programme ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS program_wods (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  program_id       uuid NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+  day_number       integer,
+  scheduled_date   date,
+  week_number      integer,
+  title            text NOT NULL,
+  description      text NOT NULL,
+  wod_type         text DEFAULT 'custom',
+  scoring_type     text,
+  time_cap_seconds integer,
+  notes            text,
+  sort_order       integer DEFAULT 0,
+  created_at       timestamptz DEFAULT now(),
+  CONSTRAINT day_or_date CHECK (day_number IS NOT NULL OR scheduled_date IS NOT NULL)
+);
 
--- Tout le monde peut lire les programmes actifs
-CREATE POLICY "anyone_read_active_box_programs"
-  ON box_programs FOR SELECT
-  USING (is_active = true);
+CREATE INDEX IF NOT EXISTS idx_pw_prog ON program_wods(program_id, day_number);
+CREATE INDEX IF NOT EXISTS idx_pw_date ON program_wods(program_id, scheduled_date);
 
--- Le owner de la box peut gérer ses programmes
-CREATE POLICY "box_owner_manage_programs"
-  ON box_programs FOR ALL
-  USING (
-    box_id IN (SELECT id FROM boxes WHERE owner_id = auth.uid())
-  );
+-- ── 5. Membres d'un programme (acheteurs) ────────────────────
+CREATE TABLE IF NOT EXISTS program_members (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  program_id            uuid NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+  user_id               uuid NOT NULL REFERENCES auth.users(id),
+  start_date            date NOT NULL,
+  stripe_payment_intent text,
+  amount_cents          integer,
+  platform_fee_cents    integer,
+  status                text DEFAULT 'active' CHECK (status IN ('active','expired','cancelled','refunded')),
+  purchased_at          timestamptz DEFAULT now(),
+  UNIQUE(program_id, user_id)
+);
 
--- Super admin peut tout gérer
-CREATE POLICY "admin_manage_box_programs"
-  ON box_programs FOR ALL
-  USING (
-    auth.uid() IN (
-      SELECT id FROM profiles WHERE role IN ('super_admin', 'admin')
-    )
-  );
+CREATE INDEX IF NOT EXISTS idx_pm_user ON program_members(user_id, status);
 
--- ── 5. Storage bucket pour images programmes ─────────────────
+-- ── 6. Scores sur WODs programme ─────────────────────────────
+CREATE TABLE IF NOT EXISTS program_scores (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  program_wod_id  uuid NOT NULL REFERENCES program_wods(id) ON DELETE CASCADE,
+  user_id         uuid NOT NULL REFERENCES auth.users(id),
+  score_type      text NOT NULL DEFAULT 'reps',
+  score_value     integer NOT NULL,
+  rx              boolean DEFAULT false,
+  notes           text,
+  created_at      timestamptz DEFAULT now(),
+  UNIQUE(program_wod_id, user_id)
+);
+
+-- ── 7. RLS ───────────────────────────────────────────────────
+ALTER TABLE programs        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE program_wods    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE program_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE program_scores  ENABLE ROW LEVEL SECURITY;
+
+-- programs
+CREATE POLICY "read_active_programs"  ON programs FOR SELECT USING (is_active = true);
+CREATE POLICY "owner_manage_programs" ON programs FOR ALL   USING (owner_id = auth.uid());
+CREATE POLICY "admin_manage_programs" ON programs FOR ALL   USING (
+  auth.uid() IN (SELECT id FROM profiles WHERE role IN ('super_admin','admin'))
+);
+
+-- program_wods
+CREATE POLICY "member_read_program_wods" ON program_wods FOR SELECT USING (
+  program_id IN (SELECT program_id FROM program_members WHERE user_id = auth.uid() AND status = 'active')
+  OR program_id IN (SELECT id FROM programs WHERE owner_id = auth.uid())
+);
+CREATE POLICY "owner_manage_program_wods" ON program_wods FOR ALL USING (
+  program_id IN (SELECT id FROM programs WHERE owner_id = auth.uid())
+);
+CREATE POLICY "admin_manage_program_wods" ON program_wods FOR ALL USING (
+  auth.uid() IN (SELECT id FROM profiles WHERE role IN ('super_admin','admin'))
+);
+
+-- program_members
+CREATE POLICY "read_own_membership"       ON program_members FOR SELECT USING (
+  user_id = auth.uid()
+  OR program_id IN (SELECT id FROM programs WHERE owner_id = auth.uid())
+);
+CREATE POLICY "member_join_program"       ON program_members FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "owner_manage_pm"           ON program_members FOR ALL    USING (
+  program_id IN (SELECT id FROM programs WHERE owner_id = auth.uid())
+);
+CREATE POLICY "admin_manage_pm"           ON program_members FOR ALL    USING (
+  auth.uid() IN (SELECT id FROM profiles WHERE role IN ('super_admin','admin'))
+);
+
+-- program_scores
+CREATE POLICY "read_program_scores" ON program_scores FOR SELECT USING (
+  program_wod_id IN (
+    SELECT pw.id FROM program_wods pw
+    JOIN program_members pm ON pm.program_id = pw.program_id
+    WHERE pm.user_id = auth.uid() AND pm.status = 'active'
+  )
+  OR program_wod_id IN (
+    SELECT pw.id FROM program_wods pw
+    JOIN programs p ON p.id = pw.program_id WHERE p.owner_id = auth.uid()
+  )
+);
+CREATE POLICY "upsert_own_program_score" ON program_scores FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "update_own_program_score" ON program_scores FOR UPDATE USING  (user_id = auth.uid());
+
+-- ── 8. Storage bucket ────────────────────────────────────────
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('box-program-images', 'box-program-images', true)
+VALUES ('program-images', 'program-images', true)
 ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "anyone_read_box_program_images"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'box-program-images');
-
-CREATE POLICY "box_owner_upload_program_images"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'box-program-images'
-    AND auth.uid() IN (SELECT owner_id FROM boxes WHERE is_active = true)
-  );
-
-CREATE POLICY "box_owner_delete_program_images"
-  ON storage.objects FOR DELETE
-  USING (
-    bucket_id = 'box-program-images'
-    AND auth.uid() IN (SELECT owner_id FROM boxes WHERE is_active = true)
-  );
+CREATE POLICY "anyone_read_prog_images" ON storage.objects FOR SELECT
+  USING (bucket_id = 'program-images');
+CREATE POLICY "owner_upload_prog_images" ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'program-images' AND auth.uid() IN (SELECT owner_id FROM boxes WHERE is_active = true));
+CREATE POLICY "owner_delete_prog_images" ON storage.objects FOR DELETE
+  USING (bucket_id = 'program-images' AND auth.uid() IN (SELECT owner_id FROM boxes WHERE is_active = true));

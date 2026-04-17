@@ -1259,9 +1259,9 @@ export default function TimerRunScreen() {
                 </View>
               )}
 
-              {/* Landscape ready — play centered */}
+              {/* Landscape ready — play right */}
               {phase === 'ready' && !withCamera && (
-                <View style={{ position: 'absolute', bottom: 16, left: 0, right: 0, alignItems: 'center' }}>
+                <View style={{ position: 'absolute', bottom: 16, right: 24, alignItems: 'center' }}>
                   <View style={styles.ctrlGroup}>
                     <View>
                       <TouchableOpacity onPress={handleStart} style={styles.playBtn} activeOpacity={0.8}>
@@ -1305,7 +1305,7 @@ export default function TimerRunScreen() {
           {/* DÉCOMPTE PORTRAIT — dans le même conteneur que le timer */}
           {!withCamera && phase === 'countdown' && countdownVal > 0 && (
             <View style={styles.timerCenter} pointerEvents="none">
-              <Text style={[styles.phaseLabelGiant, { color: ensureContrast(phaseColor, currentBg) }]}>PRÉPARER</Text>
+              <Text style={[styles.phaseLabelGiant, { color: '#FFFFFF' }]}>PRÉPARER</Text>
               <Text style={[styles.countdownBig, {
                 color: accentColor,
                 textShadowColor: accentColor,
@@ -1475,7 +1475,7 @@ export default function TimerRunScreen() {
         {/* Overlay décompte — top-level pour éviter z-index/elevation Android */}
         {phase === 'countdown' && countdownVal > 0 && (
           <View style={[StyleSheet.absoluteFill, styles.camCdOverlay]} pointerEvents="none">
-            <Text style={[styles.phaseLabelGiant, { color: phaseColor, marginBottom: 16 }]}>PRÉPARER</Text>
+            <Text style={[styles.phaseLabelGiant, { color: '#FFFFFF', marginBottom: 16 }]}>PRÉPARER</Text>
             <View style={[styles.camCdCircle, { borderColor: `${accentColor}50` }]}>
               <Text style={[styles.camCdNum, {
                 color: accentColor,

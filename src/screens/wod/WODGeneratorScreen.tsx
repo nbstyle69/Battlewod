@@ -295,19 +295,14 @@ const MVTS: Mvt[] = [
   { name: 'Down Up',              eq: [],                    reps: [6,8,10,12,15,18] },
   { name: 'Push-ups',             eq: [],                    reps: [8,10,15,18,20,25] },
   { name: 'Sit-ups',              eq: [],                    reps: [12,15,20,25,30,35] },
-  { name: 'Mountain Climbers',    eq: [],                    reps: [12,16,20,24,30,30] },
   { name: 'Lunges',               eq: [],                    reps: [10,12,16,20,24,24] },
-  { name: 'V-ups',                eq: [],                    reps: [8,10,12,15,18,20] },
   { name: 'Jumping Squats',       eq: [],                    reps: [8,10,12,15,18,20] },
-  { name: 'Broad Jumps',          eq: [],                    reps: [5,6,8,10,10,12] },
   { name: 'HSPU Stricts',          eq: [],                    reps: [0,0,5,7,10,12] },
   { name: 'Wall Facing HSPU',     eq: [],                    reps: [0,0,0,5,8,10] },
   { name: 'Pistol Squats (assistés)', eq: [],               reps: [5,6,0,0,0,0] },
   { name: 'Pistol Squats',        eq: [],                    reps: [0,0,6,8,10,12] },
-  { name: 'Hollow Rocks',         eq: [],                    reps: [10,12,15,20,25,30] },
   { name: 'Up-Downs',             eq: [],                    reps: [6,8,10,12,15,15] },
   { name: 'Course',               eq: [],                    reps: [200,200,400,400,400,800], unit: 'm' },
-  { name: 'Bear Crawl',           eq: [],                    reps: [10,10,15,15,20,20], unit: 'm' },
   { name: 'Wall Walks (partiels)', eq: [],                   reps: [0,2,0,0,0,0] },
   { name: 'Wall Walks',           eq: [],                    reps: [0,0,3,4,5,6] },
   { name: 'Shuttle Run',          eq: [],                    reps: [2,2,4,4,6,6], unit: '×7.62m' },
@@ -397,7 +392,6 @@ const MVTS: Mvt[] = [
   { name: 'Pull-Over',            eq: ['Barre de traction'], reps: [0,3,5,8,10,12] },
   // ── Anneaux ──
   { name: 'Ring Dips',            eq: ['Anneaux'],           reps: [0,3,5,8,10,12] },
-  { name: 'Ring Rows',            eq: ['Anneaux'],           reps: [8,10,12,15,15,18] },
   { name: 'Ring Muscle-ups',      eq: ['Anneaux'],           reps: [0,0,0,2,4,5] },
   { name: 'Toes to Rings',        eq: ['Anneaux'],           reps: [0,5,8,10,12,15] },
   // ── Erg ──
@@ -725,7 +719,9 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
       const chipReps = [50, 40, 30, 25, 20, 15, 10];
       movements = mvts.map((m, i) => {
         const base = chipReps[i] ?? 10;
-        const r = Math.round(base * (li < 2 ? 0.7 : li > 3 ? 1.3 : 1));
+        const raw = Math.round(base * (li < 2 ? 0.7 : li > 3 ? 1.3 : 1));
+        const maxReps = m.reps[li] * 3;
+        const r = Math.min(raw, maxReps);
         const u = m.unit ?? ''; const ld = m.load?.[li];
         if (u === 'm') return `${r}m ${m.name}`;
         if (u === 'cal') return `${r} Cal ${m.name}`;
@@ -771,7 +767,9 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
       const chipReps = [40, 30, 25, 20, 15, 12, 10];
       movements = mvts.map((m, i) => {
         const base = chipReps[i] ?? 10;
-        const r = Math.round(base * (li < 2 ? 0.7 : li > 3 ? 1.3 : 1));
+        const raw = Math.round(base * (li < 2 ? 0.7 : li > 3 ? 1.3 : 1));
+        const maxReps = m.reps[li] * 3;
+        const r = Math.min(raw, maxReps);
         const u = m.unit ?? ''; const ld = m.load?.[li];
         if (u === 'm') return `${r}m ${m.name}`;
         if (u === 'cal') return `${r} Cal ${m.name}`;

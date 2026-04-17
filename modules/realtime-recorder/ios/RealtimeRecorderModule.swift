@@ -126,6 +126,24 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       DispatchQueue.main.async {
         let preview = AVCaptureVideoPreviewLayer(session: session)
         preview.videoGravity = .resizeAspectFill
+
+        // Match preview orientation to interface orientation
+        if let conn = preview.connection {
+          if self.isLandscape {
+            if #available(iOS 17.0, *) {
+              conn.videoRotationAngle = 0
+            } else {
+              conn.videoOrientation = .landscapeRight
+            }
+          } else {
+            if #available(iOS 17.0, *) {
+              conn.videoRotationAngle = 90
+            } else {
+              conn.videoOrientation = .portrait
+            }
+          }
+        }
+
         self.hostView?.attachPreview(preview)
       }
 

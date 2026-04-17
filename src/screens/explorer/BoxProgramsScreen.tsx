@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, FlatList,
+  View, Text, StyleSheet, TouchableOpacity, SectionList,
   Image, ActivityIndicator, Linking,
 } from 'react-native';
-import { ChevronLeft, Building2, ExternalLink, Globe } from 'lucide-react-native';
+import { ChevronLeft, Building2, ExternalLink, Calendar } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -13,14 +13,18 @@ import { captureError } from '../../lib/sentry';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
-interface BoxWithPrograms {
+interface ProgramItem {
   id: string;
-  name: string;
-  slug: string | null;
-  logo_url: string | null;
-  city: string | null;
-  tagline: string | null;
-  program_count: number;
+  title: string;
+  description: string | null;
+  type: 'fixed' | 'ongoing';
+  duration_weeks: number | null;
+  days_per_week: number;
+  box_id: string;
+  box_name: string;
+  box_logo: string | null;
+  box_city: string | null;
+  box_slug: string | null;
 }
 
 const SITE_BASE_URL = 'https://the-hub-rho.vercel.app';
@@ -29,55 +33,60 @@ export default function BoxProgramsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const s = createStyles(theme);
-  const [boxes, setBoxes] = useState<BoxWithPrograms[]>([]);
+  const [programs, setPrograms] = useState<ProgramItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadBoxes(); }, []);
+  useEffect(() => { load(); }, []);
 
-  async function loadBoxes() {
+  async function load() {
     try {
-      // Fetch boxes that have at least one active program
-      const { data: progs } = await (supabase.from as any)('box_programs')
-        .select('box_id')
-        .eq('is_active', true);
-
-      if (!progs || progs.length === 0) {
-        setBoxes([]);
-        setLoading(false);
-        return;
-      }
-
-      // Count programs per box
-      const countMap: Record<string, number> = {};
-      progs.forEach((p: any) => {
-        countMap[p.box_id] = (countMap[p.box_id] ?? 0) + 1;
-      });
-      const boxIds = Object.keys(countMap);
-
-      const { data: boxData, error } = await supabase
-        .from('boxes')
-        .select('id, name, slug, logo_url, city, tagline')
-        .in('id', boxIds)
-        .eq('is_active', true);
+      const { data, error } = await supabase
+        .from('programs')
+        .select('id, title, description, type, duration_weeks, days_per_week, box_id, boxes(name, logo_url, city, slug)')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const list: BoxWithPrograms[] = ((boxData ?? []) as any[]).map(b => ({
-        ...b,
-        program_count: countMap[b.id] ?? 0,
+      const list: ProgramItem[] = ((data ?? []) as any[]).map(p => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        type: p.type,
+        duration_weeks: p.duration_weeks,
+        days_per_week: p.days_per_week,
+        box_id: p.box_id,
+        box_name: p.boxes?.name ?? '',
+        box_logo: p.boxes?.logo_url ?? null,
+        box_city: p.boxes?.city ?? null,
+        box_slug: p.boxes?.slug ?? null,
       }));
-      list.sort((a, b) => b.program_count - a.program_count);
-      setBoxes(list);
+      setPrograms(list);
     } catch (e) {
       captureError(e, { screen: 'BoxPrograms', action: 'load' });
     }
     setLoading(false);
   }
 
-  function openBoxPage(box: BoxWithPrograms) {
-    if (box.slug) {
-      Linking.openURL(`${SITE_BASE_URL}/box/${box.slug}`);
-    }
+  const sections = useMemo(() => {
+    const map: Record<string, { box_name: string; box_logo: string | null; box_city: string | null; box_slug: string | null; data: ProgramItem[] }> = {};
+    programs.forEach(p => {
+      if (!map[p.box_id]) {
+        map[p.box_id] = { box_name: p.box_name, box_logo: p.box_logo, box_city: p.box_city, box_slug: p.box_slug, data: [] };
+      }
+      map[p.box_id].data.push(p);
+    });
+    return Object.entries(map).map(([, v]) => ({
+      title: v.box_name,
+      box_logo: v.box_logo,
+      box_city: v.box_city,
+      box_slug: v.box_slug,
+      data: v.data,
+    }));
+  }, [programs]);
+
+  function openBoxPage(slug: string | null) {
+    if (slug) Linking.openURL(`${SITE_BASE_URL}/box/${slug}`);
   }
 
   return (
@@ -88,7 +97,7 @@ export default function BoxProgramsScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>Programmes des Boxes</Text>
-          <Text style={s.headerSub}>{boxes.length} box{boxes.length > 1 ? 'es' : ''} avec programmation</Text>
+          <Text style={s.headerSub}>{programs.length} programme{programs.length > 1 ? 's' : ''} disponible{programs.length > 1 ? 's' : ''}</Text>
         </View>
       </View>
 
@@ -97,52 +106,55 @@ export default function BoxProgramsScreen() {
           <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
-        <FlatList
-          data={boxes}
+        <SectionList
+          sections={sections}
           keyExtractor={item => item.id}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, paddingTop: 12 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, paddingTop: 8 }}
           showsVerticalScrollIndicator={false}
+          stickySectionHeadersEnabled={false}
           ListEmptyComponent={
             <View style={s.center}>
               <Building2 color={theme.textMuted} size={40} />
               <Text style={s.emptyTxt}>Aucune box ne propose de programme pour le moment</Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={s.card}
-              activeOpacity={0.85}
-              onPress={() => openBoxPage(item)}
-              disabled={!item.slug}
-            >
-              <View style={s.cardLeft}>
-                {item.logo_url ? (
-                  <Image source={{ uri: item.logo_url }} style={s.logo} />
-                ) : (
-                  <View style={[s.logoPlaceholder]}>
-                    <Text style={s.logoInitial}>{item.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                )}
+          renderSectionHeader={({ section }) => (
+            <TouchableOpacity style={s.sectionRow} activeOpacity={0.8} onPress={() => openBoxPage(section.box_slug)}>
+              {section.box_logo ? (
+                <Image source={{ uri: section.box_logo }} style={s.sectionLogo} />
+              ) : (
+                <View style={s.sectionLogoFallback}>
+                  <Text style={s.sectionInitial}>{section.title.charAt(0)}</Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={s.sectionName}>{section.title}</Text>
+                {section.box_city && <Text style={s.sectionCity}>{section.box_city}</Text>}
               </View>
-              <View style={s.cardContent}>
-                <Text style={s.cardName}>{item.name}</Text>
-                {item.city && <Text style={s.cardCity}>{item.city}</Text>}
-                {item.tagline && <Text style={s.cardDesc} numberOfLines={1}>{item.tagline}</Text>}
-                <View style={s.badgeRow}>
-                  <View style={s.badge}>
-                    <Text style={s.badgeTxt}>{item.program_count} programme{item.program_count > 1 ? 's' : ''}</Text>
+              {section.box_slug && <ExternalLink color={theme.textMuted} size={16} />}
+            </TouchableOpacity>
+          )}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={s.card} activeOpacity={0.85} onPress={() => openBoxPage(item.box_slug)}>
+              <View style={{ flex: 1 }}>
+                <View style={s.titleRow}>
+                  <Text style={s.cardName} numberOfLines={1}>{item.title}</Text>
+                  <View style={[s.typeBadge, { backgroundColor: item.type === 'fixed' ? '#3B82F615' : '#8B5CF615' }]}>
+                    <Text style={[s.typeTxt, { color: item.type === 'fixed' ? '#3B82F6' : '#8B5CF6' }]}>
+                      {item.type === 'fixed' ? `${item.duration_weeks} sem.` : 'Ongoing'}
+                    </Text>
                   </View>
                 </View>
-              </View>
-              <View style={s.openIcon}>
-                {item.slug ? (
-                  <ExternalLink color={theme.accent} size={18} />
-                ) : (
-                  <Globe color={theme.textMuted} size={18} />
-                )}
+                {item.description && <Text style={s.cardDesc} numberOfLines={2}>{item.description}</Text>}
+                <View style={s.metaRow}>
+                  <Calendar color={theme.textMuted} size={12} />
+                  <Text style={s.metaTxt}>{item.days_per_week} jours/semaine</Text>
+                </View>
               </View>
             </TouchableOpacity>
           )}
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          SectionSeparatorComponent={() => <View style={{ height: 16 }} />}
         />
       )}
     </View>
@@ -161,28 +173,28 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   headerSub: { fontSize: 11, color: t.textMuted, marginTop: 2 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 60 },
   emptyTxt: { fontSize: 13, color: t.textMuted, textAlign: 'center', paddingHorizontal: 30 },
-  card: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: t.card, borderRadius: 18, padding: 16,
-    borderWidth: 1, borderColor: t.border, marginBottom: 12,
+  sectionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 12, paddingHorizontal: 4,
   },
-  cardLeft: {},
-  logo: { width: 52, height: 52, borderRadius: 14 },
-  logoPlaceholder: {
-    width: 52, height: 52, borderRadius: 14,
-    backgroundColor: '#3B82F615',
+  sectionLogo: { width: 36, height: 36, borderRadius: 10 },
+  sectionLogoFallback: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: `${t.accent}15`,
     alignItems: 'center', justifyContent: 'center',
   },
-  logoInitial: { fontSize: 22, fontWeight: '900', color: '#3B82F6' },
-  cardContent: { flex: 1 },
-  cardName: { fontSize: 15, fontWeight: '900', color: t.text },
-  cardCity: { fontSize: 11, color: t.textMuted, marginTop: 1 },
-  cardDesc: { fontSize: 11, color: t.textMuted, marginTop: 2 },
-  badgeRow: { flexDirection: 'row', marginTop: 6, gap: 6 },
-  badge: {
-    backgroundColor: '#3B82F615', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 3,
+  sectionInitial: { fontSize: 16, fontWeight: '900', color: t.accent },
+  sectionName: { fontSize: 14, fontWeight: '900', color: t.text },
+  sectionCity: { fontSize: 11, color: t.textMuted, marginTop: 1 },
+  card: {
+    backgroundColor: t.card, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: t.border,
   },
-  badgeTxt: { fontSize: 10, fontWeight: '800', color: '#3B82F6' },
-  openIcon: { padding: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardName: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1 },
+  typeBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  typeTxt: { fontSize: 10, fontWeight: '800' },
+  cardDesc: { fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 17 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
+  metaTxt: { fontSize: 11, color: t.textMuted },
 }); }

@@ -404,7 +404,6 @@ const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
     { mv: 'Ring Dips', scale: ['Banded Ring Dips','Ring Dip modif','Ring Dips','Ring Dips stricts','Ring Dips stricts','Ring Dips lestés'] },
     { mv: 'Muscle-ups', scale: ['Ring Rows+Dips','MU transitions','Muscle-ups','Muscle-ups','Strict MU','Strict MU'] },
     { mv: 'Ring Push-ups', scale: ['Ring PU genoux','Ring PU','Ring PU','Ring PU élargis','Ring PU + pause','Archer Ring PU'] },
-    { mv: 'Ring Rows', scale: ['Incliné 45°','Horizontal','Horizontal','Pieds surélevés','Pieds surélevés+pause','Archer Ring Row'] },
     { mv: 'Toes to Rings', scale: ['—','K2R','T2R','T2R','T2R','T2R'] },
   ],
   erg: [
@@ -430,17 +429,73 @@ const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
     { mv: 'Push-ups', scale: ['genoux','classiques','classiques','wide+narrow','diamond','archer'] },
     { mv: 'Sit-ups', scale: ['×1','×1','×1','V-ups','V-ups','Hollow rocks'] },
     { mv: 'Lunges alt.', scale: ['×1','×1','×1','walking','jumping','jumping'] },
-    { mv: 'Mountain Climbers', scale: ['lents','lents','normaux','normaux','rapides','rapides'] },
     { mv: 'Pistol Squats', scale: ['assistés','assistés','Pistols','Pistols','Pistols','Pistols'] },
     { mv: 'HSPU Stricts', scale: ['—','—','HSPU Stricts','HSPU Stricts','HSPU Stricts','HSPU Stricts'] },
     { mv: 'Wall Facing HSPU', scale: ['—','—','—','Wall Facing HSPU','Wall Facing HSPU','Wall Facing HSPU'] },
     { mv: 'Wall Walks', scale: ['—','partiels','Wall Walks','Wall Walks','Wall Walks','Wall Walks'] },
-    { mv: 'Broad Jumps', scale: ['×1','×1','×1','×1','×1','×1'] },
-    { mv: 'Hollow Rocks', scale: ['×1','×1','×1','×1','×1','×1'] },
-    { mv: 'Bear Crawl (m)', scale: ['10','10','15','15','20','20'] },
     { mv: 'Shuttle Run (×7.62m)', scale: ['2','2','4','4','6','6'] },
-    { mv: 'V-ups', scale: ['×1','×1','×1','×1','×1','×1'] },
   ],
+};
+
+// ── Difficulty tiers — cap reps per movement ──────────────────────────
+// 1 = très dur, 2 = dur, 3 = modéré, 4 = standard, 5 = facile/volume
+const MOVE_TIER: Record<string, number> = {
+  // Tier 1 — très dur (muscle-ups, squat snatches, strict HSPU…)
+  'Muscle-ups': 1, 'Bar Muscle-ups': 1, 'Squat Snatches': 1,
+  'Hang Squat Clean & Jerks': 1, 'Double KB Clean & Jerks': 1,
+  'Double KB OH Squats': 1, 'Turkish Get-ups alt.': 1,
+  'HSPU Stricts': 1, 'Wall Facing HSPU': 1,
+  // Tier 2 — dur
+  'Ring Dips': 2, 'Clusters': 2, 'OHS': 2, 'Clean & Jerks': 2,
+  'Squat Cleans': 2, 'Hang Squat Cleans': 2, 'Hang Clean & Jerks': 2,
+  'Snatches': 2, 'Power Snatches': 2, 'Hang Snatches': 2,
+  'HSPU': 2, 'Pull-Overs': 2, 'Double Cross Overs': 2,
+  'KB Clean & Jerks': 2, 'Double KB Snatches': 2, 'Double KB Cleans': 2,
+  'KB OH Squats': 2, 'DB Squat Snatches': 2, "Devil's Press": 2,
+  'Burpee Box Jumps': 2, 'Burpee Box Jump Overs': 2,
+  'Pistol Squats': 2, 'Wall Walks': 2, 'Worm Clean & Jerks': 2,
+  // Tier 3 — modéré
+  'Pull-ups': 3, 'Toes to Bar': 3, 'Kipping Pull-ups': 3,
+  'Thrusters': 3, 'Power Cleans': 3, 'Cleans': 3, 'Hang Cleans': 3,
+  'Hang Power Cleans': 3, 'Front Squats': 3, 'Back Squats': 3,
+  'Push Jerks': 3, 'Shoulder to OH': 3,
+  'Burpee Over Bar': 3, 'Bar Facing Burpees': 3, 'Burpee Over DB': 3,
+  'DB Thrusters': 3, 'DB Snatches alt.': 3, 'DB Hang Snatches': 3,
+  'DB Clean & Jerks': 3, 'DB Hang Clean & Jerks': 3, 'DB OH Walking Lunges': 3,
+  'KB Cleans alt.': 3, 'KB Snatches alt.': 3, 'KB Shoulder to OH': 3,
+  'KB Clean & Press': 3, 'KB Thrusters': 3, 'KB OH Walking Lunges': 3,
+  'Box Jump Overs': 3, 'Box Jump Step-overs': 3, 'Cross Overs': 3,
+  'Toes to Rings': 3, 'Worm Squats': 3, 'Worm Lunges': 3,
+  'Ring Push-ups': 3, 'Knees to Elbows': 3,
+  // Tier 4 — standard
+  'Deadlifts': 4, 'Push Press': 4, 'Strict Press': 4, 'Sumo Deadlift HP': 4,
+  'KB Swings': 4, 'Goblet Squats': 4, 'Box Jumps': 4, 'Box Step-ups': 4,
+  'DB Deadlifts': 4, 'DB Lunges': 4, 'DB Walking Lunges': 4, 'DB Push Press': 4,
+  'DB Step-ups': 4, 'Burpees': 4, 'Down Ups': 4, 'Push-ups': 4,
+  'KB Walking Lunges': 4, 'KB Farmer Carry (m)': 4, 'DB Farmer Carry (m)': 4,
+  'MB Slams kg': 4, 'MB Cleans kg': 4, 'Shuttle Run (×7.62m)': 4,
+  // Tier 5 — facile / haut volume
+  'Air Squats': 5, 'Sit-ups': 5, 'Lunges alt.': 5,
+  'Double Unders': 5, 'Single Unders': 5,
+  'Cal Rameur': 5, 'Cal Ski Erg': 5, 'Cal Assault Bike': 5, 'm Rameur': 5,
+  'Wall Balls (cible 3m) kg': 5,
+};
+
+// Max reps per round [scaled, inter, rx, rx+, elite, pro]
+const TIER_MAX: Record<number, number[]> = {
+  1: [2,  3,  4,  5,  7,  9],
+  2: [5,  6,  8, 10, 12, 15],
+  3: [8, 10, 12, 15, 18, 21],
+  4: [12,15, 20, 25, 30, 35],
+  5: [999,999,999,999,999,999],
+};
+// Chipper (single pass) — higher caps
+const TIER_CHIPPER: Record<number, number[]> = {
+  1: [5,  7, 10, 12, 15, 20],
+  2: [10,12, 15, 20, 25, 30],
+  3: [15,20, 25, 30, 35, 40],
+  4: [25,30, 40, 50, 60, 70],
+  5: [999,999,999,999,999,999],
 };
 
 // ── Benchmark WODs (Hero + Girl + Open) ───────────────────────────────
@@ -557,6 +612,13 @@ function fmtName(mv: { mv: string; scale: string[] }, li: number): string {
 function scaleReps(base: number, li: number): number {
   const factors = [0.6, 0.8, 1, 1.15, 1.3, 1.5];
   return Math.round(base * factors[li]);
+}
+
+function mvReps(base: number, m: { mv: string; scale: string[] }, li: number, chipper = false): number {
+  const raw = scaleReps(base, li);
+  const tier = MOVE_TIER[m.mv] ?? 4;
+  const cap = chipper ? TIER_CHIPPER[tier][li] : TIER_MAX[tier][li];
+  return Math.min(raw, cap);
 }
 
 function fmt(mv: { mv: string; scale: string[] }, reps: number, li: number): string {
@@ -713,7 +775,7 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
       name = rand(NAMES_FT);
       const rounds = roundsCal();
       const mvs = ensureNoWrap(pickMvs(mvCountCal(3)));
-      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, scaleReps(12, li), li)}`).join('\n');
+      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, mvReps(12, m, li), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min)`;
       coach = 'Gère ton effort : les 2 premiers rounds doivent sembler faciles.';
     } else if (circuit === 'chipper') {
@@ -721,7 +783,7 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
       const mvCount = mvCountCal(5);
       const mvs = pickMvs(mvCount);
       const chipReps = [50, 40, 30, 25, 20, 15, 10];
-      movements = `Chipper For Time :\n` + mvs.map((m, i) => `  ${fmt(m, scaleReps(chipReps[i] ?? 10, li), li)}`).join('\n');
+      movements = `Chipper For Time :\n` + mvs.map((m, i) => `  ${fmt(m, mvReps(chipReps[i] ?? 10, m, li, true), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min) — 1 passage`;
       coach = 'Du haut vers le bas. Fractionne les gros sets. Jamais plus de 10s d\'arrêt.';
     } else if (circuit === 'couplet' || circuit === 'triplet') {
@@ -729,7 +791,7 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
       const n = circuit === 'triplet' ? 3 : 2;
       const mvs = pickMvs(n);
       const rounds = roundsCal();
-      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, scaleReps(15, li), li)}`).join('\n');
+      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, mvReps(15, m, li), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min) — ${circuit === 'triplet' ? 'Triplet' : 'Couplet'}`;
       coach = circuit === 'triplet'
         ? 'Triplet rythmé. Pas de repos entre les 3 mouvements.'
@@ -759,14 +821,14 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
       name = rand(NAMES_AM);
       const mvs = ensureNoWrap(pickMvs(mvCountCal(3)));
       const baseReps = [10, 15, 12, 20, 8, 15];
-      movements = `AMRAP ${duration} min :\n` + mvs.map((m, i) => `  ${fmt(m, scaleReps(baseReps[i] ?? 12, li), li)}`).join('\n');
+      movements = `AMRAP ${duration} min :\n` + mvs.map((m, i) => `  ${fmt(m, mvReps(baseReps[i] ?? 12, m, li), li)}`).join('\n');
       scoring = `Max rounds + reps en ${duration} min`;
       coach = 'Trouve UN rythme et tiens-le. Évite le sprint initial.';
     } else if (circuit === 'couplet' || circuit === 'triplet') {
       name = rand([...NAMES_AM, ...NAMES_CP]);
       const n = circuit === 'triplet' ? 3 : 2;
       const mvs = pickMvs(n);
-      movements = `AMRAP ${duration} min :\n` + mvs.map(m => `  ${fmt(m, scaleReps(15, li), li)}`).join('\n');
+      movements = `AMRAP ${duration} min :\n` + mvs.map(m => `  ${fmt(m, mvReps(15, m, li), li)}`).join('\n');
       scoring = `Max rounds + reps en ${duration} min — ${circuit === 'triplet' ? 'Triplet' : 'Couplet'}`;
       coach = circuit === 'triplet'
         ? '3 mouvements en boucle. Rythme constant, transitions rapides.'
@@ -776,7 +838,7 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
       const mvCount = mvCountCal(5);
       const mvs = pickMvs(mvCount);
       const chipReps = [40, 30, 25, 20, 15, 12, 10];
-      movements = `AMRAP ${duration} min (Chipper) :\n` + mvs.map((m, i) => `  ${fmt(m, scaleReps(chipReps[i] ?? 10, li), li)}`).join('\n');
+      movements = `AMRAP ${duration} min (Chipper) :\n` + mvs.map((m, i) => `  ${fmt(m, mvReps(chipReps[i] ?? 10, m, li, true), li)}`).join('\n');
       scoring = `Max rounds + reps en ${duration} min — Chipper style`;
       coach = 'Enchaîne sans pause. Chaque passage complet = 1 round.';
     }
@@ -788,7 +850,7 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
     if (circuit === 'death_by') {
       name = rand(NAMES_DB);
       const excludeErg = ['Cal Rameur','Cal Ski Erg','Cal Assault Bike','m Rameur',
-        'DB Farmer Carry (m)','KB Farmer Carry (m)','Bear Crawl (m)','Shuttle Run (×7.62m)'];
+        'DB Farmer Carry (m)','KB Farmer Carry (m)','Shuttle Run (×7.62m)'];
       const deathPool = getMoves(eqKeys, li).filter((m: any) => !excludeErg.includes(m.mv));
       const m = rand(deathPool.length > 0 ? deathPool : getMoves(eqKeys, li));
       const moveName = fmtName(m, li);
@@ -804,7 +866,7 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
       const mvs = pickMvs(n);
       const lines: string[] = [];
       for (let i = 0; i < n; i++) {
-        lines.push(`  Min ${i+1}: ${fmt(mvs[i], scaleReps(10, li), li)}`);
+        lines.push(`  Min ${i+1}: ${fmt(mvs[i], mvReps(10, mvs[i], li), li)}`);
       }
       const cycles = Math.round(duration / n);
       lines.push(`  → Répéter le cycle (${cycles} fois = ${duration} min)`);

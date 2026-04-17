@@ -27,12 +27,10 @@ final class OverlayRenderer {
   private var cachedCompLogo: UIImage?
   private var cachedCompLogoUrl: String = ""
   private var compLogoLoading = false
-  private var blackOpsFont: UIFont?
   private var dsDigitalFont: UIFont?
 
   init() {
     loadAthlexLogo()
-    loadBlackOpsFont()
     loadDSDigitalFont()
   }
 
@@ -49,31 +47,6 @@ final class OverlayRenderer {
     // Fallback: main bundle
     else if let img = UIImage(named: "logo") ?? UIImage(named: "logo.png") {
       cachedAthlexLogo = img
-    }
-  }
-
-  private func loadBlackOpsFont() {
-    let bundleName = "RealtimeRecorderResources"
-    guard let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
-          let resBundle = Bundle(url: bundleURL),
-          let fontURL = resBundle.url(forResource: "BlackOpsOne", withExtension: "ttf") else {
-      print("[OverlayRenderer] BlackOpsOne.ttf not found in resource bundle")
-      return
-    }
-    var errorRef: Unmanaged<CFError>?
-    CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &errorRef)
-    if let err = errorRef?.takeRetainedValue() {
-      // Already registered is OK
-      let desc = CFErrorGetDomain(err) as String
-      if !desc.contains("already registered") {
-        print("[OverlayRenderer] Font registration error: \(err)")
-      }
-    }
-    // PostScript name for Black Ops One is "BlackOpsOne-Regular"
-    if let font = UIFont(name: "BlackOpsOne-Regular", size: 48) {
-      blackOpsFont = font
-    } else {
-      print("[OverlayRenderer] BlackOpsOne-Regular font not available after registration")
     }
   }
 
@@ -218,93 +191,46 @@ final class OverlayRenderer {
     }
 
     // ════════════════════════════════════════════
-    //  BOTTOM ROW — AthleX (left) | Timer (center) | Timestamp (right)
-    //  Logo centered above "AthleX" text
+    //  BOTTOM ROW — AthleX logo (left) | Timer (center) | Timestamp (right)
+    //  All elements vertically centered on the same row
     // ════════════════════════════════════════════
     let safeBottom: CGFloat = isLandscape ? 40 * scale : 140 * scale
 
-    // ─── 6. "AthleX" branded text — reference baseline for bottom row ───
-    let brandH: CGFloat = isLandscape ? 40 * scale : 50 * scale
-    let brandY = size.height - safeBottom - brandH
-    let brandFontSize: CGFloat = isLandscape ? 30 * scale : 40 * scale
-    let brandTextW: CGFloat = isLandscape ? 120 * scale : 160 * scale
-    drawBrandText(context: context,
-                  rect: CGRect(x: margin, y: brandY, width: 280 * scale, height: brandH),
-                  fontSize: brandFontSize, color: .white, shadow: true)
+    // Row height driven by the timer (largest element)
+    let timerFontSize: CGFloat = isLandscape ? 140 * scale : 180 * scale
+    let timerH: CGFloat = isLandscape ? 170 * scale : 220 * scale
+    let rowCenterY = size.height - safeBottom - timerH / 2
 
-    // ─── 5. ATHLEX logo (centered horizontally above "AthleX" text) ───
-    let atlLogoH: CGFloat = isLandscape ? 80 * scale : 120 * scale
-    let atlLogoY = brandY - atlLogoH - 4 * scale
+    // ─── 4. AthleX logo (bottom-left, vertically centered) ───
+    let atlLogoH: CGFloat = isLandscape ? 120 * scale : 160 * scale
     if let atlImg = cachedAthlexLogo {
       let atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
-      let brandCenterX = margin + brandTextW / 2
-      let logoX = brandCenterX - atlLogoW / 2
-      let logoRect = CGRect(x: logoX, y: atlLogoY, width: atlLogoW, height: atlLogoH)
+      let logoY = rowCenterY - atlLogoH / 2
+      let logoRect = CGRect(x: margin, y: logoY, width: atlLogoW, height: atlLogoH)
       UIGraphicsPushContext(context)
       atlImg.draw(in: logoRect)
       UIGraphicsPopContext()
     }
 
-    // ─── 4. Timer display (center, same row as AthleX text) ───
+    // ─── 5. Timer display (center, x2 size) ───
     if state.showTimer && state.countdownValue <= 0 {
-      let timerFontSize: CGFloat = isLandscape ? 70 * scale : 90 * scale
-      let timerH: CGFloat = isLandscape ? 85 * scale : 110 * scale
-      let timerCenterY = brandY + brandH / 2
-      let timerY = timerCenterY - timerH / 2
+      let timerY = rowCenterY - timerH / 2
       drawText(context: context, text: state.timerDisplay,
                rect: CGRect(x: 0, y: timerY, width: size.width, height: timerH),
                fontSize: timerFontSize, bold: false, color: .white, alignment: .center,
                weight: .medium, shadow: true, dsDigital: true)
     }
 
-    // ─── 7. Timestamp (right, same row as AthleX text) ───
+    // ─── 6. Timestamp (right, vertically centered on same row) ───
     if !state.timestamp.isEmpty && state.showTimer && state.countdownValue <= 0 {
       let tsW: CGFloat = 260 * scale
       let tsH: CGFloat = 34 * scale
-      let tsCenterY = brandY + brandH / 2
-      let tsY = tsCenterY - tsH / 2
+      let tsY = rowCenterY - tsH / 2
       drawText(context: context, text: state.timestamp,
                rect: CGRect(x: size.width - tsW - margin, y: tsY, width: tsW, height: tsH),
                fontSize: 24 * scale, bold: false, color: UIColor.white.withAlphaComponent(0.8),
                alignment: .right, shadow: true)
     }
-  }
-
-  // MARK: - Brand text (Black Ops One)
-
-  private func drawBrandText(
-    context: CGContext,
-    rect: CGRect,
-    fontSize: CGFloat,
-    color: UIColor,
-    shadow: Bool
-  ) {
-    let font: UIFont = blackOpsFont?.withSize(fontSize)
-      ?? UIFont.boldSystemFont(ofSize: fontSize) // fallback
-
-    let paragraphStyle = NSMutableParagraphStyle()
-    paragraphStyle.alignment = .left
-    paragraphStyle.lineBreakMode = .byClipping
-
-    var attributes: [NSAttributedString.Key: Any] = [
-      .font: font,
-      .foregroundColor: color,
-      .paragraphStyle: paragraphStyle,
-    ]
-
-    if shadow {
-      let s = NSShadow()
-      s.shadowColor = UIColor.black.withAlphaComponent(0.7)
-      s.shadowOffset = CGSize(width: 2, height: 2)
-      s.shadowBlurRadius = 6
-      attributes[.shadow] = s
-    }
-
-    let attrString = NSAttributedString(string: "AthleX", attributes: attributes)
-
-    UIGraphicsPushContext(context)
-    attrString.draw(in: rect)
-    UIGraphicsPopContext()
   }
 
   // MARK: - Text drawing helper

@@ -59,6 +59,73 @@ export interface BoxProgram {
   updated_at: string;
 }
 
+export type ProgramType = 'fixed' | 'ongoing';
+export type ProgramMemberStatus = 'active' | 'expired' | 'cancelled' | 'refunded';
+
+export interface Program {
+  id: string;
+  box_id: string;
+  owner_id: string;
+  title: string;
+  description?: string;
+  price_cents: number;
+  currency: string;
+  type: ProgramType;
+  duration_weeks?: number;
+  days_per_week: number;
+  invite_code: string;
+  stripe_price_id?: string;
+  image_url?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // joined fields
+  member_count?: number;
+  box_name?: string;
+}
+
+export interface ProgramWOD {
+  id: string;
+  program_id: string;
+  day_number?: number;
+  scheduled_date?: string;
+  week_number?: number;
+  title: string;
+  description: string;
+  wod_type: string;
+  scoring_type?: string;
+  time_cap_seconds?: number;
+  notes?: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ProgramMember {
+  id: string;
+  program_id: string;
+  user_id: string;
+  start_date: string;
+  stripe_payment_intent?: string;
+  amount_cents?: number;
+  platform_fee_cents?: number;
+  status: ProgramMemberStatus;
+  purchased_at: string;
+  // joined
+  profile?: User;
+}
+
+export interface ProgramScore {
+  id: string;
+  program_wod_id: string;
+  user_id: string;
+  score_type: string;
+  score_value: number;
+  rx: boolean;
+  notes?: string;
+  created_at: string;
+  profile?: User;
+}
+
 export interface BoxSubscription {
   id: string;
   box_id: string;
