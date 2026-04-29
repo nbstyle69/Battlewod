@@ -789,8 +789,8 @@ function createStyles(t: AppTheme) {
     resultScore: { fontSize: 11, color: textSecondary, marginTop: 1 },
 
     // Box picker modal
-    boxPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', paddingBottom: 32 },
-    boxPickerSheet: { paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12 },
+    boxPickerOverlay: { flex: 1, backgroundColor: t.modalBackdrop, justifyContent: 'flex-end', paddingBottom: 32 },
+    boxPickerSheet: { backgroundColor: t.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12 },
     boxPickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)', alignSelf: 'center', marginBottom: 16 },
     boxPickerTitle: { fontSize: 16, fontWeight: '800', color: textPrimary, marginBottom: 16 },
     boxPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 14, marginBottom: 4 },

@@ -34,6 +34,8 @@ export interface AppTheme {
   error: string;
   warning: string;
   shadow: string;
+  modalCard: string;
+  modalBackdrop: string;
 }
 
 export const lightTheme: AppTheme = {
@@ -66,6 +68,8 @@ export const lightTheme: AppTheme = {
   error: '#ef4444',
   warning: '#f59e0b',
   shadow: 'rgba(0,0,0,0.06)',
+  modalCard: '#ffffff',
+  modalBackdrop: 'rgba(0,0,0,0.55)',
 };
 
 export const darkTheme: AppTheme = {
@@ -98,6 +102,8 @@ export const darkTheme: AppTheme = {
   error: '#f87171',
   warning: '#fbbf24',
   shadow: 'rgba(0,0,0,0.4)',
+  modalCard: '#14161b',
+  modalBackdrop: 'rgba(0,0,0,0.80)',
 };
 
 interface ThemeContextType {

@@ -1148,13 +1148,13 @@ function createStyles(theme: AppTheme) {
     borderWidth: 1, borderColor: `${theme.accent}35`,
   },
   timerModalBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    flex: 1, backgroundColor: theme.modalBackdrop,
     justifyContent: 'center', alignItems: 'center', padding: 20,
   },
   timerModalCard: {
     width: '100%', maxWidth: 420,
-    backgroundColor: theme.card, borderRadius: 20, padding: 20, gap: 14,
-    borderWidth: 1, borderColor: theme.border,
+    backgroundColor: theme.modalCard, borderRadius: 20, padding: 20, gap: 14,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
   },
   timerModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   timerModalTitle: { fontSize: 17, fontWeight: '800', color: theme.text },
@@ -1284,9 +1284,9 @@ function createStyles(theme: AppTheme) {
     paddingVertical: 16, paddingHorizontal: 20, marginTop: 4,
   },
   joinBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: theme.modalBackdrop },
   joinSheet: {
-    backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: theme.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, paddingBottom: 40, gap: 14,
   },
   joinHandle: {

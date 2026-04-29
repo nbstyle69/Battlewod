@@ -1124,7 +1124,7 @@ function createStyles(theme: AppTheme) {
   leaderScore: { fontSize: 15, fontWeight: '900', color: theme.text, fontVariant: ['tabular-nums'] },
   leaderScoreGold: { color: theme.gold },
   leaderRxBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
-  modalContainer: { flex: 1, backgroundColor: theme.background },
+  modalContainer: { flex: 1, backgroundColor: theme.modalCard },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16,
@@ -1178,7 +1178,7 @@ function createStyles(theme: AppTheme) {
   submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   // ── Score Detail Modal ──
-  sdContainer: { flex: 1, backgroundColor: theme.background },
+  sdContainer: { flex: 1, backgroundColor: theme.modalCard },
   sdHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16,
@@ -1286,12 +1286,12 @@ function createStyles(theme: AppTheme) {
 
   // ── Share Modal ──
   shareOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
+    flex: 1, backgroundColor: theme.modalBackdrop,
     justifyContent: 'center', alignItems: 'center', padding: 20,
   },
   shareContainer: {
-    width: '100%', maxWidth: 400, backgroundColor: theme.card,
-    borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: theme.border,
+    width: '100%', maxWidth: 400, backgroundColor: theme.modalCard,
+    borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
   },
   shareHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

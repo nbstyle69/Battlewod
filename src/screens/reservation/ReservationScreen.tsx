@@ -638,8 +638,8 @@ function createStyles(t: AppTheme) {
     emptyWeekTitle:     { fontSize: 18, fontWeight: '800', color: t.text },
     emptyWeekSub:       { fontSize: 13, color: t.textMuted, textAlign: 'center', paddingHorizontal: 32 },
 
-    modalOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-    modalSheet:         { backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 34, maxHeight: '75%' },
+    modalOverlay:       { flex: 1, backgroundColor: t.modalBackdrop, justifyContent: 'flex-end' },
+    modalSheet:         { backgroundColor: t.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 34, maxHeight: '75%' },
     modalHeader:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: t.border },
     modalTitle:         { fontSize: 18, fontWeight: '900', color: t.text },
     modalSubtitle:      { fontSize: 13, color: t.textMuted, marginTop: 2 },

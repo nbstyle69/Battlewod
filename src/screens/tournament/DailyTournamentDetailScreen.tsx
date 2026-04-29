@@ -890,9 +890,9 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   },
   winnerTxt: { fontSize: 14, fontWeight: '900', color: t.gold, flex: 1 },
   // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: t.modalBackdrop },
   modalSheet: {
-    backgroundColor: t.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: t.modalCard, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 40, gap: 12,
   },
   modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 4 },

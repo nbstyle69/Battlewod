@@ -1312,9 +1312,9 @@ function createStyles(t: AppTheme) {
   },
   saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: t.modalBackdrop },
   modalSheet: {
-    backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: t.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, gap: 14, paddingBottom: 40,
   },
   modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 4 },
