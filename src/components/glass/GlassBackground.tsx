@@ -14,18 +14,18 @@ export default function GlassBackground() {
   const { theme } = useTheme();
   const isDark = theme.mode === 'dark';
 
-  // Gradient colors per theme
+  // Gradient colors per theme — boosted emerald for visibility
   const gradient: [string, string, string] = isDark
-    ? ['#022c22', '#0d1f17', '#14532d']
+    ? ['#0a2e24', '#0f3d2e', '#1a5a3f']
     : ['#ecfdf5', '#f0fdf4', '#d1fae5'];
 
-  // Blobs colors per theme
+  // Blobs colors per theme — stronger alpha so blobs really pop
   const blobColors = isDark
     ? {
-        b1: 'rgba(16,185,129,0.30)',
-        b2: 'rgba(5,150,105,0.25)',
-        b3: 'rgba(52,211,153,0.25)',
-        b4: 'rgba(110,231,183,0.20)',
+        b1: 'rgba(16,185,129,0.55)',
+        b2: 'rgba(5,150,105,0.50)',
+        b3: 'rgba(52,211,153,0.50)',
+        b4: 'rgba(110,231,183,0.40)',
       }
     : {
         b1: 'rgba(16,185,129,0.50)',
@@ -73,20 +73,20 @@ export default function GlassBackground() {
         style={StyleSheet.absoluteFill}
       />
       {/* Top-left blob */}
-      <Animated.View style={{ position: 'absolute', top: -80, left: -60, transform: [{ translateX: t1x }, { translateY: t1y }] }}>
-        <BlurredCircle color={blobColors.b1} size={320} blur={60} />
+      <Animated.View style={{ position: 'absolute', top: -100, left: -80, transform: [{ translateX: t1x }, { translateY: t1y }] }}>
+        <BlurredCircle color={blobColors.b1} size={400} blur={70} />
       </Animated.View>
       {/* Bottom-right blob */}
-      <Animated.View style={{ position: 'absolute', bottom: -80, right: -60, transform: [{ translateX: t2x }, { translateY: t2y }] }}>
-        <BlurredCircle color={blobColors.b2} size={300} blur={60} />
+      <Animated.View style={{ position: 'absolute', bottom: -100, right: -80, transform: [{ translateX: t2x }, { translateY: t2y }] }}>
+        <BlurredCircle color={blobColors.b2} size={380} blur={70} />
       </Animated.View>
       {/* Floating mid-left */}
-      <Animated.View style={{ position: 'absolute', top: H * 0.35, left: -80, transform: [{ translateX: t3x }, { translateY: t3y }] }}>
-        <BlurredCircle color={blobColors.b3} size={220} blur={40} />
+      <Animated.View style={{ position: 'absolute', top: H * 0.30, left: -120, transform: [{ translateX: t3x }, { translateY: t3y }] }}>
+        <BlurredCircle color={blobColors.b3} size={300} blur={50} />
       </Animated.View>
       {/* Floating mid-right */}
-      <Animated.View style={{ position: 'absolute', top: H * 0.55, right: -100, transform: [{ translateX: t4x }, { translateY: t4y }] }}>
-        <BlurredCircle color={blobColors.b4} size={260} blur={40} />
+      <Animated.View style={{ position: 'absolute', top: H * 0.55, right: -140, transform: [{ translateX: t4x }, { translateY: t4y }] }}>
+        <BlurredCircle color={blobColors.b4} size={340} blur={50} />
       </Animated.View>
     </View>
   );
