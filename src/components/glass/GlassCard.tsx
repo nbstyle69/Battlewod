@@ -42,7 +42,7 @@ export default function GlassCard({ style, children, variant = 'default', intens
         style,
       ]}
     >
-      <View style={[styles.clip, { borderRadius: radius, borderColor, borderWidth: 1 }]}>
+      <View style={[styles.clip, { borderRadius: radius, borderColor, borderWidth: 1, flex: 1 }]}>
         {Platform.OS === 'ios' ? (
           <BlurView intensity={intensity} tint={tint} style={StyleSheet.absoluteFill} />
         ) : (
