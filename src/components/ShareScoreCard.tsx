@@ -151,9 +151,9 @@ const styles = StyleSheet.create({
   },
   bgGlow: {
     position: 'absolute',
-    top: '20%',
-    left: '10%',
-    width: '80%',
+    top: '28%',
+    left: '12%',
+    width: '76%',
     height: '40%',
     borderRadius: 999,
     backgroundColor: '#C9A22710',
@@ -273,6 +273,7 @@ const styles = StyleSheet.create({
   athleteRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 24,
   },
   avatarCircle: {
@@ -289,8 +290,8 @@ const styles = StyleSheet.create({
     color: '#C9A227',
   },
   athleteInfo: {
-    flex: 1,
     gap: 4,
+    alignItems: 'flex-start',
   },
   athleteName: {
     fontSize: 36,
