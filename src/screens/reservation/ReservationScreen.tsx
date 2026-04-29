@@ -57,6 +57,15 @@ interface SlotParticipant {
 const REGISTER_CUTOFF_MIN = 15;
 const CANCEL_CUTOFF_MIN   = 20;
 
+// Rolling visibility window: user only sees slots up to today + N days from now.
+const VISIBILITY_DAYS = 14;
+
+function getHorizonDate(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + VISIBILITY_DAYS);
+  return d;
+}
+
 function minutesUntilSlot(scheduled_date: string, start_time: string): number {
   const slotTime = new Date(`${scheduled_date}T${start_time}:00`);
   return (slotTime.getTime() - Date.now()) / 60_000;
@@ -85,12 +94,25 @@ export default function ReservationScreen() {
     const start = toISO(weekDates[0]);
     const end   = toISO(weekDates[6]);
 
+    // Cap fetch range to [today, today + VISIBILITY_DAYS]
+    const today = toISO(new Date());
+    const horizon = toISO(getHorizonDate());
+    const effectiveStart = start < today ? today : start;
+    const effectiveEnd   = end > horizon ? horizon : end;
+
+    if (effectiveStart > effectiveEnd) {
+      setSchedules([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     const { data: schedulesData } = await supabase
       .from('class_schedules')
       .select('*')
       .eq('box_id', currentBox.id)
-      .gte('scheduled_date', start)
-      .lte('scheduled_date', end)
+      .gte('scheduled_date', effectiveStart)
+      .lte('scheduled_date', effectiveEnd)
       .order('scheduled_date')
       .order('start_time');
 
@@ -312,14 +334,19 @@ export default function ReservationScreen() {
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
         theme={theme}
+        maxDate={toISO(getHorizonDate())}
       />
 
       {loading
         ? <ActivityIndicator style={{ marginTop: 60 }} size="large" color={theme.accent} />
         : (() => {
           const isPast   = selectedDate < todayISO;
+          const horizonMs = getHorizonDate().getTime();
           const dayItems = schedules.filter(s => {
             if (s.scheduled_date !== selectedDate) return false;
+            // Strict 14-day datetime cap (e.g. Wed 13h -> visible until Wed+14 13h)
+            const slotMs = new Date(`${s.scheduled_date}T${s.start_time}:00`).getTime();
+            if (slotMs > horizonMs) return false;
             // Hide slots whose registration window has closed (today only)
             if (s.scheduled_date === todayISO) {
               return minutesUntilSlot(s.scheduled_date, s.start_time) >= REGISTER_CUTOFF_MIN;

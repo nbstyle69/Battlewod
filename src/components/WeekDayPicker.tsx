@@ -31,11 +31,20 @@ interface Props {
   selectedDate: string;
   onSelectDate: (iso: string) => void;
   theme: AppTheme;
+  /** Optional ISO date (YYYY-MM-DD): hide/disable days strictly after this date. */
+  maxDate?: string;
 }
 
-export default function WeekDayPicker({ weekOffset, setWeekOffset, selectedDate, onSelectDate, theme }: Props) {
+export default function WeekDayPicker({ weekOffset, setWeekOffset, selectedDate, onSelectDate, theme, maxDate }: Props) {
   const weekDates = getWeekDates(weekOffset);
   const todayISO = toISO(new Date());
+  // Disable forward arrow when the next week is fully beyond maxDate
+  const nextWeekFirstISO = (() => {
+    const d = new Date(weekDates[0]);
+    d.setDate(d.getDate() + 7);
+    return toISO(d);
+  })();
+  const forwardDisabled = !!maxDate && nextWeekFirstISO > maxDate;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
@@ -48,6 +57,7 @@ export default function WeekDayPicker({ weekOffset, setWeekOffset, selectedDate,
           const iso = toISO(d);
           const isSelected = iso === selectedDate;
           const isToday = iso === todayISO;
+          const isOverHorizon = !!maxDate && iso > maxDate;
 
           return (
             <TouchableOpacity
@@ -55,8 +65,10 @@ export default function WeekDayPicker({ weekOffset, setWeekOffset, selectedDate,
               style={[
                 styles.dayCell,
                 isSelected && [styles.dayCellSelected, { borderColor: theme.text }],
+                isOverHorizon && { opacity: 0.25 },
               ]}
-              onPress={() => onSelectDate(iso)}
+              onPress={() => { if (!isOverHorizon) onSelectDate(iso); }}
+              disabled={isOverHorizon}
               activeOpacity={0.7}
             >
               <Text style={[
@@ -77,7 +89,12 @@ export default function WeekDayPicker({ weekOffset, setWeekOffset, selectedDate,
           );
         })}
 
-        <TouchableOpacity onPress={() => setWeekOffset(w => w + 1)} style={styles.arrow} activeOpacity={0.6}>
+        <TouchableOpacity
+          onPress={() => { if (!forwardDisabled) setWeekOffset(w => w + 1); }}
+          disabled={forwardDisabled}
+          style={[styles.arrow, forwardDisabled && { opacity: 0.25 }]}
+          activeOpacity={0.6}
+        >
           <ChevronRight color={theme.textMuted} size={18} />
         </TouchableOpacity>
       </View>
