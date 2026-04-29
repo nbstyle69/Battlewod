@@ -27,6 +27,7 @@ import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
+import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -549,10 +550,14 @@ export default function WODDetailScreen() {
               <Text style={S.expiredText}>Soumission de score terminée (minuit passé)</Text>
             </View>
           ) : (
-            <TouchableOpacity style={S.enterScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.85}>
-              <Plus color="#fff" size={18} />
-              <Text style={S.enterScoreBtnText}>Entrer mon score</Text>
-            </TouchableOpacity>
+            <EmeraldCTAButton
+              icon={<Plus color="#fff" size={18} />}
+              size="md"
+              onPress={() => setModalOpen(true)}
+              style={{ marginTop: 4 }}
+            >
+              Entrer mon score
+            </EmeraldCTAButton>
           )}
         </View>
 
@@ -780,16 +785,14 @@ export default function WODDetailScreen() {
                 multiline
               />
 
-              <TouchableOpacity
-                style={[S.submitBtn, (!(dnf ? capReps.trim() : scoreType === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting) && S.submitBtnDisabled]}
+              <EmeraldCTAButton
+                loading={submitting}
+                disabled={!(dnf ? capReps.trim() : scoreType === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim())}
                 onPress={submitScore}
-                disabled={!(dnf ? capReps.trim() : scoreType === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting}
-                activeOpacity={0.85}
+                style={{ marginTop: 8 }}
               >
-                {submitting
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.submitBtnText}>Valider le score</Text>}
-              </TouchableOpacity>
+                Valider le score
+              </EmeraldCTAButton>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -826,20 +829,14 @@ export default function WODDetailScreen() {
                   </ViewShot>
                 </View>
 
-                <TouchableOpacity
-                  style={S.shareCTA}
+                <EmeraldCTAButton
+                  loading={sharing}
+                  icon={<Share2 color="#fff" size={18} />}
                   onPress={handleShare}
-                  disabled={sharing}
-                  activeOpacity={0.85}
+                  style={{ marginHorizontal: 20 }}
                 >
-                  {sharing
-                    ? <ActivityIndicator color="#fff" />
-                    : <>
-                        <Share2 color="#fff" size={18} />
-                        <Text style={S.shareCTAText}>Partager ma performance</Text>
-                      </>
-                  }
-                </TouchableOpacity>
+                  Partager ma performance
+                </EmeraldCTAButton>
               </>
             )}
 

@@ -12,6 +12,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
+import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
 
 interface ClassSchedule {
   id: string;
@@ -542,12 +543,12 @@ export default function ReservationScreen() {
 
             {/* Action buttons */}
             {detailItem && !detailItem.my_status && detailItem.available_spots > 0 && (
-              <TouchableOpacity
-                style={[S.modalActionBtn, { backgroundColor: theme.accent }]}
+              <EmeraldCTAButton
                 onPress={() => { setDetailItem(null); toggleBooking(detailItem); }}
+                size="md"
               >
-                <Text style={S.modalActionBtnText}>Réserver ce créneau</Text>
-              </TouchableOpacity>
+                Réserver ce créneau
+              </EmeraldCTAButton>
             )}
             {detailItem && detailItem.my_status && (
               <TouchableOpacity

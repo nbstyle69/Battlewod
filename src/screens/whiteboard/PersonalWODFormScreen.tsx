@@ -14,6 +14,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWODType } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
+import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
 
 type Nav = NativeStackNavigationProp<WhiteboardStackParamList, 'PersonalWODForm'>;
 type Rt = RouteProp<WhiteboardStackParamList, 'PersonalWODForm'>;
@@ -302,16 +303,14 @@ export default function PersonalWODFormScreen() {
           multiline
         />
 
-        <TouchableOpacity
-          style={[S.saveBtn, (!title.trim() || submitting) && S.saveBtnDisabled]}
+        <EmeraldCTAButton
           onPress={save}
-          disabled={!title.trim() || submitting}
-          activeOpacity={0.85}
+          disabled={!title.trim()}
+          loading={submitting}
+          style={{ marginTop: 8 }}
         >
-          {submitting
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={S.saveBtnText}>{editId ? 'Enregistrer' : 'Créer le WOD'}</Text>}
-        </TouchableOpacity>
+          {editId ? 'Enregistrer' : 'Créer le WOD'}
+        </EmeraldCTAButton>
       </ScrollView>
     </KeyboardAvoidingView>
   );

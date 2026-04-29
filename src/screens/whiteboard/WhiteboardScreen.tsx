@@ -22,6 +22,7 @@ import { buildTimerRunParams, formatWODPreconfig, EmomOverride } from '../../uti
 import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
+import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
 
 function toISO(d: Date): string {
   const y = d.getFullYear();
@@ -577,14 +578,14 @@ export default function WhiteboardScreen() {
               <View style={S.noWodCard}>
                 <Text style={S.noWodEmoji}>📋</Text>
                 <Text style={S.noWodText}>Pas de WOD publié ce jour</Text>
-                <TouchableOpacity
-                  style={S.createWodPrimary}
+                <EmeraldCTAButton
+                  icon={<Sparkles size={16} color="#fff" />}
+                  size="md"
                   onPress={() => navigation.navigate('PersonalWODForm', { date: selectedDate })}
-                  activeOpacity={0.85}
+                  style={{ marginTop: 14 }}
                 >
-                  <Sparkles size={16} color="#fff" />
-                  <Text style={S.createWodPrimaryText}>+ Créer un WOD</Text>
-                </TouchableOpacity>
+                  + Créer un WOD
+                </EmeraldCTAButton>
               </View>
             )}
           </View>
@@ -777,14 +778,13 @@ export default function WhiteboardScreen() {
         if (!mainWod) return null;
         return (
           <View style={S.quickActions}>
-            <TouchableOpacity
-              style={S.scoreBtn}
+            <EmeraldCTAButton
+              icon={<Sparkles size={20} color="#fff" />}
               onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id })}
-              activeOpacity={0.85}
+              textStyle={{ fontSize: 17 }}
             >
-              <Sparkles size={20} color="#fff" />
-              <Text style={S.scoreBtnText}>ENTRER MON SCORE</Text>
-            </TouchableOpacity>
+              ENTRER MON SCORE
+            </EmeraldCTAButton>
             <TouchableOpacity
               style={S.rankBtn}
               onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id, scrollToLeaderboard: true })}
