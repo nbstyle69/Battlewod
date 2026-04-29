@@ -15,6 +15,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { useAuth } from '../context/AuthContext';
 import { Colors } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
+import GlassTabBarBackground from '../components/glass/GlassTabBarBackground';
 
 function useAndroidNavBar(bgColor: string, mode: 'light' | 'dark') {
   React.useEffect(() => {
@@ -546,18 +547,22 @@ function BoxOwnerTabs() {
   const insets = useSafeAreaInsets();
   useAndroidNavBar(theme.tabBar, mode);
   const tabStyle = {
-    backgroundColor: theme.tabBar,
-    borderTopColor: theme.tabBarBorder,
-    borderTopWidth: 1,
+    position: 'absolute' as const,
+    backgroundColor: 'transparent',
+    borderTopColor: 'transparent',
+    borderTopWidth: 0,
     height: 60 + insets.bottom,
     paddingBottom: 10 + insets.bottom,
     paddingTop: 8,
+    elevation: 0,
+    shadowOpacity: 0,
   };
   return (
     <BOTab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: tabStyle,
+        tabBarBackground: () => <GlassTabBarBackground />,
         tabBarActiveTintColor: theme.tabBarActive,
         tabBarInactiveTintColor: theme.tabBarInactive,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
@@ -603,18 +608,22 @@ function CoachTabs() {
   const insets = useSafeAreaInsets();
   useAndroidNavBar(theme.tabBar, mode);
   const tabStyle = {
-    backgroundColor: theme.tabBar,
-    borderTopColor: theme.tabBarBorder,
-    borderTopWidth: 1,
+    position: 'absolute' as const,
+    backgroundColor: 'transparent',
+    borderTopColor: 'transparent',
+    borderTopWidth: 0,
     height: 60 + insets.bottom,
     paddingBottom: 10 + insets.bottom,
     paddingTop: 8,
+    elevation: 0,
+    shadowOpacity: 0,
   };
   return (
     <CoachTab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: tabStyle,
+        tabBarBackground: () => <GlassTabBarBackground />,
         tabBarActiveTintColor: theme.tabBarActive,
         tabBarInactiveTintColor: theme.tabBarInactive,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
@@ -650,15 +659,17 @@ function MainTabs() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.tabBar,
-          borderTopColor: theme.tabBarBorder,
-          borderTopWidth: 1,
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopColor: 'transparent',
+          borderTopWidth: 0,
           height: Platform.OS === 'ios' ? 84 : 60 + bottomInset,
           paddingBottom: Platform.OS === 'ios' ? 24 : 10 + bottomInset,
           paddingTop: 8,
           elevation: 0,
           shadowOpacity: 0,
         },
+        tabBarBackground: () => <GlassTabBarBackground />,
         tabBarActiveTintColor: theme.tabBarActive,
         tabBarInactiveTintColor: theme.tabBarInactive,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.2 },
