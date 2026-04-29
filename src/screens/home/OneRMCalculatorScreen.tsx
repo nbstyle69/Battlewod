@@ -11,6 +11,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const STORAGE_KEY = '@athlex:1rm_calc';
 
@@ -121,6 +122,7 @@ export default function OneRMCalculatorScreen() {
 
   return (
     <SafeAreaView style={S.screen}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn} activeOpacity={0.7}>
           <ArrowLeft color={theme.text} size={22} />
@@ -238,7 +240,7 @@ export default function OneRMCalculatorScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
