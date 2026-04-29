@@ -14,6 +14,7 @@ import {
   registerForPushNotifications,
   savePushToken,
 } from '../../services/notifications';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -211,7 +212,7 @@ export default function NotificationSettingsScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12,

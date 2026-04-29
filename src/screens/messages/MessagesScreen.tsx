@@ -429,6 +429,7 @@ export default function MessagesScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -461,6 +462,7 @@ export default function MessagesScreen() {
       style={S.container}
       keyboardVerticalOffset={0}
     >
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

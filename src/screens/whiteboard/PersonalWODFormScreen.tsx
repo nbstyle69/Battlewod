@@ -150,6 +150,7 @@ export default function PersonalWODFormScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -160,6 +161,7 @@ export default function PersonalWODFormScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={S.container}
     >
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.text} size={22} />

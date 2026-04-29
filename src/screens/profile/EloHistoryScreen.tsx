@@ -13,6 +13,7 @@ import { captureError } from '../../lib/sentry';
 import { log } from '../../lib/logger';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface EloEntry {
   id: string;
@@ -174,6 +175,7 @@ export default function EloHistoryScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={S.backBtn}>
@@ -456,7 +458,7 @@ function EloChart({ entries, currentElo, theme, isDark }: {
 
 function createStyles(theme: AppTheme, isDark: boolean) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16,

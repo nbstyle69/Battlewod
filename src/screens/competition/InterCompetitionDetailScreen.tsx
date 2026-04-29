@@ -14,6 +14,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
 type Route = RouteProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
@@ -125,11 +126,13 @@ export default function InterCompetitionDetailScreen() {
 
   if (loading) return (
     <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <GlassBackground />
       <ActivityIndicator color={theme.accent} size="large" />
     </View>
   );
   if (!comp) return (
     <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <GlassBackground />
       <Text style={{ color: theme.textMuted }}>Compétition introuvable.</Text>
     </View>
   );
@@ -138,6 +141,7 @@ export default function InterCompetitionDetailScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
@@ -437,7 +441,7 @@ export default function InterCompetitionDetailScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,

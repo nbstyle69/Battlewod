@@ -10,6 +10,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
@@ -91,6 +92,7 @@ export default function BoxProgramsScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.back}>
           <ChevronLeft color={theme.text} size={24} />
@@ -162,7 +164,7 @@ export default function BoxProgramsScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,

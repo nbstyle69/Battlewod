@@ -16,6 +16,7 @@ export default function ExplorerScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       <View style={s.header}>
         <View style={s.headerIcon}>
           <Compass color={theme.accent} size={22} />

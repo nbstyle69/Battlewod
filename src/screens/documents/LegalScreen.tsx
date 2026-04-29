@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'r
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Tab = 'cgu' | 'privacy';
 
@@ -15,6 +16,7 @@ export default function LegalScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => nav.goBack()} hitSlop={12}>
           <ArrowLeft color={theme.text} size={22} />
@@ -212,7 +214,7 @@ function PrivacyContent({ theme, S }: { theme: AppTheme; S: any }) {
 
 function createStyles(t: AppTheme, isDark: boolean) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12,

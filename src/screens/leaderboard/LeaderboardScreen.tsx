@@ -15,6 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const LEVELS: (AthleteLevel | 'all')[] = ['all', 'scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const MAIN_TABS = ['Individuel', 'Équipes', 'Box'];
@@ -181,6 +182,7 @@ export default function LeaderboardScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
           <ChevronLeft color={theme.textSecondary} size={24} />
@@ -384,7 +386,7 @@ export default function LeaderboardScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

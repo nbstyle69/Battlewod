@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList, TimerType } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'PhysicalCompetition'>;
 
@@ -156,6 +157,7 @@ export default function PhysicalCompetitionScreen() {
 
     return (
       <View style={S.container}>
+      <GlassBackground />
         <View style={S.header}>
           <TouchableOpacity onPress={() => setSelected(null)} style={S.backBtn} activeOpacity={0.7}>
             <ChevronLeft color={theme.text} size={24} />
@@ -302,6 +304,7 @@ export default function PhysicalCompetitionScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn} activeOpacity={0.7}>
           <ChevronLeft color={theme.text} size={24} />
@@ -421,7 +424,7 @@ export default function PhysicalCompetitionScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: {
       paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,

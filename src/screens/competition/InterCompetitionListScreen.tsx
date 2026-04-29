@@ -11,6 +11,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'InterCompetitionList'>;
 
@@ -78,6 +79,7 @@ export default function InterCompetitionListScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
@@ -175,7 +177,7 @@ export default function InterCompetitionListScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,

@@ -24,6 +24,7 @@ import {
   TournamentWOD, TournamentScore,
   MOVEMENT_BADGE_LEVELS, formatDate,
 } from '../../utils/tournamentUtils';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'Tournament'>;
 type Route = RouteProp<CompetitionStackParamList, 'Tournament'>;
@@ -287,6 +288,7 @@ export default function TournamentScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* ── Header ── */}
       <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
@@ -772,7 +774,7 @@ export default function TournamentScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container:        { flex: 1, backgroundColor: theme.background },
+  container:        { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' },
   errorText:        { fontSize: 14, color: theme.textMuted },
   header:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 20, flexDirection: 'row', gap: 12 },

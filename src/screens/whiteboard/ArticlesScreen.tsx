@@ -178,6 +178,7 @@ export default function ArticlesScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -187,6 +188,7 @@ export default function ArticlesScreen() {
   if (selectedArticle) {
     return (
       <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <GlassBackground />
         <View style={S.header}>
           <TouchableOpacity onPress={() => { setSelectedArticle(null); setComments([]); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <ArrowLeft color={theme.text} size={22} />
