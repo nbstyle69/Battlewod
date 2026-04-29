@@ -19,6 +19,7 @@ import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, St
 import { HomeStackParamList } from '../../navigation';
 import { Program } from '../../types';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
@@ -542,6 +543,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View style={S.headerTop}>
           <UserAvatar
@@ -1150,7 +1152,7 @@ function createStyles(t: AppTheme) {
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   };
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 58, paddingHorizontal: 20, paddingBottom: 20,
     backgroundColor: t.card,

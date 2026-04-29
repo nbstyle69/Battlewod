@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
@@ -79,7 +80,7 @@ export default function ExplorerScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,

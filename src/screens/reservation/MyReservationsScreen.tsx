@@ -8,6 +8,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface ReservationRow {
   id: string;
@@ -83,6 +84,7 @@ export default function MyReservationsScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={S.back}>
           <ChevronLeft color={theme.text} size={22} />
@@ -216,7 +218,7 @@ export default function MyReservationsScreen() {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       paddingTop: 56, paddingHorizontal: 16, paddingBottom: 16,
       backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border,

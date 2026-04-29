@@ -12,6 +12,7 @@ import { incrementCounter } from '../../services/gamification';
 import { captureError } from '../../lib/sentry';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WODType } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const DURATIONS = [5, 10, 15, 20];
@@ -896,6 +897,7 @@ export default function WODGeneratorScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.textSecondary} size={24} />
@@ -1244,7 +1246,7 @@ export default function WODGeneratorScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   back: { marginBottom: 12 },
   headerTitle: { fontSize: 24, fontWeight: '900', color: theme.text },

@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface ClassSchedule {
   id: string;
@@ -297,6 +298,7 @@ export default function ReservationScreen() {
   if (!currentBox) {
     return (
       <View style={S.emptyContainer}>
+        <GlassBackground />
         <CalendarClock color={theme.textMuted} size={48} strokeWidth={1.5} />
         <Text style={S.emptyTitle}>Pas de box associée</Text>
         <Text style={S.emptySubtitle}>Rejoins une box pour voir les créneaux disponibles.</Text>
@@ -306,6 +308,7 @@ export default function ReservationScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
@@ -565,8 +568,8 @@ export default function ReservationScreen() {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container:          { flex: 1, backgroundColor: t.background },
-    emptyContainer:     { flex: 1, backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, gap: 12 },
+    container:          { flex: 1, backgroundColor: 'transparent' },
+    emptyContainer:     { flex: 1, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, gap: 12 },
     emptyTitle:         { fontSize: 20, fontWeight: '800', color: t.text },
     emptySubtitle:      { fontSize: 14, color: t.textMuted, textAlign: 'center' },
 

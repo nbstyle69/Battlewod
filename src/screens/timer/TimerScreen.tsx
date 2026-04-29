@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { HomeStackParamList, TimerType, SeqBlock, BlockType } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Timer'>;
 
@@ -349,6 +350,7 @@ export default function TimerScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.textSecondary} size={24} />
@@ -433,7 +435,7 @@ export default function TimerScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 14,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

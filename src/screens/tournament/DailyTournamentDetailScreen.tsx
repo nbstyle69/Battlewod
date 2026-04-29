@@ -24,6 +24,7 @@ import { formatScoreValue } from '../../utils/scoreFormat';
 import { calculatePairwiseDeltas, SCALED_MULTIPLIER } from '../../utils/elo';
 
 import { HomeStackParamList, TimerType } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 type Route = RouteProp<{ DailyTournamentDetail: { tournamentId: string } }, 'DailyTournamentDetail'>;
@@ -821,7 +822,7 @@ export default function DailyTournamentDetailScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

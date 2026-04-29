@@ -13,6 +13,7 @@ import { CompetitionStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'CompetitionList'>;
 
@@ -155,6 +156,7 @@ export default function CompetitionScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View>
           <Text style={S.headerTitle}>Compétitions</Text>
@@ -393,7 +395,7 @@ function createStyles(theme: AppTheme) {
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   };
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card,

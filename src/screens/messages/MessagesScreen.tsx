@@ -19,6 +19,7 @@ import { sendNewMessageNotification } from '../../services/notifications';
 import { incrementCounter } from '../../services/gamification';
 import { MessageType } from '../../types';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const REACTION_EMOJIS = ['❤️', '🔥', '💪', '😂', '👏', '👀'];
 const SCREEN_W = Dimensions.get('window').width;
@@ -418,6 +419,7 @@ export default function MessagesScreen() {
   if (!currentBox) {
     return (
       <View style={S.container}>
+      <GlassBackground />
         <View style={S.header}><Text style={S.headerTitle}>Messages</Text></View>
         <View style={S.empty}><Text style={S.emptyText}>Rejoins une box pour accéder aux messages 🏋️</Text></View>
       </View>
@@ -709,7 +711,7 @@ export default function MessagesScreen() {
 function createStyles(theme: AppTheme) {
   const isDark = theme.mode === 'dark';
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
     backgroundColor: theme.card,

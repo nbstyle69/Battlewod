@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Colors, LevelColors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { GenderTarget } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<any>;
 
@@ -398,7 +399,7 @@ export default function DailyTournamentsScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12,

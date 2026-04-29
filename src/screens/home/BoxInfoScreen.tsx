@@ -9,6 +9,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface BoxInfo {
   name: string;
@@ -96,6 +97,7 @@ export default function BoxInfoScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={[S.container, S.center]}>
+      <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -104,6 +106,7 @@ export default function BoxInfoScreen({ navigation }: any) {
   if (!info) {
     return (
       <View style={[S.container, S.center]}>
+      <GlassBackground />
         <Text style={{ color: theme.textMuted }}>Aucune information disponible</Text>
       </View>
     );
@@ -115,6 +118,7 @@ export default function BoxInfoScreen({ navigation }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <ArrowLeft color={theme.text} size={22} />
@@ -267,7 +271,7 @@ export default function BoxInfoScreen({ navigation }: any) {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,

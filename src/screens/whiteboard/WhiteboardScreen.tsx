@@ -21,6 +21,7 @@ import { WhiteboardStackParamList } from '../../navigation';
 import { buildTimerRunParams, formatWODPreconfig, EmomOverride } from '../../utils/wodToTimer';
 import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 function toISO(d: Date): string {
   const y = d.getFullYear();
@@ -484,6 +485,7 @@ export default function WhiteboardScreen() {
     const todayISO = toISO(new Date());
     return (
       <View style={S.container}>
+      <GlassBackground />
         <View style={S.header}>
           <Text style={S.headerTitle}>Ma Box</Text>
         </View>
@@ -696,6 +698,7 @@ export default function WhiteboardScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <View style={S.headerRow}>
@@ -1064,7 +1067,7 @@ function createStyles(theme: AppTheme) {
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   };
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card,

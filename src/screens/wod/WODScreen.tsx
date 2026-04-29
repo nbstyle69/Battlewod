@@ -9,6 +9,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WOD } from '../../types';
 import { WODStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<WODStackParamList, 'WODList'>;
 
@@ -68,6 +69,7 @@ export default function WODScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View style={S.headerRow}>
           <View>
@@ -161,7 +163,7 @@ export default function WODScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 28, fontWeight: '900', color: theme.text },

@@ -12,6 +12,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
 import { HomeStackParamList } from '../../navigation';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'PublicProfile'>;
@@ -191,6 +192,7 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
           <ChevronLeft color={theme.text} size={24} />
@@ -263,7 +265,7 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background },
   notFound: { fontSize: 15, color: theme.textMuted },
   header: {

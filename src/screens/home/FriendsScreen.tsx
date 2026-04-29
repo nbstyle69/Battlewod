@@ -15,6 +15,7 @@ import { sendFriendRequestNotification, sendFriendAcceptedNotification } from '.
 import { incrementCounter } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -163,6 +164,7 @@ export default function FriendsScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.textSecondary} size={24} />
@@ -382,7 +384,7 @@ export default function FriendsScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
       backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

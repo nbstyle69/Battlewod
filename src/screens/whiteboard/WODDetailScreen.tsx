@@ -26,6 +26,7 @@ import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -426,6 +427,7 @@ export default function WODDetailScreen() {
   if (!wod) {
     return (
       <View style={S.container}>
+      <GlassBackground />
         <View style={S.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
             <ChevronLeft color={theme.text} size={22} />
@@ -441,6 +443,7 @@ export default function WODDetailScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
           <ChevronLeft color={theme.text} size={22} />
@@ -1027,7 +1030,7 @@ function createStyles(theme: AppTheme) {
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   };
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,
     backgroundColor: theme.card,

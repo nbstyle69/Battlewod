@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWODType } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<WhiteboardStackParamList, 'PersonalWODForm'>;
 type Rt = RouteProp<WhiteboardStackParamList, 'PersonalWODForm'>;
@@ -316,7 +317,7 @@ export default function PersonalWODFormScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,
       backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
