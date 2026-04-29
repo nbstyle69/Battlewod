@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassBackground from '../../components/glass/GlassBackground';
+import GlassCard from '../../components/glass/GlassCard';
 
 const STORAGE_KEY = '@athlex:1rm_calc';
 
@@ -139,77 +140,85 @@ export default function OneRMCalculatorScreen() {
         {/* PR Quick Select */}
         {savedPRs.length > 0 && (
           <View style={S.prSection}>
-            <TouchableOpacity
-              style={S.prToggle}
-              onPress={() => setShowPRList(!showPRList)}
-              activeOpacity={0.7}
-            >
-              <Dumbbell color={theme.accent} size={16} />
-              <Text style={S.prToggleText}>
-                {selectedMovement ?? 'Choisir un mouvement (mes PR)'}
-              </Text>
-              {showPRList
-                ? <ChevronUp color={theme.textMuted} size={16} />
-                : <ChevronDown color={theme.textMuted} size={16} />}
-            </TouchableOpacity>
+            <GlassCard radius={14} variant="emerald">
+              <TouchableOpacity
+                style={S.prToggle}
+                onPress={() => setShowPRList(!showPRList)}
+                activeOpacity={0.7}
+              >
+                <Dumbbell color={theme.accent} size={16} />
+                <Text style={S.prToggleText}>
+                  {selectedMovement ?? 'Choisir un mouvement (mes PR)'}
+                </Text>
+                {showPRList
+                  ? <ChevronUp color={theme.textMuted} size={16} />
+                  : <ChevronDown color={theme.textMuted} size={16} />}
+              </TouchableOpacity>
+            </GlassCard>
 
             {showPRList && (
-              <View style={S.prList}>
-                {savedPRs.map(pr => (
-                  <TouchableOpacity
-                    key={pr.key}
-                    style={[S.prItem, selectedMovement === pr.name && S.prItemActive]}
-                    onPress={() => selectPR(pr)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[S.prItemName, selectedMovement === pr.name && { color: theme.accent }]}>
-                      {pr.name}
-                    </Text>
-                    <Text style={S.prItemValue}>{pr.value} kg</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <GlassCard radius={14} style={{ marginTop: 6 }}>
+                <View>
+                  {savedPRs.map(pr => (
+                    <TouchableOpacity
+                      key={pr.key}
+                      style={[S.prItem, selectedMovement === pr.name && S.prItemActive]}
+                      onPress={() => selectPR(pr)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[S.prItemName, selectedMovement === pr.name && { color: theme.accent }]}>
+                        {pr.name}
+                      </Text>
+                      <Text style={S.prItemValue}>{pr.value} kg</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </GlassCard>
             )}
           </View>
         )}
 
         {/* Input */}
-        <View style={S.inputCard}>
-          <Text style={S.inputLabel}>
-            {selectedMovement ? `1RM — ${selectedMovement}` : 'TON 1RM'}
-          </Text>
-          <View style={S.inputRow}>
-            <TextInput
-              style={S.input}
-              value={input}
-              onChangeText={(v) => { setInput(v); setSelectedMovement(null); }}
-              keyboardType="decimal-pad"
-              placeholder="ex: 100"
-              placeholderTextColor={theme.textMuted}
-              maxLength={6}
-            />
-            <Text style={S.inputUnit}>{unit}</Text>
-          </View>
+        <GlassCard radius={16} style={{ marginTop: 20, marginBottom: 20 }}>
+          <View style={S.inputCardInner}>
+            <Text style={S.inputLabel}>
+              {selectedMovement ? `1RM — ${selectedMovement}` : 'TON 1RM'}
+            </Text>
+            <View style={S.inputRow}>
+              <TextInput
+                style={S.input}
+                value={input}
+                onChangeText={(v) => { setInput(v); setSelectedMovement(null); }}
+                keyboardType="decimal-pad"
+                placeholder="ex: 100"
+                placeholderTextColor={theme.textMuted}
+                maxLength={6}
+              />
+              <Text style={S.inputUnit}>{unit}</Text>
+            </View>
 
-          <View style={S.toggleRow}>
-            <Text style={[S.toggleLabel, !isLbs && { color: theme.success, fontWeight: '800' }]}>KG</Text>
-            <Switch
-              value={isLbs}
-              onValueChange={setIsLbs}
-              trackColor={{ false: theme.success, true: '#FF3B30' }}
-              thumbColor="#fff"
-            />
-            <Text style={[S.toggleLabel, isLbs && { color: '#FF3B30', fontWeight: '800' }]}>LBS</Text>
+            <View style={S.toggleRow}>
+              <Text style={[S.toggleLabel, !isLbs && { color: theme.success, fontWeight: '800' }]}>KG</Text>
+              <Switch
+                value={isLbs}
+                onValueChange={setIsLbs}
+                trackColor={{ false: theme.success, true: '#FF3B30' }}
+                thumbColor="#fff"
+              />
+              <Text style={[S.toggleLabel, isLbs && { color: '#FF3B30', fontWeight: '800' }]}>LBS</Text>
+            </View>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Table header */}
-        <View style={S.tableHeader}>
-          <Text style={[S.thTxt, { flex: 0.7 }]}>%</Text>
-          <Text style={[S.thTxt, { flex: 1 }]}>Charge</Text>
-          <Text style={[S.thTxt, { flex: 1.5 }]}>Zone</Text>
-          <Text style={[S.thTxt, { flex: 1.3 }]}>Reps</Text>
-        </View>
+        <GlassCard radius={10} style={{ marginBottom: 4 }}>
+          <View style={S.tableHeader}>
+            <Text style={[S.thTxt, { flex: 0.7 }]}>%</Text>
+            <Text style={[S.thTxt, { flex: 1 }]}>Charge</Text>
+            <Text style={[S.thTxt, { flex: 1.5 }]}>Zone</Text>
+            <Text style={[S.thTxt, { flex: 1.3 }]}>Reps</Text>
+          </View>
+        </GlassCard>
 
         {/* Table rows */}
         {ZONES.map((z) => {
@@ -256,6 +265,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     marginTop: 20, marginBottom: 20,
     borderWidth: 1, borderColor: theme.border,
   },
+  inputCardInner: { padding: 20 },
   inputLabel: {
     fontSize: 10, fontWeight: '800', color: theme.success,
     letterSpacing: 1.5, marginBottom: 12,
@@ -275,7 +285,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   tableHeader: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 8,
-    backgroundColor: theme.card, borderRadius: 10, marginBottom: 4,
+    borderRadius: 10,
   },
   thTxt: { fontSize: 9, fontWeight: '800', color: theme.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
   row: {
@@ -297,16 +307,12 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   prSection: { marginTop: 20, marginBottom: 0 },
   prToggle: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: theme.card, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: `${theme.accent}30`,
+    padding: 14,
   },
   prToggleText: {
     flex: 1, fontSize: 14, fontWeight: '700', color: theme.text,
   },
-  prList: {
-    backgroundColor: theme.card, borderRadius: 14, marginTop: 6,
-    borderWidth: 1, borderColor: theme.border, overflow: 'hidden',
-  },
+  prList: { overflow: 'hidden' },
   prItem: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 13,
