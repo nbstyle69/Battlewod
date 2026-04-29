@@ -147,8 +147,16 @@ class RealtimeRecorderModule : Module() {
       Prop("isLandscape") { view: RealtimeRecorderHostView, landscape: Boolean ->
         try {
           if (landscape != engine.isLandscape) {
-            engine.isLandscape = landscape
-            engine.setupSession(view.context)
+            // Never tear down the session while recording — the render loop
+            // already picks up the live display rotation for correct preview
+            // and encoded output orientation.
+            if (engine.isRecordingActive()) {
+              Log.i(TAG, "Prop isLandscape=$landscape ignored during active recording")
+              engine.isLandscape = landscape
+            } else {
+              engine.isLandscape = landscape
+              engine.setupSession(view.context)
+            }
           }
         } catch (e: Exception) {
           Log.e(TAG, "Prop isLandscape failed", e)

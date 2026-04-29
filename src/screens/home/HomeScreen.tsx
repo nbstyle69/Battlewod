@@ -61,6 +61,8 @@ export default function HomeScreen() {
   const [totalScoresGen,  setTotalScoresGen]  = useState(0);
   const [genStreak,       setGenStreak]       = useState(0);
   const [weekActivity,    setWeekActivity]    = useState<number[]>([0,0,0,0,0,0,0]);
+  const [weekReservations, setWeekReservations] = useState<number[]>([0,0,0,0,0,0,0]);
+  const [totalReservations, setTotalReservations] = useState(0);
   const [favCount,        setFavCount]        = useState(0);
   const [bestScores,      setBestScores]      = useState<{name:string; value:string; type:string}[]>([]);
   const [physComps,       setPhysComps]       = useState<{id:string; name:string; logo_url:string|null; mode:string}[]>([]);
@@ -138,14 +140,45 @@ export default function HomeScreen() {
       supabase.from('generated_wods').select('created_at').eq('user_id', user.id).gte('created_at', sevenDaysStr),
       supabase.from('generated_wods').select('created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
     ]);
-    // Week activity (7 bars)
-    const weekArr = [0,0,0,0,0,0,0];
+    // Calendar week boundaries (Monday → Sunday)
     const now = new Date();
+    const todayIdx = (now.getDay() + 6) % 7; // Mon=0 … Sun=6
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - todayIdx);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 7);
+
+    // Week WOD activity (7 bars, Mon=0 → Sun=6)
+    const weekArr = [0,0,0,0,0,0,0];
     (genWeek ?? []).forEach((w: any) => {
       const d = new Date(w.created_at);
-      const diff = Math.floor((now.getTime() - d.getTime()) / 86400000);
-      if (diff >= 0 && diff < 7) weekArr[6 - diff]++;
+      if (d >= monday && d < sunday) {
+        const idx = (d.getDay() + 6) % 7;
+        weekArr[idx]++;
+      }
     });
+
+    // Week reservations (Mon=0 → Sun=6)
+    const weekResArr = [0,0,0,0,0,0,0];
+    let totalRes = 0;
+    if (currentBox?.id) {
+      const { data: resData } = await supabase
+        .from('class_reservations')
+        .select('id, schedule:class_schedules(scheduled_date)')
+        .eq('member_id', user.id)
+        .eq('box_id', currentBox.id);
+      (resData ?? []).forEach((r: any) => {
+        const sd = r.schedule?.scheduled_date;
+        if (!sd) return;
+        const d = new Date(sd + 'T00:00:00');
+        if (d >= monday && d < sunday) {
+          const idx = (d.getDay() + 6) % 7;
+          weekResArr[idx]++;
+        }
+      });
+      totalRes = resData?.length ?? 0;
+    }
     // Gen streak
     let gs = 0;
     if (genAll && genAll.length > 0) {
@@ -223,6 +256,8 @@ export default function HomeScreen() {
       totalScoresGen: genScoreCount ?? 0,
       favCount: genFavCount ?? 0,
       weekActivity: weekArr,
+      weekReservations: weekResArr,
+      totalReservations: totalRes,
       genStreak: gs,
       bestScores: bestScoresMapped,
       physComps: (physData ?? []).map((p: any) => ({ id: p.id, name: p.name, logo_url: p.logo_url, mode: p.mode })),
@@ -245,6 +280,8 @@ export default function HomeScreen() {
     setTotalScoresGen(homeData.totalScoresGen);
     setFavCount(homeData.favCount);
     setWeekActivity(homeData.weekActivity);
+    setWeekReservations(homeData.weekReservations);
+    setTotalReservations(homeData.totalReservations);
     setGenStreak(homeData.genStreak);
     setBestScores(homeData.bestScores);
     setPhysComps(homeData.physComps);
@@ -421,7 +458,7 @@ export default function HomeScreen() {
       </View>
 
       {/* ── Activité semaine ──────────────────────────────────────────── */}
-      {(totalWods > 0 || genStreak > 0) && (
+      {(totalWods > 0 || genStreak > 0 || totalReservations > 0 || weekReservations.some(r => r > 0)) && (
         <View style={S.section}>
           <View style={S.sectionHeader}>
             <Text style={S.sectionTitle}>Cette semaine</Text>
@@ -431,18 +468,45 @@ export default function HomeScreen() {
           </View>
           <View style={S.weekRow}>
             {['L','M','M','J','V','S','D'].map((day, i) => {
-              const max = Math.max(...weekActivity, 1);
-              const h = Math.max(3, (weekActivity[i] / max) * 36);
+              const wods = weekActivity[i];
+              const res = weekReservations[i];
+              const maxAll = Math.max(...weekActivity, ...weekReservations, 1);
+              const hWod = wods > 0 ? Math.max(3, (wods / maxAll) * 28) : 0;
+              const hRes = res > 0 ? Math.max(3, (res / maxAll) * 28) : 0;
               const isToday = i === (new Date().getDay() + 6) % 7;
-              const active = weekActivity[i] > 0;
+              const hasActivity = wods > 0 || res > 0;
               return (
                 <View key={i} style={S.weekCol}>
-                  <View style={[S.weekBar, { height: h, backgroundColor: active ? theme.text : theme.border }, isToday && active && { backgroundColor: theme.primary }]} />
+                  <View style={{ alignItems: 'center', gap: 2 }}>
+                    {hRes > 0 && (
+                      <View style={[S.weekBar, { height: hRes, backgroundColor: theme.accent }]} />
+                    )}
+                    {hWod > 0 && (
+                      <View style={[S.weekBar, { height: hWod, backgroundColor: isToday ? theme.primary : theme.text }]} />
+                    )}
+                    {!hasActivity && (
+                      <View style={[S.weekBar, { height: 3, backgroundColor: theme.border }]} />
+                    )}
+                  </View>
                   <Text style={[S.weekDayTxt, isToday && { fontWeight: '900', color: theme.text }]}>{day}</Text>
                 </View>
               );
             })}
           </View>
+
+          {/* Légende couleurs */}
+          {weekReservations.some(r => r > 0) && (
+            <View style={{ flexDirection: 'row', gap: 16, marginBottom: 12, justifyContent: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: theme.text }} />
+                <Text style={{ fontSize: 10, color: theme.textMuted, fontWeight: '500' }}>WODs</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: theme.accent }} />
+                <Text style={{ fontSize: 10, color: theme.textMuted, fontWeight: '500' }}>Réservations</Text>
+              </View>
+            </View>
+          )}
 
           {/* Compact prog stats */}
           <View style={S.progStrip}>
@@ -450,7 +514,7 @@ export default function HomeScreen() {
               { val: totalWods, lbl: 'WODs' },
               { val: totalScoresGen, lbl: 'Scores' },
               { val: genStreak, lbl: 'Streak' },
-              { val: favCount, lbl: 'Favoris' },
+              { val: totalReservations, lbl: 'Réservations' },
             ].map(s => (
               <View key={s.lbl} style={S.progItem}>
                 <Text style={S.progItemNum}>{s.val}</Text>

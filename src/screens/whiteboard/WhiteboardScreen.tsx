@@ -7,15 +7,18 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { Clock, ChevronRight, ChevronUp, ChevronDown, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper, Play, BookOpen } from 'lucide-react-native';
+import { Clock, ChevronRight, ChevronUp, ChevronDown, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper, Play, BookOpen, Check, Timer as TimerIcon, Camera, CameraOff } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { hapticSuccess } from '../../lib/haptics';
+import { recordActivity } from '../../services/gamification';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
+import { buildTimerRunParams, formatWODPreconfig } from '../../utils/wodToTimer';
 import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
 
@@ -62,6 +65,8 @@ export default function WhiteboardScreen() {
   const S = createStyles(theme);
 
   const [dayWODs,       setDayWODs]       = useState<BoxWOD[]>([]);
+  const [completedIds,  setCompletedIds]  = useState<Set<string>>(new Set());
+  const [scoredIds,     setScoredIds]     = useState<Set<string>>(new Set());
   const [loading,       setLoading]       = useState(true);
   const [refreshing,    setRefreshing]    = useState(false);
   const [weekOffset,    setWeekOffset]    = useState(0);
@@ -82,6 +87,19 @@ export default function WhiteboardScreen() {
   // Unread badges
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadArticles, setUnreadArticles] = useState(0);
+
+  // Timer-launch modal (preconfigured from a WOD card)
+  const [timerModalWod, setTimerModalWod] = useState<BoxWOD | null>(null);
+  const [timerCountdown, setTimerCountdown] = useState<number>(3);
+
+  // Personal WODs (when user has no box)
+  const [personalWODs, setPersonalWODs] = useState<BoxWOD[]>([]);
+
+  function launchTimerFromWod(wod: BoxWOD, withCamera: boolean) {
+    const params = buildTimerRunParams(wod, { withCamera, countdown: timerCountdown });
+    setTimerModalWod(null);
+    navigation.navigate('TimerRun', params);
+  }
 
   useFocusEffect(useCallback(() => {
     if (!user || !currentBox) return;
@@ -296,6 +314,61 @@ export default function WhiteboardScreen() {
     else if (wodQueryLoading) setLoading(true);
   }, [wodData, wodQueryLoading]);
 
+  // Fetch user's completions + submitted scores for the visible WODs
+  useEffect(() => {
+    if (!user || dayWODs.length === 0) {
+      setCompletedIds(new Set());
+      setScoredIds(new Set());
+      return;
+    }
+    const ids = dayWODs.map(w => w.id);
+    (async () => {
+      try {
+        const [{ data: comps }, { data: scores }] = await Promise.all([
+          supabase.from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
+          supabase.from('wod_scores').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
+        ]);
+        setCompletedIds(new Set((comps ?? []).map((c: any) => c.wod_id)));
+        setScoredIds(new Set((scores ?? []).map((s: any) => s.wod_id)));
+      } catch (e) { captureError(e, { screen: 'Whiteboard', action: 'fetchCompletions' }); }
+    })();
+  }, [user, dayWODs]);
+
+  const toggleCompletion = useCallback(async (wodId: string) => {
+    if (!user || !currentBox) return;
+    const isDone = completedIds.has(wodId) || scoredIds.has(wodId);
+    // If already scored, don't allow toggling (score is authoritative)
+    if (scoredIds.has(wodId)) return;
+    // Optimistic update
+    setCompletedIds(prev => {
+      const next = new Set(prev);
+      if (isDone) next.delete(wodId); else next.add(wodId);
+      return next;
+    });
+    try {
+      if (isDone) {
+        await supabase.from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
+      } else {
+        hapticSuccess();
+        const { error } = await supabase.from('wod_completions').insert({
+          wod_id: wodId, member_id: user.id, box_id: currentBox.id,
+        });
+        if (error && error.code !== '23505') throw error;
+        // Count as activity for streak (only once per wod thanks to unique constraint)
+        try { await recordActivity(user.id, currentBox.id); } catch (_) {}
+      }
+    } catch (e) {
+      // Revert on error
+      setCompletedIds(prev => {
+        const next = new Set(prev);
+        if (isDone) next.add(wodId); else next.delete(wodId);
+        return next;
+      });
+      captureError(e, { screen: 'Whiteboard', action: 'toggleCompletion', wodId });
+      Alert.alert('Erreur', "Impossible de mettre à jour.");
+    }
+  }, [user, currentBox, completedIds, scoredIds]);
+
   const isStaff = boxRole === 'owner' || boxRole === 'coach' || user?.id === currentBox?.owner_id;
 
   async function moveWod(index: number, direction: 'up' | 'down') {
@@ -322,30 +395,192 @@ export default function WhiteboardScreen() {
   }
 
 
+  // Fetch personal WODs (box_id IS NULL, created_by = user) when no current box
+  const loadPersonalWODs = useCallback(async () => {
+    if (!user || currentBox) { setPersonalWODs([]); return; }
+    const { data } = await supabase
+      .from('box_wods')
+      .select('*')
+      .is('box_id', null)
+      .eq('created_by', user.id)
+      .eq('scheduled_date', selectedDate)
+      .order('sort_order');
+    setPersonalWODs((data ?? []) as BoxWOD[]);
+  }, [user, currentBox, selectedDate]);
+
+  useFocusEffect(useCallback(() => { loadPersonalWODs(); }, [loadPersonalWODs]));
+
   if (!currentBox) {
+    const todayISO = toISO(new Date());
     return (
       <View style={S.container}>
         <View style={S.header}>
           <Text style={S.headerTitle}>Ma Box</Text>
         </View>
-        <View style={S.empty}>
-          <View style={S.noBoxCard}>
-            <Text style={S.noBoxTitle}>MA BOX</Text>
-            <Text style={S.noBoxSub}>Tu n'es rattaché à aucune box.</Text>
-            <TouchableOpacity
-              style={[S.membersBtn, { width: '100%', marginBottom: 10 }]}
-              onPress={() => navigation.navigate('Documents')}
-              activeOpacity={0.8}
-            >
-              <Upload size={16} color={theme.accent} />
-              <Text style={S.membersBtnText}>Importation WOD</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={S.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.85}>
-              <Hash color="#fff" size={16} />
-              <Text style={S.joinBtnText}>Rejoindre une box</Text>
-            </TouchableOpacity>
-          </View>
+
+        {/* Top CTA: rejoindre une box / importation WOD */}
+        <View style={S.topCtaRow}>
+          <TouchableOpacity style={S.topJoinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.85}>
+            <Hash color="#fff" size={15} />
+            <Text style={S.topJoinBtnText}>Rejoindre une box</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={S.topImportBtn}
+            onPress={() => navigation.navigate('Documents')}
+            activeOpacity={0.85}
+          >
+            <Upload size={15} color={theme.accent} />
+            <Text style={S.topImportBtnText}>Importation WOD</Text>
+          </TouchableOpacity>
         </View>
+
+        <WeekDayPicker
+          weekOffset={weekOffset}
+          setWeekOffset={setWeekOffset}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          theme={theme}
+        />
+
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadPersonalWODs().finally(() => setRefreshing(false)); }} />}
+        >
+          <View style={S.section}>
+            <Text style={S.sectionTitle}>
+              {selectedDate === todayISO
+                ? 'Whiteboard — Séance du jour'
+                : new Date(selectedDate + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </Text>
+
+            {personalWODs.length > 0 ? (
+              <View style={S.dayGroup}>
+                {personalWODs.map(wod => (
+                  <TouchableOpacity
+                    key={wod.id}
+                    style={S.wodCard}
+                    onPress={() => navigation.navigate('PersonalWODForm', { wodId: wod.id, date: selectedDate })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={S.wodCardTop}>
+                      <WodTypeBadge type={wod.wod_type} />
+                      {wod.time_cap_seconds != null && (
+                        <View style={S.timeCap}>
+                          <Clock color={theme.textMuted} size={12} />
+                          <Text style={S.timeCapText}>Cap {Math.floor(wod.time_cap_seconds / 60)} min</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={S.wodTitle}>{wod.title}</Text>
+                    {wod.description ? <Text style={S.wodDesc} numberOfLines={3}>{wod.description}</Text> : null}
+                    <View style={S.wodCardFooter}>
+                      <View style={S.wodCardAction}>
+                        <Text style={S.wodCardActionText}>Modifier</Text>
+                        <ChevronRight color={theme.accent} size={14} />
+                      </View>
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation(); setTimerCountdown(3); setTimerModalWod(wod); }}
+                        style={S.timerBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Lancer le chrono"
+                      >
+                        <TimerIcon color={theme.accent} size={16} />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={S.createWodBtn}
+                  onPress={() => navigation.navigate('PersonalWODForm', { date: selectedDate })}
+                  activeOpacity={0.85}
+                >
+                  <Sparkles size={16} color={theme.accent} />
+                  <Text style={S.createWodBtnText}>+ Ajouter un WOD</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={S.noWodCard}>
+                <Text style={S.noWodEmoji}>📋</Text>
+                <Text style={S.noWodText}>Pas de WOD publié ce jour</Text>
+                <TouchableOpacity
+                  style={S.createWodPrimary}
+                  onPress={() => navigation.navigate('PersonalWODForm', { date: selectedDate })}
+                  activeOpacity={0.85}
+                >
+                  <Sparkles size={16} color="#fff" />
+                  <Text style={S.createWodPrimaryText}>+ Créer un WOD</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+        </ScrollView>
+
+        {/* Launch Timer Modal (réutilisé pour WODs perso) */}
+        <Modal
+          visible={!!timerModalWod}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setTimerModalWod(null)}
+        >
+          <View style={S.timerModalBackdrop}>
+            <View style={S.timerModalCard}>
+              <View style={S.timerModalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={S.timerModalTitle}>Lancer le chrono</Text>
+                  {timerModalWod && (
+                    <Text style={S.timerModalSubtitle} numberOfLines={1}>{timerModalWod.title}</Text>
+                  )}
+                </View>
+                <TouchableOpacity onPress={() => setTimerModalWod(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X color={theme.textSecondary} size={20} />
+                </TouchableOpacity>
+              </View>
+              {timerModalWod && (
+                <View style={S.timerModalPreview}>
+                  <TimerIcon color={theme.accent} size={18} />
+                  <Text style={S.timerModalPreviewText}>{formatWODPreconfig(timerModalWod)}</Text>
+                </View>
+              )}
+              <Text style={S.timerModalLabel}>Compte à rebours</Text>
+              <View style={S.timerModalCountdownRow}>
+                {[0, 3, 5, 10].map(v => (
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setTimerCountdown(v)}
+                    style={[S.timerModalCdChip, timerCountdown === v && S.timerModalCdChipActive]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[S.timerModalCdChipText, timerCountdown === v && S.timerModalCdChipTextActive]}>
+                      {v === 0 ? '—' : `${v}s`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={S.timerModalActions}>
+                <TouchableOpacity
+                  onPress={() => timerModalWod && launchTimerFromWod(timerModalWod, false)}
+                  style={[S.timerModalBtn, S.timerModalBtnSecondary]}
+                  activeOpacity={0.85}
+                >
+                  <CameraOff color={theme.text} size={18} />
+                  <Text style={S.timerModalBtnSecondaryText}>Sans caméra</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => timerModalWod && launchTimerFromWod(timerModalWod, true)}
+                  style={[S.timerModalBtn, S.timerModalBtnPrimary]}
+                  activeOpacity={0.85}
+                >
+                  <Camera color="#fff" size={18} />
+                  <Text style={S.timerModalBtnPrimaryText}>Avec caméra</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         <Modal visible={joinModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setJoinModal(false)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
@@ -547,14 +782,49 @@ export default function WhiteboardScreen() {
                             </Text>
                           </View>
                         )}
+                        {(() => {
+                          const hasScore = scoredIds.has(wod.id);
+                          const isDone = hasScore || completedIds.has(wod.id);
+                          return (
+                            <TouchableOpacity
+                              onPress={(e) => { e.stopPropagation(); toggleCompletion(wod.id); }}
+                              disabled={hasScore}
+                              style={S.checkboxRow}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              activeOpacity={0.7}
+                              accessibilityRole="checkbox"
+                              accessibilityState={{ checked: isDone, disabled: hasScore }}
+                              accessibilityLabel={isDone ? 'Réalisé' : 'Marquer comme réalisé'}
+                            >
+                              {isDone && (
+                                <Text style={S.checkboxLabel}>{hasScore ? 'Scoré' : 'Réalisé'}</Text>
+                              )}
+                              <View style={[S.checkbox, isDone && S.checkboxChecked]}>
+                                {isDone && <Check color="#fff" size={14} strokeWidth={3} />}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })()}
                       </View>
                       <Text style={S.wodTitle}>{wod.title}</Text>
                       {wod.description && (
                         <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text>
                       )}
-                      <View style={S.wodCardAction}>
-                        <Text style={S.wodCardActionText}>Voir détails & score</Text>
-                        <ChevronRight color={theme.accent} size={14} />
+                      <View style={S.wodCardFooter}>
+                        <View style={S.wodCardAction}>
+                          <Text style={S.wodCardActionText}>Voir détails & score</Text>
+                          <ChevronRight color={theme.accent} size={14} />
+                        </View>
+                        <TouchableOpacity
+                          onPress={(e) => { e.stopPropagation(); setTimerCountdown(3); setTimerModalWod(wod); }}
+                          style={S.timerBtn}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          activeOpacity={0.8}
+                          accessibilityRole="button"
+                          accessibilityLabel="Lancer le chrono"
+                        >
+                          <TimerIcon color={theme.accent} size={16} />
+                        </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
                   </View>
@@ -605,6 +875,72 @@ export default function WhiteboardScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Launch Timer Modal */}
+      <Modal
+        visible={!!timerModalWod}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTimerModalWod(null)}
+      >
+        <View style={S.timerModalBackdrop}>
+          <View style={S.timerModalCard}>
+            <View style={S.timerModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={S.timerModalTitle}>Lancer le chrono</Text>
+                {timerModalWod && (
+                  <Text style={S.timerModalSubtitle} numberOfLines={1}>{timerModalWod.title}</Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => setTimerModalWod(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X color={theme.textSecondary} size={20} />
+              </TouchableOpacity>
+            </View>
+
+            {timerModalWod && (
+              <View style={S.timerModalPreview}>
+                <TimerIcon color={theme.accent} size={18} />
+                <Text style={S.timerModalPreviewText}>{formatWODPreconfig(timerModalWod)}</Text>
+              </View>
+            )}
+
+            <Text style={S.timerModalLabel}>Compte à rebours</Text>
+            <View style={S.timerModalCountdownRow}>
+              {[0, 3, 5, 10].map(v => (
+                <TouchableOpacity
+                  key={v}
+                  onPress={() => setTimerCountdown(v)}
+                  style={[S.timerModalCdChip, timerCountdown === v && S.timerModalCdChipActive]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[S.timerModalCdChipText, timerCountdown === v && S.timerModalCdChipTextActive]}>
+                    {v === 0 ? '—' : `${v}s`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={S.timerModalActions}>
+              <TouchableOpacity
+                onPress={() => timerModalWod && launchTimerFromWod(timerModalWod, false)}
+                style={[S.timerModalBtn, S.timerModalBtnSecondary]}
+                activeOpacity={0.85}
+              >
+                <CameraOff color={theme.text} size={18} />
+                <Text style={S.timerModalBtnSecondaryText}>Sans caméra</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => timerModalWod && launchTimerFromWod(timerModalWod, true)}
+                style={[S.timerModalBtn, S.timerModalBtnPrimary]}
+                activeOpacity={0.85}
+              >
+                <Camera color="#fff" size={18} />
+                <Text style={S.timerModalBtnPrimaryText}>Avec caméra</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Members Modal */}
       <Modal visible={membersModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMembersModal(false)}>
@@ -727,8 +1063,68 @@ function createStyles(theme: AppTheme) {
   timeCapText: { fontSize: 11, color: theme.textMuted },
   wodTitle: { fontSize: 17, fontWeight: '700', color: theme.text },
   wodDesc: { fontSize: 13, color: theme.textSecondary, lineHeight: 19 },
-  wodCardAction: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  wodCardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  wodCardAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   wodCardActionText: { fontSize: 12, fontWeight: '700', color: theme.accent },
+  timerBtn: {
+    width: 34, height: 34, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${theme.accent}18`,
+    borderWidth: 1, borderColor: `${theme.accent}35`,
+  },
+  timerModalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center', alignItems: 'center', padding: 20,
+  },
+  timerModalCard: {
+    width: '100%', maxWidth: 420,
+    backgroundColor: theme.card, borderRadius: 20, padding: 20, gap: 14,
+    borderWidth: 1, borderColor: theme.border,
+  },
+  timerModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  timerModalTitle: { fontSize: 17, fontWeight: '800', color: theme.text },
+  timerModalSubtitle: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+  timerModalPreview: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: `${theme.accent}14`, borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: `${theme.accent}30`,
+  },
+  timerModalPreviewText: { fontSize: 14, fontWeight: '700', color: theme.accent, letterSpacing: 0.3 },
+  timerModalLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.6, marginTop: 2 },
+  timerModalCountdownRow: { flexDirection: 'row', gap: 8 },
+  timerModalCdChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 10,
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    alignItems: 'center',
+  },
+  timerModalCdChipActive: { backgroundColor: `${theme.accent}22`, borderColor: theme.accent },
+  timerModalCdChipText: { fontSize: 13, fontWeight: '700', color: theme.textSecondary },
+  timerModalCdChipTextActive: { color: theme.accent },
+  timerModalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  timerModalBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 12,
+  },
+  timerModalBtnSecondary: {
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+  },
+  timerModalBtnSecondaryText: { fontSize: 14, fontWeight: '700', color: theme.text },
+  timerModalBtnPrimary: { backgroundColor: theme.accent },
+  timerModalBtnPrimaryText: { fontSize: 14, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
+  checkboxRow: {
+    marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 2, paddingHorizontal: 2,
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6,
+    borderWidth: 2, borderColor: theme.border,
+    backgroundColor: 'transparent',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: theme.accent, borderColor: theme.accent,
+  },
+  checkboxLabel: { fontSize: 11, fontWeight: '700', color: theme.accent, letterSpacing: 0.3 },
   noWodCard: {
     backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16, padding: 32,
     borderWidth: 1, borderColor: theme.border, alignItems: 'center', gap: 10,
@@ -752,6 +1148,40 @@ function createStyles(theme: AppTheme) {
   historyTitle: { fontSize: 14, fontWeight: '700', color: theme.text },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyText: { fontSize: 15, color: theme.textMuted, textAlign: 'center' },
+  topCtaRow: {
+    flexDirection: 'row', gap: 10, justifyContent: 'center',
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6,
+  },
+  topJoinBtn: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12, paddingHorizontal: 14,
+    borderRadius: 12, backgroundColor: theme.accent,
+  },
+  topJoinBtnText: { fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
+  topImportBtn: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12, paddingHorizontal: 14,
+    borderRadius: 12, backgroundColor: theme.card,
+    borderWidth: 1, borderColor: theme.border,
+  },
+  topImportBtnText: { fontSize: 13, fontWeight: '700', color: theme.accent },
+  createWodBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, paddingHorizontal: 18,
+    borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: theme.accent,
+    backgroundColor: 'rgba(74,222,128,0.08)',
+    marginTop: 6,
+  },
+  createWodBtnText: { fontSize: 14, fontWeight: '800', color: theme.accent, letterSpacing: 0.3 },
+  createWodPrimary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, paddingHorizontal: 22,
+    borderRadius: 14, backgroundColor: theme.accent,
+    marginTop: 14,
+  },
+  createWodPrimaryText: { fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
   noBoxCard: {
     width: '100%', backgroundColor: isDark ? theme.card : theme.card, borderRadius: 20,
     padding: 24, borderWidth: 1, borderColor: theme.border, gap: 12,

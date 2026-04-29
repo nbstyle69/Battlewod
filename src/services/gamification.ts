@@ -271,6 +271,7 @@ export async function incrementCounter(
   field: string,
   amount: number = 1,
   boxId?: string,
+  options: { skipStreak?: boolean } = {},
 ): Promise<string[]> {
   // Increment counter
   const { data: profile } = await supabase
@@ -287,7 +288,8 @@ export async function incrementCounter(
   await supabase.from('profiles').update({ [field]: newVal }).eq('id', userId);
 
   // Record activity for streak (using plan limit from box membership)
-  const streakBadges = await recordActivity(userId, boxId);
+  // Skip if caller already recorded it (e.g. wod_completion was inserted before score)
+  const streakBadges = options.skipStreak ? [] : await recordActivity(userId, boxId);
 
   // Check cumulative badges with updated counter
   const updatedCounters = { ...(profile as Record<string, any>), [field]: newVal };

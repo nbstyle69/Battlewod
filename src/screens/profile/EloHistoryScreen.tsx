@@ -10,10 +10,9 @@ import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Zap, Chev
 import { HomeStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
-import { computeAndSaveElo } from '../../services/eloCompute';
+import { log } from '../../lib/logger';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { WODScore } from '../../types';
 
 interface EloEntry {
   id: string;
@@ -46,56 +45,17 @@ export default function EloHistoryScreen() {
     try {
     const results: EloEntry[] = [];
 
-    // 0. Batch-compute ELO for expired WODs that have no history yet
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yStr = yesterday.toISOString().split('T')[0];
-
-    // Find WODs where this user submitted a score, WOD is expired, and leaderboard enabled
-    const { data: userScores, error: scErr } = await supabase
-      .from('wod_scores')
-      .select('wod_id, box_wods!inner(id, box_id, scheduled_date, wod_type, leaderboard_enabled)')
-      .eq('member_id', user.id);
-
-    console.log('[EloHistory] user.id=', user.id, 'yStr=', yStr);
-    console.log('[EloHistory] userScores count=', userScores?.length ?? 0, 'error=', scErr?.message);
-
-    if (userScores && userScores.length > 0) {
-      try {
-        const wodIds = userScores.map((s: any) => s.wod_id).filter(Boolean);
-        console.log('[EloHistory] wodIds to check=', wodIds);
-        const { data: existingHistory } = await supabase
-          .from('elo_history')
-          .select('wod_id')
-          .in('wod_id', wodIds.length > 0 ? wodIds : ['__none__']);
-
-        const computedWodIds = new Set((existingHistory ?? []).map((h: any) => h.wod_id));
-        console.log('[EloHistory] already computed=', computedWodIds.size);
-
-        for (const sc of userScores) {
-          const wod = Array.isArray((sc as any).box_wods) ? (sc as any).box_wods[0] : (sc as any).box_wods;
-          if (!wod) { console.log('[EloHistory] skip: no wod for', sc.wod_id); continue; }
-          if (computedWodIds.has(sc.wod_id)) { continue; }
-          if (wod.leaderboard_enabled === false) { continue; }
-          if (wod.scheduled_date > yStr) { console.log('[EloHistory] skip: not expired', sc.wod_id, wod.scheduled_date); continue; }
-
-          console.log('[EloHistory] computing ELO for WOD', sc.wod_id, 'box=', wod.box_id);
-          const wodId = sc.wod_id as string;
-          const { data: allScores } = await supabase
-            .from('wod_scores')
-            .select('*')
-            .eq('wod_id', wodId);
-
-          console.log('[EloHistory] scores for WOD', wodId, '=', allScores?.length ?? 0);
-          if (allScores && allScores.length >= 2) {
-            const isTimeBased = wod.wod_type === 'for-time';
-            await computeAndSaveElo(wodId, wod.box_id, allScores as WODScore[], isTimeBased);
-            console.log('[EloHistory] ELO computed for', wodId);
-          }
-        }
-      } catch (batchErr: any) {
-        console.log('[EloHistory] batch compute error:', batchErr?.message, batchErr);
-      }
+    // 0. Trigger server-side batch ELO compute (idempotent).
+    //    All logic lives in the `compute-elo-batch` Edge Function; the daily
+    //    pg_cron job covers most cases, this on-demand call ensures freshness
+    //    when the user just finished a WOD.
+    try {
+      const { error: fnErr } = await supabase.functions.invoke('compute-elo-batch', {
+        body: {},
+      });
+      if (fnErr) log.warn('[EloHistory] compute-elo-batch invoke error:', fnErr.message);
+    } catch (e) {
+      log.warn('[EloHistory] compute-elo-batch threw:', e);
     }
 
     // 1. WOD elo_history
@@ -106,7 +66,7 @@ export default function EloHistoryScreen() {
       .order('created_at', { ascending: false })
       .limit(100);
 
-    console.log('[EloHistory] wodHistory count=', wodHistory?.length ?? 0, 'error=', wodErr?.message);
+    log.debug('[EloHistory] wodHistory count=', wodHistory?.length ?? 0, 'error=', wodErr?.message);
 
     for (const h of wodHistory ?? []) {
       const wod = Array.isArray(h.box_wods) ? h.box_wods[0] : h.box_wods;
@@ -131,7 +91,7 @@ export default function EloHistoryScreen() {
       .order('calculated_at', { ascending: false })
       .limit(100);
 
-    console.log('[EloHistory] tournHistory count=', tournHistory?.length ?? 0, 'error=', tournErr?.message);
+    log.debug('[EloHistory] tournHistory count=', tournHistory?.length ?? 0, 'error=', tournErr?.message);
 
     for (const h of tournHistory ?? []) {
       const tourn = Array.isArray(h.tournaments) ? h.tournaments[0] : h.tournaments;

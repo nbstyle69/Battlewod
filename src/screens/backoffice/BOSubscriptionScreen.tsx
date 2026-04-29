@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, AppState,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, AppState,
 } from 'react-native';
 import { ArrowLeft, Crown, Clock, CreditCard, ExternalLink, Shield, Zap, Check } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { openExternalUrl, pollUntilTrue } from '../../lib/openCheckout';
+import { supabase } from '../../lib/supabase';
 
 const PRICING_URL = 'https://the-hub-rho.vercel.app/pricing';
 
@@ -50,24 +52,33 @@ export default function BOSubscriptionScreen({ navigation }: any) {
   async function handleCheckout() {
     if (!currentBox) return;
     setLoadingCheckout(true);
-    try {
-      const url = `${PRICING_URL}?box_id=${currentBox.id}`;
-      await Linking.openURL(url);
-      // Refresh subscription when user returns to app
-      setTimeout(() => refreshSubscription(), 3000);
-    } catch (e: any) {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir la page de souscription');
-    }
-    setLoadingCheckout(false);
+    const url = `${PRICING_URL}?box_id=${currentBox.id}`;
+    const opened = await openExternalUrl(url, 'Impossible d\'ouvrir la page de souscription.');
+    if (!opened) { setLoadingCheckout(false); return; }
+
+    // Poll DB every 2s for up to 60s to detect the new subscription status.
+    const currentStatus = boxSubscription?.status;
+    pollUntilTrue(async () => {
+      const { data } = await (supabase.from as any)('box_subscriptions')
+        .select('status')
+        .eq('box_id', currentBox.id)
+        .maybeSingle();
+      return !!data && (data as any).status !== currentStatus;
+    }).finally(() => {
+      refreshSubscription();
+      setLoadingCheckout(false);
+    });
   }
 
   async function handlePortal() {
-    try {
-      await Linking.openURL(`${PRICING_URL}/manage?box_id=${currentBox?.id}`);
-      setTimeout(() => refreshSubscription(), 3000);
-    } catch (e: any) {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le portail');
-    }
+    if (!currentBox) return;
+    const opened = await openExternalUrl(
+      `${PRICING_URL}/manage?box_id=${currentBox.id}`,
+      'Impossible d\'ouvrir le portail.',
+    );
+    if (!opened) return;
+    // Refresh once the user comes back (AppState listener will also fire).
+    setTimeout(() => refreshSubscription(), 3000);
   }
 
   function getStatusLabel() {

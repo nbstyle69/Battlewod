@@ -16,6 +16,7 @@ const TABS: { key: TimerType; label: string }[] = [
   { key: 'emom',      label: 'EMOM' },
   { key: 'tabata',    label: 'TABATA' },
   { key: 'ywyr',      label: 'YWYR' },
+  { key: 'splits',    label: 'SPLITS' },
   { key: 'libre',     label: 'PERSONNALISÉ' },
 ];
 
@@ -36,7 +37,7 @@ function makeTypedBlock(type: BlockType): SeqBlock {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     type,
     durationMin: type === 'amrap' ? 10 : 0,
-    emomInterval: 1, emomRounds: 10,
+    emomInterval: 1, emomRounds: 10, emomCustomSec: 90,
     workSec: 20, restSec: 10, tabRounds: 8,
     pauseSec: 0,
   };
@@ -101,9 +102,16 @@ export default function TimerScreen() {
   const [withTimestamp, setWithTimestamp] = useState(true);
   const [withCamera, setWithCamera] = useState(false);
 
+  // Splits mode state — manual tap-to-restart timer
+  const [splitsMin, setSplitsMin] = useState(1);
+  const [splitsSec, setSplitsSec] = useState(30);
+  const [splitsRounds, setSplitsRounds] = useState(4);
+
   function switchTab(key: TimerType) {
     setActiveTab(key);
-    setSeqBlocks(key === 'libre' ? [makeBlock()] : [makeTypedBlock(key as BlockType)]);
+    if (key === 'libre') setSeqBlocks([makeBlock()]);
+    else if (key !== 'splits') setSeqBlocks([makeTypedBlock(key as BlockType)]);
+    // splits doesn't use SeqBlocks — keep previous blocks untouched
   }
 
   function addBlock() {
@@ -115,6 +123,21 @@ export default function TimerScreen() {
   }
 
   function launch() {
+    if (activeTab === 'splits') {
+      const roundSec = Math.max(1, splitsMin * 60 + splitsSec);
+      navigation.navigate('TimerRun', {
+        timerType: 'splits',
+        countdown: 0, // Splits = lancement direct, pas de 3-2-1
+        totalSeconds: 0, maxTime: 0, interval: 0,
+        rounds: Math.max(1, splitsRounds),
+        workTime: roundSec, restTime: 0,
+        withCamera,
+        sequence: '[]',
+        videoTitle: videoTitle.trim(),
+        withTimestamp,
+      });
+      return;
+    }
     navigation.navigate('TimerRun', {
       timerType: 'libre',
       countdown,
@@ -125,6 +148,44 @@ export default function TimerScreen() {
       withTimestamp,
     });
   }
+
+  // Splits config card — render directly without SeqBlock plumbing
+  const renderSplitsConfig = () => (
+    <View style={S.seqCard}>
+      <View style={S.seqCardHeader}>
+        <View style={S.seqBlockNum}>
+          <Text style={S.seqBlockNumText}>1</Text>
+        </View>
+        <View style={S.seqTypeBadge}>
+          <Text style={S.seqTypeBadgeText}>SPLITS</Text>
+        </View>
+      </View>
+
+      <View style={S.seqConfigRow}>
+        <Text style={S.seqConfigLabel}>DURÉE PAR ROUND</Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Stepper value={splitsMin} unit="min" minVal={0}
+              onDec={() => setSplitsMin(v => Math.max(0, v - 1))}
+              onInc={() => setSplitsMin(v => Math.min(60, v + 1))}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Stepper value={splitsSec} unit="sec" minVal={0}
+              onDec={() => setSplitsSec(v => Math.max(0, v - 5))}
+              onInc={() => setSplitsSec(v => Math.min(55, v + 5))}
+            />
+          </View>
+        </View>
+        <Text style={S.seqConfigLabel}>ROUNDS</Text>
+        <Stepper value={splitsRounds} unit="rounds" minVal={1}
+          onDec={() => setSplitsRounds(v => Math.max(1, v - 1))}
+          onInc={() => setSplitsRounds(v => v + 1)}
+        />
+        <Text style={S.cardHint}>Tap sur l'écran entre chaque round · Récup libre</Text>
+      </View>
+    </View>
+  );
 
   const renderBlockConfig = (blk: SeqBlock) => (
     <>
@@ -139,27 +200,70 @@ export default function TimerScreen() {
           {blk.type === 'for-time' && <Text style={S.cardHint}>Chrono montant · Stoppe avec ■</Text>}
         </View>
       )}
-      {blk.type === 'emom' && (
+      {blk.type === 'emom' && (() => {
+        const isPerso = blk.emomInterval === 0;
+        const customSec = blk.emomCustomSec ?? 90;
+        const customMin = Math.floor(customSec / 60);
+        const customSs = customSec % 60;
+        const intervalSec = isPerso ? customSec : blk.emomInterval * 60;
+        const totalSec = intervalSec * blk.emomRounds;
+        const totalMm = Math.floor(totalSec / 60);
+        const totalSs = totalSec % 60;
+        return (
         <View style={S.seqConfigRow}>
           <Text style={S.seqConfigLabel}>TYPE</Text>
           <View style={[S.chipRow, { marginTop: 0 }]}>
             {[1,2,3,4,5].map(iv => (
-              <TouchableOpacity key={iv} onPress={() => updateBlock(blk.id, { emomInterval: iv })}
+              <TouchableOpacity key={iv} onPress={() => {
+                // Conserve la durée totale lors du changement d'interval, ajuste les rounds
+                const prevIvSec = isPerso ? customSec : blk.emomInterval * 60;
+                const totalMinPrev = (prevIvSec * blk.emomRounds) / 60;
+                const newRounds = Math.max(1, Math.round(totalMinPrev / iv));
+                updateBlock(blk.id, { emomInterval: iv, emomRounds: newRounds });
+              }}
                 style={[S.chip, blk.emomInterval === iv && S.chipActive]} activeOpacity={0.7}>
                 <Text style={[S.chipText, blk.emomInterval === iv && S.chipTextActive]}>
                   {iv === 1 ? 'EMOM' : `E${iv}MOM`}
                 </Text>
               </TouchableOpacity>
             ))}
+            <TouchableOpacity onPress={() => updateBlock(blk.id, { emomInterval: 0 })}
+              style={[S.chip, isPerso && S.chipActive]} activeOpacity={0.7}>
+              <Text style={[S.chipText, isPerso && S.chipTextActive]}>PERSO</Text>
+            </TouchableOpacity>
           </View>
+
+          {isPerso && (
+            <>
+              <Text style={S.seqConfigLabel}>INTERVALLE PERSO</Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Stepper value={customMin} unit="min" minVal={0}
+                    onDec={() => updateBlock(blk.id, { emomCustomSec: Math.max(1, customSec - 60) })}
+                    onInc={() => updateBlock(blk.id, { emomCustomSec: customSec + 60 })}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Stepper value={customSs} unit="sec" minVal={0}
+                    onDec={() => updateBlock(blk.id, { emomCustomSec: Math.max(1, customSec - 5) })}
+                    onInc={() => updateBlock(blk.id, { emomCustomSec: customSec + 5 })}
+                  />
+                </View>
+              </View>
+            </>
+          )}
+
           <Text style={S.seqConfigLabel}>ROUNDS</Text>
           <Stepper value={blk.emomRounds} unit="rounds" minVal={1}
             onDec={() => updateBlock(blk.id, { emomRounds: Math.max(1, blk.emomRounds - 1) })}
             onInc={() => updateBlock(blk.id, { emomRounds: blk.emomRounds + 1 })}
           />
-          <Text style={S.cardHint}>Bip au début de chaque interval</Text>
+          <Text style={S.cardHint}>
+            Bip au début de chaque interval · Total : {totalMm} min{totalSs ? ` ${totalSs}s` : ''}
+          </Text>
         </View>
-      )}
+        );
+      })()}
       {blk.type === 'tabata' && (
         <View style={S.seqConfigRow}>
           <Text style={S.seqConfigLabel}>TRAVAIL</Text>
@@ -267,8 +371,10 @@ export default function TimerScreen() {
       </ScrollView>
 
       <ScrollView contentContainerStyle={S.content} showsVerticalScrollIndicator={false}>
-        {renderBlocks()}
-        <CountdownPicker value={countdown} onChange={setCountdown} />
+        {activeTab === 'splits' ? renderSplitsConfig() : renderBlocks()}
+        {activeTab !== 'splits' && (
+          <CountdownPicker value={countdown} onChange={setCountdown} />
+        )}
 
         {/* Caméra toggle */}
         <View style={S.card}>

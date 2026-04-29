@@ -48,6 +48,7 @@ import BOTournamentScreen from '../screens/backoffice/BOTournamentScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
 import WhiteboardScreen from '../screens/whiteboard/WhiteboardScreen';
 import WODDetailScreen from '../screens/whiteboard/WODDetailScreen';
+import PersonalWODFormScreen from '../screens/whiteboard/PersonalWODFormScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import AdminScreen from '../screens/admin/AdminScreen';
 import BODashboardScreen from '../screens/backoffice/BODashboardScreen';
@@ -178,14 +179,15 @@ export type ExplorerStackParamList = {
   BoxPrograms: undefined;
 };
 
-export type TimerType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'ywyr' | 'libre';
-export type BlockType = Exclude<TimerType, 'libre'>;
+export type TimerType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'ywyr' | 'splits' | 'libre';
+export type BlockType = Exclude<TimerType, 'libre' | 'splits'>;
 export type SeqBlock = {
   id: string;
   type: BlockType;
   durationMin: number;  // amrap/for-time duration (0=unlimited for ft)
-  emomInterval: number; // 1-5 min
+  emomInterval: number; // 1-5 min, ou 0 = mode PERSO (utilise emomCustomSec)
   emomRounds: number;
+  emomCustomSec?: number; // intervalle perso en secondes (mode PERSO)
   workSec: number;      // tabata work
   restSec: number;      // tabata rest
   tabRounds: number;    // tabata rounds
@@ -338,6 +340,31 @@ export type WhiteboardStackParamList = {
   Messages: undefined;
   Documents: undefined;
   Articles: undefined;
+  PersonalWODForm: { wodId?: string; date?: string } | undefined;
+  TimerRun: {
+    timerType: TimerType;
+    countdown: number;
+    totalSeconds: number;
+    maxTime: number;
+    interval: number;
+    rounds: number;
+    workTime: number;
+    restTime: number;
+    withCamera: boolean;
+    sequence: string;
+    videoTitle: string;
+    withTimestamp: boolean;
+    competitionLogoUrl?: string;
+    countdownDuration?: number;
+    overlaysBurned?: boolean;
+  };
+  VideoPlayback: {
+    videoUri: string;
+    durationMs: number;
+    timerType?: string;
+    countdownDuration?: number;
+    overlaysBurned?: boolean;
+  };
 };
 
 export type CommunityStackParamList = {
@@ -434,6 +461,9 @@ function WhiteboardNavigator() {
       <WhiteboardStack.Screen name="Messages"       component={MessagesScreen} />
       <WhiteboardStack.Screen name="Documents"      component={DocumentsScreen} />
       <WhiteboardStack.Screen name="Articles"        component={ArticlesScreen} />
+      <WhiteboardStack.Screen name="PersonalWODForm" component={PersonalWODFormScreen} />
+      <WhiteboardStack.Screen name="TimerRun"        component={TimerRunScreen} />
+      <WhiteboardStack.Screen name="VideoPlayback"  component={VideoPlaybackScreen} />
     </WhiteboardStack.Navigator>
   );
 }

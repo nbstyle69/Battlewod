@@ -141,15 +141,51 @@ class CameraTextureRenderer {
   /**
    * Draw a complete frame: camera background + overlay on top.
    * Must be called on the GL thread with EGL context current.
-   * @param drawOverlay false for preview (RN handles its own UI), true for encoder (burn overlay)
+   * @param drawOverlay false for preview (RN draws its own UI), true for encoder (burn overlay)
+   * @param displayRotationDegrees current device display rotation (0/90/180/270).
+   *        Camera2's texMatrix always produces an upright-portrait image, so
+   *        when the device is in landscape we apply a compensating UV rotation
+   *        (different sign for landscape-left vs landscape-right).
    */
   fun drawFrame(cameraTexMatrix: FloatArray, mirror: Boolean = false, drawOverlay: Boolean = true,
-                viewportWidth: Int = videoWidth, viewportHeight: Int = videoHeight) {
+                viewportWidth: Int = videoWidth, viewportHeight: Int = videoHeight,
+                displayRotationDegrees: Int = 0,
+                cameraBufferWidth: Int = 0, cameraBufferHeight: Int = 0) {
     GLES20.glViewport(0, 0, viewportWidth, viewportHeight)
     GLES20.glClearColor(0f, 0f, 0f, 1f)
     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-    drawCameraTexture(cameraTexMatrix, mirror)
+    // Map display rotation to the UV rotation needed to keep the image upright
+    // in the viewport. 90° works for landscape-left; landscape-right needs -90°.
+    val extraRotation = when (displayRotationDegrees) {
+      90  -> 90f    // landscape-left (top of device on the left)
+      180 -> 180f   // reverse portrait
+      270 -> -90f   // landscape-right (top of device on the right)
+      else -> 0f    // portrait upright
+    }
+
+    // Aspect-ratio "contain" fit — scale the camera quad so the full camera
+    // frame is visible without distortion (no zoom/crop).  The small black
+    // bars at the edges are hidden by UI overlay elements (header + buttons).
+    // This matches the iOS CameraView behaviour on tall screens.
+    var coverScaleX = 1f
+    var coverScaleY = 1f
+    if (cameraBufferWidth > 0 && cameraBufferHeight > 0) {
+      val isPortrait = displayRotationDegrees == 0 || displayRotationDegrees == 180
+      val camDispW = (if (isPortrait) cameraBufferHeight else cameraBufferWidth).toFloat()
+      val camDispH = (if (isPortrait) cameraBufferWidth else cameraBufferHeight).toFloat()
+      val camAR = camDispW / camDispH
+      val viewAR = viewportWidth.toFloat() / viewportHeight.toFloat()
+      if (camAR > viewAR) {
+        // Camera wider than viewport → fit width, letterbox top/bottom
+        coverScaleY = viewAR / camAR
+      } else {
+        // Camera taller than viewport → fit height, pillarbox sides
+        coverScaleX = camAR / viewAR
+      }
+    }
+
+    drawCameraTexture(cameraTexMatrix, mirror, extraRotation, coverScaleX, coverScaleY)
     if (drawOverlay && hasOverlay) {
       drawOverlayTexture()
     }
@@ -159,7 +195,8 @@ class CameraTextureRenderer {
   //  Camera texture (OES)
   // ============================================================
 
-  private fun drawCameraTexture(texMatrix: FloatArray, mirror: Boolean) {
+  private fun drawCameraTexture(texMatrix: FloatArray, mirror: Boolean, extraRotationDegrees: Float = 0f,
+                                coverScaleX: Float = 1f, coverScaleY: Float = 1f) {
     GLES20.glUseProgram(programOES)
 
     val posHandle = GLES20.glGetAttribLocation(programOES, "aPosition")
@@ -175,11 +212,30 @@ class CameraTextureRenderer {
 
     val mvp = FloatArray(16)
     Matrix.setIdentityM(mvp, 0)
+    if (coverScaleX != 1f || coverScaleY != 1f) {
+      Matrix.scaleM(mvp, 0, coverScaleX, coverScaleY, 1f)
+    }
     if (mirror) {
       Matrix.scaleM(mvp, 0, -1f, 1f, 1f)
     }
     GLES20.glUniformMatrix4fv(mvpHandle, 1, false, mvp, 0)
-    GLES20.glUniformMatrix4fv(texMatHandle, 1, false, texMatrix, 0)
+
+    // Apply an extra rotation to the UV sampling when the buffer and viewport
+    // orientations don't match (portrait camera frames drawn to a landscape
+    // TextureView, or vice versa). Rotates around the center of texture space.
+    val finalTexMatrix = if (extraRotationDegrees != 0f) {
+      val rot = FloatArray(16)
+      Matrix.setIdentityM(rot, 0)
+      Matrix.translateM(rot, 0, 0.5f, 0.5f, 0f)
+      Matrix.rotateM(rot, 0, extraRotationDegrees, 0f, 0f, 1f)
+      Matrix.translateM(rot, 0, -0.5f, -0.5f, 0f)
+      val combined = FloatArray(16)
+      Matrix.multiplyMM(combined, 0, rot, 0, texMatrix, 0)
+      combined
+    } else {
+      texMatrix
+    }
+    GLES20.glUniformMatrix4fv(texMatHandle, 1, false, finalTexMatrix, 0)
 
     GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
     GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, cameraTextureId)

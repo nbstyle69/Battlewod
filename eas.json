@@ -38,7 +38,9 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "6760683066"
+        "ascAppId": "6762889282",
+        "appleId": "nabil.selmane@gmail.com",
+        "appleTeamId": "YRD9RJ3Z55"
       }
     }
   }

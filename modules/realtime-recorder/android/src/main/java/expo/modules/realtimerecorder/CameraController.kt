@@ -28,7 +28,13 @@ class CameraController {
   private var cameraDevice: CameraDevice? = null
   private var captureSession: CameraCaptureSession? = null
   private var currentCameraId: String? = null
-  var isFrontFacing = false; private set
+  @Volatile var isFrontFacing = false; private set
+
+  // Actual buffer dimensions the camera was configured with. Exposed so the
+  // renderer can compare against the preview viewport aspect and apply a
+  // rotation if they mismatch (e.g. portrait buffer on landscape viewport).
+  var bufferWidth = 1080; private set
+  var bufferHeight = 1920; private set
 
   var onCameraOpened: (() -> Unit)? = null
   var onCameraError: ((Exception) -> Unit)? = null
@@ -45,7 +51,8 @@ class CameraController {
     context: Context,
     useFront: Boolean,
     surfaceTexture: SurfaceTexture,
-    handler: Handler
+    handler: Handler,
+    isLandscape: Boolean = false
   ) {
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
         != PackageManager.PERMISSION_GRANTED) {
@@ -63,11 +70,13 @@ class CameraController {
     isFrontFacing = useFront
     currentCameraId = cameraId
 
-    // Pick best resolution for the SurfaceTexture
+    // Pick best resolution for the SurfaceTexture (orientation-aware)
     val characteristics = manager.getCameraCharacteristics(cameraId)
-    val bestSize = chooseBestSize(characteristics)
+    val bestSize = chooseBestSize(characteristics, isLandscape)
     surfaceTexture.setDefaultBufferSize(bestSize.width, bestSize.height)
-    Log.i(TAG, "Camera $cameraId selected, output size: ${bestSize.width}x${bestSize.height}")
+    bufferWidth = bestSize.width
+    bufferHeight = bestSize.height
+    Log.i(TAG, "Camera $cameraId selected, output size: ${bestSize.width}x${bestSize.height} (landscape=$isLandscape)")
 
     try {
       manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
@@ -172,18 +181,24 @@ class CameraController {
 
   /**
    * Pick the best output size from the camera's stream configuration map.
-   * Prefers 1080×1920; falls back to the largest available ≤ 1920px tall.
+   * Prefers 1920×1080 in landscape mode, 1080×1920 in portrait — so that
+   * the SurfaceTexture buffer orientation matches the TextureView viewport
+   * and the camera frame isn't stretched/squished on rotation.
    */
-  private fun chooseBestSize(characteristics: CameraCharacteristics): Size {
+  private fun chooseBestSize(characteristics: CameraCharacteristics, isLandscape: Boolean): Size {
+    val defaultSize = if (isLandscape) Size(1920, 1080) else Size(1080, 1920)
     val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-      ?: return Size(1080, 1920)
+      ?: return defaultSize
 
-    val sizes = map.getOutputSizes(SurfaceTexture::class.java) ?: return Size(1080, 1920)
+    val sizes = map.getOutputSizes(SurfaceTexture::class.java) ?: return defaultSize
 
-    // Prefer exact 1080×1920
-    sizes.find { it.width == 1080 && it.height == 1920 }?.let { return it }
-    // Or 1920×1080 (landscape, will be rotated)
-    sizes.find { it.width == 1920 && it.height == 1080 }?.let { return it }
+    val preferredW = if (isLandscape) 1920 else 1080
+    val preferredH = if (isLandscape) 1080 else 1920
+
+    // Prefer the exact preferred size for the current orientation
+    sizes.find { it.width == preferredW && it.height == preferredH }?.let { return it }
+    // Fall back to the opposite orientation if preferred isn't available
+    sizes.find { it.width == preferredH && it.height == preferredW }?.let { return it }
 
     // Otherwise pick the largest that fits within 1920px on the longer side
     return sizes

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions, ActivityIndicator, ScrollView, Modal,
-  TextInput, Linking, Clipboard, Alert, useWindowDimensions, Image, KeyboardAvoidingView, Platform,
+  TextInput, Linking, Clipboard, Alert, useWindowDimensions, Image, KeyboardAvoidingView, Platform, Vibration,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle } from 'react-native-svg';
@@ -26,7 +26,7 @@ import { hapticLight, hapticMedium, hapticHeavy } from '../../lib/haptics';
 type Route = RouteProp<HomeStackParamList, 'TimerRun'>;
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'TimerRun'>;
 
-type Phase = 'ready' | 'countdown' | 'running' | 'stopped' | 'done';
+type Phase = 'ready' | 'countdown' | 'running' | 'stopped' | 'done' | 'splits-waiting';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -304,7 +304,8 @@ export default function TimerRunScreen() {
   const [timerVal, setTimerVal] = useState(0);
   const initRTL = timerType === 'amrap' ? totalSeconds
     : timerType === 'emom'  ? interval * 60
-    : timerType === 'tabata' ? workTime : 0;
+    : timerType === 'tabata' ? workTime
+    : timerType === 'splits' ? workTime : 0;
   const [roundTimeLeft, setRoundTimeLeft] = useState(initRTL);
   const [innerPhase, setInnerPhase] = useState<'work' | 'rest'>('work');
   const [currentRound, setCurrentRound] = useState(1);
@@ -379,8 +380,8 @@ export default function TimerRunScreen() {
           boxLogoUrl: currentBox?.logo_url || '',
           competitionLogoUrl: competitionLogoUrl || '',
         });
-      } catch (e) { /* overlay update at 30fps — silent to avoid flooding Sentry */ }
-    }, 33); // ~30fps
+      } catch (e) { /* overlay update — silent to avoid flooding Sentry */ }
+    }, 100); // 10Hz — timer & timestamp only change at 1Hz, no visual loss
     return () => clearInterval(id);
   }, [withCamera, isRecordingActive, timerType, videoTitle, clockStr, phase, countdownVal, currentBox, competitionLogoUrl]);
 
@@ -426,10 +427,19 @@ export default function TimerRunScreen() {
   }, []);
 
   const { theme } = useTheme();
+  const { width: winW, height: winH } = useWindowDimensions();
+  const isLandscape = winW > winH;
+
+  // Hide the parent tab bar whenever this screen is mounted. Re-apply on
+  // orientation changes because React Navigation resets the tab bar style
+  // when the navigator re-renders on rotation.
   useEffect(() => {
     const parent = navigation.getParent();
-    parent?.setOptions({ tabBarStyle: { display: 'none' } });
+    const hide = () => parent?.setOptions({ tabBarStyle: { display: 'none' } });
+    hide();
+    const unsubFocus = navigation.addListener('focus', hide);
     return () => {
+      unsubFocus();
       parent?.setOptions({
         tabBarStyle: {
           backgroundColor: theme.tabBar,
@@ -443,7 +453,7 @@ export default function TimerRunScreen() {
         },
       });
     };
-  }, []);
+  }, [isLandscape, navigation, theme.tabBar, theme.tabBarBorder]);
 
   useEffect(() => {
     if (timerType === 'libre') {
@@ -456,6 +466,11 @@ export default function TimerRunScreen() {
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
           staysActiveInBackground: false,
+          // Android: force playback through the main speaker and don't let
+          // the concurrent mic recording duck our beeps.
+          interruptionModeAndroid: Audio.InterruptionModeAndroid.DoNotMix,
+          shouldDuckAndroid: false,
+          playThroughEarpieceAndroid: false,
         });
       } catch (e) { captureError(e, { screen: 'TimerRun', action: 'setAudioMode' }); }
       if (withCamera) {
@@ -464,17 +479,18 @@ export default function TimerRunScreen() {
         if (!mediaPermission?.granted) requestMediaPermission();
       }
       const cDir = FileSystem.cacheDirectory ?? '';
+      // fadeInMs >= 15ms to avoid audible click/pop at beep start
       await FileSystem.writeAsStringAsync(cDir + 'bwod_tick.wav',
-        buildMultiWAV([{ hz: 860, ms: 150, fadeInMs: 5, fadeOutMs: 20 }]),
+        buildMultiWAV([{ hz: 860, ms: 180, fadeInMs: 15, fadeOutMs: 30 }]),
         { encoding: FileSystem.EncodingType.Base64 });
       await FileSystem.writeAsStringAsync(cDir + 'bwod_go.wav',
-        buildMultiWAV([{ hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 }]),
+        buildMultiWAV([{ hz: 1000, ms: 550, fadeInMs: 15, fadeOutMs: 50 }]),
         { encoding: FileSystem.EncodingType.Base64 });
       await FileSystem.writeAsStringAsync(cDir + 'bwod_done.wav',
         buildMultiWAV([
-          { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
+          { hz: 1000, ms: 550, fadeInMs: 15, fadeOutMs: 50 },
           { silent: true, ms: 80 },
-          { hz: 1000, ms: 550, fadeInMs: 5, fadeOutMs: 40 },
+          { hz: 1000, ms: 550, fadeInMs: 15, fadeOutMs: 50 },
         ]), { encoding: FileSystem.EncodingType.Base64 });
       // Pool de 3 Audio.Sound tick pré-chargés (expo-av)
       for (let i = 0; i < 3; i++) {
@@ -485,7 +501,28 @@ export default function TimerRunScreen() {
       sndGoRef.current = goSnd;
       const { sound: doneSnd } = await Audio.Sound.createAsync({ uri: cDir + 'bwod_done.wav' });
       sndDoneRef.current = doneSnd;
+
+      // Mark sounds as ready BEFORE the warmup, so that if the user starts
+      // a countdown very quickly after mounting this screen, the first ticks
+      // aren't silently dropped while we wait for the warmup. The fadeIn on
+      // each WAV already prevents the click/pop issue the warmup was solving.
       soundReadyRef.current = true;
+
+      // Warmup: play a truly silent 200ms WAV to prime the Android audio
+      // pipeline in the background. Non-blocking — beeps work even if this
+      // hasn't finished yet.
+      (async () => {
+        try {
+          const silencePath = cDir + 'bwod_silence.wav';
+          await FileSystem.writeAsStringAsync(silencePath,
+            buildMultiWAV([{ silent: true, ms: 200 }]),
+            { encoding: FileSystem.EncodingType.Base64 });
+          const { sound: silenceSnd } = await Audio.Sound.createAsync({ uri: silencePath });
+          await silenceSnd.playAsync();
+          await new Promise(r => setTimeout(r, 220));
+          await silenceSnd.unloadAsync();
+        } catch (e) { captureError(e, { screen: 'TimerRun', action: 'warmupSilence' }); }
+      })();
     }
     setup();
     return () => {
@@ -503,9 +540,13 @@ export default function TimerRunScreen() {
   }, []);
 
   // Screen orientation lock/unlock
+  // Main effect: apply the desired orientation behavior on dependency changes.
+  // IMPORTANT: no cleanup here — we don't want to flip to PORTRAIT_UP between
+  // state transitions (e.g. when isRecordingActive flips true while the user is
+  // holding the phone in landscape), which would cause a device rotation
+  // + native camera re-setup and drop frames/ticks for ~3s.
   useEffect(() => {
     if (withCamera) {
-      // Camera mode: allow rotation before recording, lock once recording starts
       if (isRecordingActive) {
         // Lock to whatever orientation the user chose before pressing record
         ScreenOrientation.getOrientationAsync().then(orientation => {
@@ -522,17 +563,21 @@ export default function TimerRunScreen() {
         ScreenOrientation.unlockAsync().catch(e => captureError(e, { action: 'unlockOrientation' }));
       }
     } else {
-      // Non-camera mode: controlled by the allowRotation display setting
       if (displayOpts.allowRotation) {
         ScreenOrientation.unlockAsync().catch(e => captureError(e, { action: 'unlockOrientation' }));
       } else {
         ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(e => captureError(e, { action: 'lockOrientation' }));
       }
     }
-    return () => {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(e => captureError(e, { action: 'lockOrientation' }));
-    };
   }, [withCamera, isRecordingActive, displayOpts.allowRotation]);
+
+  // Unmount-only: restore portrait lock when the screen is finally removed.
+  useEffect(() => {
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP)
+        .catch(e => captureError(e, { action: 'lockOrientation' }));
+    };
+  }, []);
 
   function setDisplayOpts(update: Partial<TimerDisplayOpts>) {
     setDisplayOptsRaw(prev => {
@@ -770,6 +815,16 @@ export default function TimerRunScreen() {
             }
             break;
 
+          case 'splits':
+            roundTimeLeftRef.current -= 1;
+            setRoundTimeLeft(roundTimeLeftRef.current);
+            if (roundTimeLeftRef.current <= 0) {
+              splitsRoundDone();
+            } else if (roundTimeLeftRef.current <= 3) {
+              playBeep('tick');
+            }
+            break;
+
           case 'ywyr':
             if (innerPhaseRef.current === 'work') {
               ywyrWorkRef.current += 1;
@@ -815,7 +870,11 @@ export default function TimerRunScreen() {
                 if (roundTimeLeftRef.current <= 0) {
                   const nxt = currentRoundRef.current + 1;
                   if (nxt > blk.emomRounds) seqBlockDone();
-                  else { currentRoundRef.current = nxt; setCurrentRound(nxt); roundTimeLeftRef.current = blk.emomInterval * 60; setRoundTimeLeft(blk.emomInterval * 60); playBeep('go'); }
+                  else {
+                    const ivSec = blk.emomInterval === 0 ? (blk.emomCustomSec ?? 90) : blk.emomInterval * 60;
+                    currentRoundRef.current = nxt; setCurrentRound(nxt);
+                    roundTimeLeftRef.current = ivSec; setRoundTimeLeft(ivSec); playBeep('go');
+                  }
                 } else if (roundTimeLeftRef.current <= 3) { playBeep('tick'); }
                 break;
               case 'tabata':
@@ -850,7 +909,10 @@ export default function TimerRunScreen() {
     switch (blk.type) {
       case 'amrap': roundTimeLeftRef.current = blk.durationMin * 60; setRoundTimeLeft(blk.durationMin * 60); break;
       case 'for-time': roundTimeLeftRef.current = 0; setRoundTimeLeft(0); break;
-      case 'emom': roundTimeLeftRef.current = blk.emomInterval * 60; setRoundTimeLeft(blk.emomInterval * 60); break;
+      case 'emom': {
+        const ivSec = blk.emomInterval === 0 ? (blk.emomCustomSec ?? 90) : blk.emomInterval * 60;
+        roundTimeLeftRef.current = ivSec; setRoundTimeLeft(ivSec); break;
+      }
       case 'tabata': roundTimeLeftRef.current = blk.workSec; setRoundTimeLeft(blk.workSec); break;
       case 'ywyr': roundTimeLeftRef.current = 0; setRoundTimeLeft(0); break;
     }
@@ -870,6 +932,36 @@ export default function TimerRunScreen() {
     seqIdxRef.current = next; setSeqIdx(next);
     initSeqBlockByIdx(next);
     playBeep('tick');
+  }
+
+  // ─── SPLITS: round ended (auto) → wait for tap or finish ───────────────────
+  function splitsRoundDone() {
+    playBeep('done');
+    Vibration.vibrate([0, 350, 120, 350]);
+    if (currentRoundRef.current >= rounds) {
+      // Last round done → finalize session
+      stopAndSave();
+    } else {
+      // Pause timer, wait for user tap to start next round
+      clearTimer();
+      setPhase('splits-waiting');
+    }
+  }
+  // Tap-anywhere handler to launch the next splits round
+  function splitsNextRound() {
+    if (timerType !== 'splits' || phase !== 'splits-waiting') return;
+    const next = currentRoundRef.current + 1;
+    if (next > rounds) { stopAndSave(); return; }
+    currentRoundRef.current = next;
+    setCurrentRound(next);
+    roundTimeLeftRef.current = workTime;
+    setRoundTimeLeft(workTime);
+    if (countdown > 0) {
+      setCountdownVal(countdown);
+      setPhase('countdown');
+    } else {
+      setPhase('running');
+    }
   }
 
   // ─── YWYR: user ends work phase ───────────────────────────────────────────
@@ -914,30 +1006,37 @@ export default function TimerRunScreen() {
     navigation.goBack();
   }
 
-  const isActive = phase === 'countdown' || phase === 'running';
-  const { width: winW, height: winH } = useWindowDimensions();
-  const isLandscape = winW > winH;
+  const isActive = phase === 'countdown' || phase === 'running' || phase === 'splits-waiting';
 
   const curBlk = timerType === 'libre' ? seqBlocksRef.current[seqIdx] : undefined;
   const seqTotal = seqBlocksRef.current.length;
 
+  const emomLabelFor = (b: SeqBlock) => {
+    if (b.emomInterval === 0) {
+      const s = b.emomCustomSec ?? 90;
+      const m = Math.floor(s / 60); const ss = s % 60;
+      return `EMOM ${m > 0 ? m + 'min' : ''}${ss > 0 ? (m > 0 ? ' ' : '') + ss + 's' : ''}`.trim() || 'EMOM PERSO';
+    }
+    return b.emomInterval === 1 ? 'EMOM' : `E${b.emomInterval}MOM`;
+  };
   const blkLabel = curBlk
-    ? ({ 'for-time': 'FOR TIME', amrap: 'AMRAP', emom: curBlk.emomInterval === 1 ? 'EMOM' : `E${curBlk.emomInterval}MOM`, tabata: 'TABATA', ywyr: 'YWYR' } as Record<string, string>)[curBlk.type] ?? 'PERSONNALISÉ'
+    ? ({ 'for-time': 'FOR TIME', amrap: 'AMRAP', emom: emomLabelFor(curBlk), tabata: 'TABATA', ywyr: 'YWYR' } as Record<string, string>)[curBlk.type] ?? 'PERSONNALISÉ'
     : 'PERSONNALISÉ';
   const displayLabel = timerType === 'for-time' ? 'FOR TIME'
     : timerType === 'amrap'   ? 'AMRAP'
     : timerType === 'emom'    ? (interval === 1 ? 'EMOM' : `E${interval}MOM`)
     : timerType === 'tabata'  ? 'TABATA'
     : timerType === 'ywyr'    ? 'YWYR'
+    : timerType === 'splits'  ? 'SPLITS'
     : seqTotal === 1          ? blkLabel
     : `BLOC ${seqIdx + 1} / ${seqTotal}`;
 
   const seqBlockLabel = curBlk
-    ? ({ 'for-time': 'FOR TIME', amrap: 'AMRAP', emom: curBlk.emomInterval === 1 ? 'EMOM' : `E${curBlk.emomInterval}MOM`, tabata: 'TABATA', ywyr: 'YWYR' } as Record<string, string>)[curBlk.type] ?? ''
+    ? ({ 'for-time': 'FOR TIME', amrap: 'AMRAP', emom: emomLabelFor(curBlk), tabata: 'TABATA', ywyr: 'YWYR' } as Record<string, string>)[curBlk.type] ?? ''
     : '';
 
   const mainTime = (() => {
-    if (timerType === 'amrap' || timerType === 'emom' || timerType === 'tabata') return formatTime(roundTimeLeft);
+    if (timerType === 'amrap' || timerType === 'emom' || timerType === 'tabata' || timerType === 'splits') return formatTime(roundTimeLeft);
     if (timerType === 'libre') {
       if (seqPausing) return formatTime(seqPauseLeft);
       if (!curBlk) return '00:00';
@@ -958,6 +1057,9 @@ export default function TimerRunScreen() {
       const phaseDur = innerPhase === 'work' ? workTime : restTime;
       return phaseDur > 0 ? Math.max(0, 1 - roundTimeLeft / phaseDur) : 0;
     }
+    if (timerType === 'splits') {
+      return workTime > 0 ? Math.max(0, 1 - roundTimeLeft / workTime) : 0;
+    }
     if (timerType === 'libre' && curBlk) {
       if (curBlk.type === 'amrap') {
         const total = curBlk.durationMin * 60;
@@ -968,7 +1070,7 @@ export default function TimerRunScreen() {
         return cap > 0 ? Math.min(1, timerVal / cap) : 0;
       }
       if (curBlk.type === 'emom') {
-        const iv = (curBlk.emomInterval || 1) * 60;
+        const iv = curBlk.emomInterval === 0 ? (curBlk.emomCustomSec ?? 90) : curBlk.emomInterval * 60;
         return iv > 0 ? Math.max(0, 1 - roundTimeLeft / iv) : 0;
       }
       if (curBlk.type === 'tabata') {
@@ -1011,10 +1113,14 @@ export default function TimerRunScreen() {
     if (timerType === 'amrap') return totalSeconds;
     if (timerType === 'emom') return interval * 60 * rounds;
     if (timerType === 'tabata') return (workTime + restTime) * rounds;
+    if (timerType === 'splits') return workTime * rounds;
     if (timerType === 'libre') {
       return seqBlocksRef.current.reduce((acc, blk) => {
         if (blk.type === 'amrap' || blk.type === 'for-time') return acc + blk.durationMin * 60;
-        if (blk.type === 'emom') return acc + blk.emomInterval * 60 * blk.emomRounds;
+        if (blk.type === 'emom') {
+          const ivSec = blk.emomInterval === 0 ? (blk.emomCustomSec ?? 90) : blk.emomInterval * 60;
+          return acc + ivSec * blk.emomRounds;
+        }
         if (blk.type === 'tabata') return acc + (blk.workSec + blk.restSec) * blk.tabRounds;
         return acc;
       }, 0);
@@ -1039,10 +1145,11 @@ export default function TimerRunScreen() {
   const totalRemaining = Math.max(0, totalWodSeconds - totalElapsed);
 
   // Round info
-  const hasRounds = timerType === 'emom' || timerType === 'tabata'
+  const hasRounds = timerType === 'emom' || timerType === 'tabata' || timerType === 'splits'
     || (timerType === 'libre' && curBlk && (curBlk.type === 'emom' || curBlk.type === 'tabata'));
   const curTotalRounds = timerType === 'emom' ? rounds
     : timerType === 'tabata' ? rounds
+    : timerType === 'splits' ? rounds
     : curBlk?.type === 'emom' ? curBlk.emomRounds
     : curBlk?.type === 'tabata' ? curBlk.tabRounds
     : 0;
@@ -1453,6 +1560,23 @@ export default function TimerRunScreen() {
           )}
         </>
       )}
+
+      {/* SPLITS — tap-anywhere overlay between rounds */}
+      {timerType === 'splits' && phase === 'splits-waiting' && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={splitsNextRound}
+          style={styles.splitsTapOverlay}
+        >
+          <View style={styles.splitsTapBadge}>
+            <Text style={styles.splitsTapRound}>
+              ROUND {Math.min(currentRound + 1, rounds)} / {rounds}
+            </Text>
+            <Text style={styles.splitsTapLabel}>TAP POUR LANCER</Text>
+            <Text style={styles.splitsTapHint}>Récup libre · Touche n'importe où</Text>
+          </View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -1841,5 +1965,29 @@ const styles = StyleSheet.create({
   },
   roundBadgeDivider: {
     width: 1, height: 40, borderRadius: 1,
+  },
+  splitsTapOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 50,
+  },
+  splitsTapBadge: {
+    paddingHorizontal: 36, paddingVertical: 28,
+    backgroundColor: 'rgba(20,20,20,0.92)',
+    borderRadius: 24,
+    borderWidth: 2, borderColor: 'rgba(74,222,128,0.55)',
+    alignItems: 'center', gap: 10,
+    shadowColor: '#4ADE80', shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 0 },
+  },
+  splitsTapRound: {
+    fontSize: 14, fontWeight: '900', color: 'rgba(255,255,255,0.6)', letterSpacing: 4,
+  },
+  splitsTapLabel: {
+    fontSize: 28, fontWeight: '900', color: '#4ADE80', letterSpacing: 2,
+    textShadowColor: '#4ADE80', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12,
+  },
+  splitsTapHint: {
+    fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)', letterSpacing: 1,
   },
 });

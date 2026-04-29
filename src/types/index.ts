@@ -165,6 +165,9 @@ export interface BoxWOD {
   is_published: boolean;
   leaderboard_enabled?: boolean;
   sort_order?: number;
+  emom_interval_minutes?: number;
+  tabata_work_seconds?: number;
+  tabata_rest_seconds?: number;
   created_at: string;
   scores?: WODScore[];
 }

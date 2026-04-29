@@ -32,6 +32,11 @@ class AudioEncoder {
   private var captureThread: Thread? = null
   private val recording = AtomicBoolean(false)
 
+  // Total PCM samples (per channel) already queued to the encoder.
+  // Used to compute PTS from sample count — guarantees the audio track
+  // duration matches the actual audio content regardless of thread timing.
+  private var encodedSamples = 0L
+
   /** Callback for encoded output format (SPS header for AAC). */
   var onOutputFormat: ((MediaFormat) -> Unit)? = null
 
@@ -73,20 +78,22 @@ class AudioEncoder {
 
   /**
    * Start capturing and encoding audio on a background thread.
-   * @param recordingStartNanos the nanoTime reference for PTS alignment with video.
+   * @param recordingStartNanos unused, kept for API compatibility with previous versions.
+   *                             PTS is now derived from the cumulative sample count.
    */
-  fun start(recordingStartNanos: Long) {
+  fun start(@Suppress("UNUSED_PARAMETER") recordingStartNanos: Long) {
     recording.set(true)
+    encodedSamples = 0L
     audioRecord?.startRecording()
 
     captureThread = Thread({
-      captureLoop(recordingStartNanos)
+      captureLoop()
     }, "AudioCaptureThread").apply { start() }
 
     Log.i(TAG, "Started")
   }
 
-  private fun captureLoop(recordingStartNanos: Long) {
+  private fun captureLoop() {
     val enc = encoder ?: return
     val bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, ENCODING) * 2
     val pcmBuffer = ByteArray(bufferSize)
@@ -95,36 +102,62 @@ class AudioEncoder {
       while (recording.get()) {
         val read = audioRecord?.read(pcmBuffer, 0, pcmBuffer.size) ?: -1
         if (read > 0) {
-          feedEncoder(enc, pcmBuffer, read, recordingStartNanos, false)
+          feedEncoder(enc, pcmBuffer, read, false)
           drainEncoder(enc, false)
         }
       }
 
-      // Signal end-of-stream
-      feedEncoder(enc, ByteArray(0), 0, recordingStartNanos, true)
+      // Signal end-of-stream with an empty buffer
+      feedEncoder(enc, ByteArray(0), 0, true)
       drainEncoder(enc, true)
     } catch (e: Exception) {
       Log.e(TAG, "Capture loop error", e)
     }
   }
 
-  private fun feedEncoder(
-    enc: MediaCodec, data: ByteArray, size: Int,
-    recordingStartNanos: Long, eos: Boolean
-  ) {
-    val index = enc.dequeueInputBuffer(10_000)
-    if (index < 0) return
-
-    val inputBuffer = enc.getInputBuffer(index) ?: return
-    inputBuffer.clear()
-    val bytesToWrite = minOf(size, inputBuffer.remaining())
-    if (bytesToWrite > 0) {
-      inputBuffer.put(data, 0, bytesToWrite)
+  /**
+   * Feed PCM bytes to the encoder, looping until every byte has been
+   * handed to a MediaCodec input buffer. This prevents silent data loss
+   * when the capture buffer (from AudioRecord) is larger than the codec
+   * input buffer — which would otherwise cause the audio to play back
+   * much faster than recorded because many samples are simply dropped.
+   *
+   * PTS is derived from [encodedSamples] (sample-accurate) instead of
+   * wall-clock time so the MP4 audio track duration always matches the
+   * actual PCM content fed to the encoder.
+   */
+  private fun feedEncoder(enc: MediaCodec, data: ByteArray, size: Int, eos: Boolean) {
+    // Special case: EOS with no data — just signal end-of-stream.
+    if (size == 0 && eos) {
+      val index = enc.dequeueInputBuffer(10_000)
+      if (index >= 0) {
+        val ptsUs = encodedSamples * 1_000_000L / SAMPLE_RATE
+        enc.queueInputBuffer(index, 0, 0, ptsUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+      }
+      return
     }
 
-    val ptsUs = (System.nanoTime() - recordingStartNanos) / 1000
-    val flags = if (eos) MediaCodec.BUFFER_FLAG_END_OF_STREAM else 0
-    enc.queueInputBuffer(index, 0, bytesToWrite, ptsUs, flags)
+    var offset = 0
+    while (offset < size) {
+      val index = enc.dequeueInputBuffer(10_000)
+      if (index < 0) return  // encoder busy — drop this chunk rather than block forever
+
+      val inputBuffer = enc.getInputBuffer(index) ?: return
+      inputBuffer.clear()
+      val toWrite = minOf(size - offset, inputBuffer.remaining())
+      if (toWrite > 0) {
+        inputBuffer.put(data, offset, toWrite)
+      }
+
+      val ptsUs = encodedSamples * 1_000_000L / SAMPLE_RATE
+      encodedSamples += (toWrite / 2)  // 16-bit mono → 2 bytes per sample
+
+      val isLast = (offset + toWrite >= size)
+      val flags = if (eos && isLast) MediaCodec.BUFFER_FLAG_END_OF_STREAM else 0
+      enc.queueInputBuffer(index, 0, toWrite, ptsUs, flags)
+
+      offset += toWrite
+    }
   }
 
   private fun drainEncoder(enc: MediaCodec, endOfStream: Boolean) {

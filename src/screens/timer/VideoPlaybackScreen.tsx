@@ -117,7 +117,7 @@ export default function VideoPlaybackScreen() {
         <VideoView
           player={player}
           style={StyleSheet.absoluteFill}
-          contentFit="cover"
+          contentFit="contain"
           nativeControls={false}
         />
       </TouchableOpacity>

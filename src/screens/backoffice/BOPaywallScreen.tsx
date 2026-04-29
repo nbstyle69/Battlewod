@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Linking,
+  View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView, AppState,
 } from 'react-native';
 import { Lock, CreditCard, Check, LogOut } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { openExternalUrl, pollUntilTrue } from '../../lib/openCheckout';
+import { supabase } from '../../lib/supabase';
 
 const PRICING_URL = 'https://the-hub-rho.vercel.app/pricing';
 
@@ -24,18 +26,38 @@ export default function BOPaywallScreen() {
   const { theme } = useTheme();
   const S = createStyles(theme);
   const [loading, setLoading] = useState(false);
+  const appState = useRef(AppState.currentState);
+
+  // Refresh subscription whenever the user returns to the app (e.g. after
+  // completing the Stripe checkout in a browser).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        refreshSubscription();
+      }
+      appState.current = nextState;
+    });
+    return () => sub.remove();
+  }, [refreshSubscription]);
 
   async function handleCheckout() {
     if (!currentBox) return;
     setLoading(true);
-    try {
-      const url = `${PRICING_URL}?box_id=${currentBox.id}`;
-      await Linking.openURL(url);
-      setTimeout(() => refreshSubscription(), 3000);
-    } catch (e: any) {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir la page de souscription');
-    }
-    setLoading(false);
+    const url = `${PRICING_URL}?box_id=${currentBox.id}`;
+    const opened = await openExternalUrl(url, 'Impossible d\'ouvrir la page de souscription.');
+    if (!opened) { setLoading(false); return; }
+
+    // Poll DB every 2s for up to 60s to detect the new subscription status.
+    pollUntilTrue(async () => {
+      const { data } = await (supabase.from as any)('box_subscriptions')
+        .select('status')
+        .eq('box_id', currentBox.id)
+        .maybeSingle();
+      return !!data && (data as any).status === 'active';
+    }).finally(() => {
+      refreshSubscription();
+      setLoading(false);
+    });
   }
 
   return (

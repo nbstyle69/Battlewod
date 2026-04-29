@@ -52,7 +52,7 @@ class VideoRecorderEngine private constructor() {
   var overlayState = OverlayState()
   val stateLock = Object()
 
-  var useFrontCamera = false
+  @Volatile var useFrontCamera = false
   private var overlayRenderer: OverlayRenderer? = null
 
   // Sub-components
@@ -78,6 +78,8 @@ class VideoRecorderEngine private constructor() {
 
   // Recording state
   private val isRecording = AtomicBoolean(false)
+
+  fun isRecordingActive(): Boolean = isRecording.get()
   private var recordingStartNanos = 0L
   private var outputPath: String? = null
   private var hasAudio = true
@@ -246,6 +248,21 @@ class VideoRecorderEngine private constructor() {
     Log.i(TAG, "Renderer + SurfaceTexture initialized")
   }
 
+  /** Current display rotation in degrees (0/90/180/270), read from WindowManager. */
+  private fun currentDisplayRotationDegrees(): Int {
+    val ctx = appContext?.get() ?: return 0
+    return try {
+      val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return 0
+      @Suppress("DEPRECATION")
+      when (wm.defaultDisplay.rotation) {
+        Surface.ROTATION_90 -> 90
+        Surface.ROTATION_180 -> 180
+        Surface.ROTATION_270 -> 270
+        else -> 0
+      }
+    } catch (e: Exception) { 0 }
+  }
+
   private fun openCamera(context: Context) {
     val handler = glHandler ?: return
 
@@ -266,7 +283,7 @@ class VideoRecorderEngine private constructor() {
     }
 
     val st = cameraSurfaceTexture ?: return
-    cameraController?.openCamera(context, useFrontCamera, st, handler)
+    cameraController?.openCamera(context, useFrontCamera, st, handler, isLandscape)
   }
 
   // ================================================================
@@ -291,9 +308,20 @@ class VideoRecorderEngine private constructor() {
       val texMatrix = FloatArray(16)
       cameraSurfaceTexture?.getTransformMatrix(texMatrix)
 
-      val mirror = useFrontCamera
+      // Detect if the texture matrix already includes a horizontal mirror.
+      // Camera2 front cameras on some devices (OnePlus, Samsung, etc.) include
+      // a reflection in getTransformMatrix(). The 2D determinant tells us:
+      // negative → transform includes a mirror/reflection.
+      val isFront = cameraController?.isFrontFacing ?: useFrontCamera
+      val texDet = texMatrix[0] * texMatrix[5] - texMatrix[4] * texMatrix[1]
+      val texAlreadyMirrored = texDet < 0
+      val mirror = if (isFront) !texAlreadyMirrored else false
 
       updateOverlayBitmap()
+
+      val rotationDeg = currentDisplayRotationDegrees()
+      val camBufW = cameraController?.bufferWidth ?: 0
+      val camBufH = cameraController?.bufferHeight ?: 0
 
       // --- Render to preview surface (NO overlay — RN draws its own UI) ---
       if (eglPreviewSurface != EGL14.EGL_NO_SURFACE) {
@@ -301,14 +329,19 @@ class VideoRecorderEngine private constructor() {
         val view = hostView?.get()
         val pw = view?.textureView?.width ?: videoWidth
         val ph = view?.textureView?.height ?: videoHeight
-        renderer?.drawFrame(texMatrix, mirror, drawOverlay = false, viewportWidth = pw, viewportHeight = ph)
+        renderer?.drawFrame(texMatrix, mirror, drawOverlay = false,
+          viewportWidth = pw, viewportHeight = ph,
+          displayRotationDegrees = rotationDeg,
+          cameraBufferWidth = camBufW, cameraBufferHeight = camBufH)
         eglCore?.swapBuffers(eglPreviewSurface)
       }
 
       // --- Render to encoder surface (WITH overlay burned in) ---
       if (isRecording.get() && eglEncoderSurface != EGL14.EGL_NO_SURFACE) {
         eglCore?.makeCurrent(eglEncoderSurface)
-        renderer?.drawFrame(texMatrix, mirror, drawOverlay = true)
+        renderer?.drawFrame(texMatrix, mirror, drawOverlay = true,
+          displayRotationDegrees = rotationDeg,
+          cameraBufferWidth = camBufW, cameraBufferHeight = camBufH)
 
         val ptsNanos = System.nanoTime() - recordingStartNanos
         eglCore?.setPresentationTime(eglEncoderSurface, ptsNanos)
@@ -337,11 +370,17 @@ class VideoRecorderEngine private constructor() {
 
     val or = overlayRenderer ?: return
 
+    // Render overlay at half resolution — GPU upscales via linear filtering.
+    // Cuts eraseColor + glTexSubImage2D cost by 4× (8MB → 2MB) with no visible loss
+    // (overlay is just text + icons with shadows).
+    val overlayW = videoWidth / 2
+    val overlayH = videoHeight / 2
+
     // Reuse the same bitmap — allocate only once
     var bmp = overlayBitmap
-    if (bmp == null || bmp.width != videoWidth || bmp.height != videoHeight) {
+    if (bmp == null || bmp.width != overlayW || bmp.height != overlayH) {
       bmp?.recycle()
-      bmp = Bitmap.createBitmap(videoWidth, videoHeight, Bitmap.Config.ARGB_8888)
+      bmp = Bitmap.createBitmap(overlayW, overlayH, Bitmap.Config.ARGB_8888)
       overlayBitmap = bmp
     } else {
       bmp.eraseColor(android.graphics.Color.TRANSPARENT)

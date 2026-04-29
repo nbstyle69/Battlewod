@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { log } from '../lib/logger';
 import { calculatePairwiseDeltas, RankedPlayer, SCALED_MULTIPLIER } from '../utils/elo';
 import { syncLevelAndBadges } from '../utils/eloLevels';
 import { WODScore } from '../types';
@@ -21,7 +22,7 @@ export async function computeAndSaveElo(wodId: string, boxId: string, scores: WO
       .select('id, elo')
       .in('id', memberIds);
 
-    if (!profiles || profiles.length === 0) { console.log('[eloCompute] no profiles found'); return; }
+    if (!profiles || profiles.length === 0) { log.debug('[eloCompute] no profiles found'); return; }
 
     const eloMap: Record<string, number> = {};
     for (const p of profiles) eloMap[p.id] = p.elo ?? 1000;
@@ -56,9 +57,9 @@ export async function computeAndSaveElo(wodId: string, boxId: string, scores: WO
       rank: d.rank,
     }));
 
-    console.log('[eloCompute] upserting', historyRows.length, 'rows for wod', wodId);
+    log.debug('[eloCompute] upserting', historyRows.length, 'rows for wod', wodId);
     const { error: upsertErr } = await supabase.from('elo_history').upsert(historyRows, { onConflict: 'wod_id,member_id' });
-    if (upsertErr) { console.log('[eloCompute] upsert error:', upsertErr.message); return; }
+    if (upsertErr) { log.warn('[eloCompute] upsert error:', upsertErr.message); return; }
 
     for (const d of deltas) {
       const newElo = d.elo + d.delta;
@@ -70,8 +71,8 @@ export async function computeAndSaveElo(wodId: string, boxId: string, scores: WO
       });
       await syncLevelAndBadges(d.id, newElo);
     }
-    console.log('[eloCompute] done for wod', wodId);
+    log.debug('[eloCompute] done for wod', wodId);
   } catch (err: any) {
-    console.log('[eloCompute] CRASH:', err?.message, err);
+    log.error('[eloCompute] CRASH', err, { wodId });
   }
 }

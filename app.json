@@ -4,7 +4,7 @@
     "slug": "TheHub",
     "version": "1.0.30",
     "orientation": "portrait",
-    "icon": "./assets/logoapp.png",
+    "icon": "./assets/athex-logo.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/logo.png",
@@ -14,8 +14,8 @@
     "scheme": "athlex",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nbstyle.athlex",
-      "icon": "./assets/logoapp.png",
+      "bundleIdentifier": "io.athlex.app",
+      "icon": "./assets/athex-logo.png",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -24,12 +24,12 @@
         "NSMicrophoneUsageDescription": "AthleX utilise le micro pour les vidéos de performance.",
         "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos."
       },
-      "buildNumber": "23"
+      "buildNumber": "6"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0F",
-        "foregroundImage": "./assets/logoapp.png",
+        "foregroundImage": "./assets/athex-logo.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },

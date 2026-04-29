@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, Alert, Modal, FlatList,
 } from 'react-native';
-import { CalendarClock, ChevronLeft, ChevronRight, Users, Check, Clock, Dumbbell, Timer, X, CalendarCheck } from 'lucide-react-native';
+import { CalendarClock, ChevronLeft, ChevronRight, Users, Check, Clock, Timer, X, CalendarCheck } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -26,13 +26,6 @@ interface ClassSchedule {
   available_spots: number;
   my_status: 'confirmed' | 'waiting' | null;
   my_waiting_position: number;
-}
-
-interface DayWOD {
-  id: string;
-  title: string;
-  wod_type: string | null;
-  scheduled_date: string;
 }
 
 function getWeekDates(offset = 0): Date[] {
@@ -69,11 +62,6 @@ function minutesUntilSlot(scheduled_date: string, start_time: string): number {
   return (slotTime.getTime() - Date.now()) / 60_000;
 }
 
-const WOD_TYPE_LABELS: Record<string, string> = {
-  'for-time': 'For Time', amrap: 'AMRAP', emom: 'EMOM',
-  tabata: 'Tabata', strength: 'Strength', custom: 'Custom',
-};
-
 export default function ReservationScreen() {
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
@@ -81,7 +69,6 @@ export default function ReservationScreen() {
   const S = createStyles(theme);
 
   const [schedules,  setSchedules]  = useState<ClassSchedule[]>([]);
-  const [wods,       setWods]       = useState<DayWOD[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -98,25 +85,14 @@ export default function ReservationScreen() {
     const start = toISO(weekDates[0]);
     const end   = toISO(weekDates[6]);
 
-    const [{ data: schedulesData }, { data: wodsData }] = await Promise.all([
-      supabase
-        .from('class_schedules')
-        .select('*')
-        .eq('box_id', currentBox.id)
-        .gte('scheduled_date', start)
-        .lte('scheduled_date', end)
-        .order('scheduled_date')
-        .order('start_time'),
-      supabase
-        .from('box_wods')
-        .select('id, title, wod_type, scheduled_date')
-        .eq('box_id', currentBox.id)
-        .eq('is_published', true)
-        .gte('scheduled_date', start)
-        .lte('scheduled_date', end),
-    ]);
-
-    setWods((wodsData ?? []) as DayWOD[]);
+    const { data: schedulesData } = await supabase
+      .from('class_schedules')
+      .select('*')
+      .eq('box_id', currentBox.id)
+      .gte('scheduled_date', start)
+      .lte('scheduled_date', end)
+      .order('scheduled_date')
+      .order('start_time');
 
     const items = (schedulesData ?? []) as Omit<ClassSchedule, 'confirmed_count' | 'waiting_count' | 'available_spots' | 'my_status' | 'my_waiting_position'>[];
 
@@ -350,30 +326,12 @@ export default function ReservationScreen() {
             }
             return true;
           });
-          const dayWod   = wods.find(w => w.scheduled_date === selectedDate);
-
           return (
             <ScrollView
               contentContainerStyle={{ paddingBottom: 40 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.accent} />}
             >
               <View style={S.dayBlock}>
-                {/* WOD of the day banner */}
-                {dayWod && (
-                  <View style={S.wodBanner}>
-                    <Dumbbell color={theme.accent} size={13} />
-                    <Text style={S.wodBannerText} numberOfLines={1}>
-                      WOD · {dayWod.title}
-                    </Text>
-                    {dayWod.wod_type && (
-                      <View style={S.wodTypePill}>
-                        <Text style={S.wodTypeText}>
-                          {WOD_TYPE_LABELS[dayWod.wod_type] ?? dayWod.wod_type}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
 
                 {/* Schedule slots */}
                 {dayItems.length === 0 ? (
@@ -481,7 +439,7 @@ export default function ReservationScreen() {
                 )}
               </View>
 
-              {dayItems.length === 0 && !dayWod && (
+              {dayItems.length === 0 && (
                 <View style={S.emptyWeek}>
                   <CalendarClock color={theme.textMuted} size={40} strokeWidth={1.5} />
                   <Text style={S.emptyWeekTitle}>Aucun créneau ce jour</Text>
@@ -611,11 +569,6 @@ function createStyles(t: AppTheme) {
     dayLabelPast:       { color: t.textMuted },
     todayBadge:         { fontSize: 11, fontWeight: '700', color: '#fff', marginRight: 6 },
     slotCount:          { fontSize: 11, color: t.textMuted },
-
-    wodBanner:          { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${t.accent}10`, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, marginBottom: 6, borderWidth: 1, borderColor: `${t.accent}25` },
-    wodBannerText:      { flex: 1, fontSize: 12, fontWeight: '700', color: t.accent },
-    wodTypePill:        { backgroundColor: `${t.accent}20`, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-    wodTypeText:        { fontSize: 11, fontWeight: '700', color: t.accent },
 
     noSlots:            { paddingVertical: 10, paddingHorizontal: 4 },
     noSlotsText:        { fontSize: 12, color: t.textMuted, fontStyle: 'italic' },

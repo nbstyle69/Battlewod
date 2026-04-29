@@ -177,6 +177,32 @@ export default function WODDetailScreen() {
     return d;
   })() : false;
 
+  function openEditModal() {
+    if (!myScore) { setModalOpen(true); return; }
+    // Pre-fill form with existing score
+    setScoreType(myScore.score_type);
+    setIsRx(myScore.rx);
+    setNoteInput(myScore.notes ?? '');
+    setDnf(false);
+    setCapReps('');
+    setScoreInput('');
+    setTimeMin('');
+    setTimeSec('');
+    if (myScore.score_type === 'time') {
+      if (myScore.score_value >= DNF_BASE) {
+        setDnf(true);
+        setCapReps(String(myScore.score_value - DNF_BASE));
+      } else {
+        const total = Math.round(myScore.score_value);
+        setTimeMin(String(Math.floor(total / 60)));
+        setTimeSec(String(total % 60));
+      }
+    } else {
+      setScoreInput(String(myScore.score_value));
+    }
+    setModalOpen(true);
+  }
+
   async function handleShare() {
     if (!viewShotRef.current?.capture) return;
     setSharing(true);
@@ -231,7 +257,22 @@ export default function WODDetailScreen() {
     }, { onConflict: 'wod_id,member_id' });
 
     if (error) { setSubmitting(false); Alert.alert('Erreur', error.message); return; }
-    incrementCounter(user.id, 'total_scores_submitted', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementScores' }));
+
+    // Dedup: if user already marked this WOD as "réalisé", the activity was already counted.
+    // Remove the completion row (score is authoritative) and skip double-counting the streak.
+    const { data: existingCompletion } = await supabase
+      .from('wod_completions')
+      .select('id')
+      .eq('wod_id', wod.id)
+      .eq('member_id', user.id)
+      .maybeSingle();
+    const alreadyCounted = !!existingCompletion;
+    if (alreadyCounted) {
+      await supabase.from('wod_completions').delete().eq('wod_id', wod.id).eq('member_id', user.id);
+    }
+
+    incrementCounter(user.id, 'total_scores_submitted', 1, currentBox?.id, { skipStreak: alreadyCounted })
+      .catch(e => captureError(e, { action: 'incrementScores' }));
     cancelTodayScoreReminder().catch(e => captureError(e, { action: 'cancelScoreReminder' }));
 
     // Log movement reps for badges (parse description as movement lines)
@@ -486,12 +527,18 @@ export default function WODDetailScreen() {
                   <Text style={S.editScoreBtnText}>Partager</Text>
                 </TouchableOpacity>
                 {!isExpired && (
-                  <TouchableOpacity style={S.editScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.7}>
+                  <TouchableOpacity style={S.editScoreBtn} onPress={openEditModal} activeOpacity={0.7}>
                     <RotateCcw color={theme.accent} size={14} />
                     <Text style={S.editScoreBtnText}>Modifier</Text>
                   </TouchableOpacity>
                 )}
               </View>
+              {myScore.notes ? (
+                <View style={S.myScoreNotesBox}>
+                  <Text style={S.myScoreNotesLabel}>MA NOTE</Text>
+                  <Text style={S.myScoreNotesText}>{myScore.notes}</Text>
+                </View>
+              ) : null}
             </View>
           ) : isExpired ? (
             <View style={S.expiredBanner}>
@@ -1010,6 +1057,9 @@ function createStyles(theme: AppTheme) {
   notesBox: { backgroundColor: theme.surface, borderRadius: 10, padding: 10, gap: 4 },
   notesLabel: { fontSize: 10, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.5 },
   notesText: { fontSize: 12, color: theme.textSecondary, lineHeight: 18 },
+  myScoreNotesBox: { marginTop: 10, backgroundColor: theme.surface, borderRadius: 10, padding: 10, gap: 4, borderWidth: 1, borderColor: theme.border },
+  myScoreNotesLabel: { fontSize: 10, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.5 },
+  myScoreNotesText: { fontSize: 13, color: theme.textSecondary, lineHeight: 18 },
   videoBox: { gap: 6, marginTop: 4 },
   videoLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   videoLabelText: { fontSize: 10, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.5 },
