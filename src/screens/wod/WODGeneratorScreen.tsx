@@ -13,6 +13,7 @@ import { captureError } from '../../lib/sentry';
 import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WODType } from '../../types';
 import GlassBackground from '../../components/glass/GlassBackground';
+import GlassCard from '../../components/glass/GlassCard';
 
 const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const DURATIONS = [5, 10, 15, 20];
@@ -910,49 +911,63 @@ export default function WODGeneratorScreen() {
 
         {/* Quick access: Historique & Favoris */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-          <TouchableOpacity
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.surface, borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: theme.border }}
-            onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
-          >
-            <History color={theme.text} size={16} />
-            <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Historique</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.surface, borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: theme.border }}
-            onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
-          >
-            <Heart color="#EF4444" size={16} />
-            <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Favoris</Text>
-          </TouchableOpacity>
+          <GlassCard radius={12} style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12 }}
+              onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
+            >
+              <History color={theme.text} size={16} />
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Historique</Text>
+            </TouchableOpacity>
+          </GlassCard>
+          <GlassCard radius={12} style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12 }}
+              onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
+            >
+              <Heart color="#EF4444" size={16} />
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Favoris</Text>
+            </TouchableOpacity>
+          </GlassCard>
         </View>
 
         {/* Programmation button */}
-        <TouchableOpacity style={S.progBtn} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
-          <BookOpen color={theme.accent} size={16} />
-          <Text style={S.progBtnTxt}>Programmation</Text>
-          <ChevronRight color={theme.textMuted} size={14} />
-        </TouchableOpacity>
+        <GlassCard radius={12} variant="emerald" style={{ marginBottom: 16 }}>
+          <TouchableOpacity style={S.progBtnInner} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
+            <BookOpen color={theme.accent} size={16} />
+            <Text style={S.progBtnTxt}>Programmation</Text>
+            <ChevronRight color={theme.textMuted} size={14} />
+          </TouchableOpacity>
+        </GlassCard>
 
         {/* Sport selector */}
         <View style={S.sportRow}>
-          <TouchableOpacity
-            style={[S.sportCard, sport === 'functional' && S.sportCardActive]}
-            onPress={() => setSport('functional')}
-            activeOpacity={0.8}
+          <GlassCard
+            radius={16}
+            variant={sport === 'functional' ? 'emerald' : 'default'}
+            style={{ flex: 1, borderWidth: 0 }}
           >
-            <Text style={S.sportEmoji}>🏋️</Text>
-            <Text style={[S.sportLabel, sport === 'functional' && { color: theme.accent }]}>Functional{"\n"}Fitness</Text>
-            {sport === 'functional' && <View style={[S.sportDot, { backgroundColor: theme.accent }]} />}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[S.sportCard, sport === 'hybrid' && S.sportCardHybrid]}
-            onPress={() => setSport('hybrid')}
-            activeOpacity={0.8}
-          >
-            <Text style={S.sportEmoji}>⚡</Text>
-            <Text style={[S.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>Hybrid</Text>
-            {sport === 'hybrid' && <View style={[S.sportDot, { backgroundColor: HYROX_ORANGE }]} />}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.sportCardInner, sport === 'functional' && { borderColor: theme.accent, borderWidth: 2 }]}
+              onPress={() => setSport('functional')}
+              activeOpacity={0.8}
+            >
+              <Text style={S.sportEmoji}>🏋️</Text>
+              <Text style={[S.sportLabel, sport === 'functional' && { color: theme.accent }]}>Functional{"\n"}Fitness</Text>
+              {sport === 'functional' && <View style={[S.sportDot, { backgroundColor: theme.accent }]} />}
+            </TouchableOpacity>
+          </GlassCard>
+          <GlassCard radius={16} style={{ flex: 1, borderWidth: 0 }}>
+            <TouchableOpacity
+              style={[S.sportCardInner, sport === 'hybrid' && { borderColor: HYROX_ORANGE, borderWidth: 2 }]}
+              onPress={() => setSport('hybrid')}
+              activeOpacity={0.8}
+            >
+              <Text style={S.sportEmoji}>⚡</Text>
+              <Text style={[S.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>Hybrid</Text>
+              {sport === 'hybrid' && <View style={[S.sportDot, { backgroundColor: HYROX_ORANGE }]} />}
+            </TouchableOpacity>
+          </GlassCard>
         </View>
 
         {sport === 'functional' ? (
@@ -1275,6 +1290,10 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     flex: 1, borderRadius: 16, padding: 16, alignItems: 'center', gap: 4,
     backgroundColor: theme.card, borderWidth: 2, borderColor: theme.border,
   },
+  sportCardInner: {
+    padding: 16, alignItems: 'center', gap: 4,
+    borderRadius: 16, borderWidth: 2, borderColor: 'transparent',
+  },
   sportCardActive: { borderColor: theme.accent, backgroundColor: `${theme.accent}10` },
   sportCardHybrid: { borderColor: HYROX_ORANGE, backgroundColor: `${HYROX_ORANGE}10` },
   sportEmoji: { fontSize: 26, marginBottom: 4 },
@@ -1327,6 +1346,10 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: theme.card, borderRadius: 12, paddingVertical: 12,
     borderWidth: 1, borderColor: theme.border, marginBottom: 16,
+  },
+  progBtnInner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 12,
   },
   progBtnTxt: { fontSize: 13, fontWeight: '800', color: theme.text },
 }); }
