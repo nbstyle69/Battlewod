@@ -17,7 +17,13 @@ type WODConfigFields = Pick<
   'wod_type' | 'time_cap_seconds' | 'rounds' | 'emom_interval_minutes' | 'tabata_work_seconds' | 'tabata_rest_seconds'
 >;
 
-export function buildSeqBlockFromWOD(wod: WODConfigFields): SeqBlock {
+export type EmomOverride = {
+  intervalMinutes: number; // 1-5, ou 0 = PERSO (utilise customSec)
+  customSec?: number;
+  rounds: number;
+};
+
+export function buildSeqBlockFromWOD(wod: WODConfigFields, emomOverride?: EmomOverride): SeqBlock {
   const type = (wod.wod_type ?? 'for-time') as string;
   const capMin = wod.time_cap_seconds ? Math.max(0, Math.round(wod.time_cap_seconds / 60)) : 0;
   const rounds = wod.rounds && wod.rounds > 0 ? wod.rounds : undefined;
@@ -43,6 +49,15 @@ export function buildSeqBlockFromWOD(wod: WODConfigFields): SeqBlock {
       return { ...base, type: 'amrap', durationMin: capMin > 0 ? capMin : 10 };
 
     case 'emom':
+      if (emomOverride) {
+        return {
+          ...base,
+          type: 'emom',
+          emomInterval: emomOverride.intervalMinutes, // 0 = PERSO
+          emomCustomSec: emomOverride.customSec,
+          emomRounds: Math.max(1, emomOverride.rounds),
+        };
+      }
       return {
         ...base,
         type: 'emom',
@@ -96,10 +111,10 @@ export function formatWODPreconfig(wod: WODConfigFields): string {
  * Build full TimerRun navigation params (libre mode with a single preconfigured block).
  */
 export function buildTimerRunParams(
-  wod: Pick<BoxWOD, 'wod_type' | 'time_cap_seconds' | 'rounds' | 'title'>,
-  opts: { withCamera: boolean; countdown: number },
+  wod: Pick<BoxWOD, 'wod_type' | 'time_cap_seconds' | 'rounds' | 'title' | 'emom_interval_minutes' | 'tabata_work_seconds' | 'tabata_rest_seconds'>,
+  opts: { withCamera: boolean; countdown: number; emomOverride?: EmomOverride },
 ) {
-  const block = buildSeqBlockFromWOD(wod);
+  const block = buildSeqBlockFromWOD(wod as any, opts.emomOverride);
   return {
     timerType: 'libre' as const,
     countdown: opts.countdown,

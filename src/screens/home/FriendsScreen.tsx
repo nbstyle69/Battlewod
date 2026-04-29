@@ -247,16 +247,22 @@ export default function FriendsScreen() {
                     const sender = req.requester as any;
                     return (
                       <View key={req.id} style={S.requestRow}>
-                        <UserAvatar uri={sender?.avatar_url} name={sender?.username ?? '?'} size={44} backgroundColor={theme.accentShadow} />
-                        <View style={S.friendInfo}>
-                          <Text style={S.friendName}>{sender?.username ?? 'Athlète'}</Text>
-                          <View style={S.levelPill}>
-                            <View style={[S.levelDot, { backgroundColor: LEVEL_COLORS[sender?.level] ?? '#6B7280' }]} />
-                            <Text style={[S.levelText, { color: LEVEL_COLORS[sender?.level] ?? '#6B7280' }]}>
-                              {sender?.level?.toUpperCase()}
-                            </Text>
+                        <TouchableOpacity
+                          style={S.requestInfoTouchable}
+                          activeOpacity={0.7}
+                          onPress={() => sender?.id && navigation.navigate('PublicProfile', { userId: sender.id })}
+                        >
+                          <UserAvatar uri={sender?.avatar_url} name={sender?.username ?? '?'} size={44} backgroundColor={theme.accentShadow} />
+                          <View style={S.friendInfo}>
+                            <Text style={S.friendName}>{sender?.username ?? 'Athlète'}</Text>
+                            <View style={S.levelPill}>
+                              <View style={[S.levelDot, { backgroundColor: LEVEL_COLORS[sender?.level] ?? '#6B7280' }]} />
+                              <Text style={[S.levelText, { color: LEVEL_COLORS[sender?.level] ?? '#6B7280' }]}>
+                                {sender?.level?.toUpperCase()}
+                              </Text>
+                            </View>
                           </View>
-                        </View>
+                        </TouchableOpacity>
                         <View style={S.actionBtns}>
                           <TouchableOpacity style={S.acceptBtn} onPress={() => handleAccept(req.id)}>
                             <Check color="#fff" size={16} />
@@ -277,11 +283,17 @@ export default function FriendsScreen() {
                     const receiver = req.addressee as any;
                     return (
                       <View key={req.id} style={S.requestRow}>
-                        <UserAvatar uri={receiver?.avatar_url} name={receiver?.username ?? '?'} size={44} backgroundColor={theme.accentShadow} />
-                        <View style={S.friendInfo}>
-                          <Text style={S.friendName}>{receiver?.username ?? 'Athlète'}</Text>
-                          <Text style={S.pendingLabel}>En attente…</Text>
-                        </View>
+                        <TouchableOpacity
+                          style={S.requestInfoTouchable}
+                          activeOpacity={0.7}
+                          onPress={() => receiver?.id && navigation.navigate('PublicProfile', { userId: receiver.id })}
+                        >
+                          <UserAvatar uri={receiver?.avatar_url} name={receiver?.username ?? '?'} size={44} backgroundColor={theme.accentShadow} />
+                          <View style={S.friendInfo}>
+                            <Text style={S.friendName}>{receiver?.username ?? 'Athlète'}</Text>
+                            <Text style={S.pendingLabel}>En attente…</Text>
+                          </View>
+                        </TouchableOpacity>
                         <TouchableOpacity style={S.cancelBtn} onPress={() => handleCancelRequest(req.id)}>
                           <Text style={S.cancelBtnText}>Annuler</Text>
                         </TouchableOpacity>
@@ -411,6 +423,9 @@ function createStyles(theme: AppTheme) {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       backgroundColor: theme.card, borderRadius: 14, padding: 14,
       borderWidth: 1, borderColor: theme.border,
+    },
+    requestInfoTouchable: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12,
     },
     requestRow: {
       flexDirection: 'row', alignItems: 'center', gap: 12,

@@ -18,7 +18,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
-import { buildTimerRunParams, formatWODPreconfig } from '../../utils/wodToTimer';
+import { buildTimerRunParams, formatWODPreconfig, EmomOverride } from '../../utils/wodToTimer';
 import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
 
@@ -91,14 +91,84 @@ export default function WhiteboardScreen() {
   // Timer-launch modal (preconfigured from a WOD card)
   const [timerModalWod, setTimerModalWod] = useState<BoxWOD | null>(null);
   const [timerCountdown, setTimerCountdown] = useState<number>(3);
+  const [emomOverride, setEmomOverride] = useState<EmomOverride | null>(null);
 
   // Personal WODs (when user has no box)
   const [personalWODs, setPersonalWODs] = useState<BoxWOD[]>([]);
 
+  function openTimerModal(wod: BoxWOD) {
+    setTimerCountdown(3);
+    setTimerModalWod(wod);
+    if ((wod.wod_type ?? '') === 'emom') {
+      const iv = wod.emom_interval_minutes && wod.emom_interval_minutes > 0 ? wod.emom_interval_minutes : 1;
+      const capMin = wod.time_cap_seconds ? Math.max(0, Math.round(wod.time_cap_seconds / 60)) : 0;
+      const rounds = wod.rounds && wod.rounds > 0
+        ? wod.rounds
+        : (capMin > 0 ? Math.max(1, Math.floor(capMin / iv)) : 10);
+      // Always start in PERSO mode (intervalMinutes=0) with customSec from WOD
+      setEmomOverride({ intervalMinutes: 0, customSec: iv * 60, rounds });
+    } else {
+      setEmomOverride(null);
+    }
+  }
+
   function launchTimerFromWod(wod: BoxWOD, withCamera: boolean) {
-    const params = buildTimerRunParams(wod, { withCamera, countdown: timerCountdown });
+    const override = (wod.wod_type === 'emom' && emomOverride) ? emomOverride : undefined;
+    const params = buildTimerRunParams(wod, { withCamera, countdown: timerCountdown, emomOverride: override });
     setTimerModalWod(null);
     navigation.navigate('TimerRun', params);
+  }
+
+  // Renders the EMOM interval/rounds picker (PERSO mode: intervalle libre + rounds)
+  function renderEmomPicker() {
+    if (!timerModalWod || timerModalWod.wod_type !== 'emom' || !emomOverride) return null;
+    const ov = emomOverride;
+    const customSec = ov.customSec ?? 60;
+    const customMin = Math.floor(customSec / 60);
+    const customSs = customSec % 60;
+    const totalSec = customSec * ov.rounds;
+    const totalMm = Math.floor(totalSec / 60);
+    const totalSs = totalSec % 60;
+
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <Text style={S.timerModalLabel}>Intervalle</Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={S.emomStepRow}>
+            <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: Math.max(1, customSec - 60) })}>
+              <Text style={S.emomStepBtnText}>−</Text>
+            </TouchableOpacity>
+            <Text style={S.emomStepValue}>{customMin}<Text style={S.emomStepUnit}> min</Text></Text>
+            <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: customSec + 60 })}>
+              <Text style={S.emomStepBtnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={S.emomStepRow}>
+            <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: Math.max(1, customSec - 5) })}>
+              <Text style={S.emomStepBtnText}>−</Text>
+            </TouchableOpacity>
+            <Text style={S.emomStepValue}>{customSs}<Text style={S.emomStepUnit}> sec</Text></Text>
+            <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: customSec + 5 })}>
+              <Text style={S.emomStepBtnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text style={S.timerModalLabel}>Rounds</Text>
+        <View style={S.emomStepRow}>
+          <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, rounds: Math.max(1, ov.rounds - 1) })}>
+            <Text style={S.emomStepBtnText}>−</Text>
+          </TouchableOpacity>
+          <Text style={S.emomStepValue}>{ov.rounds}<Text style={S.emomStepUnit}> rounds</Text></Text>
+          <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, rounds: ov.rounds + 1 })}>
+            <Text style={S.emomStepBtnText}>+</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={S.emomTotalHint}>
+          Bip au début de chaque interval · Total : {totalMm} min{totalSs ? ` ${totalSs}s` : ''}
+        </Text>
+      </View>
+    );
   }
 
   useFocusEffect(useCallback(() => {
@@ -480,7 +550,7 @@ export default function WhiteboardScreen() {
                         <ChevronRight color={theme.accent} size={14} />
                       </View>
                       <TouchableOpacity
-                        onPress={(e) => { e.stopPropagation(); setTimerCountdown(3); setTimerModalWod(wod); }}
+                        onPress={(e) => { e.stopPropagation(); openTimerModal(wod); }}
                         style={S.timerBtn}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         activeOpacity={0.8}
@@ -545,6 +615,7 @@ export default function WhiteboardScreen() {
                   <Text style={S.timerModalPreviewText}>{formatWODPreconfig(timerModalWod)}</Text>
                 </View>
               )}
+              {renderEmomPicker()}
               <Text style={S.timerModalLabel}>Compte à rebours</Text>
               <View style={S.timerModalCountdownRow}>
                 {[0, 3, 5, 10].map(v => (
@@ -816,7 +887,7 @@ export default function WhiteboardScreen() {
                           <ChevronRight color={theme.accent} size={14} />
                         </View>
                         <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation(); setTimerCountdown(3); setTimerModalWod(wod); }}
+                          onPress={(e) => { e.stopPropagation(); openTimerModal(wod); }}
                           style={S.timerBtn}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           activeOpacity={0.8}
@@ -903,6 +974,7 @@ export default function WhiteboardScreen() {
                 <Text style={S.timerModalPreviewText}>{formatWODPreconfig(timerModalWod)}</Text>
               </View>
             )}
+            {renderEmomPicker()}
 
             <Text style={S.timerModalLabel}>Compte à rebours</Text>
             <View style={S.timerModalCountdownRow}>
@@ -1090,7 +1162,21 @@ function createStyles(theme: AppTheme) {
     borderWidth: 1, borderColor: `${theme.accent}30`,
   },
   timerModalPreviewText: { fontSize: 14, fontWeight: '700', color: theme.accent, letterSpacing: 0.3 },
-  timerModalLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.6, marginTop: 2 },
+  timerModalLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, letterSpacing: 0.6, marginTop: 8, marginBottom: 6 },
+  emomStepRow: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: theme.surface, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 8,
+    borderWidth: 1, borderColor: theme.border, marginBottom: 4,
+  },
+  emomStepBtn: {
+    width: 36, height: 36, borderRadius: 8, backgroundColor: theme.card,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: theme.border,
+  },
+  emomStepBtnText: { fontSize: 18, fontWeight: '900', color: theme.text },
+  emomStepValue: { fontSize: 22, fontWeight: '900', color: theme.text },
+  emomStepUnit: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
+  emomTotalHint: { fontSize: 11, fontWeight: '600', color: theme.textMuted, textAlign: 'center', marginTop: 6 },
   timerModalCountdownRow: { flexDirection: 'row', gap: 8 },
   timerModalCdChip: {
     flex: 1, paddingVertical: 10, borderRadius: 10,

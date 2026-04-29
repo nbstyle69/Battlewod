@@ -63,8 +63,17 @@ export default function MyReservationsScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const upcoming = reservations.filter(r => r.schedule && r.schedule.scheduled_date >= todayISO);
-  const past = reservations.filter(r => r.schedule && r.schedule.scheduled_date < todayISO);
+  // Sort by slot datetime (scheduled_date + start_time)
+  function slotKey(r: ReservationRow) {
+    if (!r.schedule) return '';
+    return `${r.schedule.scheduled_date}T${r.schedule.start_time}`;
+  }
+  const upcoming = reservations
+    .filter(r => r.schedule && r.schedule.scheduled_date >= todayISO)
+    .sort((a, b) => slotKey(a).localeCompare(slotKey(b))); // soonest first
+  const past = reservations
+    .filter(r => r.schedule && r.schedule.scheduled_date < todayISO)
+    .sort((a, b) => slotKey(b).localeCompare(slotKey(a))); // most recent first
   const displayed = tab === 'upcoming' ? upcoming : past;
 
   function formatDate(dateStr: string) {

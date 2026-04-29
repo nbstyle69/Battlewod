@@ -110,11 +110,11 @@ const ShareScoreCard = forwardRef<View, ShareScoreCardProps>(
             <UserAvatar
               uri={avatarUrl}
               name={username}
-              size={80}
-              borderRadius={40}
+              size={96}
+              borderRadius={48}
               backgroundColor={'#C9A22730'}
               textColor={'#C9A227'}
-              fontSize={34}
+              fontSize={42}
             />
             <View style={styles.athleteInfo}>
               <Text style={styles.athleteName}>{username}</Text>
@@ -271,10 +271,10 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   athleteRow: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 24,
+    gap: 16,
   },
   avatarCircle: {
     width: 80,
@@ -291,17 +291,19 @@ const styles = StyleSheet.create({
   },
   athleteInfo: {
     gap: 4,
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   athleteName: {
     fontSize: 36,
     fontWeight: '800',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   boxName: {
     fontSize: 26,
     fontWeight: '600',
     color: '#666666',
+    textAlign: 'center',
   },
   footerRow: {
     flexDirection: 'row',

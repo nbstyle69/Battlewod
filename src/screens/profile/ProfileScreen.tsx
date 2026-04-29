@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -370,13 +371,54 @@ export default function ProfileScreen() {
     ]);
   }
 
+  async function uploadAvatarIfLocal(localUri: string): Promise<string | null> {
+    if (!user) return null;
+    // If already a remote http(s) URL (already uploaded), nothing to do
+    if (/^https?:\/\//i.test(localUri)) return localUri;
+    try {
+      const ext = (localUri.split('.').pop()?.toLowerCase().split('?')[0]) || 'jpg';
+      const safeExt = ext === 'png' ? 'png' : 'jpg';
+      const fileName = `${user.id}/avatar-${Date.now()}.${safeExt}`;
+      const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, bytes, {
+          contentType: `image/${safeExt === 'png' ? 'png' : 'jpeg'}`,
+          upsert: true,
+        });
+      if (upErr) { captureError(upErr, { screen: 'Profile', action: 'uploadAvatar' }); return null; }
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      return `${urlData.publicUrl}?t=${Date.now()}`;
+    } catch (e) {
+      captureError(e, { screen: 'Profile', action: 'uploadAvatar' });
+      return null;
+    }
+  }
+
   async function handleSaveProfile() {
     if (!user) return;
     setSaving(true);
     try {
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
       const updates: Record<string, string> = { full_name: fullName, username: editUsername.trim() };
-      if (avatarUrl.trim()) updates.avatar_url = avatarUrl.trim();
+
+      // Upload avatar to Supabase Storage if it's a local file URI
+      let finalAvatarUrl = avatarUrl.trim();
+      if (finalAvatarUrl && !/^https?:\/\//i.test(finalAvatarUrl)) {
+        const uploaded = await uploadAvatarIfLocal(finalAvatarUrl);
+        if (!uploaded) {
+          setSaving(false);
+          Alert.alert('Erreur', 'Impossible d\'uploader la photo de profil.');
+          return;
+        }
+        finalAvatarUrl = uploaded;
+      }
+      if (finalAvatarUrl) updates.avatar_url = finalAvatarUrl;
       if (editBio.trim() !== undefined) updates.bio = editBio.trim();
 
       // Handle email change via Supabase Auth

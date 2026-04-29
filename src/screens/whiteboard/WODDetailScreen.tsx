@@ -1300,6 +1300,7 @@ function createStyles(theme: AppTheme) {
   },
   shareTitle: { fontSize: 18, fontWeight: '800', color: theme.text },
   sharePreview: {
+    alignSelf: 'center',
     alignItems: 'center', justifyContent: 'center',
     width: 1080, height: 1920,
     transform: [{ scale: 0.28 }],
