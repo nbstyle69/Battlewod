@@ -14,6 +14,8 @@ import { LevelColors } from '../../theme/colors';
 import { AthleteLevel, WODType } from '../../types';
 import GlassBackground from '../../components/glass/GlassBackground';
 import GlassCard from '../../components/glass/GlassCard';
+import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const DURATIONS = [5, 10, 15, 20];
@@ -1142,23 +1144,64 @@ export default function WODGeneratorScreen() {
           </>
         )}
 
-        <TouchableOpacity
-          onPress={handleGenerate}
-          disabled={loading}
-          activeOpacity={0.8}
-          style={[S.generateBtn, S.generateGradient, { backgroundColor: accentColor }]}
-        >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <>
-                <Sparkles color="#fff" size={20} />
-                <Text style={S.generateText}>GÉNÉRER MON WOD</Text>
-              </>
-            }
-        </TouchableOpacity>
+        {sport === 'functional' ? (
+          <EmeraldCTAButton
+            onPress={handleGenerate}
+            loading={loading}
+            size="lg"
+            style={{ marginVertical: 8 }}
+            icon={<Sparkles color="#fff" size={20} />}
+          >
+            GÉNÉRER MON WOD
+          </EmeraldCTAButton>
+        ) : (
+          <TouchableOpacity
+            onPress={handleGenerate}
+            disabled={loading}
+            activeOpacity={0.85}
+            style={{
+              marginVertical: 8,
+              borderRadius: 16,
+              overflow: 'hidden',
+              shadowColor: HYROX_ORANGE,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.5,
+              shadowRadius: 20,
+              elevation: 10,
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            <LinearGradient
+              colors={[HYROX_ORANGE, '#ea580c', '#c2410c']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                paddingVertical: 18, paddingHorizontal: 22, borderRadius: 16,
+                borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+              }}
+            >
+              <View pointerEvents="none" style={{
+                position: 'absolute', top: 0, left: 0, right: 0, height: '55%',
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                borderTopLeftRadius: 16, borderTopRightRadius: 16,
+              }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Sparkles color="#fff" size={20} />
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 }}>GÉNÉRER MON WOD</Text>
+                  </>
+                )}
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {generatedHyrox && (
-          <View style={[S.resultCard, { borderColor: `${HYROX_ORANGE}40` }]}>
+          <GlassCard radius={20} style={{ marginTop: 20 }}>
+            <View style={[S.resultCard, { backgroundColor: 'transparent', borderColor: `${HYROX_ORANGE}40`, borderWidth: 1, marginTop: 0 }]}>
             <View style={S.resultHeader}>
               <View style={S.resultBadges}>
                 <View style={[S.badge, { backgroundColor: `${HYROX_ORANGE}25` }]}>
@@ -1200,11 +1243,13 @@ export default function WODGeneratorScreen() {
               <Zap color="#fff" size={18} />
               <Text style={S.startButtonText}>LANCER CET ENTRAÎNEMENT</Text>
             </TouchableOpacity>
-          </View>
+            </View>
+          </GlassCard>
         )}
 
         {generatedWOD && (
-          <View style={S.resultCard}>
+          <GlassCard radius={20} style={{ marginTop: 20 }}>
+            <View style={[S.resultCard, { backgroundColor: 'transparent', borderWidth: 1, marginTop: 0 }]}>
             <View style={S.resultHeader}>
               <View style={S.resultBadges}>
                 <View style={[S.badge, { backgroundColor: `${theme.accent}25` }]}>
@@ -1250,7 +1295,8 @@ export default function WODGeneratorScreen() {
                 <Zap color="#fff" size={18} />
                 <Text style={S.startButtonText}>LANCER CE WOD</Text>
             </TouchableOpacity>
-          </View>
+            </View>
+          </GlassCard>
         )}
 
         <View style={{ height: 40 }} />
