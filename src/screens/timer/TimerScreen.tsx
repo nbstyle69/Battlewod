@@ -173,8 +173,8 @@ export default function TimerScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Stepper value={splitsSec} unit="sec" minVal={0}
-              onDec={() => setSplitsSec(v => Math.max(0, v - 5))}
-              onInc={() => setSplitsSec(v => Math.min(55, v + 5))}
+              onDec={() => setSplitsSec(v => v % 5 === 0 ? Math.max(0, v - 5) : Math.floor(v / 5) * 5)}
+              onInc={() => setSplitsSec(v => Math.min(55, v % 5 === 0 ? v + 5 : Math.ceil(v / 5) * 5))}
             />
           </View>
         </View>
@@ -246,8 +246,8 @@ export default function TimerScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Stepper value={customSs} unit="sec" minVal={0}
-                    onDec={() => updateBlock(blk.id, { emomCustomSec: Math.max(1, customSec - 5) })}
-                    onInc={() => updateBlock(blk.id, { emomCustomSec: customSec + 5 })}
+                    onDec={() => updateBlock(blk.id, { emomCustomSec: Math.max(1, customSec % 5 === 0 ? customSec - 5 : Math.floor(customSec / 5) * 5) })}
+                    onInc={() => updateBlock(blk.id, { emomCustomSec: customSec % 5 === 0 ? customSec + 5 : Math.ceil(customSec / 5) * 5 })}
                   />
                 </View>
               </View>

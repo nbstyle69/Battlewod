@@ -11,6 +11,7 @@ import { LevelColors } from '../../theme/colors';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { formatScoreValue } from '../../utils/scoreFormat';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const TABS = ['Scores', 'Matchs', 'Tournois', 'Daily WOD', 'Changelog'];
 
@@ -233,6 +234,7 @@ export default function AdminScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <LinearGradient colors={mode === 'dark' ? ['#12121A', '#0A0A0F'] : [theme.accent, theme.accentDark ?? theme.accent]} style={S.header}>
         <View style={S.headerRow}>
           <View style={S.adminBadge}>
@@ -577,7 +579,7 @@ export default function AdminScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   adminBadge: {

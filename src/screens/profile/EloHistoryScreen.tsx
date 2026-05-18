@@ -467,7 +467,7 @@ function createStyles(theme: AppTheme, isDark: boolean) {
     },
     backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
     headerTitle: { fontSize: 18, fontWeight: '800', color: theme.text },
-    scroll: { paddingBottom: 40 },
+    scroll: { paddingBottom: 140 },
 
     // ELO Card
     eloCard: {

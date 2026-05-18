@@ -14,6 +14,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'TournamentWOD'>;
 type Route = RouteProp<CompetitionStackParamList, 'TournamentWOD'>;
@@ -180,6 +181,7 @@ export default function TournamentWODScreen() {
   // ══ PHASE : DETAIL ═════════════════════════════════════════════════════
   if (phase === 'detail') return (
     <View style={S.container}>
+      <GlassBackground />
       <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color="rgba(255,255,255,0.6)" size={24} />
@@ -276,6 +278,7 @@ export default function TournamentWODScreen() {
   // ══ PHASE : SUBMIT ═════════════════════════════════════════════════════
   return (
     <View style={S.container}>
+      <GlassBackground />
       <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
         <TouchableOpacity onPress={() => setPhase('detail')} style={S.back}>
           <ChevronLeft color="rgba(255,255,255,0.6)" size={24} />
@@ -416,7 +419,7 @@ export default function TournamentWODScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container:   { flex: 1, backgroundColor: theme.background },
+  container:   { flex: 1, backgroundColor: 'transparent' },
   header:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 20, flexDirection: 'row', gap: 12 },
   back:        { paddingTop: 4 },
   headerInfo:  { flex: 1 },

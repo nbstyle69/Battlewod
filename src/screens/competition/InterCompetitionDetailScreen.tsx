@@ -459,7 +459,7 @@ function createStyles(theme: AppTheme) {
     tabActive:    { borderBottomColor: theme.accent },
     tabText:      { fontSize: 12, fontWeight: '600', color: theme.textMuted },
     tabTextActive:{ color: theme.accent, fontWeight: '700' },
-    content: { padding: 16 },
+    content: { padding: 16, paddingBottom: 140 },
     infoCard: {
       backgroundColor: theme.card, borderRadius: 16,
       borderWidth: 1, borderColor: theme.border, padding: 16,

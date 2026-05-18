@@ -15,6 +15,7 @@ import { computeCompletedMovements } from '../utils/movementParser';
 import { captureError } from '../lib/sentry';
 import { hapticSuccess } from '../lib/haptics';
 import { useToast } from './Toast';
+import GlassBackground from './glass/GlassBackground';
 
 const HYROX_ORANGE = '#F97316';
 type Sport = 'functional' | 'hybrid';
@@ -1072,6 +1073,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
 
   return (
     <SafeAreaView style={s.screen}>
+      <GlassBackground />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
           <ArrowLeft color={theme.text} size={22} />
@@ -1479,7 +1481,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12,

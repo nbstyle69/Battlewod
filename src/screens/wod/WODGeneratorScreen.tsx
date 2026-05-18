@@ -5,6 +5,7 @@ import {
 import { Sparkles, ChevronLeft, Clock, Zap, RefreshCw, History, Heart, BookOpen, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WODStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -851,6 +852,10 @@ export default function WODGeneratorScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<WODStackParamList>>();
   const { theme } = useTheme();
   const { user, currentBox } = useAuth();
+  const insets = useSafeAreaInsets();
+  // Tab bar (~70px) + system gesture bar + safe area inset bottom + breathing space.
+  // Hardcoded 140 was too tight on Android — adapt dynamically.
+  const scrollBottomPadding = 80 + insets.bottom + 80; // tabBar + inset + spacer
   const S = createStyles(theme);
 
   const [sport,        setSport]        = useState<Sport>('functional');
@@ -909,7 +914,10 @@ export default function WODGeneratorScreen() {
         <Text style={S.headerSub}>Crée ton WOD sur mesure</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[S.content, { paddingBottom: scrollBottomPadding }]}
+      >
 
         {/* Quick access: Historique & Favoris */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
@@ -1312,7 +1320,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   back: { marginBottom: 12 },
   headerTitle: { fontSize: 24, fontWeight: '900', color: theme.text },
   headerSub: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
-  content: { padding: 16 },
+  content: { padding: 16, paddingBottom: 140 },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: theme.text, marginBottom: 12 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

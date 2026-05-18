@@ -13,6 +13,7 @@ import { LevelColors } from '../../theme/colors';
 import { HomeStackParamList } from '../../navigation';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
+import ReportMenu from '../../components/ReportMenu';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'PublicProfile'>;
@@ -198,9 +199,22 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
           <ChevronLeft color={theme.text} size={24} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Profil</Text>
-        <TouchableOpacity onPress={() => Share.share({ message: `Découvre mon profil sur AthleX ! athlex://profile/${route.params.userId}` })} style={S.backBtn}>
-          <Share2 color={theme.text} size={20} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity onPress={() => Share.share({ message: `Découvre mon profil sur AthleX ! athlex://profile/${route.params.userId}` })} style={S.backBtn}>
+            <Share2 color={theme.text} size={20} />
+          </TouchableOpacity>
+          {me?.id !== route.params.userId && (
+            <View style={S.backBtn}>
+              <ReportMenu
+                contentType="profile"
+                reportedUserId={route.params.userId}
+                onActionDone={() => navigation.goBack()}
+                size={20}
+                color={theme.text}
+              />
+            </View>
+          )}
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>

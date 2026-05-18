@@ -428,7 +428,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
   },
   chipText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
-  list: { padding: 16, gap: 8 },
+  list: { padding: 16, gap: 8, paddingBottom: 140 },
   sectionHint: { fontSize: 12, color: theme.textMuted, marginBottom: 8 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

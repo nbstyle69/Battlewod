@@ -174,6 +174,15 @@ export default function ProfileScreen() {
         .eq('is_active', true)
         .single();
       if (!prog) { Alert.alert('Erreur', 'Code programme invalide.'); setJoiningProg(false); return; }
+      // iOS: block paid programs (App Store IAP rules — must go through web)
+      if (Platform.OS === 'ios' && prog.price_cents > 0) {
+        Alert.alert(
+          'Programme payant',
+          'Les programmes payants sont disponibles uniquement via athlex.app depuis un navigateur. Une fois ton inscription confirmée, le programme apparaîtra automatiquement dans ton app.',
+        );
+        setJoiningProg(false);
+        return;
+      }
       // Check not already member
       const { data: existing } = await supabase
         .from('program_members')
@@ -1003,6 +1012,18 @@ export default function ProfileScreen() {
                 />
               </View>
             </View>
+
+            {/* ── Utilisateurs bloqués ──────────────────── */}
+            <TouchableOpacity
+              style={S.compteCard}
+              onPress={() => navigation.navigate('BlockedUsers' as never)}
+              activeOpacity={0.8}
+            >
+              <View style={S.themeRow}>
+                <Text style={S.compteCardTitle}>Utilisateurs bloqués</Text>
+                <ChevronRight color={theme.textMuted} size={16} />
+              </View>
+            </TouchableOpacity>
 
             {/* ── Notifications ─────────────────────────── */}
             <TouchableOpacity

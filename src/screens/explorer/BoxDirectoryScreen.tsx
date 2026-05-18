@@ -215,7 +215,7 @@ export default function BoxDirectoryScreen() {
           data={filtered}
           keyExtractor={b => b.id}
           renderItem={renderBox}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         />
       )}

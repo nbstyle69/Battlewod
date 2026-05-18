@@ -11,6 +11,7 @@ import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
 import { Partner, PartnerCategory } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
@@ -99,6 +100,7 @@ export default function PartnersScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
@@ -138,7 +140,7 @@ export default function PartnersScreen() {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12,

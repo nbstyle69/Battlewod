@@ -413,7 +413,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   statBox: { alignItems: 'center' },
   statNum: { fontSize: 20, fontWeight: '900', color: t.text },
   statLabel: { fontSize: 10, fontWeight: '600', color: t.textMuted, marginTop: 2 },
-  list: { padding: 16, gap: 12, paddingBottom: 40 },
+  list: { padding: 16, gap: 12, paddingBottom: 140 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyEmoji: { fontSize: 48 },

@@ -9,6 +9,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { AuthStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
@@ -29,12 +30,9 @@ export default function LoginScreen({ navigation }: Props) {
     if (error) Alert.alert('Connexion impossible', error);
   }
 
-  const gradColors = mode === 'dark'
-    ? ['#0A0A0F', '#12121A', '#0A0A0F'] as const
-    : ['#f0fdf9', '#ffffff', '#f0fdf9'] as const;
-
   return (
-    <LinearGradient colors={gradColors} style={S.gradient}>
+    <View style={S.gradient}>
+      <GlassBackground />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.flex}>
         <ScrollView contentContainerStyle={S.container} keyboardShouldPersistTaps="handled">
           <View style={S.logoContainer}>
@@ -113,7 +111,7 @@ export default function LoginScreen({ navigation }: Props) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -124,7 +122,7 @@ function createStyles(theme: AppTheme) {
     shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
   };
   return StyleSheet.create({
-  gradient: { flex: 1 },
+  gradient: { flex: 1, backgroundColor: 'transparent' },
   flex: { flex: 1 },
   container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
   logoContainer: { alignItems: 'center', marginBottom: 48 },

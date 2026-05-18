@@ -1,5 +1,17 @@
 import React from 'react';
-import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
+import { NavigationContainer, NavigatorScreenParams, DefaultTheme } from '@react-navigation/native';
+
+// Dark navigation theme to avoid a white background flash between screens before
+// each screen's content has mounted.
+const NAV_DARK_THEME = {
+  ...DefaultTheme,
+  dark: true,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#0a0a0a',
+    card: '#0a0a0a',
+  },
+};
 import { navigationRef } from './navigationRef';
 import { linking } from './linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -83,6 +95,7 @@ import InterTeamScreen from '../screens/competition/InterTeamScreen';
 import DocumentsScreen from '../screens/documents/DocumentsScreen';
 import EloHistoryScreen from '../screens/profile/EloHistoryScreen';
 import LegalScreen from '../screens/documents/LegalScreen';
+import BlockedUsersScreen from '../screens/profile/BlockedUsersScreen';
 import ChangelogScreen from '../screens/home/ChangelogScreen';
 import ExplorerScreen from '../screens/explorer/ExplorerScreen';
 import ProgrammationScreen from '../screens/explorer/ProgrammationScreen';
@@ -131,6 +144,7 @@ export type CoachTabParamList = {
 export type BOProfileStackParamList = {
   ProfileMain: undefined;
   EloHistory: undefined;
+  BlockedUsers: undefined;
   WODDetail: { wodId: string; scrollToLeaderboard?: boolean };
   Legal: undefined;
   PublicProfile: { userId: string };
@@ -216,6 +230,7 @@ export type HomeStackParamList = {
   WODGenerator: undefined;
   WodHistory: undefined;
   NotificationSettings: undefined;
+  BlockedUsers: undefined;
   DailyTournaments: undefined;
   DailyTournamentDetail: { tournamentId: string };
   OneRMCalculator: undefined;
@@ -396,7 +411,7 @@ const CoachTab          = createBottomTabNavigator<CoachTabParamList>();
 
 function AuthNavigator() {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
@@ -407,7 +422,7 @@ function AuthNavigator() {
 
 function OnboardingNavigator() {
   return (
-    <OnbStack.Navigator screenOptions={{ headerShown: false }}>
+    <OnbStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <OnbStack.Screen name="Waiting"   component={WaitingScreen} />
       <OnbStack.Screen name="JoinBox"   component={JoinBoxScreen} />
       <OnbStack.Screen name="CreateBox" component={CreateBoxScreen} />
@@ -418,7 +433,7 @@ function OnboardingNavigator() {
 function HomeNavigator() {
   const { user } = useAuth();
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <HomeStack.Screen name="HomeList" component={HomeScreen} />
       <HomeStack.Screen name="BoxInfo" component={BoxInfoScreen} />
       <HomeStack.Screen name="Changelog" component={ChangelogScreen} />
@@ -431,6 +446,7 @@ function HomeNavigator() {
       <HomeStack.Screen name="Friends"     component={FriendsScreen} />
       <HomeStack.Screen name="WodHistory"   component={WodHistoryScreen} />
       <HomeStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+      <HomeStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
       <HomeStack.Screen name="DailyTournaments" component={DailyTournamentsScreen} />
       <HomeStack.Screen name="DailyTournamentDetail" component={DailyTournamentDetailScreen} />
       <HomeStack.Screen name="Profile" component={user?.role === 'admin' || user?.role === 'super_admin' ? AdminScreen : ProfileScreen} />
@@ -445,7 +461,7 @@ function HomeNavigator() {
 
 function WODNavigator() {
   return (
-    <WODStack.Navigator screenOptions={{ headerShown: false }}>
+    <WODStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <WODStack.Screen name="WODList" component={WODScreen} />
       <WODStack.Screen name="WODGenerator" component={WODGeneratorScreen} />
       <WODStack.Screen name="WodHistory"   component={WodHistoryScreen} />
@@ -455,7 +471,7 @@ function WODNavigator() {
 
 function WhiteboardNavigator() {
   return (
-    <WhiteboardStack.Navigator screenOptions={{ headerShown: false }}>
+    <WhiteboardStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <WhiteboardStack.Screen name="WhiteboardMain" component={WhiteboardScreen} />
       <WhiteboardStack.Screen name="WODDetail"      component={WODDetailScreen} />
       <WhiteboardStack.Screen name="PublicProfile"  component={PublicProfileScreen} />
@@ -471,7 +487,7 @@ function WhiteboardNavigator() {
 
 function CommunityNavigator() {
   return (
-    <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
+    <CommunityStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
       <CommunityStack.Screen name="PublicProfile" component={PublicProfileScreen} />
     </CommunityStack.Navigator>
@@ -480,7 +496,7 @@ function CommunityNavigator() {
 
 function ReservationNavigator() {
   return (
-    <ResStack.Navigator screenOptions={{ headerShown: false }}>
+    <ResStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <ResStack.Screen name="ReservationMain" component={ReservationScreen} />
       <ResStack.Screen name="MyReservations" component={MyReservationsScreen} />
     </ResStack.Navigator>
@@ -489,7 +505,7 @@ function ReservationNavigator() {
 
 function ExplorerNavigator() {
   return (
-    <ExplStack.Navigator screenOptions={{ headerShown: false }}>
+    <ExplStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <ExplStack.Screen name="ExplorerMain" component={ExplorerScreen} />
       <ExplStack.Screen name="Programmation" component={ProgrammationScreen} />
       <ExplStack.Screen name="BoxDirectory" component={BoxDirectoryScreen} />
@@ -504,7 +520,7 @@ function ExplorerNavigator() {
 
 function CompetitionNavigator() {
   return (
-    <CompStack.Navigator screenOptions={{ headerShown: false }}>
+    <CompStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <CompStack.Screen name="CompetitionList"    component={CompetitionScreen} />
       <CompStack.Screen name="PhysicalCompetition" component={PhysicalCompetitionScreen} />
       <CompStack.Screen name="TimerRun"            component={TimerRunScreen} />
@@ -523,7 +539,7 @@ function CompetitionNavigator() {
 
 function BODashboardNavigator() {
   return (
-    <BODashStack.Navigator screenOptions={{ headerShown: false }}>
+    <BODashStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <BODashStack.Screen name="Dashboard"    component={BODashboardScreen} />
       <BODashStack.Screen name="WODs"          component={BOWODsScreen} />
       <BODashStack.Screen name="Members"       component={BOMembersScreen} />
@@ -592,13 +608,14 @@ function BoxOwnerTabs() {
 function BOProfileNavigator() {
   const { user } = useAuth();
   return (
-    <BOProfileStack.Navigator screenOptions={{ headerShown: false }}>
+    <BOProfileStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <BOProfileStack.Screen name="ProfileMain" component={user?.role === 'admin' || user?.role === 'super_admin' ? AdminScreen : ProfileScreen} />
       <BOProfileStack.Screen name="EloHistory" component={EloHistoryScreen} />
       <BOProfileStack.Screen name="WODDetail" component={WODDetailScreen} />
       <BOProfileStack.Screen name="Legal" component={LegalScreen} />
       <BOProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <BOProfileStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+      <BOProfileStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
     </BOProfileStack.Navigator>
   );
 }
@@ -696,7 +713,7 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compétitions' }}
+      <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compete' }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Competitions', { screen: 'CompetitionList' }) })} />
       <Tab.Screen name="Explorer"     component={ExplorerNavigator}     options={{ tabBarLabel: 'Explorer' }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Explorer', { screen: 'ExplorerMain' }) })} />
@@ -704,7 +721,7 @@ function MainTabs() {
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Home', { screen: 'HomeList' }) })} />
       <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Ma Box' }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Whiteboard', { screen: 'WhiteboardMain' }) })} />
-      <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: 'Réservation' }}
+      <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: 'Résa' }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Reservation', { screen: 'ReservationMain' }) })} />
     </Tab.Navigator>
   );
@@ -723,7 +740,8 @@ export default function AppNavigator() {
 
   React.useEffect(() => {
     AsyncStorage.getItem(ONBOARDING_KEY).then(v => setOnboardingDone(v === 'true'));
-  }, []);
+    // Re-read whenever the authenticated user changes so a freshly registered account sees the tutorial
+  }, [user?.id]);
 
   if (loading || !splashDone || onboardingDone === null) {
     return (
@@ -752,8 +770,8 @@ export default function AppNavigator() {
   const needsOnboarding = isAuthenticated && isB2BUser && !currentBox && !boxSkipped;
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+    <NavigationContainer ref={navigationRef} linking={linking} theme={NAV_DARK_THEME}>
+      <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
         {!isAuthenticated ? (
           // ── Not logged in ──────────────────────────────
           <RootStack.Screen name="Auth" component={AuthNavigator} />

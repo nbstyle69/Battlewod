@@ -27,7 +27,7 @@ export default function ExplorerScreen() {
         </View>
       </View>
 
-      <ScrollView style={s.content} contentContainerStyle={{ paddingBottom: 40, gap: 10 }}>
+      <ScrollView style={s.content} contentContainerStyle={{ paddingBottom: 140, gap: 10 }}>
         {/* Annuaire des Boxes */}
         <TouchableOpacity
           style={s.sectionBtn}

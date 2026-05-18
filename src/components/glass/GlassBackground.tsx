@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, Easing, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, Filter, FeGaussianBlur, Circle, G } from 'react-native-svg';
+import Svg, { Defs, Filter, FeGaussianBlur, Circle, G, RadialGradient, Stop } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -10,16 +10,17 @@ const { width: W, height: H } = Dimensions.get('window');
  * Full-screen animated emerald gradient background with floating blurred blobs.
  * Adapts to dark/light theme. Place as the first child of a screen with absolute fill.
  */
-export default function GlassBackground() {
+type ThemePalette = {
+  gradient: [string, string, string];
+  blobColors: { b1: string; b2: string; b3: string; b4: string };
+};
+
+function usePalette(): ThemePalette {
   const { theme } = useTheme();
   const isDark = theme.mode === 'dark';
-
-  // Gradient colors per theme
   const gradient: [string, string, string] = isDark
     ? ['#022c22', '#0d1f17', '#14532d']
     : ['#ecfdf5', '#f0fdf4', '#d1fae5'];
-
-  // Blobs colors per theme
   const blobColors = isDark
     ? {
         b1: 'rgba(16,185,129,0.30)',
@@ -33,8 +34,33 @@ export default function GlassBackground() {
         b3: 'rgba(52,211,153,0.40)',
         b4: 'rgba(110,231,183,0.35)',
       };
+  return { gradient, blobColors };
+}
 
-  // 4 floating animations with different durations
+/** Lightweight static background for Android — no animations, 2 fixed blobs. */
+function AndroidGlassBackground() {
+  const { gradient, blobColors } = usePalette();
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <LinearGradient
+        colors={gradient}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ position: 'absolute', top: -80, left: -60 }}>
+        <BlurredCircle color={blobColors.b1} size={320} blur={60} />
+      </View>
+      <View style={{ position: 'absolute', bottom: -80, right: -60 }}>
+        <BlurredCircle color={blobColors.b2} size={300} blur={60} />
+      </View>
+    </View>
+  );
+}
+
+/** Full-glass animated background for iOS — 4 blobs with native-driven floating loops. */
+function IOSGlassBackground() {
+  const { gradient, blobColors } = usePalette();
   const a1 = useRef(new Animated.Value(0)).current;
   const a2 = useRef(new Animated.Value(0)).current;
   const a3 = useRef(new Animated.Value(0)).current;
@@ -53,7 +79,6 @@ export default function GlassBackground() {
     return () => { animations.forEach(a => a.stop()); };
   }, [a1, a2, a3, a4]);
 
-  // Translation ranges per blob
   const t1y = a1.interpolate({ inputRange: [0, 1], outputRange: [0, 30] });
   const t1x = a1.interpolate({ inputRange: [0, 1], outputRange: [0, -20] });
   const t2y = a2.interpolate({ inputRange: [0, 1], outputRange: [0, -25] });
@@ -65,26 +90,21 @@ export default function GlassBackground() {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Base gradient */}
       <LinearGradient
         colors={gradient}
         locations={[0, 0.5, 1]}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {/* Top-left blob */}
       <Animated.View style={{ position: 'absolute', top: -80, left: -60, transform: [{ translateX: t1x }, { translateY: t1y }] }}>
         <BlurredCircle color={blobColors.b1} size={320} blur={60} />
       </Animated.View>
-      {/* Bottom-right blob */}
       <Animated.View style={{ position: 'absolute', bottom: -80, right: -60, transform: [{ translateX: t2x }, { translateY: t2y }] }}>
         <BlurredCircle color={blobColors.b2} size={300} blur={60} />
       </Animated.View>
-      {/* Floating mid-left */}
       <Animated.View style={{ position: 'absolute', top: H * 0.35, left: -80, transform: [{ translateX: t3x }, { translateY: t3y }] }}>
         <BlurredCircle color={blobColors.b3} size={220} blur={40} />
       </Animated.View>
-      {/* Floating mid-right */}
       <Animated.View style={{ position: 'absolute', top: H * 0.55, right: -100, transform: [{ translateX: t4x }, { translateY: t4y }] }}>
         <BlurredCircle color={blobColors.b4} size={260} blur={40} />
       </Animated.View>
@@ -92,10 +112,41 @@ export default function GlassBackground() {
   );
 }
 
-/** SVG circle with Gaussian blur filter for a soft glow blob effect. */
+export default function GlassBackground() {
+  return Platform.OS === 'android' ? <AndroidGlassBackground /> : <IOSGlassBackground />;
+}
+
+/**
+ * SVG circle with soft glow blob effect.
+ * - iOS : uses <FeGaussianBlur> filter (sharp blob → blurred halo).
+ * - Android : <FeGaussianBlur> is NOT supported by react-native-svg → fallback to
+ *   a <RadialGradient> from opaque center → transparent edges, which renders correctly
+ *   on both platforms and produces a visually similar soft blob.
+ */
 function BlurredCircle({ color, size, blur }: { color: string; size: number; blur: number }) {
   const padding = blur * 2;
   const total = size + padding * 2;
+  const gradId = `blob-grad-${size}-${blur}`;
+
+  // Android (and any non-iOS platform) → RadialGradient fallback
+  if (Platform.OS !== 'ios') {
+    // The visible "circle" radius is enlarged because the gradient fades to transparent,
+    // so we draw a circle that fills the whole canvas to mimic the blurred reach.
+    return (
+      <Svg width={total} height={total}>
+        <Defs>
+          <RadialGradient id={gradId} cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <Stop offset="0%" stopColor={color} stopOpacity={1} />
+            <Stop offset="55%" stopColor={color} stopOpacity={0.5} />
+            <Stop offset="100%" stopColor={color} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={total / 2} cy={total / 2} r={total / 2} fill={`url(#${gradId})`} />
+      </Svg>
+    );
+  }
+
+  // iOS — original Gaussian blur filter
   return (
     <Svg width={total} height={total}>
       <Defs>

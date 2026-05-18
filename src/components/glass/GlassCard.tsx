@@ -34,6 +34,34 @@ export default function GlassCard({ style, children, variant = 'default', intens
       : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)');
   const reflectionColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)';
 
+  // ── Android : solid themed card with opaque fill for crisp, clearly visible cards ──
+  // theme.card is too translucent (rgba ~0.55) over the emerald gradient which makes
+  // cards look washed out when a bright blob sits behind them. We use a more opaque
+  // value to guarantee strong contrast, matching the "solid white card" look seen
+  // on ExplorerScreen where content density makes cards pop.
+  if (Platform.OS === 'android') {
+    const bg =
+      variant === 'emerald'
+        ? (isDark ? 'rgba(16,185,129,0.12)' : 'rgba(236,253,245,0.92)')
+        : (isDark ? 'rgba(22,28,26,0.82)' : 'rgba(255,255,255,0.92)');
+    const brd =
+      variant === 'emerald'
+        ? (isDark ? 'rgba(16,185,129,0.30)' : 'rgba(16,185,129,0.25)')
+        : theme.border;
+    return (
+      <View
+        style={[
+          styles.shadowAndroid,
+          { borderRadius: radius, backgroundColor: bg, borderColor: brd, borderWidth: 1, overflow: 'hidden' },
+          style,
+        ]}
+      >
+        {children}
+      </View>
+    );
+  }
+
+  // ── iOS : full glass with blur + top reflection ──
   return (
     <View
       style={[
@@ -43,12 +71,7 @@ export default function GlassCard({ style, children, variant = 'default', intens
       ]}
     >
       <View style={[styles.clip, { borderRadius: radius, borderColor, borderWidth: 1, flex: 1 }]}>
-        {Platform.OS === 'ios' ? (
-          <BlurView intensity={intensity} tint={tint} style={StyleSheet.absoluteFill} />
-        ) : (
-          // Android: BlurView is less reliable — we layer a stronger background tint instead
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(20,20,25,0.55)' : 'rgba(255,255,255,0.55)' }]} />
-        )}
+        <BlurView intensity={intensity} tint={tint} style={StyleSheet.absoluteFill} />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: overlayColor }]} />
         {/* Top-half reflection */}
         <LinearGradient
@@ -69,6 +92,10 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     // Android elevation (subtle, glassmorphism doesn't really translate)
     elevation: 6,
+  },
+  shadowAndroid: {
+    // Subtle elevation only — no white overlay, no double-shadow
+    elevation: 3,
   },
   clip: {
     overflow: 'hidden',

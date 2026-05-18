@@ -187,7 +187,7 @@ function createStyles(theme: AppTheme) {
     backBtn: { padding: 4 },
     headerTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
     headerSub:   { fontSize: 12, color: theme.textMuted, marginTop: 2 },
-    content:     { padding: 16 },
+    content:     { padding: 16, paddingBottom: 140 },
     card: {
       backgroundColor: theme.card, borderRadius: 18,
       borderWidth: 1, borderColor: theme.border,

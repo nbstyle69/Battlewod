@@ -30,14 +30,27 @@ export default function GlassIconBox({ size = 56, variant = 'default', children,
       : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)');
   const reflectionColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)';
 
+  // Android : simple themed icon tile (same look as ExplorerScreen's sectionIcon).
+  if (Platform.OS === 'android') {
+    const bg = variant === 'emerald' ? `${theme.accent}15` : theme.surface;
+    const brd = variant === 'emerald' ? `${theme.accent}30` : theme.border;
+    return (
+      <View
+        style={[
+          { width: size, height: size, borderRadius: radius, backgroundColor: bg, borderColor: brd, borderWidth: 1, overflow: 'hidden' },
+          style,
+        ]}
+      >
+        <View style={styles.content}>{children}</View>
+      </View>
+    );
+  }
+
+  // iOS : full glass with blur + reflection.
   return (
     <View style={[{ width: size, height: size, borderRadius: radius }, style]}>
       <View style={[styles.clip, { width: size, height: size, borderRadius: radius, borderColor, borderWidth: 1 }]}>
-        {Platform.OS === 'ios' ? (
-          <BlurView intensity={30} tint={tint} style={StyleSheet.absoluteFill} />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(20,20,25,0.55)' : 'rgba(255,255,255,0.55)' }]} />
-        )}
+        <BlurView intensity={30} tint={tint} style={StyleSheet.absoluteFill} />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: overlayColor }]} />
         <LinearGradient
           colors={[reflectionColor, 'rgba(255,255,255,0)']}

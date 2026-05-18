@@ -830,7 +830,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
   headerTitle: { fontSize: 18, fontWeight: '900', color: t.text, flex: 1, textAlign: 'center' },
-  content: { padding: 16, gap: 14, paddingBottom: 40 },
+  content: { padding: 16, gap: 14, paddingBottom: 140 },
   badges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgeTxt: { fontSize: 10, fontWeight: '800' },

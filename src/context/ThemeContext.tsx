@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const THEME_KEY = '@app_theme';
+
+// Android has no native BlurView → translucent cards look washed-out / "double rectangle".
+// On Android, we force more opaque card/surface fills so blocks render as crisp,
+// clearly-visible cards on every screen that uses theme.card or theme.surface directly.
+const IS_ANDROID = Platform.OS === 'android';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -41,11 +47,12 @@ export interface AppTheme {
 export const lightTheme: AppTheme = {
   mode: 'light',
   background: '#ffffff',
-  // Glassmorphism: cards/surfaces are now translucent so the emerald gradient/blobs show through
-  card: 'rgba(255,255,255,0.55)',
-  cardBorder: 'rgba(255,255,255,0.55)',
-  surface: 'rgba(255,255,255,0.40)',
-  surfaceAlt: 'rgba(236,253,245,0.50)',
+  // Glassmorphism: cards/surfaces are translucent so the emerald gradient/blobs show through on iOS.
+  // On Android (no BlurView), we use more opaque fills to keep cards crisp and legible.
+  card: IS_ANDROID ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.55)',
+  cardBorder: IS_ANDROID ? 'rgba(16,185,129,0.20)' : 'rgba(255,255,255,0.55)',
+  surface: IS_ANDROID ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.40)',
+  surfaceAlt: IS_ANDROID ? 'rgba(236,253,245,0.88)' : 'rgba(236,253,245,0.50)',
   primary: '#111827',
   primaryLight: '#374151',
   accent: '#10b981',
@@ -75,11 +82,12 @@ export const lightTheme: AppTheme = {
 export const darkTheme: AppTheme = {
   mode: 'dark',
   background: '#0a0a0a',
-  // Glassmorphism: cards/surfaces are now translucent so the emerald gradient/blobs show through
-  card: 'rgba(255,255,255,0.06)',
-  cardBorder: 'rgba(255,255,255,0.12)',
-  surface: 'rgba(255,255,255,0.04)',
-  surfaceAlt: 'rgba(255,255,255,0.08)',
+  // Glassmorphism: cards/surfaces are translucent so the emerald gradient/blobs show through on iOS.
+  // On Android (no BlurView), we use more opaque dark fills to keep cards crisp and legible.
+  card: IS_ANDROID ? 'rgba(22,28,26,0.82)' : 'rgba(255,255,255,0.06)',
+  cardBorder: IS_ANDROID ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.12)',
+  surface: IS_ANDROID ? 'rgba(26,32,30,0.80)' : 'rgba(255,255,255,0.04)',
+  surfaceAlt: IS_ANDROID ? 'rgba(28,36,34,0.80)' : 'rgba(255,255,255,0.08)',
   primary: '#f9fafb',
   primaryLight: '#d1d5db',
   accent: '#10b981',

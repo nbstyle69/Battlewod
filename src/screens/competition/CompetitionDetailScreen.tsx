@@ -12,6 +12,7 @@ import { HomeStackParamList, TimerType } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'CompetitionDetail'>;
@@ -80,6 +81,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
@@ -248,7 +250,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', paddingTop: 56,
     paddingHorizontal: 16, paddingBottom: 16,

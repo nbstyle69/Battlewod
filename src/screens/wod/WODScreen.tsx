@@ -180,7 +180,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   filterChipActive: { backgroundColor: `${theme.accent}25`, borderColor: theme.accent },
   filterText: { fontSize: 13, color: theme.textSecondary, fontWeight: '600' },
   filterTextActive: { color: theme.accent },
-  list: { padding: 16, gap: 12 },
+  list: { padding: 16, gap: 12, paddingBottom: 140 },
   wodCard: {
     backgroundColor: theme.card, borderRadius: 18,
     padding: 18, borderWidth: 1, borderColor: theme.cardBorder,

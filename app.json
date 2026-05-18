@@ -2,7 +2,7 @@
   "expo": {
     "name": "AthleX",
     "slug": "TheHub",
-    "version": "1.0.30",
+    "version": "1.0.36",
     "orientation": "portrait",
     "icon": "./assets/athex-logo.png",
     "userInterfaceStyle": "light",
@@ -24,7 +24,7 @@
         "NSMicrophoneUsageDescription": "AthleX utilise le micro pour les vidéos de performance.",
         "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos."
       },
-      "buildNumber": "6"
+      "buildNumber": "13"
     },
     "android": {
       "adaptiveIcon": {
@@ -39,8 +39,6 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -49,7 +47,7 @@
         "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ],
       "package": "com.athlex.app",
-      "versionCode": 26,
+      "versionCode": 35,
       "intentFilters": [
         {
           "action": "VIEW",

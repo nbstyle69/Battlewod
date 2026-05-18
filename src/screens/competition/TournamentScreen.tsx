@@ -25,6 +25,8 @@ import {
   MOVEMENT_BADGE_LEVELS, formatDate,
 } from '../../utils/tournamentUtils';
 import GlassBackground from '../../components/glass/GlassBackground';
+import TournamentBracketView from './TournamentBracketView';
+import TournamentDivisionsView from './TournamentDivisionsView';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'Tournament'>;
 type Route = RouteProp<CompetitionStackParamList, 'Tournament'>;
@@ -49,7 +51,7 @@ export default function TournamentScreen() {
   const { theme } = useTheme();
   const S = createStyles(theme);
 
-  const [activeTab,    setActiveTab]    = useState<'infos' | 'wods' | 'scores' | 'participants' | 'validate'>('infos');
+  const [activeTab,    setActiveTab]    = useState<'infos' | 'wods' | 'scores' | 'participants' | 'validate' | 'bracket' | 'divisions'>('infos');
   const [tournament,   setTournament]   = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [myScores,     setMyScores]     = useState<TournamentScore[]>([]);
@@ -334,24 +336,35 @@ export default function TournamentScreen() {
       </LinearGradient>
 
       {/* ── Tabs ── */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        style={S.tabsScroll} contentContainerStyle={S.tabsContent}>
-        {(['infos', 'wods', 'participants', 'scores', ...(isAdmin ? ['validate'] : [])] as const).map((tab: any) => {
-            const pendingCount = allScores.filter(s => s.status === 'pending').length;
-            return (
-              <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}
-                style={[S.tab, activeTab === tab && S.tabActive]}>
-                <Text style={[S.tabText, activeTab === tab && S.tabTextActive]}>
-                  {tab === 'infos'       ? 'Infos'
-                    : tab === 'wods'       ? `WODs (${wods.length})`
-                    : tab === 'participants'? `Participants (${participants.length})`
-                    : tab === 'validate'   ? `⚖️ Valider${pendingCount > 0 ? ` (${pendingCount})` : ''}`
-                    : 'Classement'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-      </ScrollView>
+      <View style={S.tabsBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={S.tabsContent}>
+          {((): any[] => {
+              const fmt = tournament?.format ?? 'simple';
+              const base: any[] = ['infos', 'wods', 'participants', 'scores'];
+              if (fmt === 'bracket' || fmt === 'swiss') base.push('bracket');
+              if (fmt === 'league_div') base.push('divisions');
+              if (isAdmin) base.push('validate');
+              return base;
+            })().map((tab: any) => {
+              const pendingCount = allScores.filter(s => s.status === 'pending').length;
+              return (
+                <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}
+                  style={[S.tab, activeTab === tab && S.tabActive]}>
+                  <Text style={[S.tabText, activeTab === tab && S.tabTextActive]} numberOfLines={1}>
+                    {tab === 'infos'       ? 'Infos'
+                      : tab === 'wods'       ? `WODs (${wods.length})`
+                      : tab === 'participants'? `Participants (${participants.length})`
+                      : tab === 'bracket'    ? 'Bracket'
+                      : tab === 'divisions'  ? 'Divisions'
+                      : tab === 'validate'   ? `⚖️ Valider${pendingCount > 0 ? ` (${pendingCount})` : ''}`
+                      : 'Classement'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+        </ScrollView>
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}>
@@ -365,6 +378,23 @@ export default function TournamentScreen() {
                 <Text style={S.descText}>{tournament.description}</Text>
               </View>
             ) : null}
+
+            {/* Format banner */}
+            {(tournament.format === 'bracket' || tournament.format === 'swiss' || tournament.format === 'league_div') && (
+              <View style={[S.card, { borderColor: '#A855F740', borderWidth: 1, backgroundColor: 'rgba(168,85,247,0.06)' }]}>
+                <Text style={[S.cardLabel, { color: '#A855F7' }]}>FORMAT</Text>
+                <Text style={[S.descText, { fontWeight: '900' }]}>
+                  {tournament.format === 'bracket' ? '🏆 Bracket — Élimination directe' :
+                   tournament.format === 'swiss'   ? '🏆 Swiss — Double élimination (WB + LB)' :
+                                                     '🏆 Ligue avec divisions — Promotion/relégation'}
+                </Text>
+                {tournament.require_video_proof && (
+                  <Text style={[S.ruleText, { color: '#F59E0B', marginTop: 8 }]}>
+                    📹 Preuve vidéo obligatoire pour la validation des scores.
+                  </Text>
+                )}
+              </View>
+            )}
 
             <View style={S.card}>
               <Text style={S.cardLabel}>RÈGLEMENT</Text>
@@ -573,6 +603,23 @@ export default function TournamentScreen() {
           </>
         )}
 
+        {/* ══ BRACKET (bracket / swiss) ══ */}
+        {activeTab === 'bracket' && (
+          <TournamentBracketView
+            tournamentId={tournamentId}
+            format={tournament.format === 'swiss' ? 'swiss' : 'bracket'}
+            currentUserId={user?.id}
+          />
+        )}
+
+        {/* ══ DIVISIONS (league_div) ══ */}
+        {activeTab === 'divisions' && (
+          <TournamentDivisionsView
+            tournamentId={tournamentId}
+            currentUserId={user?.id}
+          />
+        )}
+
         {/* ══ CLASSEMENT ══ */}
         {activeTab === 'scores' && (
           <>
@@ -777,25 +824,25 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   container:        { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' },
   errorText:        { fontSize: 14, color: theme.textMuted },
-  header:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 20, flexDirection: 'row', gap: 12 },
-  back:        { paddingTop: 4 },
+  header:      { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 18, flexDirection: 'row', gap: 12 },
+  back:        { paddingTop: 6 },
   headerInfo:  { flex: 1 },
-  headerTitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 8 },
-  headerMeta:  { flexDirection: 'row', gap: 8, marginBottom: 8, flexWrap: 'wrap' },
-  levelBadge:      { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  levelBadgeText:  { fontSize: 11, fontWeight: '700' },
-  statusBadge:     { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  statusBadgeText: { fontSize: 10, fontWeight: '700' },
-  headerStats: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
-  metaItem:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText:    { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
+  headerTitle: { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: -0.3, marginBottom: 10 },
+  headerMeta:  { flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' },
+  levelBadge:      { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  levelBadgeText:  { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  statusBadge:     { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  statusBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  headerStats: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
+  metaItem:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaText:    { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
   prize:       { fontSize: 13, color: theme.gold, fontWeight: '700' },
-  tabsScroll:  { backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
-  tabsContent: { flexDirection: 'row', paddingHorizontal: 8 },
-  tab:           { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabsBar:     { height: 46, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
+  tabsContent: { flexDirection: 'row', paddingHorizontal: 8, alignItems: 'stretch' },
+  tab:           { paddingHorizontal: 16, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive:     { borderBottomColor: theme.accent },
-  tabText:       { fontSize: 12, fontWeight: '700', color: theme.textMuted },
-  tabTextActive: { color: theme.accent },
+  tabText:       { fontSize: 13, fontWeight: '600', color: theme.textMuted },
+  tabTextActive: { color: theme.accent, fontWeight: '700' },
   content: { padding: 16, paddingTop: 14 },
   card:      { backgroundColor: theme.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.cardBorder, gap: 8, marginBottom: 14 },
   cardLabel: { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 1.5 },

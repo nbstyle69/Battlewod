@@ -11,9 +11,11 @@ import { useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { RealtimeRecorderView, updateOverlayState, startRecording as nativeStartRec, stopRecording as nativeStopRec } from 'realtime-recorder';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Audio } from 'expo-av';
 import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings, Youtube, Copy, ExternalLink, RotateCw } from 'lucide-react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
@@ -101,14 +103,19 @@ interface TimerDisplayOpts {
   bgCountdown: string; bgRunning: string; bgDone: string; bipsEnabled: boolean;
   allowRotation: boolean;
 }
-const DISPLAY_OPTS_KEY = 'bwod_timer_display_opts';
+const DISPLAY_OPTS_KEY = 'bwod_timer_display_opts_v2';
+// App theme — emerald / dark, aligned with GlassBackground.tsx
+const THEME_EMERALD       = '#10B981';
+const THEME_EMERALD_DEEP  = '#059669';
+const THEME_BG_COUNTDOWN  = '#0d1f17';   // deep emerald-dark (preparation)
+const THEME_BG_RUNNING    = '#022c22';   // emerald-dark (in progress)
+const THEME_BG_DONE       = '#14532d';   // emerald-success (completed)
+const THEME_DIGIT_COLOR   = '#FFFFFF';
 const DEFAULT_DISPLAY: TimerDisplayOpts = {
-  clockStyle: 'arc', fontSize: Math.round(SW * 0.22), digitColor: '#FFFFFF',
-  bgCountdown: '#2a2a2a', bgRunning: '#111111', bgDone: '#0d2a18', bipsEnabled: true,
-  allowRotation: false,
+  clockStyle: 'arc', fontSize: Math.round(SW * 0.22), digitColor: THEME_DIGIT_COLOR,
+  bgCountdown: THEME_BG_COUNTDOWN, bgRunning: THEME_BG_RUNNING, bgDone: THEME_BG_DONE,
+  bipsEnabled: true, allowRotation: false,
 };
-const COLOR_PRESETS = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC'];
-const BG_PRESETS    = ['#000000', '#111111', '#1a1a2e', '#0d2a18', '#2a1a1a', '#1a1a2a', '#2a2a2a'];
 
 // Ensure digit color contrasts with background — returns safe color
 function ensureContrast(digitColor: string, bgColor: string): string {
@@ -133,13 +140,16 @@ const PHASE_COLORS = {
 };
 
 // ─── ARC clock (SVG) ─────────────────────────────────────────────────────────
-function ArcTimer({ time, progress, color, strokeColor, landscape }: { time: string; progress: number; color: string; strokeColor?: string; landscape?: boolean }) {
+function ArcTimer({ time, progress, color, fontSize, strokeColor, landscape }: { time: string; progress: number; color: string; fontSize?: number; strokeColor?: string; landscape?: boolean }) {
   const { width: aw, height: ah } = useWindowDimensions();
-  const size = landscape ? Math.min(ah * 0.75, aw * 0.45) : Math.min(Math.min(aw, ah) * 0.76, 280);
+  const size = landscape ? Math.min(ah * 0.85, aw * 0.5) : Math.min(aw, ah) * 0.86;
   const r    = size / 2 - 18;
   const circ = 2 * Math.PI * r;
   const dash = circ * (1 - Math.max(0, Math.min(1, progress)));
   const sc = strokeColor || color;
+  // Use user-chosen fontSize, but cap so the digits stay readable inside the circle
+  const maxFs = Math.round(size * 0.42);
+  const fs = Math.min(fontSize ?? Math.round(size * 0.2), maxFs);
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', width: size, height: size }}>
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
@@ -147,7 +157,7 @@ function ArcTimer({ time, progress, color, strokeColor, landscape }: { time: str
         <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={sc} strokeWidth={14}
           strokeLinecap="round" strokeDasharray={`${circ} ${circ}`} strokeDashoffset={dash} />
       </Svg>
-      <Text style={{ fontSize: Math.round(size * 0.2), fontWeight: '200', color, letterSpacing: -2,
+      <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
         textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 }}>
         {time}
       </Text>
@@ -192,77 +202,80 @@ function TimerSettingsModal({ opts, onUpdate, onClose }: {
   opts: TimerDisplayOpts; onUpdate: (u: Partial<TimerDisplayOpts>) => void; onClose: () => void;
 }) {
   const SLabel = ({ label }: { label: string }) => (
-    <Text style={{ fontSize: 10, color: '#555', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>{label}</Text>
-  );
-  const Sw = ({ color, active, onPress, round = true }: { color: string; active: boolean; onPress: () => void; round?: boolean }) => (
-    <TouchableOpacity onPress={onPress}
-      style={{ width: 36, height: 36, borderRadius: round ? 18 : 8, backgroundColor: color,
-        borderWidth: active ? 3 : 1, borderColor: active ? '#fff' : 'rgba(255,255,255,0.15)' }} />
+    <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase', fontWeight: '700' }}>{label}</Text>
   );
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }} activeOpacity={1} onPress={onClose} />
-      <View style={{ backgroundColor: '#141414', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 8, maxHeight: '80%' }}>
-        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#2a2a2a', alignSelf: 'center', marginBottom: 20 }} />
+      <View style={{ backgroundColor: '#0a1612', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 8, maxHeight: '80%', borderTopWidth: 1, borderColor: 'rgba(16,185,129,0.25)' }}>
+        <LinearGradient
+          colors={['rgba(16,185,129,0.12)', 'rgba(16,185,129,0)']}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120, borderTopLeftRadius: 28, borderTopRightRadius: 28 }}
+          pointerEvents="none"
+        />
+        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(16,185,129,0.4)', alignSelf: 'center', marginBottom: 20 }} />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
-          <Text style={{ color: '#00ff88', fontSize: 11, letterSpacing: 5, marginBottom: 24 }}>⚙ AFFICHAGE MINUTEUR</Text>
+          <Text style={{ color: THEME_EMERALD, fontSize: 11, letterSpacing: 5, marginBottom: 24, fontWeight: '700' }}>⚙ AFFICHAGE MINUTEUR</Text>
 
           <SLabel label="Style d'horloge" />
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
-            {(['arc', 'bar', 'digits'] as ClockStyle[]).map(s => (
-              <TouchableOpacity key={s} onPress={() => onUpdate({ clockStyle: s })}
-                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-                  backgroundColor: opts.clockStyle === s ? '#1b4232' : '#1e1e1e',
-                  borderWidth: 1, borderColor: opts.clockStyle === s ? '#00ff88' : '#2a2a2a' }}>
-                <Text style={{ color: opts.clockStyle === s ? '#00ff88' : '#555', fontSize: 12, fontWeight: '700' }}>
-                  {s.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {(['arc', 'bar', 'digits'] as ClockStyle[]).map(s => {
+              const active = opts.clockStyle === s;
+              return (
+                <TouchableOpacity key={s} onPress={() => onUpdate({ clockStyle: s })}
+                  style={{ flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center',
+                    backgroundColor: active ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.04)',
+                    borderWidth: 1, borderColor: active ? THEME_EMERALD : 'rgba(255,255,255,0.08)' }}>
+                  <Text style={{ color: active ? THEME_EMERALD : 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>
+                    {s.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <SLabel label={`Taille : ${opts.fontSize}px`} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-            <TouchableOpacity onPress={() => onUpdate({ fontSize: Math.max(20, opts.fontSize - 4) })}
-              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#1e1e1e', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#333' }}>
-              <Text style={{ color: '#fff', fontSize: 24 }}>−</Text>
+            <TouchableOpacity onPress={() => onUpdate({ fontSize: Math.max(20, opts.fontSize - 8) })}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' }}>
+              <Text style={{ color: THEME_EMERALD, fontSize: 24, fontWeight: '700' }}>−</Text>
             </TouchableOpacity>
-            <View style={{ flex: 1, height: 4, backgroundColor: '#222', borderRadius: 2 }}>
-              <View style={{ width: `${Math.round(((opts.fontSize - 20) / 100) * 100)}%` as `${number}%`, height: '100%', backgroundColor: '#00ff88', borderRadius: 2 }} />
+            <View style={{ flex: 1, height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+              <LinearGradient
+                colors={[THEME_EMERALD_DEEP, THEME_EMERALD]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={{ width: `${Math.round(((opts.fontSize - 20) / 120) * 100)}%` as `${number}%`, height: '100%' }}
+              />
             </View>
-            <TouchableOpacity onPress={() => onUpdate({ fontSize: Math.min(120, opts.fontSize + 4) })}
-              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#1e1e1e', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#333' }}>
-              <Text style={{ color: '#fff', fontSize: 24 }}>+</Text>
+            <TouchableOpacity onPress={() => onUpdate({ fontSize: Math.min(140, opts.fontSize + 8) })}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' }}>
+              <Text style={{ color: THEME_EMERALD, fontSize: 24, fontWeight: '700' }}>+</Text>
             </TouchableOpacity>
           </View>
 
-          <SLabel label="Couleur chiffres" />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            {COLOR_PRESETS.map(c => <Sw key={c} color={c} active={opts.digitColor === c} onPress={() => onUpdate({ digitColor: c })} />)}
+          <SLabel label="Thème couleurs" />
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+            <View style={{ flex: 1, height: 56, borderRadius: 12, backgroundColor: THEME_BG_COUNTDOWN, borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: THEME_EMERALD, fontSize: 9, letterSpacing: 1.5, fontWeight: '800' }}>DÉCOMPTE</Text>
+            </View>
+            <View style={{ flex: 1, height: 56, borderRadius: 12, backgroundColor: THEME_BG_RUNNING, borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: THEME_EMERALD, fontSize: 9, letterSpacing: 1.5, fontWeight: '800' }}>EN COURS</Text>
+            </View>
+            <View style={{ flex: 1, height: 56, borderRadius: 12, backgroundColor: THEME_BG_DONE, borderWidth: 1, borderColor: 'rgba(16,185,129,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontSize: 9, letterSpacing: 1.5, fontWeight: '800' }}>TERMINÉ</Text>
+            </View>
           </View>
-
-          <SLabel label="Fond décompte" />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            {BG_PRESETS.map(c => <Sw key={c} color={c} active={opts.bgCountdown === c} round={false} onPress={() => onUpdate({ bgCountdown: c })} />)}
-          </View>
-
-          <SLabel label="Fond en cours" />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            {BG_PRESETS.map(c => <Sw key={c} color={c} active={opts.bgRunning === c} round={false} onPress={() => onUpdate({ bgRunning: c })} />)}
-          </View>
-
-          <SLabel label="Fond terminée" />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            {BG_PRESETS.map(c => <Sw key={c} color={c} active={opts.bgDone === c} round={false} onPress={() => onUpdate({ bgDone: c })} />)}
-          </View>
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginBottom: 24, marginTop: -16, fontStyle: 'italic' }}>
+            Couleurs alignées sur le thème de l'app
+          </Text>
 
           <SLabel label="Sons (bips)" />
           <TouchableOpacity onPress={() => onUpdate({ bipsEnabled: !opts.bipsEnabled })}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, marginBottom: 24,
-              backgroundColor: opts.bipsEnabled ? '#1b4232' : '#1e1e1e',
-              borderWidth: 1, borderColor: opts.bipsEnabled ? '#00ff88' : '#2a2a2a' }}>
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, marginBottom: 14,
+              backgroundColor: opts.bipsEnabled ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.04)',
+              borderWidth: 1, borderColor: opts.bipsEnabled ? THEME_EMERALD : 'rgba(255,255,255,0.08)' }}>
             <Text style={{ fontSize: 20 }}>{opts.bipsEnabled ? '🔊' : '🔇'}</Text>
-            <Text style={{ color: opts.bipsEnabled ? '#00ff88' : '#555', fontWeight: '700', fontSize: 14 }}>
+            <Text style={{ color: opts.bipsEnabled ? THEME_EMERALD : 'rgba(255,255,255,0.5)', fontWeight: '700', fontSize: 14 }}>
               {opts.bipsEnabled ? 'Bips activés' : 'Bips désactivés'}
             </Text>
           </TouchableOpacity>
@@ -270,17 +283,22 @@ function TimerSettingsModal({ opts, onUpdate, onClose }: {
           <SLabel label="Rotation écran" />
           <TouchableOpacity onPress={() => onUpdate({ allowRotation: !opts.allowRotation })}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, marginBottom: 24,
-              backgroundColor: opts.allowRotation ? '#1b4232' : '#1e1e1e',
-              borderWidth: 1, borderColor: opts.allowRotation ? '#00ff88' : '#2a2a2a' }}>
-            <RotateCw size={20} color={opts.allowRotation ? '#00ff88' : '#555'} />
-            <Text style={{ color: opts.allowRotation ? '#00ff88' : '#555', fontWeight: '700', fontSize: 14 }}>
+              backgroundColor: opts.allowRotation ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.04)',
+              borderWidth: 1, borderColor: opts.allowRotation ? THEME_EMERALD : 'rgba(255,255,255,0.08)' }}>
+            <RotateCw size={20} color={opts.allowRotation ? THEME_EMERALD : 'rgba(255,255,255,0.5)'} />
+            <Text style={{ color: opts.allowRotation ? THEME_EMERALD : 'rgba(255,255,255,0.5)', fontWeight: '700', fontSize: 14 }}>
               {opts.allowRotation ? 'Rotation activée' : 'Rotation verrouillée'}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onClose}
-            style={{ padding: 16, backgroundColor: '#1e1e1e', borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#2a2a2a' }}>
-            <Text style={{ color: '#555', fontSize: 12, letterSpacing: 2 }}>FERMER</Text>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={{ borderRadius: 14, overflow: 'hidden' }}>
+            <LinearGradient
+              colors={[THEME_EMERALD, THEME_EMERALD_DEEP]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ padding: 16, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#fff', fontSize: 13, letterSpacing: 2, fontWeight: '800' }}>FERMER</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -289,6 +307,9 @@ function TimerSettingsModal({ opts, onUpdate, onClose }: {
 }
 
 export default function TimerRunScreen() {
+  // Empêche l'écran de se verrouiller pendant toute la session timer (avec ou sans caméra)
+  useKeepAwake('timer-run');
+
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { currentBox, user } = useAuth();
@@ -1198,8 +1219,10 @@ export default function TimerRunScreen() {
             <X color="rgba(255,255,255,0.8)" size={24} />
           </TouchableOpacity>
       }
-      <View style={styles.topCenter}>
-        <Text style={styles.modeLabel}>{displayLabel}</Text>
+      <View style={[styles.topCenter, isLandscape && { flexDirection: 'row', gap: 10 }]}>
+        {/* In camera mode the native overlay already burns `videoTitle` at the top
+            of the preview. Skipping the React label avoids a duplicate row. */}
+        {!withCamera && <Text style={styles.modeLabel}>{displayLabel}</Text>}
         {withCamera && camState >= 1 && camState <= 3 && (
           <View style={styles.recIndicator}>
             <View style={styles.recDot} />
@@ -1210,12 +1233,17 @@ export default function TimerRunScreen() {
       {hideUI
         ? <View style={{ width: 44 }} />
         : withCamera
-          ? <TouchableOpacity
-              onPress={() => setFacing(f => f === 'front' ? 'back' : 'front')}
-              style={styles.iconBtn} activeOpacity={0.7}
-            >
-              <RefreshCw color="rgba(255,255,255,0.8)" size={22} />
-            </TouchableOpacity>
+          ? // Camera flip is allowed ONLY before "Démarrer" is pressed (camState === 0).
+            // Once recording starts, both camera facing and orientation are locked
+            // (orientation lock is handled in the ScreenOrientation effect above).
+            camState === 0
+              ? <TouchableOpacity
+                  onPress={() => setFacing(f => f === 'front' ? 'back' : 'front')}
+                  style={styles.iconBtn} activeOpacity={0.7}
+                >
+                  <RefreshCw color="rgba(255,255,255,0.8)" size={22} />
+                </TouchableOpacity>
+              : <View style={{ width: 44 }} />
           : <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.iconBtn} activeOpacity={0.7}>
               <Settings color="rgba(255,255,255,0.8)" size={20} />
             </TouchableOpacity>
@@ -1317,6 +1345,18 @@ export default function TimerRunScreen() {
           {/* ── LANDSCAPE LAYOUT ─────────────────────────────────── */}
           {isLandscape ? (
             <View style={{ flex: 1 }}>
+              {/* DÉCOMPTE LANDSCAPE — no-camera mode */}
+              {!withCamera && phase === 'countdown' && countdownVal > 0 && (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
+                  <Text style={[styles.phaseLabelGiant, { fontSize: 22, marginBottom: 4, color: '#FFFFFF' }]}>PRÉPARER</Text>
+                  <Text style={[styles.countdownBig, {
+                    color: accentColor,
+                    textShadowColor: accentColor,
+                    textShadowOffset: { width: 0, height: 0 },
+                    textShadowRadius: 18,
+                  }]}>{countdownVal}</Text>
+                </View>
+              )}
               {/* Timer centered */}
               {phase !== 'countdown' && (!withCamera || camState >= 1) && (
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -1330,7 +1370,7 @@ export default function TimerRunScreen() {
                     <Text style={[styles.seqSubLabel, { fontSize: 11, marginBottom: 2 }]}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
                   ) : null}
 
-                  {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} strokeColor={phaseColor} landscape />}
+                  {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />}
                   {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />}
                   {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} landscape />}
 
@@ -1366,9 +1406,9 @@ export default function TimerRunScreen() {
                 </View>
               )}
 
-              {/* Landscape ready — play right */}
+              {/* Landscape ready — play bottom-center to avoid Dynamic Island */}
               {phase === 'ready' && !withCamera && (
-                <View style={{ position: 'absolute', bottom: 16, right: 24, alignItems: 'center' }}>
+                <View style={{ position: 'absolute', bottom: 12, left: 0, right: 0, alignItems: 'center' }} pointerEvents="box-none">
                   <View style={styles.ctrlGroup}>
                     <View>
                       <TouchableOpacity onPress={handleStart} style={styles.playBtn} activeOpacity={0.8}>
@@ -1385,21 +1425,28 @@ export default function TimerRunScreen() {
                 </View>
               )}
 
-              {/* Landscape camera controls */}
+              {/* Landscape camera controls — bottom-center, compact, to stay
+                  clear of the Dynamic Island on the right edge and out of the
+                  way of the centered timer. */}
               {withCamera && (
-                <View style={{ position: 'absolute', bottom: 10, left: 0, right: 0, alignItems: 'center' }}>
+                <View style={{
+                  position: 'absolute',
+                  bottom: 12, left: 0, right: 0,
+                  alignItems: 'center',
+                }} pointerEvents="box-none">
                   <TouchableOpacity
                     onPress={camPrimaryAction}
                     disabled={camState === 0 && !isCameraReady}
                     style={[
                       styles.camPrimaryBtn,
+                      { paddingHorizontal: 28, paddingVertical: 12, minWidth: 200 },
                       camState === 0 && !isCameraReady && { opacity: 0.4 },
                       camState === 1 && styles.camPrimaryBtnGo,
                       (camState === 2 || camState === 3) && styles.camPrimaryBtnStop,
                     ]}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.camPrimaryBtnText}>
+                    <Text style={[styles.camPrimaryBtnText, { fontSize: 15 }]}>
                       {camState === 0 && !isCameraReady ? 'Initialisation…' : camPrimaryLabel}
                     </Text>
                   </TouchableOpacity>
@@ -1436,7 +1483,7 @@ export default function TimerRunScreen() {
                 <Text style={styles.seqSubLabel}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
               ) : null}
 
-              {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} strokeColor={phaseColor} />}
+              {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} />}
               {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} />}
               {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} />}
 

@@ -445,7 +445,7 @@ function createStyles(theme: AppTheme) {
       marginHorizontal: 16, marginTop: 12, borderRadius: 12, padding: 14,
     },
     registerBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
-    list: { padding: 16, gap: 12, paddingBottom: 40 },
+    list: { padding: 16, gap: 12, paddingBottom: 140 },
     emptyBox:  { alignItems: 'center', paddingTop: 60, gap: 12 },
     emptyEmoji:{ fontSize: 40 },
     emptyText: { fontSize: 14, color: theme.textMuted, textAlign: 'center', paddingHorizontal: 32 },

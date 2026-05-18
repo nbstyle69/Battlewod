@@ -259,7 +259,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { fontSize: 16, fontWeight: '900', color: theme.text, letterSpacing: 0.2 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 140 },
   inputCard: {
     backgroundColor: theme.card, borderRadius: 16, padding: 20,
     marginTop: 20, marginBottom: 20,

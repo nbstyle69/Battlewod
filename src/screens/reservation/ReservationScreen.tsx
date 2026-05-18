@@ -359,7 +359,7 @@ export default function ReservationScreen() {
           });
           return (
             <ScrollView
-              contentContainerStyle={{ paddingBottom: 40 }}
+              contentContainerStyle={{ paddingBottom: 140 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.accent} />}
             >
               <View style={S.dayBlock}>

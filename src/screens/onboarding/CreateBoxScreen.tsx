@@ -6,6 +6,7 @@ import {
 import { ChevronLeft, Building2, Sparkles } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 export default function CreateBoxScreen({ navigation }: any) {
   const { createBox } = useAuth();
@@ -25,9 +26,11 @@ export default function CreateBoxScreen({ navigation }: any) {
   }
 
   return (
+    <View style={S.container}>
+    <GlassBackground />
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={S.container}
+      style={{ flex: 1 }}
     >
       <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
         <ChevronLeft color={theme.textSecondary} size={22} />
@@ -83,11 +86,12 @@ export default function CreateBoxScreen({ navigation }: any) {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+    </View>
   );
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   back: { paddingTop: 56, paddingLeft: 20, paddingBottom: 8 },
   inner: { paddingHorizontal: 28, paddingBottom: 48, gap: 20, paddingTop: 12 },
   iconWrap: {

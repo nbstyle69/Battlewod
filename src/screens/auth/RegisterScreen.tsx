@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Building2, Dumbbell, User as UserIcon, Eye, EyeOff } from 'lucide-react-native';
+import GlassBackground from '../../components/glass/GlassBackground';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -31,25 +32,32 @@ export default function RegisterScreen({ navigation }: Props) {
     if (password.length < 6) { Alert.alert('Erreur', 'Mot de passe trop court (6 caractères min)'); return; }
     if (!acceptedCGU) { Alert.alert('CGU requises', 'Tu dois accepter les Conditions Générales d\'Utilisation pour t\'inscrire.'); return; }
     setLoading(true);
-    const { error } = await signUp(email.trim(), password, username.trim(), 'inter', asBoxOwner, gender);
+    const requestedUsername = username.trim();
+    const { error, finalUsername } = await signUp(email.trim(), password, requestedUsername, 'inter', asBoxOwner, gender);
     setLoading(false);
+
+    // Inform the user if their pseudo was auto-suffixed because the requested one was taken
+    const pseudoChanged = !!finalUsername && finalUsername !== requestedUsername;
+    const pseudoNotice = pseudoChanged
+      ? `\n\nℹ️ Le pseudo « ${requestedUsername} » était déjà pris, le tien est devenu « ${finalUsername} ». Tu peux le changer plus tard dans ton profil.`
+      : '';
+
     if (error === 'CONFIRM_EMAIL') {
       Alert.alert(
         '📧 Confirme ton email',
-        `Un lien de confirmation a été envoyé à ${email.trim()}.\n\nClique sur le lien dans l'email pour activer ton compte, puis connecte-toi.`,
+        `Un lien de confirmation a été envoyé à ${email.trim()}.\n\nClique sur le lien dans l'email pour activer ton compte, puis connecte-toi.${pseudoNotice}`,
         [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
       );
     } else if (error) {
       Alert.alert('Inscription impossible', error);
+    } else if (pseudoChanged) {
+      Alert.alert('Pseudo modifié', `Le pseudo « ${requestedUsername} » était déjà pris, le tien est devenu « ${finalUsername} ». Tu peux le changer plus tard dans ton profil.`);
     }
   }
 
-  const gradColors = mode === 'dark'
-    ? ['#0A0A0F', '#12121A', '#0A0A0F'] as const
-    : ['#f0fdf9', '#ffffff', '#f0fdf9'] as const;
-
   return (
-    <LinearGradient colors={gradColors} style={S.gradient}>
+    <View style={S.gradient}>
+      <GlassBackground />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.flex}>
         <ScrollView contentContainerStyle={S.container} keyboardShouldPersistTaps="handled">
           <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
@@ -192,7 +200,7 @@ export default function RegisterScreen({ navigation }: Props) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -203,7 +211,7 @@ function createStyles(theme: AppTheme) {
     shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
   };
   return StyleSheet.create({
-  gradient: { flex: 1 },
+  gradient: { flex: 1, backgroundColor: 'transparent' },
   flex: { flex: 1 },
   container: { flexGrow: 1, padding: 24, paddingTop: 60 },
   back: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },

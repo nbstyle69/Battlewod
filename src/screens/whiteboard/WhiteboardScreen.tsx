@@ -146,11 +146,17 @@ export default function WhiteboardScreen() {
             </TouchableOpacity>
           </View>
           <View style={S.emomStepRow}>
-            <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: Math.max(1, customSec - 5) })}>
+            <TouchableOpacity style={S.emomStepBtn} onPress={() => {
+              const next = customSec % 5 === 0 ? customSec - 5 : Math.floor(customSec / 5) * 5;
+              setEmomOverride({ ...ov, intervalMinutes: 0, customSec: Math.max(1, next) });
+            }}>
               <Text style={S.emomStepBtnText}>−</Text>
             </TouchableOpacity>
             <Text style={S.emomStepValue}>{customSs}<Text style={S.emomStepUnit}> sec</Text></Text>
-            <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: customSec + 5 })}>
+            <TouchableOpacity style={S.emomStepBtn} onPress={() => {
+              const next = customSec % 5 === 0 ? customSec + 5 : Math.ceil(customSec / 5) * 5;
+              setEmomOverride({ ...ov, intervalMinutes: 0, customSec: next });
+            }}>
               <Text style={S.emomStepBtnText}>+</Text>
             </TouchableOpacity>
           </View>
@@ -516,7 +522,7 @@ export default function WhiteboardScreen() {
         />
 
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 140 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadPersonalWODs().finally(() => setRefreshing(false)); }} />}
         >
@@ -799,7 +805,7 @@ export default function WhiteboardScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetchWods(); }} />}
       >
         <View style={S.section}>
@@ -834,65 +840,71 @@ export default function WhiteboardScreen() {
                         </TouchableOpacity>
                       </View>
                     )}
-                    <TouchableOpacity
-                      style={[S.wodCard, { flex: 1 }]}
-                      onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
-                      activeOpacity={0.8}
-                    >
-                      <View style={S.wodCardTop}>
-                        <WodTypeBadge type={wod.wod_type} />
-                        
-                        {wod.video_url && (
-                          <View style={[S.timeCap, { backgroundColor: '#EF444418', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
-                            <Play color="#EF4444" size={10} />
-                            <Text style={[S.timeCapText, { color: '#EF4444' }]}>Vidéo</Text>
-                          </View>
+                    <View style={[S.wodCard, { flex: 1 }]}>
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
+                        activeOpacity={0.8}
+                      >
+                        <View style={S.wodCardTop}>
+                          <WodTypeBadge type={wod.wod_type} />
+
+                          {wod.video_url && (
+                            <View style={[S.timeCap, { backgroundColor: '#EF444418', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
+                              <Play color="#EF4444" size={10} />
+                              <Text style={[S.timeCapText, { color: '#EF4444' }]}>Vidéo</Text>
+                            </View>
+                          )}
+                          {wod.time_cap_seconds != null && (
+                            <View style={S.timeCap}>
+                              <Clock color={theme.textMuted} size={12} />
+                              <Text style={S.timeCapText}>
+                                Cap {Math.floor(wod.time_cap_seconds / 60)} min
+                              </Text>
+                            </View>
+                          )}
+                          {(() => {
+                            const hasScore = scoredIds.has(wod.id);
+                            const isDone = hasScore || completedIds.has(wod.id);
+                            return (
+                              <TouchableOpacity
+                                onPress={(e) => { e.stopPropagation(); toggleCompletion(wod.id); }}
+                                disabled={hasScore}
+                                style={S.checkboxRow}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                activeOpacity={0.7}
+                                accessibilityRole="checkbox"
+                                accessibilityState={{ checked: isDone, disabled: hasScore }}
+                                accessibilityLabel={isDone ? 'Réalisé' : 'Marquer comme réalisé'}
+                              >
+                                {isDone && (
+                                  <Text style={S.checkboxLabel}>{hasScore ? 'Scoré' : 'Réalisé'}</Text>
+                                )}
+                                <View style={[S.checkbox, isDone && S.checkboxChecked]}>
+                                  {isDone && <Check color="#fff" size={14} strokeWidth={3} />}
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })()}
+                        </View>
+                        <Text style={S.wodTitle}>{wod.title}</Text>
+                        {wod.description && (
+                          <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text>
                         )}
-                        {wod.time_cap_seconds != null && (
-                          <View style={S.timeCap}>
-                            <Clock color={theme.textMuted} size={12} />
-                            <Text style={S.timeCapText}>
-                              Cap {Math.floor(wod.time_cap_seconds / 60)} min
-                            </Text>
-                          </View>
-                        )}
-                        {(() => {
-                          const hasScore = scoredIds.has(wod.id);
-                          const isDone = hasScore || completedIds.has(wod.id);
-                          return (
-                            <TouchableOpacity
-                              onPress={(e) => { e.stopPropagation(); toggleCompletion(wod.id); }}
-                              disabled={hasScore}
-                              style={S.checkboxRow}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              activeOpacity={0.7}
-                              accessibilityRole="checkbox"
-                              accessibilityState={{ checked: isDone, disabled: hasScore }}
-                              accessibilityLabel={isDone ? 'Réalisé' : 'Marquer comme réalisé'}
-                            >
-                              {isDone && (
-                                <Text style={S.checkboxLabel}>{hasScore ? 'Scoré' : 'Réalisé'}</Text>
-                              )}
-                              <View style={[S.checkbox, isDone && S.checkboxChecked]}>
-                                {isDone && <Check color="#fff" size={14} strokeWidth={3} />}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })()}
-                      </View>
-                      <Text style={S.wodTitle}>{wod.title}</Text>
-                      {wod.description && (
-                        <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text>
-                      )}
+                      </TouchableOpacity>
                       <View style={S.wodCardFooter}>
-                        <View style={S.wodCardAction}>
+                        <TouchableOpacity
+                          style={S.wodCardAction}
+                          onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
                           <Text style={S.wodCardActionText}>Voir détails & score</Text>
                           <ChevronRight color={theme.accent} size={14} />
-                        </View>
+                        </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation(); openTimerModal(wod); }}
+                          onPress={() => openTimerModal(wod)}
                           style={S.timerBtn}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           activeOpacity={0.8}
                           accessibilityRole="button"
                           accessibilityLabel="Lancer le chrono"
@@ -900,7 +912,7 @@ export default function WhiteboardScreen() {
                           <TimerIcon color={theme.accent} size={16} />
                         </TouchableOpacity>
                       </View>
-                    </TouchableOpacity>
+                    </View>
                   </View>
                 );
               })}

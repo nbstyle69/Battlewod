@@ -219,7 +219,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
   headerTitle: { fontSize: 18, fontWeight: '900', color: t.text },
-  content: { padding: 16, gap: 20, paddingBottom: 40 },
+  content: { padding: 16, gap: 20, paddingBottom: 140 },
   section: {
     backgroundColor: t.card, borderRadius: 14, padding: 16,
     borderWidth: 1, borderColor: t.border, gap: 14,

@@ -256,6 +256,7 @@ export default function WodHistoryScreen() {
 
   return (
     <View style={S.screen}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
@@ -341,7 +342,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   filterChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
   filterTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
   filterTxtSel: { color: t.accent, fontWeight: '900' },
-  list: { padding: 16, gap: 12, paddingBottom: 40 },
+  list: { padding: 16, gap: 12, paddingBottom: 140 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyEmoji: { fontSize: 48 },

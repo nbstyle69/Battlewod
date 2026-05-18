@@ -412,7 +412,7 @@ function createStyles(theme: AppTheme) {
   tabActive: { borderBottomColor: theme.accent },
   tabText: { fontSize: 12, fontWeight: '600', color: theme.textMuted, textAlign: 'center' },
   tabTextActive: { color: theme.accent, fontWeight: '700' },
-  content: { padding: 16 },
+  content: { padding: 16, paddingBottom: 140 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 12, marginTop: 8 },
   createButton: { marginBottom: 16 },
   createGradient: {

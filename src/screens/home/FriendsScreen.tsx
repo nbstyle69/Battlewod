@@ -406,7 +406,7 @@ function createStyles(theme: AppTheme) {
     tabActive: { borderBottomColor: theme.accent },
     tabText: { fontSize: 11, fontWeight: '700', color: theme.textMuted },
     tabTextActive: { color: theme.accent },
-    content: { padding: 16, gap: 10 },
+    content: { padding: 16, gap: 10, paddingBottom: 140 },
     subTitle: { fontSize: 13, fontWeight: '800', color: theme.textMuted, letterSpacing: 0.5, marginBottom: 4 },
     emptyCard: {
       backgroundColor: theme.card, borderRadius: 20, padding: 32,

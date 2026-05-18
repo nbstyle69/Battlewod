@@ -20,7 +20,7 @@ const corsHeaders = {
 };
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10 MB
-const ANTHROPIC_MODEL = 'claude-3-5-haiku-20241022';
+const ANTHROPIC_MODEL = 'claude-haiku-4-5';
 
 const SYSTEM_PROMPT = `Tu es un assistant expert en programmation CrossFit. Tu reçois un PDF contenant la programmation hebdomadaire ou mensuelle d'une box CrossFit (en français), et tu dois extraire chaque WOD (séance) sous forme JSON STRICT.
 

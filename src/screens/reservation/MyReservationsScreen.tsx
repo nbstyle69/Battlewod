@@ -121,7 +121,7 @@ export default function MyReservationsScreen() {
         <FlatList
           data={displayed}
           keyExtractor={r => r.id}
-          contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 140 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.accent} />
           }

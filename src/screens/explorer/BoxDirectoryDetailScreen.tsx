@@ -14,6 +14,7 @@ import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
 import { Box } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 type Route = RouteProp<ExplorerStackParamList, 'BoxDirectoryDetail'>;
@@ -61,6 +62,7 @@ export default function BoxDirectoryDetailScreen() {
   if (loading) {
     return (
       <View style={[s.container, s.center]}>
+        <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -69,6 +71,7 @@ export default function BoxDirectoryDetailScreen() {
   if (!box) {
     return (
       <View style={[s.container, s.center]}>
+        <GlassBackground />
         <Text style={s.emptyText}>Box introuvable</Text>
       </View>
     );
@@ -83,6 +86,7 @@ export default function BoxDirectoryDetailScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
@@ -91,7 +95,7 @@ export default function BoxDirectoryDetailScreen() {
         <Text style={s.headerTitle} numberOfLines={1}>{box.name}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
         {/* Cover / Logo */}
         <View style={s.heroWrap}>
           {box.cover_url ? (
@@ -233,7 +237,7 @@ export default function BoxDirectoryDetailScreen() {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     emptyText: { fontSize: 14, color: t.textMuted },
     header: {

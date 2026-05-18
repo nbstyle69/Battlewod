@@ -39,6 +39,35 @@ export default function GlassButton({
   const reflectionColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)';
   const labelColor = variant === 'emerald' ? '#10b981' : theme.text;
 
+  // Android : solid themed button (opaque fill for crisp look, matching GlassCard).
+  if (Platform.OS === 'android') {
+    const bg =
+      variant === 'emerald'
+        ? (isDark ? 'rgba(16,185,129,0.12)' : 'rgba(236,253,245,0.92)')
+        : (isDark ? 'rgba(22,28,26,0.82)' : 'rgba(255,255,255,0.92)');
+    const brd = variant === 'emerald' ? (isDark ? 'rgba(16,185,129,0.35)' : 'rgba(16,185,129,0.30)') : theme.border;
+    return (
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={onPress}
+        disabled={disabled}
+        style={[
+          { borderRadius: radius, backgroundColor: bg, borderColor: brd, borderWidth: 1, overflow: 'hidden', opacity: disabled ? 0.5 : 1 },
+          style,
+        ]}
+      >
+        <View style={[styles.content, { paddingVertical: paddingV }]}>
+          {icon}
+          {label && (
+            <Text style={[styles.label, { color: labelColor }, textStyle]}>{label}</Text>
+          )}
+          {children}
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // iOS : full glass with blur + reflection.
   return (
     <TouchableOpacity
       activeOpacity={0.75}
@@ -47,11 +76,7 @@ export default function GlassButton({
       style={[styles.shadow, { borderRadius: radius, opacity: disabled ? 0.5 : 1 }, style]}
     >
       <View style={[styles.clip, { borderRadius: radius, borderColor, borderWidth: 1 }]}>
-        {Platform.OS === 'ios' ? (
-          <BlurView intensity={35} tint={tint} style={StyleSheet.absoluteFill} />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(20,20,25,0.55)' : 'rgba(255,255,255,0.55)' }]} />
-        )}
+        <BlurView intensity={35} tint={tint} style={StyleSheet.absoluteFill} />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: overlayColor }]} />
         <LinearGradient
           colors={[reflectionColor, 'rgba(255,255,255,0)']}

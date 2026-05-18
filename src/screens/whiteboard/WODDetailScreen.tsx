@@ -28,6 +28,7 @@ import { syncLevelAndBadges } from '../../utils/eloLevels';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
 import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
+import ReportMenu from '../../components/ReportMenu';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -457,7 +458,7 @@ export default function WODDetailScreen() {
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
       >
         {/* WOD info card */}
@@ -861,9 +862,21 @@ export default function WODDetailScreen() {
                   {selectedScore ? formatScore(selectedScore) : ''} · {selectedScore?.rx ? 'RX' : 'Scaled'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setSelectedScore(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X color={theme.textMuted} size={22} />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {selectedScore && selectedScore.member_id !== user?.id && (
+                  <ReportMenu
+                    contentType="score"
+                    contentId={selectedScore.id}
+                    reportedUserId={selectedScore.member_id}
+                    size={20}
+                    color={theme.textMuted}
+                    onActionDone={() => { setSelectedScore(null); load(); }}
+                  />
+                )}
+                <TouchableOpacity onPress={() => setSelectedScore(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X color={theme.textMuted} size={22} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Score card */}
@@ -977,6 +990,15 @@ export default function WODDetailScreen() {
                         />
                         <Text style={S.sdCommentAuthor}>{author?.username ?? 'Inconnu'}</Text>
                         <Text style={S.sdCommentTime}>{timeLabel}</Text>
+                        {!isMyComment && author?.id && (
+                          <ReportMenu
+                            contentType="comment"
+                            contentId={item.id}
+                            reportedUserId={author.id}
+                            size={14}
+                            color={theme.textMuted}
+                          />
+                        )}
                       </View>
                       <Text style={S.sdCommentContent}>{item.content}</Text>
                     </View>

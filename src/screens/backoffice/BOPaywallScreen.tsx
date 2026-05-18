@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView, AppState,
+  View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView, AppState, Platform,
 } from 'react-native';
 import { Lock, CreditCard, Check, LogOut } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
@@ -91,25 +91,34 @@ export default function BOPaywallScreen() {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={S.primaryBtn}
-          onPress={handleCheckout}
-          disabled={loading}
-          activeOpacity={0.85}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <CreditCard color="#fff" size={18} />
-              <Text style={S.primaryBtnText}>Souscrire — 79€/mois</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {Platform.OS === 'ios' ? (
+          <View style={S.iosNotice}>
+            <Text style={S.iosNoticeTitle}>Souscription via le web</Text>
+            <Text style={S.iosNoticeText}>
+              Pour souscrire au plan complet, rends-toi sur athlex.app depuis un navigateur.
+              Ton abonnement sera automatiquement activé dans l'app dès que le paiement sera confirmé.
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={S.primaryBtn}
+            onPress={handleCheckout}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <CreditCard color="#fff" size={18} />
+                <Text style={S.primaryBtnText}>Souscrire — 79€/mois</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         <Text style={S.retention}>
-          Tes données (membres, WODs, scores) sont conservées 30 jours.{'\n'}
-          Souscris maintenant pour ne rien perdre.
+          Tes données (membres, WODs, scores) sont conservées 30 jours.{Platform.OS === 'ios' ? '' : '\nSouscris maintenant pour ne rien perdre.'}
         </Text>
 
         <TouchableOpacity
@@ -172,4 +181,10 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     paddingVertical: 12,
   },
   logoutText: { fontSize: 13, color: t.textMuted },
+  iosNotice: {
+    width: '100%', backgroundColor: t.card, borderRadius: 16, padding: 20,
+    borderWidth: 1, borderColor: t.border, gap: 8,
+  },
+  iosNoticeTitle: { fontSize: 15, fontWeight: '800', color: t.text, textAlign: 'center' },
+  iosNoticeText: { fontSize: 13, color: t.textSecondary, lineHeight: 20, textAlign: 'center' },
 }); }
