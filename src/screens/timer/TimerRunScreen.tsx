@@ -12,7 +12,7 @@ import { RealtimeRecorderView, updateOverlayState, startRecording as nativeStart
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeAndroid } from 'expo-av';
 import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings, Youtube, Copy, ExternalLink, RotateCw } from 'lucide-react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -22,6 +22,7 @@ import { HomeStackParamList, SeqBlock } from '../../navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { incrementCounter } from '../../services/gamification';
+import { spacing, borderRadius, typography } from '../../theme/designTokens';
 import { captureError } from '../../lib/sentry';
 import { hapticLight, hapticMedium, hapticHeavy } from '../../lib/haptics';
 
@@ -489,7 +490,7 @@ export default function TimerRunScreen() {
           staysActiveInBackground: false,
           // Android: force playback through the main speaker and don't let
           // the concurrent mic recording duck our beeps.
-          interruptionModeAndroid: Audio.InterruptionModeAndroid.DoNotMix,
+          interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
           shouldDuckAndroid: false,
           playThroughEarpieceAndroid: false,
         });
@@ -1455,66 +1456,98 @@ export default function TimerRunScreen() {
             </View>
           ) : (
           /* ── PORTRAIT LAYOUT ──────────────────────────────────── */
-          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          {/* DÉCOMPTE PORTRAIT — dans le même conteneur que le timer */}
-          {!withCamera && phase === 'countdown' && countdownVal > 0 && (
-            <View style={styles.timerCenter} pointerEvents="none">
-              <Text style={[styles.phaseLabelGiant, { color: '#FFFFFF' }]}>PRÉPARER</Text>
-              <Text style={[styles.countdownBig, {
-                color: accentColor,
-                textShadowColor: accentColor,
-                textShadowOffset: { width: 0, height: 0 },
-                textShadowRadius: 18,
-              }]}>{countdownVal}</Text>
+          <View style={{ flex: 1 }}>
+            {/* Header avec type et total */}
+            <View style={styles.newHeader}>
+              <Text style={styles.newHeaderType}>{timerType.toUpperCase().replace('-', ' ')}</Text>
+              <Text style={styles.newHeaderTotal}>{formatTime(totalRemaining)}</Text>
             </View>
-          )}
-          {/* TIMER — visible seulement hors countdown */}
-          {phase !== 'countdown' && (!withCamera || camState >= 1) && (
-            <View style={styles.timerCenter}>
-              {/* Phase label giant */}
-              {!!phaseLabel && phase === 'running' && (
-                <Text style={[styles.phaseLabelGiant, { color: ensureContrast(phaseColor, currentBg),
-                  textShadowColor: phaseColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>
-                  {phaseLabel}
-                </Text>
-              )}
-              {/* Libre bloc sub-label */}
-              {timerType === 'libre' && seqBlockLabel ? (
-                <Text style={styles.seqSubLabel}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
-              ) : null}
 
-              {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} />}
-              {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} />}
-              {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} />}
+            {/* Zone principale colorée selon la phase */}
+            <View style={[styles.phaseZone, { 
+              backgroundColor: phase === 'countdown' ? 'rgba(16,185,129,0.15)' : 
+                              innerPhase === 'work' ? 'rgba(239,68,68,0.15)' : 
+                              innerPhase === 'rest' ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.1)',
+              borderColor: phase === 'countdown' ? 'rgba(16,185,129,0.3)' : 
+                           innerPhase === 'work' ? 'rgba(239,68,68,0.3)' : 
+                           innerPhase === 'rest' ? 'rgba(59,130,246,0.3)' : 'rgba(16,185,129,0.2)',
+            }]}>
+              {/* Label de phase */}
+              <Text style={[styles.phaseZoneLabel, {
+                color: phase === 'countdown' ? '#10b981' : '#FFFFFF'
+              }]}>
+                {phase === 'countdown' ? 'PRÉPARER' :
+                 innerPhase === 'work' ? 'EXERCICE' :
+                 innerPhase === 'rest' ? 'REPOS' : phaseLabel}
+              </Text>
 
-              {/* Total progress bar */}
-              {totalWodSeconds > 0 && phase === 'running' && (
-                <View style={styles.totalBarWrap}>
-                  <View style={styles.totalBarTrack}>
-                    <View style={[styles.totalBarFill, { width: `${Math.round(totalProgress * 100)}%` as any, backgroundColor: phaseColor }]} />
-                  </View>
-                  <Text style={[styles.totalBarLabel, { color: phaseColor }]}>
-                    TOTAL  {formatTime(totalRemaining)}
+              {/* Chrono principal */}
+              <Text style={styles.phaseZoneTimer}>
+                {phase === 'countdown' ? countdownVal : mainTime}
+              </Text>
+
+              {/* Info du prochain/round */}
+              {hasRounds && (
+                <View style={styles.phaseZoneRoundInfo}>
+                  <Text style={styles.phaseZoneRoundText}>
+                    {innerPhase === 'work' ? 'SUIVANT' : 'EXERCICE'}:{innerPhase === 'work' ? formatTime(restTime) : formatTime(roundTimeLeft)}
                   </Text>
                 </View>
               )}
+            </View>
 
+            {/* Zone noire avec les stats */}
+            <View style={styles.statsZone}>
               {/* Round badges */}
-              {hasRounds && phase === 'running' && !seqPausing && (
-                <View style={styles.roundBadgesRow}>
-                  <View style={styles.roundBadge}>
-                    <Text style={[styles.roundBadgeNum, { color: phaseColor }]}>{currentRound}</Text>
-                    <Text style={styles.roundBadgeSub}>ROUND</Text>
+              {hasRounds && (
+                <View style={styles.newRoundRow}>
+                  <View style={styles.newRoundBox}>
+                    <Text style={[styles.newRoundNum, { color: '#38BDF8' }]}>{currentRound}</Text>
+                    <Text style={styles.newRoundLabel}>ROUNDS RESTANTS</Text>
                   </View>
-                  <View style={[styles.roundBadgeDivider, { backgroundColor: phaseColor + '30' }]} />
-                  <View style={styles.roundBadge}>
-                    <Text style={[styles.roundBadgeNum, { color: 'rgba(255,255,255,0.7)' }]}>{roundsLeft}</Text>
-                    <Text style={styles.roundBadgeSub}>RESTANTS</Text>
+
+                  <TouchableOpacity 
+                    style={styles.newPlayBtn}
+                    onPress={isActive ? handleStop : handleStart}
+                    activeOpacity={0.8}
+                  >
+                    {isActive ? (
+                      <Square color="#fff" size={28} fill="#fff" />
+                    ) : (
+                      <Play color="#fff" size={32} fill="#fff" />
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.newRoundBox}>
+                    <Text style={[styles.newRoundNum, { color: '#FACC15' }]}>{roundsLeft}</Text>
+                    <Text style={styles.newRoundLabel}>CYCLES RESTANTS</Text>
                   </View>
                 </View>
               )}
+
+              {!hasRounds && (
+                <View style={styles.simpleControls}>
+                  <TouchableOpacity 
+                    style={styles.newBigPlayBtn}
+                    onPress={isActive ? handleStop : handleStart}
+                    activeOpacity={0.8}
+                  >
+                    {isActive ? (
+                      <Square color="#fff" size={32} fill="#fff" />
+                    ) : (
+                      <Play color="#fff" size={36} fill="#fff" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-          )}
+
+            {/* Total bar */}
+            {totalWodSeconds > 0 && (
+              <View style={styles.newTotalBar}>
+                <View style={[styles.newTotalFill, { width: `${Math.round(totalProgress * 100)}%`, backgroundColor: phaseColor }]} />
+              </View>
+            )}
 
           {/* INFOBAR — titre/timestamp, uniquement en mode caméra */}
           {withCamera && (videoTitle || withTimestamp) && phase === 'running' && camState >= 2 && (
@@ -1523,86 +1556,6 @@ export default function TimerRunScreen() {
               {withTimestamp ? <Text style={styles.infoTimestamp}>{clockStr}</Text> : null}
             </View>
           )}
-
-          <View style={styles.controls}>
-            {withCamera ? (
-              /* ── SINGLE BUTTON (camera mode) ─────────────────────── */
-              <>
-                <TouchableOpacity
-                  onPress={camPrimaryAction}
-                  disabled={camState === 0 && !isCameraReady}
-                  style={[
-                    styles.camPrimaryBtn,
-                    camState === 0 && !isCameraReady && { opacity: 0.4 },
-                    camState === 1 && styles.camPrimaryBtnGo,
-                    (camState === 2 || camState === 3) && styles.camPrimaryBtnStop,
-                  ]}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.camPrimaryBtnText}>
-                    {camState === 0 && !isCameraReady ? 'Initialisation…' : camPrimaryLabel}
-                  </Text>
-                </TouchableOpacity>
-                {camState === 2 && showEndWorkBtn && (
-                  <TouchableOpacity onPress={ywyrEndWork} style={[styles.ywyrBtn, { marginTop: 12 }]} activeOpacity={0.8}>
-                    <Text style={styles.ywyrBtnText}>FIN DU TRAVAIL</Text>
-                  </TouchableOpacity>
-                )}
-                {camState === 2 && showEndBlockBtn && (
-                  <TouchableOpacity onPress={libreEndForTimeBlock} style={[styles.ywyrBtn, { marginTop: 12 }]} activeOpacity={0.8}>
-                    <Text style={styles.ywyrBtnText}>FIN DU BLOC</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            ) : (
-              /* ── MULTI BUTTON (no-camera mode) ───────────────────── */
-              <>
-                {phase === 'ready' && (
-                  <View style={styles.ctrlGroup}>
-                    <View>
-                      <TouchableOpacity onPress={handleStart} style={styles.playBtn} activeOpacity={0.8}>
-                        <Play color="#fff" size={36} fill="#fff" />
-                      </TouchableOpacity>
-                      {countdown > 0 && (
-                        <View style={styles.countdownBadge}>
-                          <Text style={styles.countdownBadgeText}>{countdown}s</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.actionLabel}>Démarrer</Text>
-                  </View>
-                )}
-                {showEndWorkBtn && (
-                  <View style={styles.ctrlGroup}>
-                    <TouchableOpacity onPress={ywyrEndWork} style={styles.ywyrBtn} activeOpacity={0.8}>
-                      <Text style={styles.ywyrBtnText}>FIN DU TRAVAIL</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleStop} style={styles.stopBtnSmall} activeOpacity={0.8}>
-                      <Square color="rgba(255,255,255,0.6)" size={22} fill="rgba(255,255,255,0.6)" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-                {showEndBlockBtn && (
-                  <View style={styles.ctrlGroup}>
-                    <TouchableOpacity onPress={libreEndForTimeBlock} style={styles.ywyrBtn} activeOpacity={0.8}>
-                      <Text style={styles.ywyrBtnText}>FIN DU BLOC</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleStop} style={styles.stopBtnSmall} activeOpacity={0.8}>
-                      <Square color="rgba(255,255,255,0.6)" size={22} fill="rgba(255,255,255,0.6)" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-                {showNormalStop && (
-                  <View style={styles.ctrlGroup}>
-                    <TouchableOpacity onPress={handleStop} style={styles.stopBtn} activeOpacity={0.8}>
-                      <Square color="#fff" size={30} fill="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.actionLabel}>Arrêter</Text>
-                  </View>
-                )}
-              </>
-            )}
-          </View>
           </View>
           )}
         </>
@@ -1740,26 +1693,26 @@ const styles = StyleSheet.create({
   containerDark: { flex: 1, backgroundColor: '#0A0A0A' },
   cameraDim: { backgroundColor: 'rgba(0,0,0,0.3)' },
   noCamera: { backgroundColor: '#111', justifyContent: 'center', alignItems: 'center' },
-  noCameraText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
-  overlay: { flex: 1, justifyContent: 'space-between', paddingVertical: 60 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24 },
+  noCameraText: { color: 'rgba(255,255,255,0.4)', ...typography.body },
+  overlay: { flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xxxl },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl },
   iconBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center', alignItems: 'center',
   },
   iconBtnDisabled: { opacity: 0.4 },
-  topCenter: { alignItems: 'center', gap: 5 },
-  modeLabel: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: 1.5 },
+  topCenter: { alignItems: 'center', gap: spacing.xxs },
+  modeLabel: { ...typography.label, color: '#FFFFFF', letterSpacing: 1.5 },
   recIndicator: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(220,38,38,0.85)', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 3,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xxs,
+    backgroundColor: 'rgba(220,38,38,0.85)', borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: spacing.xxs,
   },
   recDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#fff' },
-  recText: { fontSize: 10, fontWeight: '900', color: '#fff', letterSpacing: 1 },
-  totalLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)', minWidth: 44, textAlign: 'right' },
-  timerCenter: { alignItems: 'center', justifyContent: 'center', flex: 1, gap: 10 },
+  recText: { ...typography.overline, color: '#fff', fontSize: 10 },
+  totalLabel: { ...typography.bodySmall, color: 'rgba(255,255,255,0.5)', minWidth: 44, textAlign: 'right' },
+  timerCenter: { alignItems: 'center', justifyContent: 'center', flex: 1, gap: spacing.sm },
   countdownOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'center', alignItems: 'center', zIndex: 99,
@@ -1779,7 +1732,7 @@ const styles = StyleSheet.create({
   timerDisplay: { fontSize: SW * 0.22, fontWeight: '200', color: '#FFFFFF', letterSpacing: -2 },
   countdownBig: { fontSize: SW * 0.42, fontWeight: '200', letterSpacing: -4 },
   goText: { fontSize: SW * 0.22, fontWeight: '900', color: '#FFFFFF', letterSpacing: 6 },
-  doneLabel: { fontSize: 18, fontWeight: '900', color: 'rgba(255,255,255,0.45)', letterSpacing: 4 },
+  doneLabel: { ...typography.h4, color: 'rgba(255,255,255,0.45)', letterSpacing: 4 },
   savedBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12,
@@ -2036,5 +1989,142 @@ const styles = StyleSheet.create({
   },
   splitsTapHint: {
     fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)', letterSpacing: 1,
+  },
+
+  // NEW DESIGN - Phase-based color layout (AthleX style)
+  newHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  newHeaderType: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#10b981',
+    letterSpacing: 1.5,
+  },
+  newHeaderTotal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 0.5,
+  },
+  phaseZone: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    margin: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  phaseZoneLabel: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 3,
+    marginBottom: 24,
+    textTransform: 'uppercase',
+  },
+  phaseZoneTimer: {
+    fontSize: SW * 0.28,
+    fontWeight: '200',
+    color: '#FFFFFF',
+    letterSpacing: -2,
+    textShadowColor: 'rgba(255,255,255,0.3)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
+  phaseZoneRoundInfo: {
+    marginTop: 24,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  phaseZoneRoundText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#10b981',
+    letterSpacing: 1,
+  },
+  statsZone: {
+    backgroundColor: 'transparent',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+  },
+  newRoundRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,185,129,0.08)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.2)',
+  },
+  newRoundBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  newRoundNum: {
+    fontSize: 42,
+    fontWeight: '900',
+    letterSpacing: -1,
+    marginBottom: 6,
+    color: '#FFFFFF',
+  },
+  newRoundLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  newPlayBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16,185,129,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.5)',
+  },
+  simpleControls: {
+    alignItems: 'center',
+  },
+  newBigPlayBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16,185,129,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.5)',
+  },
+  newPlayBtnText: {
+    display: 'none',
+  },
+  newTotalBar: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  newTotalFill: {
+    height: '100%',
+    borderRadius: 2,
   },
 });

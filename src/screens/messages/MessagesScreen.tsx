@@ -5,6 +5,7 @@ import {
   Image, Modal, Pressable, Dimensions, ScrollView,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Send, Megaphone, ImagePlus, X, Search, ChevronLeft } from 'lucide-react-native';
 
 const TENOR_API_KEY = process.env.EXPO_PUBLIC_TENOR_KEY ?? '';
@@ -55,6 +56,10 @@ export default function MessagesScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation();
   const canGoBack = navigation.canGoBack();
+  // Bottom tab bar uses position:'absolute' (see navigation/index.tsx) → must
+  // reserve its height as bottom padding to keep the input bar visible.
+  let tabBarHeight = 0;
+  try { tabBarHeight = useBottomTabBarHeight(); } catch { /* not inside tabs */ }
   const S = createStyles(theme);
   const [messages,   setMessages]   = useState<MsgRow[]>([]);
   const [blockedIds, setBlockedIds] = useState<string[]>([]);
@@ -88,7 +93,6 @@ export default function MessagesScreen() {
       g ? { id: g.id, name: g.name, color: g.color } : null
     ).filter(Boolean) as Group[];
     setGroups(userGroups);
-    if (userGroups.length > 0 && activeTab === null) setActiveTab(userGroups[0].id);
 
     // 2. Annonces admin depuis box_messages (filtrées par groupe si besoin)
     let adminQuery = supabase
@@ -192,6 +196,14 @@ export default function MessagesScreen() {
   }, [currentBox, user]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-select first group ONLY at initial mount (avoid stale-closure resets on refresh)
+  useEffect(() => {
+    if (activeTab === null && groups.length > 0) {
+      setActiveTab(groups[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups.length]);
 
   useFocusEffect(useCallback(() => {
     load().then(() => {
@@ -468,7 +480,7 @@ export default function MessagesScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={S.container}
-      keyboardVerticalOffset={0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? tabBarHeight + 90 : tabBarHeight}
     >
       <GlassBackground />
       {/* Header */}
@@ -630,7 +642,7 @@ export default function MessagesScreen() {
       )}
 
       {/* Input bar */}
-      <View style={S.inputBar}>
+      <View style={[S.inputBar, { paddingBottom: 6 + tabBarHeight }]}>
         <TouchableOpacity onPress={pickImage} style={S.imgBtn} activeOpacity={0.7}>
           <ImagePlus color={theme.textMuted} size={22} />
         </TouchableOpacity>

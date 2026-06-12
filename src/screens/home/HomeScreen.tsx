@@ -18,6 +18,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
+import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -663,7 +664,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[S.resultStatus, {
-                      color: r.status === 'approved' ? '#10b981' : r.status === 'rejected' ? '#ef4444' : (isDark ? '#9ca3af' : '#6b7280'),
+                      color: r.status === 'approved' ? theme.success : r.status === 'rejected' ? theme.error : theme.textMuted,
                     }]}>
                       {r.status === 'approved' ? 'Validé' : r.status === 'rejected' ? 'Rejeté' : 'En attente'}
                     </Text>
@@ -681,122 +682,122 @@ export default function HomeScreen() {
 
 function createStyles(t: AppTheme) {
   const isDark = t.mode === 'dark';
-  const textPrimary  = isDark ? '#f9fafb' : '#111827';
-  const textSecondary = isDark ? '#9ca3af' : '#6b7280';
+  const textPrimary = t.text;
+  const textSecondary = t.textSecondary;
   const textOnGlass = textPrimary;
 
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: isDark ? '#0a0a0a' : '#ffffff' },
+    root: { flex: 1, backgroundColor: t.background },
     container: { flex: 1, backgroundColor: 'transparent' },
 
     // Header row
-    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-    username: { fontSize: 26, fontWeight: '900', color: textPrimary, letterSpacing: -0.5 },
-    boxLogo: { width: 40, height: 40, borderRadius: 12 },
-    boxSwitchBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-    boxSwitchText: { fontSize: 12, fontWeight: '600', color: textSecondary, maxWidth: 180 },
+    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
+    username: { ...typography.h2, color: textPrimary },
+    boxLogo: { width: 40, height: 40, borderRadius: borderRadius.md },
+    boxSwitchBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
+    boxSwitchText: { ...typography.caption, color: textSecondary, maxWidth: 180 },
     bellBadge: {
       position: 'absolute', top: -6, right: -6,
-      backgroundColor: '#ef4444', borderRadius: 9,
+      backgroundColor: t.error, borderRadius: 9,
       minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center',
-      paddingHorizontal: 3, borderWidth: 2, borderColor: isDark ? '#0a0a0a' : '#ffffff',
+      paddingHorizontal: 3, borderWidth: 2, borderColor: t.background,
     },
-    bellBadgeText: { fontSize: 9, fontWeight: '900', color: '#fff' },
+    bellBadgeText: { ...typography.caption, color: '#fff' },
 
     // Hero ELO card
-    heroInner: { padding: 18 },
+    heroInner: { padding: spacing.md },
     heroTop: { flexDirection: 'row', alignItems: 'center' },
-    heroEloNum: { fontSize: 34, fontWeight: '900', color: '#10b981', letterSpacing: -1 },
-    heroEloLabel: { fontSize: 10, fontWeight: '700', color: textSecondary, letterSpacing: 2, marginTop: 2 },
-    heroDivider: { width: 1, height: 30, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' },
+    heroEloNum: { ...typography.h1, color: t.accent, letterSpacing: -1 },
+    heroEloLabel: { ...typography.overline, color: textSecondary, marginTop: spacing.xxs },
+    heroDivider: { width: 1, height: 30, backgroundColor: t.border },
     heroStat: { flex: 1, alignItems: 'center' },
-    heroStatNum: { fontSize: 18, fontWeight: '900', color: textOnGlass },
-    heroStatLabel: { fontSize: 9, fontWeight: '600', color: textSecondary, letterSpacing: 0.3, marginTop: 2 },
-    heroLevelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
+    heroStatNum: { ...typography.h4, color: textOnGlass },
+    heroStatLabel: { ...typography.caption, color: textSecondary, marginTop: spacing.xxs },
+    heroLevelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md },
     levelDot: { width: 8, height: 8, borderRadius: 4 },
-    levelTxt: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-    matchesTxt: { fontSize: 11, color: textSecondary, fontWeight: '500', marginLeft: 'auto' },
+    levelTxt: { ...typography.label, textTransform: 'none' },
+    matchesTxt: { ...typography.caption, color: textSecondary, marginLeft: 'auto' },
 
     // Action row
-    actionRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+    actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
     notifDot: {
       position: 'absolute', top: -3, right: -3,
-      backgroundColor: '#ef4444', borderRadius: 9,
+      backgroundColor: t.error, borderRadius: 9,
       minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center',
-      paddingHorizontal: 3, borderWidth: 2, borderColor: isDark ? '#0a0a0a' : '#ffffff',
+      paddingHorizontal: 3, borderWidth: 2, borderColor: t.background,
     },
-    notifDotTxt: { fontSize: 9, fontWeight: '900', color: '#fff' },
+    notifDotTxt: { ...typography.caption, color: '#fff' },
 
     // Section header
-    sectionInner: { padding: 18 },
+    sectionInner: { padding: spacing.md },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    sectionTitle: { fontSize: 15, fontWeight: '800', color: textPrimary, letterSpacing: -0.3 },
-    sectionTitleOutside: { fontSize: 15, fontWeight: '800', color: textPrimary, letterSpacing: -0.3, marginTop: 22, marginBottom: 12 },
-    linkText: { fontSize: 12, fontWeight: '700', color: '#10b981' },
-    emptyText: { fontSize: 13, color: textSecondary },
+    sectionTitle: { ...typography.h4, color: textPrimary },
+    sectionTitleOutside: { ...typography.h4, color: textPrimary, marginTop: spacing.xl, marginBottom: spacing.sm },
+    linkText: { ...typography.button, color: t.accent },
+    emptyText: { ...typography.body, color: textSecondary },
 
     // Week activity
-    weekRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 60, marginTop: 16, marginBottom: 12 },
-    weekCol: { alignItems: 'center', flex: 1, gap: 6 },
-    weekBar: { width: 22, borderRadius: 6, minHeight: 4 },
-    weekDayTxt: { fontSize: 10, fontWeight: '500', color: textSecondary },
+    weekRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 60, marginTop: spacing.md, marginBottom: spacing.sm },
+    weekCol: { alignItems: 'center', flex: 1, gap: spacing.xs },
+    weekBar: { width: 22, borderRadius: borderRadius.sm, minHeight: 4 },
+    weekDayTxt: { ...typography.caption, color: textSecondary },
 
     // Legend
-    legendRow: { flexDirection: 'row', gap: 16, justifyContent: 'center', marginBottom: 12 },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    legendRow: { flexDirection: 'row', gap: spacing.md, justifyContent: 'center', marginBottom: spacing.sm },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     legendDot: { width: 8, height: 8, borderRadius: 2 },
-    legendText: { fontSize: 10, color: textSecondary, fontWeight: '500' },
+    legendText: { ...typography.caption, color: textSecondary },
 
     // Progression strip
     progStrip: {
-      flexDirection: 'row', borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-      paddingTop: 14, marginTop: 4,
+      flexDirection: 'row', borderTopWidth: 1, borderTopColor: t.border,
+      paddingTop: spacing.sm, marginTop: spacing.xs,
     },
     progItem: { flex: 1, alignItems: 'center' },
-    progItemNum: { fontSize: 18, fontWeight: '900', color: textPrimary },
-    progItemLbl: { fontSize: 9, fontWeight: '600', color: textSecondary, letterSpacing: 0.3, marginTop: 3 },
+    progItemNum: { ...typography.h4, color: textPrimary },
+    progItemLbl: { ...typography.caption, color: textSecondary, marginTop: spacing.xxs },
 
     // PRs
-    prBlock: { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', paddingTop: 14, gap: 8, marginTop: 14 },
-    prBlockTitle: { fontSize: 13, fontWeight: '700', color: textPrimary, marginBottom: 4 },
-    prLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    prBlock: { borderTopWidth: 1, borderTopColor: t.border, paddingTop: spacing.sm, gap: spacing.sm, marginTop: spacing.sm },
+    prBlockTitle: { ...typography.button, color: textPrimary, marginBottom: spacing.xxs },
+    prLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     prLineIcon: { fontSize: 14, width: 20, textAlign: 'center' },
-    prLineName: { flex: 1, fontSize: 13, fontWeight: '500', color: textSecondary },
-    prLineVal: { fontSize: 14, fontWeight: '900', color: textPrimary },
+    prLineName: { flex: 1, ...typography.bodySmall, color: textSecondary },
+    prLineVal: { ...typography.button, color: textPrimary },
 
     // Tools
-    toolRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
-    toolLabel: { fontSize: 14, fontWeight: '700', color: textPrimary },
-    toolDesc: { fontSize: 11, fontWeight: '500', color: textSecondary, marginTop: 2 },
+    toolRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm },
+    toolLabel: { ...typography.button, color: textPrimary },
+    toolDesc: { ...typography.caption, color: textSecondary, marginTop: spacing.xxs },
 
     // Comps
-    compInner: { padding: 14, gap: 6 },
-    compBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    compInner: { padding: spacing.sm, gap: spacing.xs },
+    compBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },
     compDot: { width: 6, height: 6, borderRadius: 3 },
-    compStatus: { fontSize: 9, fontWeight: '700', color: textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
-    compName: { fontSize: 13, fontWeight: '700', color: textPrimary, lineHeight: 17 },
-    compMeta: { fontSize: 10, color: textSecondary },
-    compDate: { fontSize: 10, color: textSecondary },
-    compPhysInner: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 12, gap: 8 },
-    compPhysName: { color: textPrimary, fontSize: 12, fontWeight: '700', textAlign: 'center' },
+    compStatus: { ...typography.overline, color: textSecondary },
+    compName: { ...typography.button, color: textPrimary, lineHeight: 17 },
+    compMeta: { ...typography.caption, color: textSecondary },
+    compDate: { ...typography.caption, color: textSecondary },
+    compPhysInner: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.sm, gap: spacing.xs },
+    compPhysName: { color: textPrimary, ...typography.caption, textAlign: 'center' },
 
     // Results
-    resultRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-    resultAvatarTxt: { fontSize: 14, fontWeight: '700', color: '#10b981' },
-    resultTitle: { fontSize: 13, fontWeight: '700', color: textPrimary },
-    resultDate: { fontSize: 11, color: textSecondary, marginTop: 1 },
-    resultStatus: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
-    resultScore: { fontSize: 11, color: textSecondary, marginTop: 1 },
+    resultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm },
+    resultAvatarTxt: { ...typography.button, color: t.accent },
+    resultTitle: { ...typography.button, color: textPrimary },
+    resultDate: { ...typography.caption, color: textSecondary, marginTop: spacing.xxs },
+    resultStatus: { ...typography.overline },
+    resultScore: { ...typography.caption, color: textSecondary, marginTop: spacing.xxs },
 
     // Box picker modal
-    boxPickerOverlay: { flex: 1, backgroundColor: t.modalBackdrop, justifyContent: 'flex-end', paddingBottom: 32 },
-    boxPickerSheet: { backgroundColor: t.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12 },
-    boxPickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)', alignSelf: 'center', marginBottom: 16 },
-    boxPickerTitle: { fontSize: 16, fontWeight: '800', color: textPrimary, marginBottom: 16 },
-    boxPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 14, marginBottom: 4 },
-    boxPickerRowActive: { backgroundColor: 'rgba(16,185,129,0.10)' },
-    boxPickerLogo: { width: 40, height: 40, borderRadius: 12 },
-    boxPickerName: { fontSize: 14, fontWeight: '700', color: textPrimary },
+    boxPickerOverlay: { flex: 1, backgroundColor: t.modalBackdrop, justifyContent: 'flex-end', paddingBottom: spacing.xl },
+    boxPickerSheet: { backgroundColor: t.modalCard, borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, paddingTop: spacing.md },
+    boxPickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: spacing.md },
+    boxPickerTitle: { ...typography.h3, color: textPrimary, marginBottom: spacing.md },
+    boxPickerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: borderRadius.lg, marginBottom: spacing.xs },
+    boxPickerRowActive: { backgroundColor: `${t.accent}15` },
+    boxPickerLogo: { width: 40, height: 40, borderRadius: borderRadius.md },
+    boxPickerName: { ...typography.button, color: textPrimary },
     boxPickerRole: { fontSize: 11, fontWeight: '500', color: textSecondary, marginTop: 1 },
   });
 }

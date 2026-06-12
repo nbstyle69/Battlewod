@@ -97,6 +97,7 @@ export default function TimerScreen() {
   const { theme } = useTheme();
   const S = createStyles(theme);
   const [activeTab, setActiveTab] = useState<TimerType>('for-time');
+  const [showTypePicker, setShowTypePicker] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [seqBlocks, setSeqBlocks] = useState<SeqBlock[]>([makeTypedBlock('for-time')]);
   const [videoTitle, setVideoTitle] = useState('');
@@ -183,7 +184,7 @@ export default function TimerScreen() {
           onDec={() => setSplitsRounds(v => Math.max(1, v - 1))}
           onInc={() => setSplitsRounds(v => v + 1)}
         />
-        <Text style={S.cardHint}>Tap sur l'écran entre chaque round · Récup libre</Text>
+        <Text style={S.cardHint}>Tap entre rounds · Récup libre</Text>
       </View>
     </View>
   );
@@ -286,7 +287,7 @@ export default function TimerScreen() {
         </View>
       )}
       {blk.type === 'ywyr' && (
-        <Text style={[S.cardHint, { marginTop: 4 }]}>Chrono libre · appuie sur FIN DU TRAVAIL pour passer au repos</Text>
+        <Text style={S.cardHint}>Chrono libre · appuie sur FIN pour passer au repos</Text>
       )}
     </>
   );
@@ -359,18 +360,55 @@ export default function TimerScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={S.tabBar} contentContainerStyle={S.tabBarContent}>
-        {TABS.map(({ key, label }) => (
-          <TouchableOpacity
-            key={key}
-            onPress={() => switchTab(key)}
-            style={[S.tab, activeTab === key && S.tabActive]}
-            activeOpacity={0.7}
-          >
-            <Text style={[S.tabText, activeTab === key && S.tabTextActive]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Sélecteur de type de minuteur */}
+      <View style={S.typeSelector}>
+        <Text style={S.typeSelectorLabel}>TYPE DE MINUTEUR</Text>
+        <TouchableOpacity 
+          style={S.typeSelectorButton}
+          onPress={() => setShowTypePicker(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={S.typeSelectorText}>
+            {TABS.find(t => t.key === activeTab)?.label || 'FOR TIME'}
+          </Text>
+          <ChevronLeft color={theme.accent} size={20} style={{ transform: [{ rotate: '-90deg' }] }} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Modal de sélection */}
+      {showTypePicker && (
+        <View style={S.pickerOverlay}>
+          <TouchableOpacity 
+            style={S.pickerBackdrop}
+            onPress={() => setShowTypePicker(false)}
+          />
+          <View style={S.pickerSheet}>
+            <View style={S.pickerHandle} />
+            <Text style={S.pickerTitle}>Choisir un format</Text>
+            {TABS.map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                style={[S.pickerItem, activeTab === key && S.pickerItemActive]}
+                onPress={() => {
+                  switchTab(key);
+                  setShowTypePicker(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[S.pickerItemText, activeTab === key && S.pickerItemTextActive]}>
+                  {label}
+                </Text>
+                {activeTab === key && (
+                  <View style={S.pickerCheck}>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+            <View style={{ height: 40 }} />
+          </View>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={S.content} showsVerticalScrollIndicator={false}>
         {activeTab === 'splits' ? renderSplitsConfig() : renderBlocks()}
@@ -428,7 +466,7 @@ export default function TimerScreen() {
           {withCamera ? <Video color="#fff" size={20} /> : <Timer color="#fff" size={20} />}
           <Text style={S.btnPrimaryText}>Démarrer</Text>
         </TouchableOpacity>
-        <View style={{ height: 40 }} />
+        <View style={{ height: 20 }} />
       </ScrollView>
     </View>
   );
@@ -443,23 +481,10 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   back: {},
   headerTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
-  tabBar: {
-    backgroundColor: theme.card,
-    borderBottomWidth: 1, borderBottomColor: theme.border,
-    flexShrink: 0,
-  },
-  tabBarContent: { flexDirection: 'row', paddingHorizontal: 6 },
-  tab: {
-    paddingHorizontal: 12, paddingVertical: 12, alignItems: 'center',
-    borderBottomWidth: 2.5, borderBottomColor: 'transparent',
-  },
-  tabActive: { borderBottomColor: theme.accent },
-  tabText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.3 },
-  tabTextActive: { color: theme.accent, fontWeight: '900' },
   content: { padding: 16, paddingTop: 20, gap: 14 },
   card: {
-    backgroundColor: theme.card, borderRadius: 16, padding: 18,
-    borderWidth: 1, borderColor: theme.border, gap: 12,
+    backgroundColor: theme.card, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: theme.border, gap: 10,
   },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardLabel: { fontSize: 12, fontWeight: '800', color: theme.textMuted, letterSpacing: 1 },
@@ -574,4 +599,107 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: theme.textMuted, alignSelf: 'flex-start',
   },
   toggleThumbOn: { backgroundColor: '#fff', alignSelf: 'flex-end' },
+
+  // Type Selector Styles
+  typeSelector: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+  },
+  typeSelectorLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  typeSelectorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.card,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  typeSelectorText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.accent,
+    letterSpacing: 0.5,
+  },
+  
+  // Picker Modal Styles
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+    justifyContent: 'flex-end',
+  },
+  pickerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  pickerSheet: {
+    backgroundColor: theme.modalCard || theme.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 50,
+    maxHeight: '70%',
+  },
+  pickerHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.text,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  pickerItemActive: {
+    backgroundColor: `${theme.accent}20`,
+  },
+  pickerItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.text,
+  },
+  pickerItemTextActive: {
+    fontWeight: '800',
+    color: theme.accent,
+  },
+  pickerCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 }); }

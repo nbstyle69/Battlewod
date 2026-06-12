@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { AuthStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'> };
 
@@ -112,36 +113,71 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
 function createStyles(theme: AppTheme) {
   const isDark = theme.mode === 'dark';
-  const cardShadow = isDark ? {} : {
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-  };
   return StyleSheet.create({
-    gradient:       { flex: 1, backgroundColor: 'transparent' },
-    flex:           { flex: 1 },
-    container:      { flexGrow: 1, justifyContent: 'center', padding: 24 },
-    back:           { flexDirection: 'row', alignItems: 'center', marginBottom: 32 },
-    backText:       { fontSize: 15, color: theme.textSecondary, marginLeft: 4 },
+    gradient: { flex: 1, backgroundColor: 'transparent' },
+    flex: { flex: 1 },
+    container: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl },
+    back: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
+    backText: { ...typography.body, color: theme.textSecondary },
 
     form: {
-      backgroundColor: theme.card, borderRadius: 20, padding: 24,
-      borderWidth: 1, borderColor: theme.border, ...cardShadow,
+      backgroundColor: theme.card,
+      borderRadius: borderRadius.xl,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...shadows.md,
     },
-    iconRow:        { alignItems: 'center', marginBottom: 16 },
-    successIcon:    { alignItems: 'center', marginBottom: 20 },
-    title:          { fontSize: 22, fontWeight: '700', color: theme.text, marginBottom: 10, textAlign: 'center' },
-    subtitle:       { fontSize: 14, color: theme.textSecondary, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
+    iconRow: { alignItems: 'center', marginBottom: spacing.md },
+    successIcon: { alignItems: 'center', marginBottom: spacing.lg },
+    title: { 
+      ...typography.h3, 
+      color: theme.text, 
+      marginBottom: spacing.sm, 
+      textAlign: 'center',
+    },
+    subtitle: { 
+      ...typography.body, 
+      color: theme.textSecondary, 
+      textAlign: 'center', 
+      lineHeight: 22, 
+      marginBottom: spacing.lg,
+    },
     emailHighlight: { color: theme.accent, fontWeight: '700' },
-    hint:           { fontSize: 13, color: theme.textMuted, textAlign: 'center', lineHeight: 19, marginBottom: 24, fontStyle: 'italic' },
+    hint: { 
+      ...typography.bodySmall, 
+      color: theme.textMuted, 
+      textAlign: 'center', 
+      lineHeight: 18, 
+      marginBottom: spacing.lg, 
+      fontStyle: 'italic',
+    },
 
-    inputContainer: { marginBottom: 20 },
-    label:          { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '500' },
+    inputContainer: { marginBottom: spacing.lg },
+    label: { 
+      ...typography.label, 
+      color: theme.textSecondary, 
+      marginBottom: spacing.xs,
+      textTransform: 'none',
+    },
     input: {
       backgroundColor: isDark ? theme.surface : theme.background,
-      borderRadius: 14, padding: 14, color: theme.text,
-      fontSize: 15, borderWidth: 1, borderColor: theme.border,
+      borderRadius: borderRadius.lg,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      color: theme.text,
+      ...typography.body,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
-    button:         { borderRadius: 14, padding: 16, alignItems: 'center' },
-    buttonText:     { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+    button: { 
+      borderRadius: borderRadius.lg, 
+      padding: spacing.md, 
+      alignItems: 'center',
+    },
+    buttonText: { 
+      color: '#fff', 
+      ...typography.buttonLarge,
+    },
   });
 }

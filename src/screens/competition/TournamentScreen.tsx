@@ -64,6 +64,8 @@ export default function TournamentScreen() {
   const [isRegistered,      setIsRegistered]      = useState(false);
   const [wodValidatedScores, setWodValidatedScores] = useState<any[]>([]);
   const [rankTab,            setRankTab]            = useState<string>('general');
+  const [divisions,          setDivisions]          = useState<any[]>([]);
+  const [divisionMembers,    setDivisionMembers]    = useState<any[]>([]);
 
   const load = useCallback(async () => {
     const isAdminUser = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'box_owner';
@@ -85,7 +87,13 @@ export default function TournamentScreen() {
         .maybeSingle() : { data: null },
     ]);
     setTournament(t);
-    setWods((tw ?? []) as TournamentWOD[]);
+    // For league_div tournaments, only show WODs from the current season.
+    const allWods = (tw ?? []) as any[];
+    const t_ = t as any;
+    const filteredWods = (t_?.format === 'league_div')
+      ? allWods.filter(w => (w.season_number ?? 1) === (t_?.current_season ?? 1))
+      : allWods;
+    setWods(filteredWods as TournamentWOD[]);
 
     // Merge server result with local cache (handles RLS SELECT blocks)
     const cacheKey = `@athlex:registered:${user?.id}:${tournamentId}`;
@@ -129,6 +137,32 @@ export default function TournamentScreen() {
 
     setMyScores((ms ?? []) as TournamentScore[]);
     setWodValidatedScores(vs ?? []);
+
+    // ── Divisions (league_div only) ─────────────────────────────────────
+    if ((t as any)?.format === 'league_div') {
+      const { data: divs } = await (supabase as any)
+        .from('tournament_divisions')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .order('level');
+      const divList = divs ?? [];
+      setDivisions(divList);
+      const divIds = divList.map((d: any) => d.id);
+      if (divIds.length > 0) {
+        const { data: mems } = await (supabase as any)
+          .from('tournament_division_members')
+          .select('*')
+          .in('division_id', divIds);
+        setDivisionMembers(mems ?? []);
+      } else {
+        setDivisionMembers([]);
+      }
+      // Default to first division (no "Général" tab for league_div)
+      setRankTab(prev => (prev === 'general' && divList.length > 0) ? `div_${(divList[0] as any).id}` : prev);
+    } else {
+      setDivisions([]);
+      setDivisionMembers([]);
+    }
     if (isAdminUser) setAllScores(allScoreList.map((s: any) => ({
       ...s,
       profile: profileMap[s.athlete_id] ?? null,
@@ -341,9 +375,11 @@ export default function TournamentScreen() {
           contentContainerStyle={S.tabsContent}>
           {((): any[] => {
               const fmt = tournament?.format ?? 'simple';
-              const base: any[] = ['infos', 'wods', 'participants', 'scores'];
+              const base: any[] = ['infos'];
               if (fmt === 'bracket' || fmt === 'swiss') base.push('bracket');
-              if (fmt === 'league_div') base.push('divisions');
+              if (fmt === 'league_div') base.push('scores'); // "Divisions" right after Infos
+              base.push('wods', 'participants');
+              if (fmt !== 'league_div') base.push('scores'); // "Classement" at the end for other formats
               if (isAdmin) base.push('validate');
               return base;
             })().map((tab: any) => {
@@ -356,8 +392,8 @@ export default function TournamentScreen() {
                       : tab === 'wods'       ? `WODs (${wods.length})`
                       : tab === 'participants'? `Participants (${participants.length})`
                       : tab === 'bracket'    ? 'Bracket'
-                      : tab === 'divisions'  ? 'Divisions'
                       : tab === 'validate'   ? `⚖️ Valider${pendingCount > 0 ? ` (${pendingCount})` : ''}`
+                      : tournament?.format === 'league_div' ? 'Divisions'
                       : 'Classement'}
                   </Text>
                 </TouchableOpacity>
@@ -417,7 +453,7 @@ export default function TournamentScreen() {
                   style={S.registerBtnInner}>
                   {registering
                     ? <ActivityIndicator color="#fff" size="small" />
-                    : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>S'inscrire au tournoi</Text></>}
+                    : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? 'Rejoindre la league' : "S'inscrire au tournoi"}</Text></>}
                 </LinearGradient>
               </TouchableOpacity>
             )}
@@ -612,29 +648,35 @@ export default function TournamentScreen() {
           />
         )}
 
-        {/* ══ DIVISIONS (league_div) ══ */}
-        {activeTab === 'divisions' && (
-          <TournamentDivisionsView
-            tournamentId={tournamentId}
-            currentUserId={user?.id}
-          />
-        )}
-
-        {/* ══ CLASSEMENT ══ */}
+        {/* ══ CLASSEMENT / DIVISIONS ══ */}
         {activeTab === 'scores' && (
           <>
-            {/* Sub-tabs: Général + WOD 1, WOD 2... */}
+            {/* Sub-tabs: Général + Divisions (league_div) + WOD 1, WOD 2... */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false}
               style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}>
-              {(['general', ...wods.map((_: any, i: number) => `wod_${i}`)] as string[]).map(tab => (
-                <TouchableOpacity key={tab} onPress={() => setRankTab(tab)}
-                  style={[S.rankSubTab, rankTab === tab && S.rankSubTabActive]}>
-                  <Text style={[S.rankSubTabText, rankTab === tab && S.rankSubTabTextActive]}>
-                    {tab === 'general' ? '🏆 Général'
-                      : `WOD ${parseInt(tab.split('_')[1]) + 1} — ${wods[parseInt(tab.split('_')[1])]?.title ?? ''}`}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {([
+                ...(tournament?.format === 'league_div' ? [] : ['general']),
+                ...divisions.map((d: any) => `div_${d.id}`),
+                ...wods.map((_: any, i: number) => `wod_${i}`),
+              ] as string[]).map(tab => {
+                let label = '';
+                if (tab === 'general') label = '🏆 Général';
+                else if (tab.startsWith('div_')) {
+                  const d = divisions.find((dd: any) => `div_${dd.id}` === tab);
+                  label = d ? `🔱 D${d.level} · ${d.name}` : '';
+                } else {
+                  const idx = parseInt(tab.split('_')[1]);
+                  label = `WOD ${idx + 1} — ${wods[idx]?.title ?? ''}`;
+                }
+                return (
+                  <TouchableOpacity key={tab} onPress={() => setRankTab(tab)}
+                    style={[S.rankSubTab, rankTab === tab && S.rankSubTabActive]}>
+                    <Text style={[S.rankSubTabText, rankTab === tab && S.rankSubTabTextActive]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
             {/* Général */}
@@ -650,6 +692,8 @@ export default function TournamentScreen() {
                   .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
                   .map((p: any, i: number) => {
                 const isMe = user?.id === p.athlete_id;
+                const memberRow = divisionMembers.find((m: any) => m.athlete_id === p.athlete_id);
+                const myDiv    = memberRow ? divisions.find((d: any) => d.id === memberRow.division_id) : null;
                 return (
                   <View key={p.athlete_id} style={[S.rankRow, isMe && S.rankRowMe]}>
                     <View style={S.rankBadge}>
@@ -667,9 +711,16 @@ export default function TournamentScreen() {
                       textColor={theme.text}
                     />
                     <View style={S.rankInfo}>
-                      <Text style={[S.rankName, isMe && { color: theme.accent }]}>
-                        {p.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={[S.rankName, isMe && { color: theme.accent }]}>
+                          {p.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
+                        </Text>
+                        {myDiv && (
+                          <View style={S.divBadge}>
+                            <Text style={S.divBadgeText}>D{myDiv.level} · {myDiv.name}</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={S.rankElo}>ELO {p.profile?.elo ?? 1000}</Text>
                     </View>
                     <Text style={S.rankScore}>{p.score ?? 0} pts</Text>
@@ -677,6 +728,74 @@ export default function TournamentScreen() {
                 );
               })
             )}
+
+            {/* Par division (league_div) */}
+            {divisions.map((div: any) => rankTab === `div_${div.id}` && (() => {
+              const divMembers = divisionMembers.filter((m: any) => m.division_id === div.id);
+              const ranked = divMembers
+                .map((m: any) => {
+                  const part = participants.find((p: any) => p.athlete_id === m.athlete_id);
+                  return { ...m, profile: part?.profile, score: m.points ?? part?.score ?? 0 };
+                })
+                .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0));
+              return (
+                <View key={div.id}>
+                  <View style={S.wodRankHeader}>
+                    <Text style={S.wodRankHeaderText}>🔱 Division {div.level} — {div.name}</Text>
+                    <Text style={S.divSubInfo}>
+                      {ranked.length}/{div.max_members} · {div.promote_count > 0 ? `↑${div.promote_count} promus` : ''} {div.relegate_count > 0 ? `· ↓${div.relegate_count} relégués` : ''}
+                    </Text>
+                  </View>
+                  {ranked.length === 0 ? (
+                    <View style={S.emptyState}>
+                      <Text style={S.emptyEmoji}>👥</Text>
+                      <Text style={S.emptyTitle}>Division vide</Text>
+                    </View>
+                  ) : ranked.map((m: any, i: number) => {
+                    const isMe = user?.id === m.athlete_id;
+                    const isPromoted = i < (div.promote_count ?? 0);
+                    const isRelegated = i >= ranked.length - (div.relegate_count ?? 0) && (div.relegate_count ?? 0) > 0;
+                    return (
+                      <View key={m.athlete_id} style={[S.rankRow, isMe && S.rankRowMe]}>
+                        <View style={S.rankBadge}>
+                          {i === 0 ? <Text style={S.rankEmoji}>🥇</Text>
+                            : i === 1 ? <Text style={S.rankEmoji}>🥈</Text>
+                            : i === 2 ? <Text style={S.rankEmoji}>🥉</Text>
+                            : <Text style={S.rankNumber}>#{i + 1}</Text>}
+                        </View>
+                        <UserAvatar
+                          uri={m.profile?.avatar_url}
+                          name={m.profile?.username ?? '?'}
+                          size={40}
+                          borderRadius={20}
+                          backgroundColor={theme.surface}
+                          textColor={theme.text}
+                        />
+                        <View style={S.rankInfo}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={[S.rankName, isMe && { color: theme.accent }]}>
+                              {m.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
+                            </Text>
+                            {isPromoted && (
+                              <View style={[S.divBadge, { backgroundColor: `${theme.success}20`, borderColor: `${theme.success}40` }]}>
+                                <Text style={[S.divBadgeText, { color: theme.success }]}>↑ Promu</Text>
+                              </View>
+                            )}
+                            {isRelegated && (
+                              <View style={[S.divBadge, { backgroundColor: `${theme.error}20`, borderColor: `${theme.error}40` }]}>
+                                <Text style={[S.divBadgeText, { color: theme.error }]}>↓ Relégué</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={S.rankElo}>ELO {m.profile?.elo ?? 1000}</Text>
+                        </View>
+                        <Text style={S.rankScore}>{m.score ?? 0} pts</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })())}
 
             {/* Par WOD */}
             {wods.map((wod: any, idx: number) => rankTab === `wod_${idx}` && (() => {
@@ -890,6 +1009,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   wodActionBtnText:  { color: '#fff', fontSize: 14, fontWeight: '900' },
   wodLockedBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, padding: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
   wodLockedText: { fontSize: 12, color: theme.textMuted, fontWeight: '600' },
+  divBadge:     { backgroundColor: `${theme.accent}20`, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: `${theme.accent}40` },
+  divBadgeText: { fontSize: 10, fontWeight: '800', color: theme.accent, letterSpacing: 0.2 },
+  divSubInfo:   { fontSize: 11, color: theme.textMuted, marginTop: 2 },
   rankSubTab:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: theme.border },
   rankSubTabActive:     { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
   rankSubTabText:       { fontSize: 12, fontWeight: '700', color: theme.textMuted },

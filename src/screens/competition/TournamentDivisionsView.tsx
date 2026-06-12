@@ -40,7 +40,7 @@ export default function TournamentDivisionsView({ tournamentId, currentUserId }:
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data: divs } = await supabase
+      const { data: divs } = await (supabase as any)
         .from('tournament_divisions').select('*')
         .eq('tournament_id', tournamentId).order('level');
       if (cancelled) return;
@@ -50,7 +50,7 @@ export default function TournamentDivisionsView({ tournamentId, currentUserId }:
       const divIds = dList.map(d => d.id);
       if (divIds.length === 0) { setMembers([]); setLoading(false); return; }
 
-      const { data: mems } = await supabase
+      const { data: mems } = await (supabase as any)
         .from('tournament_division_members').select('*')
         .in('division_id', divIds);
       if (cancelled) return;

@@ -41,7 +41,7 @@ export default function BoxProgramsScreen() {
 
   async function load() {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('programs')
         .select('id, title, description, type, duration_weeks, days_per_week, box_id, boxes(name, logo_url, city, slug)')
         .eq('is_active', true)

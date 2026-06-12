@@ -36,7 +36,7 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data: m } = await supabase
+      const { data: m } = await (supabase as any)
         .from('tournament_bracket_matches')
         .select('*')
         .eq('tournament_id', tournamentId)

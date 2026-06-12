@@ -42,7 +42,7 @@ export default function BOProgramsScreen({ navigation }: any) {
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
     try {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('programs')
         .select('*, program_members(count)')
         .eq('box_id', currentBox.id)
@@ -99,12 +99,18 @@ export default function BOProgramsScreen({ navigation }: any) {
 
     try {
       if (editProg) {
-        const { error } = await supabase.from('programs').update(payload).eq('id', editProg.id);
+        const { error } = await (supabase as any).from('programs').update(payload).eq('id', editProg.id);
         if (error) throw error;
       } else {
-        payload.invite_code = genCode();
-        const { error } = await supabase.from('programs').insert(payload);
-        if (error) throw error;
+        let insertError: any = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          payload.invite_code = genCode();
+          const { error } = await (supabase as any).from('programs').insert(payload);
+          if (!error) { insertError = null; break; }
+          if (error.code !== '23505') { insertError = error; break; }
+          insertError = error;
+        }
+        if (insertError) throw insertError;
       }
       setModalOpen(false);
       load();
@@ -120,7 +126,7 @@ export default function BOProgramsScreen({ navigation }: any) {
       {
         text: 'Supprimer', style: 'destructive',
         onPress: async () => {
-          await supabase.from('programs').delete().eq('id', p.id);
+          await (supabase as any).from('programs').delete().eq('id', p.id);
           load();
         },
       },

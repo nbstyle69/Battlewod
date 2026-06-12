@@ -15,6 +15,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { Colors, LevelColors } from '../../theme/colors';
+import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
 import { Program } from '../../types';
@@ -153,7 +154,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('program_members')
         .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
         .eq('user_id', user.id)
@@ -167,7 +168,7 @@ export default function ProfileScreen() {
     if (!progCode.trim() || !user) return;
     setJoiningProg(true);
     try {
-      const { data: prog } = await supabase
+      const { data: prog } = await (supabase as any)
         .from('programs')
         .select('*')
         .eq('invite_code', progCode.trim().toUpperCase())
@@ -184,7 +185,7 @@ export default function ProfileScreen() {
         return;
       }
       // Check not already member
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from('program_members')
         .select('id')
         .eq('program_id', prog.id)
@@ -193,7 +194,7 @@ export default function ProfileScreen() {
       if (existing) { Alert.alert('Déjà inscrit', 'Tu fais déjà partie de ce programme.'); setJoiningProg(false); return; }
       // For now: free join (Stripe integration later)
       const today = new Date().toISOString().split('T')[0];
-      const { error } = await supabase.from('program_members').insert({
+      const { error } = await (supabase as any).from('program_members').insert({
         program_id: prog.id,
         user_id: user.id,
         start_date: today,
@@ -204,7 +205,7 @@ export default function ProfileScreen() {
       Alert.alert('Bienvenue !', `Tu as rejoint le programme « ${prog.title} ».`);
       setProgModal(false); setProgCode('');
       // Refresh programs
-      const { data: refreshed } = await supabase
+      const { data: refreshed } = await (supabase as any)
         .from('program_members')
         .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
         .eq('user_id', user.id)
@@ -464,7 +465,20 @@ export default function ProfileScreen() {
   const winRate = user?.total_matches
     ? Math.round((user.wins / user.total_matches) * 100)
     : 0;
-  const eloProgress = Math.max(0, Math.min(100, ((user?.elo ?? 1000) - 1000) / 10));
+  const currentElo = user?.elo ?? 1000;
+  const ELO_STEPS: { min: number; label: string }[] = [
+    { min: 0,    label: 'Scaled' },
+    { min: 800,  label: 'Inter' },
+    { min: 1200, label: 'RX' },
+    { min: 1400, label: 'RX+' },
+    { min: 1600, label: 'Elite' },
+    { min: 1800, label: 'Pro' },
+  ];
+  const currentStep = [...ELO_STEPS].reverse().find(s => currentElo >= s.min) ?? ELO_STEPS[0];
+  const nextStep = ELO_STEPS[ELO_STEPS.indexOf(currentStep) + 1] ?? null;
+  const eloProgress = nextStep
+    ? Math.round(Math.max(0, Math.min(100, ((currentElo - currentStep.min) / (nextStep.min - currentStep.min)) * 100)))
+    : 100;
 
   async function handleSignOut() {
     Alert.alert('Déconnexion', 'Tu veux vraiment te déconnecter ?', [
@@ -515,10 +529,14 @@ export default function ProfileScreen() {
                   : user?.role === 'super_admin' ? 'Super Admin'
                   : 'Athlète';
 
-  const roleColor = user?.role === 'box_owner'  ? '#C9A227'
-                  : user?.role === 'admin'       ? '#8B5CF6'
-                  : user?.role === 'super_admin' ? '#EF4444'
-                  : theme.accent;
+  // Couleurs de rôle depuis le thème
+const roleColors: Record<string, string> = {
+  box_owner: '#C9A227',
+  admin: '#8B5CF6',
+  super_admin: theme.error,
+  athlete: theme.accent,
+};
+const roleColor = roleColors[user?.role ?? 'athlete'];
 
   async function handleShareBoxCode() {
     if (!currentBox?.invite_code) return;
@@ -601,13 +619,19 @@ export default function ProfileScreen() {
 
         <View style={S.progressSection}>
           <View style={S.progressHeader}>
-            <Text style={S.progressLabel}>Progression vers Légende</Text>
-            <Text style={S.progressPct}>{Math.round(eloProgress)}%</Text>
+            <Text style={S.progressLabel}>
+              {nextStep ? `Vers ${nextStep.label}` : '🏆 Niveau maximum atteint'}
+            </Text>
+            <Text style={S.progressPct}>{eloProgress}%</Text>
           </View>
           <View style={S.progressTrack}>
-            <View style={[S.progressFill, { width: `${eloProgress}%` as any }]} />
+            <View style={[S.progressFill, { width: `${eloProgress}%` as any, backgroundColor: levelColor }]} />
           </View>
-          <Text style={S.progressNote}>{(user?.elo ?? 1000)} / 2000 ELO</Text>
+          <Text style={S.progressNote}>
+            {nextStep
+              ? `${currentElo} / ${nextStep.min} ELO · Niveau actuel : ${currentStep.label}`
+              : `${currentElo} ELO · Pro Legend`}
+          </Text>
         </View>
       </View>
 

@@ -223,8 +223,10 @@ export default function OneRMCalculatorScreen() {
         {/* Table rows */}
         {ZONES.map((z) => {
           const load = valid ? round(raw * z.pct / 100, step) : null;
+          // Convertir les couleurs hex en rgba pour glassmorphism
+          const bgGlass = z.bg + '40'; // 25% opacité
           return (
-            <View key={z.pct} style={[S.row, { backgroundColor: z.bg }]}>
+            <View key={z.pct} style={[S.row, { backgroundColor: bgGlass, borderColor: z.color + '40' }]}>
               <View style={[S.pctBadge, { borderColor: z.color }]}>
                 <Text style={[S.pctTxt, { color: z.color }]}>{z.pct}%</Text>
               </View>
@@ -290,18 +292,22 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   thTxt: { fontSize: 9, fontWeight: '800', color: theme.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
   row: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 8, paddingVertical: 11,
-    borderRadius: 10, marginBottom: 3,
-    gap: 4,
+    paddingHorizontal: 12, paddingVertical: 12,
+    borderRadius: 12, marginBottom: 6,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   pctBadge: {
     flex: 0.7, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderRadius: 6, paddingVertical: 3, marginRight: 4,
+    borderWidth: 1, borderRadius: 8, paddingVertical: 4, marginRight: 6,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   pctTxt: { fontSize: 12, fontWeight: '900' },
   loadTxt: { fontSize: 13, fontWeight: '800' },
-  zoneTxt: { fontSize: 11, fontWeight: '700' },
-  repsTxt: { fontSize: 10, fontWeight: '600', color: theme.textSecondary },
+  zoneTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+  repsTxt: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
   footer: { marginTop: 20, paddingHorizontal: 4 },
   footerTxt: { fontSize: 11, color: theme.textMuted, lineHeight: 18, textAlign: 'center' },
   prSection: { marginTop: 20, marginBottom: 0 },

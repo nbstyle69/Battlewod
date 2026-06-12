@@ -26,6 +26,7 @@ export interface AppTheme {
   accentShadow: string;
   secondary: string;
   text: string;
+  textPrimary: string;
   textSecondary: string;
   textMuted: string;
   border: string;
@@ -61,6 +62,7 @@ export const lightTheme: AppTheme = {
   accentShadow: 'rgba(16,185,129,0.30)',
   secondary: '#6b7280',
   text: '#111827',
+  textPrimary: '#111827',
   textSecondary: '#6b7280',
   textMuted: '#9ca3af',
   border: 'rgba(16,185,129,0.18)',
@@ -96,6 +98,7 @@ export const darkTheme: AppTheme = {
   accentShadow: 'rgba(16,185,129,0.40)',
   secondary: '#9ca3af',
   text: '#f9fafb',
+  textPrimary: '#f9fafb',
   textSecondary: '#9ca3af',
   textMuted: '#6b7280',
   border: 'rgba(255,255,255,0.10)',
@@ -127,7 +130,7 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('dark');
+  const [mode, setMode] = useState<ThemeMode>('light');
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_KEY).then(saved => {

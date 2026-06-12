@@ -31,10 +31,17 @@ function toISO(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  'for-time': '#EF4444', amrap: '#3B82F6', emom: '#8B5CF6',
-  tabata: '#F59E0B', strength: '#16A34A', custom: '#6B7280',
-};
+// Couleurs WOD types adaptées au thème
+function getTypeColors(theme: AppTheme): Record<string, string> {
+  return {
+    'for-time': theme.error,      // Rouge
+    amrap: '#3B82F6',             // Bleu
+    emom: '#8B5CF6',             // Violet
+    tabata: theme.warning,        // Orange
+    strength: theme.success,      // Vert
+    custom: theme.textMuted,      // Gris
+  };
+}
 
 type Nav = NativeStackNavigationProp<WhiteboardStackParamList>;
 
@@ -52,9 +59,11 @@ const TYPE_STYLES = StyleSheet.create({
 });
 
 function WodTypeBadge({ type }: { type?: string }) {
-  const color = TYPE_COLORS[type ?? 'custom'] ?? '#6B7280';
+  const { theme } = useTheme();
+  const colors = getTypeColors(theme);
+  const color = colors[type ?? 'custom'] ?? theme.textMuted;
   return (
-    <View style={[TYPE_STYLES.typeBadge, { backgroundColor: `${color}18` }]}>
+    <View style={[TYPE_STYLES.typeBadge, { backgroundColor: theme.mode === 'dark' ? `${color}25` : `${color}15` }]}>
       <Text style={[TYPE_STYLES.typeBadgeText, { color }]}>{(type ?? 'custom').toUpperCase()}</Text>
     </View>
   );
@@ -249,7 +258,7 @@ export default function WhiteboardScreen() {
     // Fetch user's active program memberships for this box
     let myProgramIds = new Set<string>();
     if (user) {
-      const { data: progMem } = await supabase
+      const { data: progMem } = await (supabase as any)
         .from('program_members')
         .select('program_id')
         .eq('user_id', user.id)
@@ -282,7 +291,7 @@ export default function WhiteboardScreen() {
         accessMap[r.wod_id].push(r.group_id);
       }
       // Fetch program access
-      const { data: progAccessRows } = await supabase
+      const { data: progAccessRows } = await (supabase as any)
         .from('wod_program_access')
         .select('wod_id, program_id')
         .in('wod_id', allWodIds);
@@ -335,7 +344,7 @@ export default function WhiteboardScreen() {
     if (!user) { setProgramWods([]); return; }
     (async () => {
       try {
-        const { data: memberships } = await supabase
+        const { data: memberships } = await (supabase as any)
           .from('program_members')
           .select('program_id, start_date, programs:program_id(id, title, type, duration_weeks, days_per_week)')
           .eq('user_id', user.id)
@@ -360,7 +369,7 @@ export default function WhiteboardScreen() {
             const weekNum = Math.ceil(dayNumber / 7);
             const dayInWeek = ((dayNumber - 1) % 7);
 
-            const { data: wods } = await supabase
+            const { data: wods } = await (supabase as any)
               .from('program_wods')
               .select('id, title, description, wod_type, time_cap_seconds')
               .eq('program_id', prog.id)
@@ -371,7 +380,7 @@ export default function WhiteboardScreen() {
             }
           } else {
             // ongoing: match by scheduled_date
-            const { data: wods } = await supabase
+            const { data: wods } = await (supabase as any)
               .from('program_wods')
               .select('id, title, description, wod_type, time_cap_seconds, week_number')
               .eq('program_id', prog.id)
@@ -403,7 +412,7 @@ export default function WhiteboardScreen() {
     (async () => {
       try {
         const [{ data: comps }, { data: scores }] = await Promise.all([
-          supabase.from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
+          (supabase as any).from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
           supabase.from('wod_scores').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
         ]);
         setCompletedIds(new Set((comps ?? []).map((c: any) => c.wod_id)));
@@ -425,10 +434,10 @@ export default function WhiteboardScreen() {
     });
     try {
       if (isDone) {
-        await supabase.from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
+        await (supabase as any).from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
       } else {
         hapticSuccess();
-        const { error } = await supabase.from('wod_completions').insert({
+        const { error } = await (supabase as any).from('wod_completions').insert({
           wod_id: wodId, member_id: user.id, box_id: currentBox.id,
         });
         if (error && error.code !== '23505') throw error;
@@ -817,7 +826,8 @@ export default function WhiteboardScreen() {
           {dayWODs.length > 0 ? (
             <View style={S.dayGroup}>
               {dayWODs.map((wod, idx) => {
-                const tc = TYPE_COLORS[wod.wod_type ?? 'custom'] ?? '#6B7280';
+                const typeColors = getTypeColors(theme);
+                const tc = typeColors[wod.wod_type ?? 'custom'] ?? theme.textMuted;
                 return (
                   <View key={wod.id} style={S.wodRow}>
                     {isStaff && dayWODs.length > 1 && (
@@ -939,7 +949,8 @@ export default function WhiteboardScreen() {
               </View>
               <View style={S.dayGroup}>
                 {group.wods.map(entry => {
-                  const tc = TYPE_COLORS[entry.wod.wod_type ?? 'custom'] ?? '#6B7280';
+                  const typeColors = getTypeColors(theme);
+                  const tc = typeColors[entry.wod.wod_type ?? 'custom'] ?? theme.textMuted;
                   return (
                     <View key={entry.wod.id} style={[S.wodCard, { borderLeftWidth: 3, borderLeftColor: theme.accent }]}>
                       <View style={S.wodCardTop}>
