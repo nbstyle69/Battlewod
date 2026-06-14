@@ -184,66 +184,109 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   }
 
   else if (type === 'Station Training') {
+    // Pool mixte : force + cardio pour que chaque WOD intègre des ergomètres
     const fullPool = [...allStations];
     if (S.ski) fullPool.push(S.ski);
     if (S.row && !fullPool.includes(S.row)) fullPool.push(S.row);
     if (S.bike && !fullPool.includes(S.bike)) fullPool.push(S.bike);
-    const pick2 = (pool: string[]) => spick(pool, Math.min(2, pool.length));
-    const pick3 = (pool: string[]) => spick(pool, Math.min(3, pool.length));
     const pickN = (pool: string[], n: number) => spick(pool, Math.min(n, pool.length));
-    const buyInOut = () => {
-      const b1 = srand(cardioPool.length > 0 ? cardioPool : [`${[30,40,40,50][li]} Burpees`]);
-      const rest = cardioPool.filter(c => c !== b1);
-      return { buyIn: b1, buyOut: srand(rest.length > 0 ? rest : [b1]) };
+    // Garantit au moins 1 cardio dans la sélection quand dispo
+    const pickMixed = (n: number) => {
+      if (cardioPool.length === 0 || n <= 1) return pickN(fullPool, n);
+      const c = [srand(cardioPool)];
+      const rest = fullPool.filter(s => s !== c[0]);
+      return [...c, ...pickN(rest, Math.min(n - 1, rest.length))];
+    };
+    const cardio1 = () => srand(cardioPool.length > 0 ? cardioPool : [`${[30,40,40,50][li]} Burpees`]);
+    const cardio2 = () => {
+      const c1 = cardio1();
+      const rest = cardioPool.filter(c => c !== c1);
+      return { c1, c2: srand(rest.length > 0 ? rest : [c1]) };
     };
 
+    // ──────── 20 min ────────
     if (duration <= 20) {
       const tpl = srand([1, 2, 3, 4, 5]);
       if (tpl === 1) {
-        const n = srand([2, 3]);
-        const mvs = pickN(allStations, n);
+        // AMRAP continu avec cardio + force
+        const mvs = pickMixed(srand([3, 4]));
         stations = [`AMRAP ${duration} min :`, ...mvs];
-        scoring = `Max rounds + reps en ${duration} min — ${n === 3 ? 'Triplet' : 'Couplet'}`;
+        scoring = `AMRAP ${duration} min — max rounds + reps`;
       } else if (tpl === 2) {
-        const mvs = pickN(fullPool, srand([4, 5]));
+        // EMOM station drill
+        const mvs = pickMixed(srand([4, 5]));
         const totalMin = Math.floor(duration / mvs.length) * mvs.length;
         stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
-        scoring = `EMOM — ${Math.floor(totalMin / mvs.length)} cycles × ${mvs.length} mouvements`;
+        scoring = `EMOM ${totalMin} min — ${Math.floor(totalMin / mvs.length)} cycles`;
       } else if (tpl === 3) {
-        const rounds = srand([4, 5, 6]);
-        const mvs = pick2(allStations);
-        stations = [`${rounds} Rounds For Time :`, ...mvs];
-        scoring = `Couplet — Temps (cap ${duration} min)`;
+        // For Time Chipper linéaire (pas de rounds)
+        const mvs = pickMixed(srand([4, 5]));
+        stations = [`For Time (cap ${duration} min) :`, ...mvs];
+        scoring = `Chipper For Time — cap ${duration} min`;
       } else if (tpl === 4) {
+        // Tabata avec cardio
         const n = Math.min(srand([3, 4, 5]), Math.floor(duration / 4));
-        const mvs = pickN(allStations, n);
-        stations = [`Tabata (8 × 20s ON / 10s OFF par station) :`, ...mvs];
+        const mvs = pickMixed(n);
+        stations = [`Tabata — 8 × 20s ON / 10s OFF par station :`, ...mvs];
         scoring = `Tabata — ${mvs.length} stations × 4 min = ${mvs.length * 4} min`;
       } else {
-        const mvs = pick2(allStations);
-        const ladder = isPro ? '12-10-8-6-4-2' : '10-8-6-4-2';
-        stations = [`Ladder descendant ${ladder} For Time :`, ...mvs];
-        scoring = `Ladder descendant — Temps (cap ${duration} min)`;
+        // Intervalles 40s ON / 20s OFF
+        const mvs = pickMixed(srand([4, 5]));
+        const rounds = Math.floor(duration / (mvs.length));
+        stations = [`Intervalles ${rounds} rounds — 40s travail / 20s repos :`, ...mvs];
+        scoring = `Intervalles — ${rounds} rounds × ${mvs.length} stations`;
       }
     }
 
+    // ──────── 30 min ────────
     else if (duration <= 30) {
-      const tpl = srand([1, 2, 3, 4, 5, 6]);
+      const tpl = srand([1, 2, 3, 4, 5, 6, 7]);
       if (tpl === 1) {
-        const mvs = pickN(fullPool, 5);
-        stations = ['For Time (Chipper) :', ...mvs];
-        scoring = `Chipper — Temps (cap ${duration} min)`;
+        // AMRAP long avec cardio interleaving
+        const mvs = pickMixed(srand([4, 5]));
+        stations = [`AMRAP ${duration} min :`, ...mvs];
+        scoring = `AMRAP ${duration} min — max rounds + reps`;
       } else if (tpl === 2) {
-        const rounds = srand([4, 5]);
-        const mvs = pick3(allStations);
-        stations = [`${rounds} Rounds For Time :`, ...mvs];
-        scoring = `Triplet — Temps (cap ${duration} min)`;
+        // EMOM multi-station
+        const mvs = pickMixed(srand([5, 6]));
+        const totalMin = Math.floor(duration / mvs.length) * mvs.length;
+        stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
+        scoring = `EMOM ${totalMin} min — ${Math.floor(totalMin / mvs.length)} cycles`;
       } else if (tpl === 3) {
+        // Chipper linéaire (vrais reps, pas de rounds)
+        const mvs = pickMixed(srand([5, 6, 7]));
+        stations = [`For Time (cap ${duration} min) :`, ...mvs];
+        scoring = `Chipper For Time — cap ${duration} min`;
+      } else if (tpl === 4) {
+        // V-shape / Pyramide Hyrox : Cardio→Force→Force→Cardio
+        const { c1, c2 } = cardio2();
+        const fMvs = pickN(allStations, srand([2, 3]));
+        stations = [`For Time — V-Shape (cap ${duration} min) :`, c1, ...fMvs, c2];
+        scoring = `V-Shape For Time — cap ${duration} min`;
+      } else if (tpl === 5) {
+        // Buy-in cardio + AMRAP + Buy-out cardio
+        const { c1, c2 } = cardio2();
+        const amrapMvs = pickMixed(3);
+        const amrapMin = duration - 8;
+        stations = [
+          `── Buy-in ──`, c1,
+          `── AMRAP ${amrapMin} min ──`, ...amrapMvs,
+          `── Buy-out ──`, c2,
+        ];
+        scoring = `Buy-in + AMRAP ${amrapMin} min + Buy-out`;
+      } else if (tpl === 6) {
+        // Pyramide reps : 2-4-6-8-10-8-6-4-2
+        const mvs = pickMixed(srand([2, 3]));
+        const ladder = isPro ? '2-4-6-8-10-8-6-4-2' : '2-4-6-8-6-4-2';
+        stations = [`Pyramide ${ladder} For Time (cap ${duration} min) :`, ...mvs];
+        scoring = `Pyramide For Time — cap ${duration} min`;
+      } else {
+        // 3 × AMRAP avec repos
         const amrapMin = srand([7, 8]);
         const restMin = 2;
-        const mvs1 = pick2(allStations);
-        const mvs2 = pick2(allStations);
-        const mvs3 = pick2(fullPool);
+        const mvs1 = pickMixed(2);
+        const mvs2 = pickMixed(2);
+        const mvs3 = pickMixed(2);
         stations = [
           `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
           `── Repos ${restMin} min ──`,
@@ -251,54 +294,47 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
           `── Repos ${restMin} min ──`,
           `── AMRAP 3 : ${amrapMin} min ──`, ...mvs3,
         ];
-        scoring = `3 × AMRAP ${amrapMin} min (${restMin} min repos) — Score = total rounds+reps`;
-      } else if (tpl === 4) {
-        const { buyIn, buyOut } = buyInOut();
-        const amrapMvs = pick3(allStations);
-        const amrapMin = duration - 8;
-        stations = [
-          `── Buy-in ──`, buyIn,
-          `── AMRAP ${amrapMin} min ──`, ...amrapMvs,
-          `── Buy-out ──`, buyOut,
-        ];
-        scoring = `Buy-in + AMRAP ${amrapMin} min + Buy-out — Score = rounds + reps`;
-      } else if (tpl === 5) {
-        const mvs = pickN(allStations, srand([2, 3]));
-        const ladder = isPro ? '2-4-6-8-10-8-6-4-2' : '2-4-6-8-6-4-2';
-        stations = [`Pyramide ${ladder} For Time :`, ...mvs];
-        scoring = `Pyramide — Temps (cap ${duration} min)`;
-      } else {
-        const mvs = pickN(fullPool, srand([5, 6]));
-        const totalMin = Math.floor(duration / mvs.length) * mvs.length;
-        stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
-        scoring = `EMOM — ${Math.floor(totalMin / mvs.length)} cycles × ${mvs.length} mouvements`;
+        scoring = `3 × AMRAP ${amrapMin} min — repos ${restMin} min`;
       }
     }
 
+    // ──────── 45 min ────────
     else if (duration <= 45) {
       const tpl = srand([1, 2, 3, 4, 5, 6, 7]);
       if (tpl === 1) {
-        const emomMins = srand([2, 3]);
-        const emomMvs = pickN(allStations, emomMins);
-        const emomCycles = Math.floor(20 / emomMins);
-        const chipPool2 = allStations.filter(s => !emomMvs.includes(s));
-        if (S.ski) chipPool2.push(S.ski);
-        if (S.row) chipPool2.push(S.row);
-        if (S.bike) chipPool2.push(S.bike);
-        const chipperMvs = pickN(chipPool2, 4);
-        stations = [
-          `── Partie 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
-          ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
-          `── Partie 2 : Chipper For Time (cap ${duration - emomCycles * emomMins} min) ──`,
-          ...chipperMvs,
-        ];
-        scoring = `EMOM ${emomCycles * emomMins} min + Chipper restant`;
+        // AMRAP long endurance avec cardio
+        const mvs = pickMixed(srand([4, 5]));
+        stations = [`AMRAP ${duration} min :`, ...mvs];
+        scoring = `AMRAP ${duration} min — max rounds + reps`;
       } else if (tpl === 2) {
+        // EMOM long multi-station
+        const mvs = pickMixed(srand([5, 6]));
+        const totalMin = Math.floor(duration / mvs.length) * mvs.length;
+        stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
+        scoring = `EMOM ${totalMin} min — ${Math.floor(totalMin / mvs.length)} cycles`;
+      } else if (tpl === 3) {
+        // Chipper long linéaire
+        const mvs = pickMixed(srand([6, 7, 8]));
+        stations = [`For Time (cap ${duration} min) :`, ...mvs];
+        scoring = `Chipper For Time — cap ${duration} min`;
+      } else if (tpl === 4) {
+        // Buy-in cardio + Rounds + Buy-out cardio
+        const { c1, c2 } = cardio2();
+        const rounds = srand([4, 5]);
+        const mvs = pickMixed(3);
+        stations = [
+          `── Buy-in ──`, c1,
+          `── ${rounds} Rounds For Time ──`, ...mvs,
+          `── Buy-out ──`, c2,
+        ];
+        scoring = `Buy-in + ${rounds} Rounds + Buy-out — cap ${duration} min`;
+      } else if (tpl === 5) {
+        // 3 × AMRAP avec repos
         const amrapMin = 12;
         const restMin = srand([2, 3]);
-        const mvs1 = pick2(allStations);
-        const mvs2 = pick2(allStations);
-        const mvs3 = pick2(fullPool);
+        const mvs1 = pickMixed(3);
+        const mvs2 = pickMixed(3);
+        const mvs3 = pickMixed(3);
         stations = [
           `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
           `── Repos ${restMin} min ──`,
@@ -306,70 +342,47 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
           `── Repos ${restMin} min ──`,
           `── AMRAP 3 : ${amrapMin} min ──`, ...mvs3,
         ];
-        scoring = `3 × AMRAP ${amrapMin} min (${restMin} min repos) — Score = total rounds+reps`;
-      } else if (tpl === 3) {
-        const { buyIn, buyOut } = buyInOut();
-        const rounds = srand([4, 5]);
-        const mvs = pick3(allStations);
-        stations = [
-          `── Buy-in ──`, buyIn,
-          `── ${rounds} Rounds For Time ──`, ...mvs,
-          `── Buy-out ──`, buyOut,
-        ];
-        scoring = `Buy-in + ${rounds} Rounds + Buy-out — Temps (cap ${duration} min)`;
-      } else if (tpl === 4) {
-        const mvs = pickN(allStations, srand([2, 3]));
-        const max = isPro ? 14 : 12;
-        const steps = Array.from({ length: max / 2 }, (_, i) => (i + 1) * 2);
-        stations = [`Ladder ascendant ${steps.join('-')} For Time :`, ...mvs];
-        scoring = `Ladder ascendant — Temps (cap ${duration} min)`;
-      } else if (tpl === 5) {
-        const amrapMin = srand([18, 20]);
-        const amrapMvs = pick3(allStations);
-        const chipPool2 = fullPool.filter(s => !amrapMvs.includes(s));
-        const chipperMvs = pickN(chipPool2.length >= 4 ? chipPool2 : fullPool, 4);
-        stations = [
-          `── Partie 1 : AMRAP ${amrapMin} min ──`, ...amrapMvs,
-          `── Partie 2 : Chipper For Time (cap ${duration - amrapMin} min) ──`, ...chipperMvs,
-        ];
-        scoring = `AMRAP ${amrapMin} min + Chipper (cap ${duration - amrapMin} min)`;
+        scoring = `3 × AMRAP ${amrapMin} min — repos ${restMin} min`;
       } else if (tpl === 6) {
-        const mvs = pickN(allStations, srand([2, 3]));
+        // Pyramide ascendante-descendante
+        const mvs = pickMixed(srand([2, 3]));
         const ladder = isPro ? '3-6-9-12-15-12-9-6-3' : '2-4-6-8-10-8-6-4-2';
-        stations = [`Pyramide ${ladder} For Time :`, ...mvs];
-        scoring = `Pyramide — Temps (cap ${duration} min)`;
+        stations = [`Pyramide ${ladder} For Time (cap ${duration} min) :`, ...mvs];
+        scoring = `Pyramide For Time — cap ${duration} min`;
       } else {
-        const rounds = srand([4, 5, 6]);
-        const mvs = pickN(fullPool, 4);
-        stations = [`${rounds} Rounds For Time :`, ...mvs];
-        scoring = `${mvs.length >= 4 ? 'Quadruplet' : 'Circuit'} — Temps (cap ${duration} min)`;
+        // Intervalles par blocs : 4 × 8 min ON / 2 min OFF
+        const blocMin = srand([8, 10]);
+        const restMin = 2;
+        const blocs = Math.floor(duration / (blocMin + restMin));
+        const allMvs: string[][] = [];
+        for (let b = 0; b < blocs; b++) allMvs.push(pickMixed(srand([2, 3])));
+        const built: string[] = [];
+        allMvs.forEach((mvs, i) => {
+          built.push(`── Bloc ${i + 1} : AMRAP ${blocMin} min ──`);
+          built.push(...mvs);
+          if (i < allMvs.length - 1) built.push(`── Repos ${restMin} min ──`);
+        });
+        stations = built;
+        scoring = `${blocs} × AMRAP ${blocMin} min — repos ${restMin} min`;
       }
     }
 
+    // ──────── 60 min ────────
     else {
-      const tpl = srand([1, 2, 3, 4, 5]);
+      const tpl = srand([1, 2, 3, 4, 5, 6]);
       if (tpl === 1) {
-        const ladderMvs = pick2(allStations);
-        const maxRung = isPro ? 12 : 10;
-        const chipPool2 = allStations.filter(s => !ladderMvs.includes(s));
-        if (S.ski) chipPool2.push(S.ski);
-        if (S.row) chipPool2.push(S.row);
-        if (S.bike) chipPool2.push(S.bike);
-        const chipperMvs = pickN(chipPool2, 5);
-        stations = [
-          `── Partie 1 : Ladder 1→${maxRung} For Time ──`,
-          ...ladderMvs,
-          `── Partie 2 : Chipper For Time (cap restant) ──`,
-          ...chipperMvs,
-        ];
-        scoring = `Ladder + Chipper — Temps total (cap ${duration} min)`;
+        // AMRAP 60 min endurance totale
+        const mvs = pickMixed(srand([5, 6]));
+        stations = [`AMRAP ${duration} min :`, ...mvs];
+        scoring = `AMRAP ${duration} min — max rounds + reps`;
       } else if (tpl === 2) {
+        // 4 × AMRAP avec repos
         const amrapMin = 12;
         const restMin = 3;
-        const mvs1 = pick2(allStations);
-        const mvs2 = pick2(allStations);
-        const mvs3 = pick2(allStations);
-        const mvs4 = pick2(fullPool);
+        const mvs1 = pickMixed(2);
+        const mvs2 = pickMixed(2);
+        const mvs3 = pickMixed(3);
+        const mvs4 = pickMixed(3);
         stations = [
           `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
           `── Repos ${restMin} min ──`,
@@ -379,39 +392,46 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
           `── Repos ${restMin} min ──`,
           `── AMRAP 4 : ${amrapMin} min ──`, ...mvs4,
         ];
-        scoring = `4 × AMRAP ${amrapMin} min (${restMin} min repos) — Score = total rounds+reps`;
+        scoring = `4 × AMRAP ${amrapMin} min — repos ${restMin} min`;
       } else if (tpl === 3) {
-        const cardioMvs = pickN(cardioPool.length >= 2 ? cardioPool : [...cardioPool, `${[30,40,40,50][li]} Burpees`], 2);
-        const forceMvs = pick3(allStations);
-        const mixedMvs = pickN(fullPool, 3);
+        // 3 phases : Cardio → Force → Chipper mixte
+        const { c1, c2 } = cardio2();
+        const forceMvs = pickN(allStations, 3);
+        const chipMvs = pickMixed(4);
         stations = [
-          `── Partie 1 : Cardio For Time ──`, ...cardioMvs,
-          `── Partie 2 : 5 Rounds For Time ──`, ...forceMvs,
-          `── Partie 3 : Chipper For Time ──`, ...mixedMvs,
+          `── Phase 1 : Cardio For Time ──`, c1, c2,
+          `── Phase 2 : 5 Rounds For Time ──`, ...forceMvs,
+          `── Phase 3 : Chipper For Time ──`, ...chipMvs,
         ];
         scoring = `3 phases — Temps total (cap ${duration} min)`;
       } else if (tpl === 4) {
+        // EMOM long + Chipper
         const emomMins = srand([2, 3]);
-        const emomMvs = pickN(allStations, emomMins);
+        const emomMvs = pickMixed(emomMins);
         const emomTotal = srand([30, 36]);
-        const chipPool2 = fullPool.filter(s => !emomMvs.includes(s));
-        const chipperMvs = pickN(chipPool2.length >= 5 ? chipPool2 : fullPool, 5);
+        const chipMvs = pickMixed(5);
         stations = [
           `── Partie 1 : E${emomMins}MOM ${emomTotal} min ──`,
           ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
           `── Partie 2 : Chipper For Time (cap ${duration - emomTotal} min) ──`,
-          ...chipperMvs,
+          ...chipMvs,
         ];
         scoring = `EMOM ${emomTotal} min + Chipper (cap ${duration - emomTotal} min)`;
-      } else {
-        const mvs = pick3(allStations);
+      } else if (tpl === 5) {
+        // Vagues progressives
+        const mvs = pickMixed(3);
         const w1 = isPro ? 3 : 2;
         stations = [
           `── Vague 1 : ${w1} Rounds ──`, ...mvs,
           `── Vague 2 : ${w1 + 1} Rounds ──`, ...mvs,
           `── Vague 3 : ${w1 + 2} Rounds ──`, ...mvs,
         ];
-        scoring = `3 vagues progressives — Temps total (cap ${duration} min)`;
+        scoring = `3 vagues progressives — cap ${duration} min`;
+      } else {
+        // Chipper géant linéaire
+        const mvs = pickMixed(srand([8, 9, 10]));
+        stations = [`For Time (cap ${duration} min) :`, ...mvs];
+        scoring = `Chipper For Time — cap ${duration} min`;
       }
     }
     stations = noConsecutive(stations);
@@ -447,7 +467,8 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const fmtS = (s: string): string => {
     if (s.startsWith('──') || s.startsWith('AMRAP') || s.startsWith('For Time')
         || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  Min')
-        || s.startsWith('Tabata') || s.startsWith('Ladder') || s.startsWith('Pyramide')) return s;
+        || s.startsWith('Tabata') || s.startsWith('Ladder') || s.startsWith('Pyramide')
+        || s.startsWith('Intervalles')) return s;
     if (format === 'Doubles')      return `${s}  ⟨split ×2 — I go / You go⟩`;
     if (format === 'Relais')       return `${s}  ⟨relais — 1 athlète par station⟩`;
     if (format === 'Mixed Relais') return `${s}  ⟨mixed H/F — charges adaptées⟩`;
