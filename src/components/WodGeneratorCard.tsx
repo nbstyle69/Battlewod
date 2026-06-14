@@ -210,16 +210,22 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
                                : { str: `${scR([40,50,50,60][li], 5)} Goblet Squats`, fat: 'lower' };
   const bbjD2:  StDef2 = bbj  ? { str: `${bbD2}m Burpee Broad Jump`,                 fat: 'full'  }
                                : { str: `${scR([10,12,12,15][li], 1)} Broad Jumps`,   fat: 'lower' };
-  const dbD2:   StDef2 = db   ? { str: `${scR([12,15,15,20][li], 1)} DB Thrusters (${db_kg} kg/main)`, fat: 'full' }
-                               : { str: `${scR([15,20,20,25][li], 5)} Jumping Squats`, fat: 'lower' };
+  const dbExs: StDef2[] = db ? [
+    { str: `${scR([12,15,15,20][li], 1)} DB Thrusters (${db_kg} kg/main)`,     fat: 'full'  },
+    { str: `${scR([10,12,12,15][li], 1)} DB Snatch (${db_kg} kg/main)`,        fat: 'full'  },
+    { str: `${scR([8,10,10,12][li],  1)} DB Clean & Jerk (${db_kg} kg/main)`, fat: 'full'  },
+    { str: `${scR([16,20,20,24][li], 4)} DB Lunges (${db_kg} kg/main)`,       fat: 'lower' },
+  ] : [];
+  const dbD2: StDef2 = db ? rand(dbExs) : { str: `${scR([15,20,20,25][li], 5)} Jumping Squats`, fat: 'lower' };
 
   const seenSt2 = new Set<string>();
   const allSt2: StDef2[] = ([slpD2, slpuD2, sblD2, wbD2, fcD2, bbjD2, dbD2] as (StDef2 | null)[])
     .filter((s): s is StDef2 => { if (!s) return false; if (seenSt2.has(s.str)) return false; seenSt2.add(s.str); return true; });
 
-  const skiStr2  = ski  ? `${skiD}m SkiErg`  : row  ? `${skiD}m RowErg`  : bike ? `${skiD}m BikeErg` : null;
-  const rowStr2  = row  ? `${skiD}m RowErg`  : ski  ? `${skiD}m SkiErg`  : bike ? `${skiD}m BikeErg` : null;
-  const bikeStr2 = bike ? `${skiD}m BikeErg` : ski  ? `${skiD}m SkiErg`  : row  ? `${skiD}m RowErg`  : null;
+  const noCardioSel = !ski && !row && !bike && !trd;
+  const skiStr2  = (ski  || noCardioSel) ? `${skiD}m SkiErg`  : row  ? `${skiD}m RowErg`  : bike ? `${skiD}m BikeErg` : null;
+  const rowStr2  = (row  || noCardioSel) ? `${skiD}m RowErg`  : ski  ? `${skiD}m SkiErg`  : bike ? `${skiD}m BikeErg` : null;
+  const bikeStr2 = (bike || noCardioSel) ? `${skiD}m BikeErg` : ski  ? `${skiD}m SkiErg`  : row  ? `${skiD}m RowErg`  : null;
   const cardioPool2: string[] = [];
   [skiStr2, rowStr2, bikeStr2].forEach(s => { if (s && !cardioPool2.includes(s)) cardioPool2.push(s); });
   if (trd && !cardioPool2.includes(trdLabel)) cardioPool2.push(trdLabel);
