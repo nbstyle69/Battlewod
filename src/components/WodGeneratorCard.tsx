@@ -136,7 +136,7 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     row:  row  ? `${row_d} RowErg`  : ski ? `${ski_d} SkiErg` : bike ? `${bike_d} BikeErg` : null,
     bike: bike ? `${bike_d} BikeErg` : ski ? `${ski_d} SkiErg` : row ? `${row_d} RowErg` : null,
     slp:  slp  ? `4×12.5m Sled Push (${sp_kg} kg)`            : bbj ? `${bbj_d} Burpee Broad Jump` : `${[20,25,25,30][li]} Push-ups`,
-    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)`            : fc  ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[15,20,20,25][li]}m Bear Crawl`,
+    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)`            : fc  ? `200m Farmers Carry (${fc_kg} kg×2)` : null,
     sbl:  sbl  ? `100m Sandbag Lunges (${sb_kg} kg)`          : fc  ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[40,50,50,60][li]} Walking Lunges`,
     wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)`         : `${[60,80,80,100][li]} Air Squats`,
     fc:   fc   ? `200m Farmers Carry (${fc_kg} kg×2)`         : sbl ? `100m Sandbag Lunges (${sb_kg} kg)` : `${[40,50,50,60][li]} Goblet Squats`,
@@ -157,8 +157,8 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     cardioPool.push(`${[40,50,50,60][li]} Jumping Lunges`);
   }
 
-  const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db];
-  const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db];
+  const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db].filter((s): s is string => s !== null);
+  const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db].filter((s): s is string => s !== null);
 
   // ── Anti-doublons : aucune station identique consécutive + dédup ──
   function noConsecutive(arr: string[]): string[] {

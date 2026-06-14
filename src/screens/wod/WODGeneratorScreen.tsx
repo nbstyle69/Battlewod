@@ -165,9 +165,9 @@ function generateHyroxWOD(
   const slpDef:  StDef = hasSlp  ? { str: `${slpSets}×12.5m Sled Push (${spKg} kg)`,  fat: 'lower' }
                         : hasBbj ? { str: `${bbD}m Burpee Broad Jump`,                  fat: 'full'  }
                                   : { str: `${[20,25,25,30][li]} Push-ups`,              fat: 'upper' };
-  const slpuDef: StDef = hasSlpu ? { str: `${slpuSets}×12.5m Sled Pull (${slKg} kg)`, fat: 'grip'  }
-                        : hasFc  ? { str: `${fcD}m Farmers Carry (${fcKg} kg×2)`,       fat: 'grip'  }
-                                  : { str: `${[15,20,20,25][li]}m Bear Crawl`,           fat: 'lower' };
+  const slpuDef: StDef | null = hasSlpu ? { str: `${slpuSets}×12.5m Sled Pull (${slKg} kg)`, fat: 'grip'  }
+                               : hasFc  ? { str: `${fcD}m Farmers Carry (${fcKg} kg×2)`,  fat: 'grip'  }
+                                         : null;
   const sblDef:  StDef = hasSbl  ? { str: `${sblD}m Sandbag Lunges (${sbKg} kg)`,      fat: 'lower' }
                         : hasFc  ? { str: `${Math.round(fcD*0.5/25)*25}m Farmers Carry (${fcKg} kg×2)`, fat: 'grip' }
                                   : { str: `${scaleR([40,50,50,60][li],5)} Walking Lunges`, fat: 'lower' };
@@ -182,8 +182,8 @@ function generateHyroxWOD(
                                   : { str: `${scaleR([15,20,20,25][li],5)} Jumping Squats`, fat: 'lower' };
 
   const seenSt = new Set<string>();
-  const allSt: StDef[] = [slpDef, slpuDef, sblDef, wbDef, fcDef, bbjDef, dbDef]
-    .filter(s => { if (seenSt.has(s.str)) return false; seenSt.add(s.str); return true; });
+  const allSt: StDef[] = ([slpDef, slpuDef, sblDef, wbDef, fcDef, bbjDef, dbDef] as (StDef | null)[])
+    .filter((s): s is StDef => { if (!s) return false; if (seenSt.has(s.str)) return false; seenSt.add(s.str); return true; });
 
   const skiStr  = hasSki ? `${skiD}m SkiErg`  : hasRow  ? `${skiD}m RowErg`  : hasBike ? `${skiD}m BikeErg` : null;
   const rowStr  = hasRow ? `${skiD}m RowErg`  : hasSki  ? `${skiD}m SkiErg`  : hasBike ? `${skiD}m BikeErg` : null;
