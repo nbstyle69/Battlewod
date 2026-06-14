@@ -197,9 +197,9 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const slpD2:  StDef2 = slp  ? { str: `${slpSets}×12.5m Sled Push (${sp_kg} kg)`, fat: 'lower' }
                         : bbj ? { str: `${bbD2}m Burpee Broad Jump`,                 fat: 'full'  }
                               : { str: `${[20,25,25,30][li]} Push-ups`,               fat: 'upper' };
-  const slpuD2: StDef2 = slpu ? { str: `${slpuSets}×12.5m Sled Pull (${sl_kg} kg)`, fat: 'grip' }
-                        : fc   ? { str: `${fcD}m Farmers Carry (${fc_kg} kg×2)`,     fat: 'grip'  }
-                               : { str: `${[15,20,20,25][li]}m Bear Crawl`,           fat: 'lower' };
+  const slpuD2: StDef2 | null = slpu ? { str: `${slpuSets}×12.5m Sled Pull (${sl_kg} kg)`, fat: 'grip' }
+                             : fc   ? { str: `${fcD}m Farmers Carry (${fc_kg} kg×2)`,   fat: 'grip'  }
+                                    : null;
   const sblD2:  StDef2 = sbl  ? { str: `${sblD}m Sandbag Lunges (${sb_kg} kg)`,     fat: 'lower' }
                         : fc   ? { str: `${Math.round(fcD*0.5/25)*25}m Farmers Carry (${fc_kg} kg×2)`, fat: 'grip' }
                                : { str: `${scR([40,50,50,60][li], 5)} Walking Lunges`, fat: 'lower' };
@@ -214,8 +214,8 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
                                : { str: `${scR([15,20,20,25][li], 5)} Jumping Squats`, fat: 'lower' };
 
   const seenSt2 = new Set<string>();
-  const allSt2: StDef2[] = [slpD2, slpuD2, sblD2, wbD2, fcD2, bbjD2, dbD2]
-    .filter(s => { if (seenSt2.has(s.str)) return false; seenSt2.add(s.str); return true; });
+  const allSt2: StDef2[] = ([slpD2, slpuD2, sblD2, wbD2, fcD2, bbjD2, dbD2] as (StDef2 | null)[])
+    .filter((s): s is StDef2 => { if (!s) return false; if (seenSt2.has(s.str)) return false; seenSt2.add(s.str); return true; });
 
   const skiStr2  = ski  ? `${skiD}m SkiErg`  : row  ? `${skiD}m RowErg`  : bike ? `${skiD}m BikeErg` : null;
   const rowStr2  = row  ? `${skiD}m RowErg`  : ski  ? `${skiD}m SkiErg`  : bike ? `${skiD}m BikeErg` : null;
