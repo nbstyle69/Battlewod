@@ -269,11 +269,18 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     }
     if (hasAnyCo2) {
       const result: string[] = [];
-      for (let i = 0; i < blocCount; i++) { result.push(runStr2); if (pickedDefs2[i]) result.push(pickedDefs2[i].str); }
+      let lastCardio = '';
+      for (let i = 0; i < blocCount; i++) {
+        const cardioOpts = cardioPool2.filter(c => c !== lastCardio);
+        const cardio = rand(cardioOpts.length > 0 ? cardioOpts : cardioPool2);
+        lastCardio = cardio;
+        result.push(cardio);
+        if (pickedDefs2[i]) result.push(pickedDefs2[i].str);
+      }
       stations = result;
       const rLabel = runM >= 1000 ? `${runM / 1000}km` : `${runM}m`;
       const timeTarget = isPro ? `< ${duration} min` : `< ${duration + 5} min`;
-      scoring = `For Time — ${blocCount} blocs ${rLabel} Run + Station — objectif ${timeTarget}`;
+      scoring = `For Time — ${blocCount} blocs ~${rLabel} Run/Cardio + Station — objectif ${timeTarget}`;
     } else {
       stations = pickedDefs2.map(s => s.str);
       scoring = `For Time — ${blocCount} stations enchaînées — cap ${duration} min`;
