@@ -119,32 +119,39 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const ski_d  = '1000m';
   const row_d  = '1000m';
   const bike_d = '1000m';
-  const r1k  = trd ? '1 km Tapis' : null;
-  const r800 = trd ? '800m Tapis' : null;
+  const r1k  = trd ? '1 km Tapis' : '1 km Run';
+  const r800 = trd ? '800m Tapis' : '800m Run';
+
+  // DB : pool varié d'exercices haltères (pas seulement Thrusters)
+  const dbExercises = [
+    `${[12,15,15,20][li]} DB Thrusters (${db_kg} kg/main)`,
+    `${[12,15,15,20][li]} DB Front Squats (${db_kg} kg/main)`,
+    `${[10,12,12,15][li]} DB Push Press (${db_kg} kg/main)`,
+    `${[12,15,15,20][li]} DB Lunges (${db_kg} kg/main)`,
+    `${[10,12,12,15][li]} DB Deadlifts (${db_kg} kg/main)`,
+    `${[10,12,12,15][li]} DB Rows (${db_kg} kg/main)`,
+  ];
 
   const S = {
-    ski:  ski  ? `${ski_d} SkiErg`  : row ? `${row_d} RowErg` : bike ? `${bike_d} BikeErg` : null,
-    row:  row  ? `${row_d} RowErg`  : ski ? `${ski_d} SkiErg` : bike ? `${bike_d} BikeErg` : null,
-    bike: bike ? `${bike_d} BikeErg` : ski ? `${ski_d} SkiErg` : row ? `${row_d} RowErg` : null,
+    // Cardio : toujours dispo (SkiErg/RowErg/BikeErg même sans sélection)
+    ski:  ski  ? `${ski_d} SkiErg`  : row ? `${row_d} RowErg` : bike ? `${bike_d} BikeErg` : `${ski_d} SkiErg`,
+    row:  row  ? `${row_d} RowErg`  : ski ? `${ski_d} SkiErg` : bike ? `${bike_d} BikeErg` : `${row_d} RowErg`,
+    bike: bike ? `${bike_d} BikeErg` : ski ? `${ski_d} SkiErg` : row ? `${row_d} RowErg`  : `${bike_d} BikeErg`,
     slp:  slp  ? `4×12.5m Sled Push (${sp_kg} kg)` : bbj ? `${bbj_d} Burpee Broad Jump` : `${[20,25,25,30][li]} Push-ups`,
-    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[15,20,20,25][li]}m Bear Crawl`,
+    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[12,15,15,20][li]} Ring Rows`,
     sbl:  sbl  ? `100m Sandbag Lunges (${sb_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[40,50,50,60][li]} Walking Lunges`,
     wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)` : `${[60,80,80,100][li]} Air Squats`,
     fc:   fc   ? `200m Farmers Carry (${fc_kg} kg×2)` : sbl ? `100m Sandbag Lunges (${sb_kg} kg)` : `${[40,50,50,60][li]} Goblet Squats`,
-    bbj:  bbj  ? `${bbj_d} Burpee Broad Jump` : `${[10,12,12,15][li]} Broad Jumps`,
-    db:   db   ? `${[12,15,15,20][li]} DB Thrusters (${db_kg} kg/main)` : `${[15,20,20,25][li]} Jumping Squats`,
+    bbj:  bbj  ? `${bbj_d} Burpee Broad Jump` : `${[10,12,12,15][li]} Burpees`,
+    db:   db   ? srand(dbExercises) : `${[15,20,20,25][li]} Box Step-ups`,
   };
 
   const cardioPool: string[] = [];
   if (S.ski)  cardioPool.push(S.ski);
   if (S.row && !cardioPool.includes(S.row))  cardioPool.push(S.row);
   if (S.bike && !cardioPool.includes(S.bike)) cardioPool.push(S.bike);
-  if (r1k)  cardioPool.push(r1k);
-  if (r800) cardioPool.push(r800);
-  if (cardioPool.length === 0) {
-    cardioPool.push(`${[30,40,40,50][li]} Burpees`);
-    cardioPool.push(`${[40,50,50,60][li]} Jumping Lunges`);
-  }
+  cardioPool.push(r1k);
+  cardioPool.push(r800);
   const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db];
   const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db];
 
