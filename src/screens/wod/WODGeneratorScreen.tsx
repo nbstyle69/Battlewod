@@ -51,7 +51,7 @@ interface HyroxWOD {
 
 const HYROX_SCR_NAMES: Record<string, string[]> = {
   'Race Simulation':   ['Race Day Protocol','HYROX Race Sim','Competition Mode','Full Distance','Race Forge','Pre-Race Drill','Event Simulator','Race Crusher','Qualifier Prep','Podium Run'],
-  'Station Training':  ['Station Domination','Power Station','Station Mastery','Station Siege','Platform Work','Station Builder','Force Station','Block Drill','Station Storm','Grid Work'],
+  'Station Training':  ['Station Domination','Power Station','Station Mastery','Station Siege','Platform Work','Station Builder','Force Station','Block Drill','Station Storm','Grid Work','Station Blast','Iron Circuit','Station Crusher','Grind Session','Power Grid','Station Burner','Heavy Rotation','Machine Room','Station Gauntlet','The Furnace'],
   'Cardio Force':      ['Hybrid Forge','Cardio Machine','Hybrid Engine','Power Cardio','Endurance Force','Hybrid Burn','Engine Room','Cross Cardio','Hybrid Blast','Force Cardio'],
 };
 const HYROX_SCR_TIPS: Record<string, string[]> = {
@@ -68,6 +68,13 @@ const HYROX_SCR_TIPS: Record<string, string[]> = {
     'Travaille chaque station comme si tu sortais d\'un 1km.',
     'Focus sur le pattern de mouvement. La technique prime sous la fatigue.',
     'Repos strictement respecté. La surcharge vient du volume.',
+    'Chronomètre tes transitions. En course, c\'est là que tu gagnes du temps.',
+    'Alterne haut du corps / bas du corps entre les blocs pour récupérer.',
+    'Intensité progressive : 70% → 80% → 90% au fil des rounds.',
+    'Mémorise tes scores par station. L\'amélioration se mesure.',
+    'Chaque répétition doit être identique à la première. La constance bat la vitesse.',
+    'Règle des 3 respirations : reprends ton souffle avant chaque transition.',
+    'En compétition tu seras fatigué. Entraîne-toi à performer fatigué.',
   ],
   'Cardio Force': [
     'Enchaîne sans repos. Adapte les charges pour tenir le rythme.',
@@ -177,58 +184,235 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   }
 
   else if (type === 'Station Training') {
+    const fullPool = [...allStations];
+    if (S.ski) fullPool.push(S.ski);
+    if (S.row && !fullPool.includes(S.row)) fullPool.push(S.row);
+    if (S.bike && !fullPool.includes(S.bike)) fullPool.push(S.bike);
+    const pick2 = (pool: string[]) => spick(pool, Math.min(2, pool.length));
+    const pick3 = (pool: string[]) => spick(pool, Math.min(3, pool.length));
+    const pickN = (pool: string[], n: number) => spick(pool, Math.min(n, pool.length));
+    const buyInOut = () => {
+      const b1 = srand(cardioPool.length > 0 ? cardioPool : [`${[30,40,40,50][li]} Burpees`]);
+      const rest = cardioPool.filter(c => c !== b1);
+      return { buyIn: b1, buyOut: srand(rest.length > 0 ? rest : [b1]) };
+    };
+
     if (duration <= 20) {
-      const n = srand([2, 3]);
-      const mvs = spick(allStations, n);
-      stations = [`AMRAP ${duration} min :`, ...mvs];
-      scoring = `Max rounds + reps en ${duration} min — ${n === 3 ? 'Triplet' : 'Couplet'}`;
-    } else if (duration <= 30) {
-      const isChipper = Math.random() < 0.5;
-      if (isChipper) {
-        const pool = [...allStations];
-        if (S.ski) pool.push(S.ski);
-        if (S.row) pool.push(S.row);
-        if (S.bike) pool.push(S.bike);
-        const mvs = spick(pool, Math.min(5, pool.length));
+      const tpl = srand([1, 2, 3, 4, 5]);
+      if (tpl === 1) {
+        const n = srand([2, 3]);
+        const mvs = pickN(allStations, n);
+        stations = [`AMRAP ${duration} min :`, ...mvs];
+        scoring = `Max rounds + reps en ${duration} min — ${n === 3 ? 'Triplet' : 'Couplet'}`;
+      } else if (tpl === 2) {
+        const mvs = pickN(fullPool, srand([4, 5]));
+        const totalMin = Math.floor(duration / mvs.length) * mvs.length;
+        stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
+        scoring = `EMOM — ${Math.floor(totalMin / mvs.length)} cycles × ${mvs.length} mouvements`;
+      } else if (tpl === 3) {
+        const rounds = srand([4, 5, 6]);
+        const mvs = pick2(allStations);
+        stations = [`${rounds} Rounds For Time :`, ...mvs];
+        scoring = `Couplet — Temps (cap ${duration} min)`;
+      } else if (tpl === 4) {
+        const n = Math.min(srand([3, 4, 5]), Math.floor(duration / 4));
+        const mvs = pickN(allStations, n);
+        stations = [`Tabata (8 × 20s ON / 10s OFF par station) :`, ...mvs];
+        scoring = `Tabata — ${mvs.length} stations × 4 min = ${mvs.length * 4} min`;
+      } else {
+        const mvs = pick2(allStations);
+        const ladder = isPro ? '12-10-8-6-4-2' : '10-8-6-4-2';
+        stations = [`Ladder descendant ${ladder} For Time :`, ...mvs];
+        scoring = `Ladder descendant — Temps (cap ${duration} min)`;
+      }
+    }
+
+    else if (duration <= 30) {
+      const tpl = srand([1, 2, 3, 4, 5, 6]);
+      if (tpl === 1) {
+        const mvs = pickN(fullPool, 5);
         stations = ['For Time (Chipper) :', ...mvs];
         scoring = `Chipper — Temps (cap ${duration} min)`;
-      } else {
+      } else if (tpl === 2) {
         const rounds = srand([4, 5]);
-        const mvs = spick(allStations, 3);
+        const mvs = pick3(allStations);
         stations = [`${rounds} Rounds For Time :`, ...mvs];
         scoring = `Triplet — Temps (cap ${duration} min)`;
+      } else if (tpl === 3) {
+        const amrapMin = srand([7, 8]);
+        const restMin = 2;
+        const mvs1 = pick2(allStations);
+        const mvs2 = pick2(allStations);
+        const mvs3 = pick2(fullPool);
+        stations = [
+          `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
+          `── Repos ${restMin} min ──`,
+          `── AMRAP 2 : ${amrapMin} min ──`, ...mvs2,
+          `── Repos ${restMin} min ──`,
+          `── AMRAP 3 : ${amrapMin} min ──`, ...mvs3,
+        ];
+        scoring = `3 × AMRAP ${amrapMin} min (${restMin} min repos) — Score = total rounds+reps`;
+      } else if (tpl === 4) {
+        const { buyIn, buyOut } = buyInOut();
+        const amrapMvs = pick3(allStations);
+        const amrapMin = duration - 8;
+        stations = [
+          `── Buy-in ──`, buyIn,
+          `── AMRAP ${amrapMin} min ──`, ...amrapMvs,
+          `── Buy-out ──`, buyOut,
+        ];
+        scoring = `Buy-in + AMRAP ${amrapMin} min + Buy-out — Score = rounds + reps`;
+      } else if (tpl === 5) {
+        const mvs = pickN(allStations, srand([2, 3]));
+        const ladder = isPro ? '2-4-6-8-10-8-6-4-2' : '2-4-6-8-6-4-2';
+        stations = [`Pyramide ${ladder} For Time :`, ...mvs];
+        scoring = `Pyramide — Temps (cap ${duration} min)`;
+      } else {
+        const mvs = pickN(fullPool, srand([5, 6]));
+        const totalMin = Math.floor(duration / mvs.length) * mvs.length;
+        stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
+        scoring = `EMOM — ${Math.floor(totalMin / mvs.length)} cycles × ${mvs.length} mouvements`;
       }
-    } else if (duration <= 45) {
-      const emomMins = srand([2, 3]);
-      const emomMvs = spick(allStations, emomMins);
-      const emomCycles = Math.floor(20 / emomMins);
-      const chipPool = allStations.filter(s => !emomMvs.includes(s));
-      if (S.ski) chipPool.push(S.ski);
-      if (S.row) chipPool.push(S.row);
-      if (S.bike) chipPool.push(S.bike);
-      const chipperMvs = spick(chipPool, Math.min(4, chipPool.length));
-      stations = [
-        `── Partie 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
-        ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
-        `── Partie 2 : Chipper For Time (cap ${duration - emomCycles * emomMins} min) ──`,
-        ...chipperMvs,
-      ];
-      scoring = `EMOM ${emomCycles * emomMins} min + Chipper restant`;
-    } else {
-      const ladderMvs = spick(allStations, 2);
-      const maxRung = isPro ? 12 : 10;
-      const chipPool = allStations.filter(s => !ladderMvs.includes(s));
-      if (S.ski) chipPool.push(S.ski);
-      if (S.row) chipPool.push(S.row);
-      if (S.bike) chipPool.push(S.bike);
-      const chipperMvs = spick(chipPool, Math.min(5, chipPool.length));
-      stations = [
-        `── Partie 1 : Ladder 1→${maxRung} For Time ──`,
-        ...ladderMvs,
-        `── Partie 2 : Chipper For Time (cap restant) ──`,
-        ...chipperMvs,
-      ];
-      scoring = `Ladder + Chipper — Temps total (cap ${duration} min)`;
+    }
+
+    else if (duration <= 45) {
+      const tpl = srand([1, 2, 3, 4, 5, 6, 7]);
+      if (tpl === 1) {
+        const emomMins = srand([2, 3]);
+        const emomMvs = pickN(allStations, emomMins);
+        const emomCycles = Math.floor(20 / emomMins);
+        const chipPool2 = allStations.filter(s => !emomMvs.includes(s));
+        if (S.ski) chipPool2.push(S.ski);
+        if (S.row) chipPool2.push(S.row);
+        if (S.bike) chipPool2.push(S.bike);
+        const chipperMvs = pickN(chipPool2, 4);
+        stations = [
+          `── Partie 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
+          ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
+          `── Partie 2 : Chipper For Time (cap ${duration - emomCycles * emomMins} min) ──`,
+          ...chipperMvs,
+        ];
+        scoring = `EMOM ${emomCycles * emomMins} min + Chipper restant`;
+      } else if (tpl === 2) {
+        const amrapMin = 12;
+        const restMin = srand([2, 3]);
+        const mvs1 = pick2(allStations);
+        const mvs2 = pick2(allStations);
+        const mvs3 = pick2(fullPool);
+        stations = [
+          `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
+          `── Repos ${restMin} min ──`,
+          `── AMRAP 2 : ${amrapMin} min ──`, ...mvs2,
+          `── Repos ${restMin} min ──`,
+          `── AMRAP 3 : ${amrapMin} min ──`, ...mvs3,
+        ];
+        scoring = `3 × AMRAP ${amrapMin} min (${restMin} min repos) — Score = total rounds+reps`;
+      } else if (tpl === 3) {
+        const { buyIn, buyOut } = buyInOut();
+        const rounds = srand([4, 5]);
+        const mvs = pick3(allStations);
+        stations = [
+          `── Buy-in ──`, buyIn,
+          `── ${rounds} Rounds For Time ──`, ...mvs,
+          `── Buy-out ──`, buyOut,
+        ];
+        scoring = `Buy-in + ${rounds} Rounds + Buy-out — Temps (cap ${duration} min)`;
+      } else if (tpl === 4) {
+        const mvs = pickN(allStations, srand([2, 3]));
+        const max = isPro ? 14 : 12;
+        const steps = Array.from({ length: max / 2 }, (_, i) => (i + 1) * 2);
+        stations = [`Ladder ascendant ${steps.join('-')} For Time :`, ...mvs];
+        scoring = `Ladder ascendant — Temps (cap ${duration} min)`;
+      } else if (tpl === 5) {
+        const amrapMin = srand([18, 20]);
+        const amrapMvs = pick3(allStations);
+        const chipPool2 = fullPool.filter(s => !amrapMvs.includes(s));
+        const chipperMvs = pickN(chipPool2.length >= 4 ? chipPool2 : fullPool, 4);
+        stations = [
+          `── Partie 1 : AMRAP ${amrapMin} min ──`, ...amrapMvs,
+          `── Partie 2 : Chipper For Time (cap ${duration - amrapMin} min) ──`, ...chipperMvs,
+        ];
+        scoring = `AMRAP ${amrapMin} min + Chipper (cap ${duration - amrapMin} min)`;
+      } else if (tpl === 6) {
+        const mvs = pickN(allStations, srand([2, 3]));
+        const ladder = isPro ? '3-6-9-12-15-12-9-6-3' : '2-4-6-8-10-8-6-4-2';
+        stations = [`Pyramide ${ladder} For Time :`, ...mvs];
+        scoring = `Pyramide — Temps (cap ${duration} min)`;
+      } else {
+        const rounds = srand([4, 5, 6]);
+        const mvs = pickN(fullPool, 4);
+        stations = [`${rounds} Rounds For Time :`, ...mvs];
+        scoring = `${mvs.length >= 4 ? 'Quadruplet' : 'Circuit'} — Temps (cap ${duration} min)`;
+      }
+    }
+
+    else {
+      const tpl = srand([1, 2, 3, 4, 5]);
+      if (tpl === 1) {
+        const ladderMvs = pick2(allStations);
+        const maxRung = isPro ? 12 : 10;
+        const chipPool2 = allStations.filter(s => !ladderMvs.includes(s));
+        if (S.ski) chipPool2.push(S.ski);
+        if (S.row) chipPool2.push(S.row);
+        if (S.bike) chipPool2.push(S.bike);
+        const chipperMvs = pickN(chipPool2, 5);
+        stations = [
+          `── Partie 1 : Ladder 1→${maxRung} For Time ──`,
+          ...ladderMvs,
+          `── Partie 2 : Chipper For Time (cap restant) ──`,
+          ...chipperMvs,
+        ];
+        scoring = `Ladder + Chipper — Temps total (cap ${duration} min)`;
+      } else if (tpl === 2) {
+        const amrapMin = 12;
+        const restMin = 3;
+        const mvs1 = pick2(allStations);
+        const mvs2 = pick2(allStations);
+        const mvs3 = pick2(allStations);
+        const mvs4 = pick2(fullPool);
+        stations = [
+          `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
+          `── Repos ${restMin} min ──`,
+          `── AMRAP 2 : ${amrapMin} min ──`, ...mvs2,
+          `── Repos ${restMin} min ──`,
+          `── AMRAP 3 : ${amrapMin} min ──`, ...mvs3,
+          `── Repos ${restMin} min ──`,
+          `── AMRAP 4 : ${amrapMin} min ──`, ...mvs4,
+        ];
+        scoring = `4 × AMRAP ${amrapMin} min (${restMin} min repos) — Score = total rounds+reps`;
+      } else if (tpl === 3) {
+        const cardioMvs = pickN(cardioPool.length >= 2 ? cardioPool : [...cardioPool, `${[30,40,40,50][li]} Burpees`], 2);
+        const forceMvs = pick3(allStations);
+        const mixedMvs = pickN(fullPool, 3);
+        stations = [
+          `── Partie 1 : Cardio For Time ──`, ...cardioMvs,
+          `── Partie 2 : 5 Rounds For Time ──`, ...forceMvs,
+          `── Partie 3 : Chipper For Time ──`, ...mixedMvs,
+        ];
+        scoring = `3 phases — Temps total (cap ${duration} min)`;
+      } else if (tpl === 4) {
+        const emomMins = srand([2, 3]);
+        const emomMvs = pickN(allStations, emomMins);
+        const emomTotal = srand([30, 36]);
+        const chipPool2 = fullPool.filter(s => !emomMvs.includes(s));
+        const chipperMvs = pickN(chipPool2.length >= 5 ? chipPool2 : fullPool, 5);
+        stations = [
+          `── Partie 1 : E${emomMins}MOM ${emomTotal} min ──`,
+          ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
+          `── Partie 2 : Chipper For Time (cap ${duration - emomTotal} min) ──`,
+          ...chipperMvs,
+        ];
+        scoring = `EMOM ${emomTotal} min + Chipper (cap ${duration - emomTotal} min)`;
+      } else {
+        const mvs = pick3(allStations);
+        const w1 = isPro ? 3 : 2;
+        stations = [
+          `── Vague 1 : ${w1} Rounds ──`, ...mvs,
+          `── Vague 2 : ${w1 + 1} Rounds ──`, ...mvs,
+          `── Vague 3 : ${w1 + 2} Rounds ──`, ...mvs,
+        ];
+        scoring = `3 vagues progressives — Temps total (cap ${duration} min)`;
+      }
     }
     stations = noConsecutive(stations);
   }
@@ -262,7 +446,8 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
 
   const fmtS = (s: string): string => {
     if (s.startsWith('──') || s.startsWith('AMRAP') || s.startsWith('For Time')
-        || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  Min')) return s;
+        || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  Min')
+        || s.startsWith('Tabata') || s.startsWith('Ladder') || s.startsWith('Pyramide')) return s;
     if (format === 'Doubles')      return `${s}  ⟨split ×2 — I go / You go⟩`;
     if (format === 'Relais')       return `${s}  ⟨relais — 1 athlète par station⟩`;
     if (format === 'Mixed Relais') return `${s}  ⟨mixed H/F — charges adaptées⟩`;
