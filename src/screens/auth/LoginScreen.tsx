@@ -96,12 +96,11 @@ export default function LoginScreen({ navigation }: Props) {
               <Text style={S.forgotText}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8} accessibilityLabel="Se connecter" accessibilityRole="button">
-              <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
-                {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.buttonText}>SE CONNECTER</Text>}
-              </LinearGradient>
+            <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8} accessibilityLabel="Se connecter" accessibilityRole="button"
+              style={[S.button, { backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)' }]}>
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={S.buttonText}>SE CONNECTER</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.navigate('Register')} style={S.registerLink} accessibilityLabel="Créer un compte" accessibilityRole="button">
@@ -174,6 +173,7 @@ function createStyles(theme: AppTheme) {
       padding: spacing.md, 
       alignItems: 'center', 
       marginTop: spacing.sm,
+      justifyContent: 'center',
     },
     buttonText: { 
       color: '#fff', 

@@ -32,7 +32,7 @@ export default function GlassTabBarBackground() {
   }
 
   return (
-    <View style={StyleSheet.absoluteFill}>
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: dark ? 'rgba(8,18,14,0.88)' : 'rgba(236,253,245,0.88)' }]}>
       <BlurView
         intensity={dark ? 60 : 80}
         tint={dark ? 'dark' : 'light'}

@@ -867,8 +867,8 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               ) : (
                 <Text style={S.noBoxText}>Aucun programme rejoint.</Text>
               )}
-              <TouchableOpacity style={[S.joinBtn, { backgroundColor: theme.accent }]} onPress={() => setProgModal(true)} activeOpacity={0.8}>
-                <BookOpen color={theme.background} size={16} />
+              <TouchableOpacity style={S.joinBtn} onPress={() => setProgModal(true)} activeOpacity={0.8}>
+                <BookOpen color="#fff" size={16} />
                 <Text style={S.joinBtnText}>Rejoindre un programme</Text>
               </TouchableOpacity>
             </View>
@@ -1325,7 +1325,8 @@ function createStyles(t: AppTheme) {
   noBoxText: { fontSize: 13, color: t.textMuted },
   joinBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: t.accent, borderRadius: 14, padding: 14,
+    gap: 8, backgroundColor: 'rgba(16,185,129,0.25)', borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)',
   },
   joinBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   leaveBtn: {

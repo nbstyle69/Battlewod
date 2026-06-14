@@ -71,14 +71,9 @@ export default function BlockedUsersScreen({ navigation }: any) {
             <View style={S.row}>
               <UserAvatar size={42} name={item.username} uri={item.avatar_url ?? undefined} />
               <Text style={S.username}>{item.username}</Text>
-              <TouchableOpacity onPress={() => handleUnblock(item.id, item.username)} activeOpacity={0.85}>
-                <LinearGradient
-                  colors={[theme.accent, theme.accentDark]}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={S.unblockBtn}
-                >
-                  <Text style={S.unblockText}>Débloquer</Text>
-                </LinearGradient>
+              <TouchableOpacity onPress={() => handleUnblock(item.id, item.username)} activeOpacity={0.85}
+                style={S.unblockBtn}>
+                <Text style={S.unblockText}>Débloquer</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -108,6 +103,8 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   unblockBtn: {
     paddingHorizontal: 16, paddingVertical: 10,
     borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(16,185,129,0.25)',
+    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)',
   },
   unblockText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
 }); }

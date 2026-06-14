@@ -446,15 +446,11 @@ export default function TournamentScreen() {
             </View>
 
             {canRegister && (
-              <TouchableOpacity style={S.registerBtn} onPress={handleRegister}
+              <TouchableOpacity style={[S.registerBtn, S.registerBtnInner, registering && { opacity: 0.6 }]} onPress={handleRegister}
                 disabled={registering} activeOpacity={0.85}>
-                <LinearGradient
-                  colors={registering ? [theme.surface, theme.surface] : [theme.accent, theme.secondary ?? theme.accent]}
-                  style={S.registerBtnInner}>
-                  {registering
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? 'Rejoindre la league' : "S'inscrire au tournoi"}</Text></>}
-                </LinearGradient>
+                {registering
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? 'Rejoindre la league' : "S'inscrire au tournoi"}</Text></>}
               </TouchableOpacity>
             )}
             {isRegistered && (
@@ -547,11 +543,9 @@ export default function TournamentScreen() {
                     </View>
                   )}
                   {canDo && (
-                    <TouchableOpacity style={S.wodActionBtn} onPress={() => goToWOD(wod)} activeOpacity={0.85}>
-                      <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.wodActionBtnInner}>
-                        <Timer color="#fff" size={16} />
-                        <Text style={S.wodActionBtnText}>Lancer le WOD</Text>
-                      </LinearGradient>
+                    <TouchableOpacity style={[S.wodActionBtn, S.wodActionBtnInner]} onPress={() => goToWOD(wod)} activeOpacity={0.85}>
+                      <Timer color="#fff" size={16} />
+                      <Text style={S.wodActionBtnText}>Lancer le WOD</Text>
                     </TouchableOpacity>
                   )}
                   {!isRegistered && wod.status === 'active' && (
@@ -561,11 +555,9 @@ export default function TournamentScreen() {
                     </TouchableOpacity>
                   )}
                   {myScore?.status === 'rejected' && (
-                    <TouchableOpacity style={S.wodActionBtn} onPress={() => goToWOD(wod)} activeOpacity={0.85}>
-                      <LinearGradient colors={['#EF4444', '#DC2626']} style={S.wodActionBtnInner}>
-                        <Timer color="#fff" size={16} />
-                        <Text style={S.wodActionBtnText}>Soumettre à nouveau</Text>
-                      </LinearGradient>
+                    <TouchableOpacity style={[S.wodActionBtn, S.wodActionBtnRejected]} onPress={() => goToWOD(wod)} activeOpacity={0.85}>
+                      <Timer color="#fff" size={16} />
+                      <Text style={S.wodActionBtnText}>Soumettre à nouveau</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -968,7 +960,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   descText:  { fontSize: 14, color: theme.textSecondary, lineHeight: 22 },
   ruleText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 22 },
   registerBtn:      { marginBottom: 12 },
-  registerBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, padding: 18 },
+  registerBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, padding: 18, backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)' },
   registerBtnText:  { color: '#fff', fontSize: 16, fontWeight: '900' },
   registeredBlock:  { marginBottom: 12, gap: 8 },
   registeredBadge:  { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: `${theme.success}15`, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: `${theme.success}30` },
@@ -1004,8 +996,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   myScoreStatus: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
   adminMsgBox:   { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 6, backgroundColor: `${theme.accent}10`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6 },
   adminMsgText:  { fontSize: 11, color: theme.textSecondary, flex: 1, lineHeight: 16 },
-  wodActionBtn:      { marginTop: 4 },
-  wodActionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14 },
+  wodActionBtn:      { marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14, backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)' },
+  wodActionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14, backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)' },
+  wodActionBtnRejected: { backgroundColor: 'rgba(239,68,68,0.25)', borderColor: 'rgba(239,68,68,0.8)' },
   wodActionBtnText:  { color: '#fff', fontSize: 14, fontWeight: '900' },
   wodLockedBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, padding: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
   wodLockedText: { fontSize: 12, color: theme.textMuted, fontWeight: '600' },

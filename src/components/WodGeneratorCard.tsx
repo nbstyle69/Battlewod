@@ -20,6 +20,19 @@ import GlassBackground from './glass/GlassBackground';
 const HYROX_ORANGE = '#F97316';
 type Sport = 'functional' | 'hybrid';
 
+type HyroxIntent  = 'race_prep' | 'endurance' | 'power' | 'drills';
+type HyroxFatigue = 'upper' | 'lower' | 'full' | 'grip';
+const HYROX_CARD_INTENT_OPTIONS: { key: HyroxIntent; label: string; emoji: string }[] = [
+  { key: 'race_prep', label: 'Race Prep', emoji: '🏁' },
+  { key: 'endurance', label: 'Endurance', emoji: '🏃' },
+  { key: 'power',     label: 'Power',     emoji: '💪' },
+  { key: 'drills',    label: 'Drills',    emoji: '🎯' },
+];
+const HYROX_CARD_VOL: Record<HyroxIntent, number> = { race_prep: 1.0, endurance: 0.6, power: 1.0, drills: 0.4 };
+const HYROX_CARD_RUN: Record<HyroxIntent, number> = { race_prep: 1000, endurance: 750, power: 400, drills: 200 };
+const HYROX_CARD_ITAG: Record<HyroxIntent, string> = { race_prep: '🏁 Race Prep', endurance: '🏃 Endurance', power: '💪 Power', drills: '🎯 Drills' };
+const HYROX_CARD_FTAG: Record<HyroxFatigue, string> = { upper: '💀 Haut du corps', lower: '🦵 Jambes', full: '💀 Corps entier', grip: '✊ Grip / Dos' };
+
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
 type WODType = 'For Time' | 'AMRAP' | 'EMOM' | 'Tabata' | 'Max Reps' | 'Chipper' | 'Ladder' | 'Couplet' | 'Death By';
 const UI_WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Reps'];
@@ -50,6 +63,7 @@ const HYROX_EQ_LIST = [
 interface HyroxWOD {
   name: string; level: string; format: string; type: string; duration: number;
   stations: string[]; scoring: string; coach: string;
+  intent: HyroxIntent; tags: string[];
 }
 
 const HYROX_NAMES: Record<string, string[]> = {
@@ -81,7 +95,7 @@ const HYROX_COACHES: Record<string, string[]> = {
   ],
 };
 
-function generateHyroxWOD(level: string, format: string, type: string, duration: number, eqKeys: string[]): HyroxWOD {
+function generateHyroxWOD(level: string, format: string, type: string, duration: number, eqKeys: string[], intent: HyroxIntent = 'race_prep'): HyroxWOD {
   // ── Index 4 divisions officielles : Women=0, Women Pro=1, Men=2, Men Pro=3 ──
   const li = ({ Women: 0, 'Women Pro': 1, Men: 2, 'Men Pro': 3 } as Record<string, number>)[level] ?? 2;
   const ski  = eqKeys.includes('ski');
@@ -164,93 +178,148 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
     return arr;
   }
 
-  // ── Cardio entre stations : erg ou tapis, jamais Run sans sélection ──
-  function cardioForTransition(): string {
-    return rand(cardioPool);
+  const vM   = HYROX_CARD_VOL[intent];
+  const dF    = ({ 20: 0.25, 30: 0.45, 45: 0.70, 60: 1.0 } as Record<number,number>)[duration] ?? 0.70;
+  const runM  = Math.max(100, Math.round(HYROX_CARD_RUN[intent] * dF / 100) * 100);
+  const scM = (base: number, step: number) => Math.max(step, Math.round(base * vM / step) * step);
+  const scR = (base: number, step: number) => Math.max(step, Math.round(base * vM / step) * step);
+
+  const skiD = Math.max(100, Math.round(1000 * vM * dF / 100) * 100);
+  const sblD = scM(100, 10);
+  const fcD  = scM(200, 25);
+  const bbD2 = scM(80, 10);
+  const wbRs = scR(wb_rep, 5);
+  const slpSets  = intent === 'drills' ? 2 : Math.max(1, Math.round(4 * vM));
+  const slpuSets = intent === 'drills' ? 2 : Math.max(1, Math.round(4 * vM));
+  const trdLabel = runM >= 1000 ? `${runM / 1000} km Tapis` : `${runM}m Tapis`;
+
+  type StDef2 = { str: string; fat: HyroxFatigue };
+  const slpD2:  StDef2 = slp  ? { str: `${slpSets}×12.5m Sled Push (${sp_kg} kg)`, fat: 'lower' }
+                        : bbj ? { str: `${bbD2}m Burpee Broad Jump`,                 fat: 'full'  }
+                              : { str: `${[20,25,25,30][li]} Push-ups`,               fat: 'upper' };
+  const slpuD2: StDef2 = slpu ? { str: `${slpuSets}×12.5m Sled Pull (${sl_kg} kg)`, fat: 'grip' }
+                        : fc   ? { str: `${fcD}m Farmers Carry (${fc_kg} kg×2)`,     fat: 'grip'  }
+                               : { str: `${[15,20,20,25][li]}m Bear Crawl`,           fat: 'lower' };
+  const sblD2:  StDef2 = sbl  ? { str: `${sblD}m Sandbag Lunges (${sb_kg} kg)`,     fat: 'lower' }
+                        : fc   ? { str: `${Math.round(fcD*0.5/25)*25}m Farmers Carry (${fc_kg} kg×2)`, fat: 'grip' }
+                               : { str: `${scR([40,50,50,60][li], 5)} Walking Lunges`, fat: 'lower' };
+  const wbD2:   StDef2 = wb   ? { str: `${wbRs} Wall Balls (${wb_kg} kg)`,           fat: 'full'  }
+                               : { str: `${scR([60,80,80,100][li], 10)} Air Squats`,  fat: 'lower' };
+  const fcD2:   StDef2 = fc   ? { str: `${fcD}m Farmers Carry (${fc_kg} kg×2)`,      fat: 'grip'  }
+                        : sbl  ? sblD2
+                               : { str: `${scR([40,50,50,60][li], 5)} Goblet Squats`, fat: 'lower' };
+  const bbjD2:  StDef2 = bbj  ? { str: `${bbD2}m Burpee Broad Jump`,                 fat: 'full'  }
+                               : { str: `${scR([10,12,12,15][li], 1)} Broad Jumps`,   fat: 'lower' };
+  const dbD2:   StDef2 = db   ? { str: `${scR([12,15,15,20][li], 1)} DB Thrusters (${db_kg} kg/main)`, fat: 'full' }
+                               : { str: `${scR([15,20,20,25][li], 5)} Jumping Squats`, fat: 'lower' };
+
+  const seenSt2 = new Set<string>();
+  const allSt2: StDef2[] = [slpD2, slpuD2, sblD2, wbD2, fcD2, bbjD2, dbD2]
+    .filter(s => { if (seenSt2.has(s.str)) return false; seenSt2.add(s.str); return true; });
+
+  const skiStr2  = ski  ? `${skiD}m SkiErg`  : row  ? `${skiD}m RowErg`  : bike ? `${skiD}m BikeErg` : null;
+  const rowStr2  = row  ? `${skiD}m RowErg`  : ski  ? `${skiD}m SkiErg`  : bike ? `${skiD}m BikeErg` : null;
+  const bikeStr2 = bike ? `${skiD}m BikeErg` : ski  ? `${skiD}m SkiErg`  : row  ? `${skiD}m RowErg`  : null;
+  const cardioPool2: string[] = [];
+  [skiStr2, rowStr2, bikeStr2].forEach(s => { if (s && !cardioPool2.includes(s)) cardioPool2.push(s); });
+  if (trd && !cardioPool2.includes(trdLabel)) cardioPool2.push(trdLabel);
+  const hasAnyCo2 = cardioPool2.length > 0;
+  if (!hasAnyCo2) cardioPool2.push(`${[30,40,40,50][li]} Burpees`);
+  const runStr2 = trd ? trdLabel : (skiStr2 ?? rowStr2 ?? bikeStr2 ?? `${[30,40,40,50][li]} Burpees`);
+
+  function pickSmart2(pool: StDef2[], n: number): StDef2[] {
+    const avail = [...pool]; const res: StDef2[] = []; let lastFat: HyroxFatigue | null = null;
+    for (let i = 0; i < n && avail.length > 0; i++) {
+      const cands = avail.filter(s => s.fat !== lastFat);
+      const src = cands.length > 0 ? cands : avail;
+      const p2 = src[Math.floor(Math.random() * src.length)];
+      res.push(p2); lastFat = p2.fat;
+      avail.splice(avail.findIndex(s => s.str === p2.str), 1);
+    }
+    return res;
+  }
+
+  function domFat2(defs: StDef2[]): HyroxFatigue {
+    const c: Record<HyroxFatigue, number> = { upper: 0, lower: 0, full: 0, grip: 0 };
+    defs.forEach(d => c[d.fat]++); return Object.entries(c).sort((a, b) => b[1] - a[1])[0][0] as HyroxFatigue;
   }
 
   const name  = rand(HYROX_NAMES[type] ?? HYROX_NAMES['Race Simulation']);
   const coach = rand(HYROX_COACHES[type] ?? HYROX_COACHES['Race Simulation']);
   let stations: string[] = [];
   let scoring  = '';
+  let pickedDefs2: StDef2[] = [];
   const isPro = level.includes('Pro');
 
   // ═══════════════════════════════════════════════════════════════════════
   // 🏁 RACE SIMULATION — alternance Cardio + Station
   // ═══════════════════════════════════════════════════════════════════════
   if (type === 'Race Simulation') {
-    const blocCount = duration <= 20 ? rand([3,4])
-                    : duration <= 30 ? rand([4,5])
-                    : duration <= 45 ? rand([6,7])
-                    : 8;
-    const picked = pick(allStations, Math.min(blocCount, allStations.length));
-    while (picked.length < blocCount) picked.push(rand(allStations.filter(s => s !== picked[picked.length - 1])));
-    const result: string[] = [];
-    for (let i = 0; i < blocCount; i++) {
-      result.push(cardioForTransition());
-      result.push(picked[i]);
+    const blocCount = duration <= 20 ? rand([3,4]) : duration <= 30 ? rand([4,5]) : duration <= 45 ? rand([5,6]) : 8;
+    pickedDefs2 = pickSmart2(allSt2, Math.min(blocCount, allSt2.length));
+    while (pickedDefs2.length < blocCount) {
+      const fill = allSt2.filter(s => s.str !== pickedDefs2[pickedDefs2.length - 1]?.str);
+      pickedDefs2.push(rand(fill.length > 0 ? fill : allSt2));
     }
-    stations = noConsecutive(result);
-    const timeTarget = isPro ? `< ${duration} min` : `< ${duration + 5} min`;
-    scoring = `For Time — ${blocCount} blocs Cardio + Station — objectif ${timeTarget}`;
+    if (hasAnyCo2) {
+      const result: string[] = [];
+      for (let i = 0; i < blocCount; i++) { result.push(runStr2); if (pickedDefs2[i]) result.push(pickedDefs2[i].str); }
+      stations = result;
+      const rLabel = runM >= 1000 ? `${runM / 1000}km` : `${runM}m`;
+      const timeTarget = isPro ? `< ${duration} min` : `< ${duration + 5} min`;
+      scoring = `For Time — ${blocCount} blocs ${rLabel} Run + Station — objectif ${timeTarget}`;
+    } else {
+      stations = pickedDefs2.map(s => s.str);
+      scoring = `For Time — ${blocCount} stations enchaînées — cap ${duration} min`;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 🎯 STATION TRAINING — circuit sans cardio continu
+  // 🎯 STATION TRAINING — intent-aware
   // ═══════════════════════════════════════════════════════════════════════
   else if (type === 'Station Training') {
-    if (duration <= 20) {
-      const n = rand([2, 3]);
-      const mvs = pick(allStations, n);
-      stations = [`AMRAP ${duration} min :`, ...mvs];
-      scoring = `Max rounds + reps en ${duration} min — ${n === 3 ? 'Triplet' : 'Couplet'}`;
-    } else if (duration <= 30) {
-      const isChipper = Math.random() < 0.5;
-      if (isChipper) {
-        const pool = [...allStations];
-        if (S.ski) pool.push(S.ski);
-        if (S.row) pool.push(S.row);
-        if (S.bike) pool.push(S.bike);
-        const mvs = pick(pool, Math.min(5, pool.length));
-        stations = ['For Time (Chipper) :', ...mvs];
-        scoring = `Chipper — Temps (cap ${duration} min)`;
+    if (intent === 'race_prep') {
+      if (duration <= 20) {
+        const n = rand([2, 3]);
+        pickedDefs2 = pickSmart2(allSt2, n);
+        stations = [`AMRAP ${duration} min :`, ...pickedDefs2.map(s => s.str)];
+        scoring = `Max rounds + reps en ${duration} min`;
       } else {
-        const rounds = rand([4, 5]);
-        const mvs = pick(allStations, 3);
-        stations = [`${rounds} Rounds For Time :`, ...mvs];
-        scoring = `Triplet — Temps (cap ${duration} min)`;
+        const rounds = duration <= 30 ? rand([4, 5]) : rand([5, 6]);
+        pickedDefs2 = pickSmart2(allSt2, 3);
+        stations = [`${rounds} Rounds For Time :`, ...pickedDefs2.map(s => s.str)];
+        scoring = `For Time — ${rounds} rounds (cap ${duration} min)`;
       }
-    } else if (duration <= 45) {
+    } else if (intent === 'endurance') {
       const emomMins = rand([2, 3]);
-      const emomMvs = pick(allStations, emomMins);
-      const emomCycles = Math.floor(20 / emomMins);
-      const chipPool = allStations.filter(s => !emomMvs.includes(s));
-      if (S.ski) chipPool.push(S.ski);
-      if (S.row) chipPool.push(S.row);
-      if (S.bike) chipPool.push(S.bike);
-      const chipperMvs = pick(chipPool, Math.min(4, chipPool.length));
+      pickedDefs2 = pickSmart2(allSt2, emomMins);
+      const emomCycles = Math.floor(duration * 0.6 / emomMins);
+      const remaining = duration - emomCycles * emomMins;
+      const chipDefs = pickSmart2(allSt2.filter(s => !pickedDefs2.some(p => p.str === s.str)), Math.min(3, allSt2.length));
       stations = [
-        `── Partie 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
-        ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
-        `── Partie 2 : Chipper For Time (cap ${duration - emomCycles * emomMins} min) ──`,
-        ...chipperMvs,
+        `── Bloc 1 : E${emomMins}MOM ${emomCycles * emomMins} min ──`,
+        ...pickedDefs2.map((s, i) => `  Min ${(i % emomMins) + 1}: ${s.str}`),
+        `── Bloc 2 : For Time (cap ${remaining} min) ──`,
+        runStr2,
+        ...chipDefs.map(s => s.str),
       ];
-      scoring = `EMOM ${emomCycles * emomMins} min + Chipper restant`;
+      scoring = `EMOM ${emomCycles * emomMins} min + Run + Stations — cap ${duration} min`;
+    } else if (intent === 'power') {
+      const n = rand([2, 3]);
+      pickedDefs2 = pickSmart2(allSt2, n);
+      const sets = isPro ? 4 : 3;
+      stations = pickedDefs2.flatMap(s => [`── ${s.str} ──`, `  ${sets} sets — repos :90`]);
+      scoring = `${sets} Sets par station | repos :90 — noter les temps`;
     } else {
-      const ladderMvs = pick(allStations, 2);
-      const maxRung = isPro ? 12 : 10;
-      const chipPool = allStations.filter(s => !ladderMvs.includes(s));
-      if (S.ski) chipPool.push(S.ski);
-      if (S.row) chipPool.push(S.row);
-      if (S.bike) chipPool.push(S.bike);
-      const chipperMvs = pick(chipPool, Math.min(5, chipPool.length));
-      stations = [
-        `── Partie 1 : Ladder 1→${maxRung} For Time ──`,
-        ...ladderMvs,
-        `── Partie 2 : Chipper For Time (cap restant) ──`,
-        ...chipperMvs,
-      ];
-      scoring = `Ladder + Chipper — Temps total (cap ${duration} min)`;
+      const drillCues = ['focus foulée', 'focus bras alignés', 'focus gainage', 'focus respiration', 'focus alignement'];
+      pickedDefs2 = pickSmart2(allSt2, rand([2, 3]));
+      if (cardioPool2.length > 0) { stations.push(`3× ${rand(cardioPool2)} — repos :60`); stations.push('─'); }
+      pickedDefs2.forEach(s => {
+        stations.push(`4× ${s.str} — repos :90`);
+        stations.push(`  ↳ ${rand(drillCues)}`);
+        stations.push('─');
+      });
+      scoring = `Technique — noter les temps par set | repos stricts`;
     }
     stations = noConsecutive(stations);
   }
@@ -259,43 +328,52 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   // 💪 CARDIO FORCE — alternance cardio + force
   // ═══════════════════════════════════════════════════════════════════════
   else {
-    const blocCount = duration <= 20 ? 4 : duration <= 30 ? 6 : duration <= 45 ? 8 : 10;
-    const nC = Math.ceil(blocCount / 2);
-    const nF = Math.floor(blocCount / 2);
-    const pC = pick(cardioPool, Math.min(nC, cardioPool.length));
-    while (pC.length < nC) pC.push(rand(cardioPool.filter(c => c !== pC[pC.length - 1])));
-    const pF = pick(forcePool, Math.min(nF, forcePool.length));
-    while (pF.length < nF) pF.push(rand(forcePool.filter(f => f !== pF[pF.length - 1])));
-    const combined: string[] = [];
-    for (let i = 0; i < Math.max(nC, nF); i++) {
-      if (pC[i]) combined.push(pC[i]);
-      if (pF[i]) combined.push(pF[i]);
-    }
-    const useEMOM = duration >= 30 && Math.random() < 0.5;
-    if (useEMOM) {
-      const mins = combined.length;
-      stations = [`EMOM ${mins} min (${Math.floor(duration / mins)} cycles = ${duration} min) :`];
-      combined.forEach((m, i) => stations.push(`  Min ${i + 1}: ${m}`));
-      scoring = `EMOM ${duration} min — score = cycles complétés`;
+    if (!hasAnyCo2) {
+      const n = Math.min(4, allSt2.length);
+      pickedDefs2 = pickSmart2(allSt2, n);
+      const rounds = Math.max(2, Math.floor(duration / (n * 1.5)));
+      stations = [`${rounds} Rounds For Time :`, ...pickedDefs2.map(s => s.str)];
+      scoring = `For Time — ${rounds} rounds stations (cap ${duration} min)`;
     } else {
-      const rounds = Math.max(2, Math.floor(duration / (combined.length * 1.5)));
-      stations = [`${rounds} Rounds For Time :`].concat(combined);
-      scoring = `For Time — ${rounds} rounds (cap ${duration} min)`;
+      const blocCount = duration <= 20 ? 4 : duration <= 30 ? 6 : duration <= 45 ? 8 : 10;
+      const nC = Math.ceil(blocCount / 2);
+      const nF = Math.floor(blocCount / 2);
+      const pC = pick(cardioPool2, Math.min(nC, cardioPool2.length));
+      while (pC.length < nC) { const fc3 = cardioPool2.filter(c => c !== pC[pC.length - 1]); pC.push(rand(fc3.length > 0 ? fc3 : cardioPool2)); }
+      pickedDefs2 = pickSmart2(allSt2, Math.min(nF, allSt2.length));
+      while (pickedDefs2.length < nF) { const fill = allSt2.filter(s => s.fat !== pickedDefs2[pickedDefs2.length - 1]?.fat); pickedDefs2.push(rand(fill.length > 0 ? fill : allSt2)); }
+      const combined: string[] = [];
+      for (let i = 0; i < Math.max(nC, nF); i++) {
+        if (pC[i]) combined.push(pC[i]);
+        if (pickedDefs2[i]) combined.push(pickedDefs2[i].str);
+      }
+      if (intent === 'power') {
+        const rounds = Math.max(2, Math.floor(duration / (combined.length * 1.5)));
+        stations = [`${rounds} Rounds For Time :`].concat(combined);
+        scoring = `For Time — ${rounds} rounds (cap ${duration} min)`;
+      } else {
+        const mins = combined.length;
+        stations = [`EMOM ${mins} min (répéter ${Math.floor(duration / mins)}× = ${duration} min) :`];
+        combined.forEach((m, i) => stations.push(`  Min ${i + 1}: ${m}`));
+        scoring = `EMOM ${duration} min — score = cycles complétés`;
+      }
     }
     stations = noConsecutive(stations);
   }
 
   // ── Format équipe ──
   const fmtStation = (s: string): string => {
-    if (s.startsWith('──') || s.startsWith('AMRAP') || s.startsWith('For Time')
-        || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  Min')) return s;
-    if (format === 'Doubles')      return `${s}  ⟨split ×2 — I go / You go⟩`;
-    if (format === 'Relais')       return `${s}  ⟨relais — 1 athlète par station⟩`;
-    if (format === 'Mixed Relais') return `${s}  ⟨mixed H/F — charges adaptées⟩`;
+    if (s.startsWith('──') || s.startsWith('─') || s.startsWith('AMRAP') || s.startsWith('For Time')
+        || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  ')) return s;
+    if (format === 'Doubles')      return `${s}  ⟨I go / You go⟩`;
+    if (format === 'Relais')       return `${s}  ⟨1 athlète / station⟩`;
+    if (format === 'Mixed Relais') return `${s}  ⟨charges H/F adaptées⟩`;
     return s;
   };
-  stations = stations.map(fmtStation);
-  return { name, level, format, type, duration, stations, scoring, coach };
+  stations = noConsecutive(stations.map(fmtStation));
+  const domF2 = pickedDefs2.length > 0 ? domFat2(pickedDefs2) : 'full';
+  const tags = [HYROX_CARD_ITAG[intent], HYROX_CARD_FTAG[domF2]];
+  return { name, level, format, type, duration, stations, scoring, coach, intent, tags };
 }
 const DURATIONS = [5, 10, 15, 20, 30, 40, 60];
 const EQ_LIST = [
@@ -310,6 +388,7 @@ const EQ_LIST = [
 interface GeneratedWOD {
   name: string; type: WODType; duration: number; level: LK;
   movements: string; scoring: string; coach: string; teamNote?: string;
+  intent?: Intent; tags?: string[];
 }
 
 // Movement pools per equipment key with level scaling [sc,in,rx,rx+,el,pr]
@@ -403,8 +482,7 @@ const MOVES: Record<string, Array<{ mv: string; scale: string[] }>> = {
   ],
   ri: [
     { mv: 'Ring Dips', scale: ['Banded Ring Dips','Ring Dip modif','Ring Dips','Ring Dips stricts','Ring Dips stricts','Ring Dips lestés'] },
-    { mv: 'Muscle-ups', scale: ['Ring Rows+Dips','MU transitions','Muscle-ups','Muscle-ups','Strict MU','Strict MU'] },
-    { mv: 'Ring Push-ups', scale: ['Ring PU genoux','Ring PU','Ring PU','Ring PU élargis','Ring PU + pause','Archer Ring PU'] },
+    { mv: 'Muscle-ups', scale: ['—','—','Muscle-ups','Muscle-ups','Strict MU','Strict MU'] },
     { mv: 'Toes to Rings', scale: ['—','K2R','T2R','T2R','T2R','T2R'] },
   ],
   erg: [
@@ -499,6 +577,182 @@ const TIER_CHIPPER: Record<number, number[]> = {
   5: [999,999,999,999,999,999],
 };
 
+// ── Intent + Movement metadata ────────────────────────────────────────
+type MvFamily = 'gymnastics' | 'weightlifting' | 'monostructural' | 'hinge' | 'squatting';
+type FatigueZone = 'grip' | 'shoulder' | 'legs' | 'lungs' | 'back' | 'core';
+type Intent = 'mixed' | 'cardio' | 'strength' | 'gymnastics';
+
+interface MvMeta { f: MvFamily; fz: FatigueZone[] }
+const MOVE_META: Record<string, MvMeta> = {
+  // ── Barbell ──
+  'Clean & Jerks':            { f:'weightlifting', fz:['back','grip','shoulder'] },
+  'Power Cleans':             { f:'weightlifting', fz:['back','grip'] },
+  'Cleans':                   { f:'weightlifting', fz:['back','grip'] },
+  'Squat Cleans':             { f:'weightlifting', fz:['back','grip','legs'] },
+  'Hang Cleans':              { f:'weightlifting', fz:['back','grip'] },
+  'Hang Squat Cleans':        { f:'weightlifting', fz:['back','grip','legs'] },
+  'Hang Power Cleans':        { f:'weightlifting', fz:['back','grip'] },
+  'Hang Clean & Jerks':       { f:'weightlifting', fz:['back','grip','shoulder'] },
+  'Hang Squat Clean & Jerks': { f:'weightlifting', fz:['back','grip','shoulder','legs'] },
+  'Thrusters':                { f:'weightlifting', fz:['shoulder','legs'] },
+  'Clusters':                 { f:'weightlifting', fz:['shoulder','legs','grip'] },
+  'Snatches':                 { f:'weightlifting', fz:['shoulder','grip','back'] },
+  'Power Snatches':           { f:'weightlifting', fz:['shoulder','grip','back'] },
+  'Squat Snatches':           { f:'weightlifting', fz:['shoulder','grip','back','legs'] },
+  'Hang Snatches':            { f:'weightlifting', fz:['shoulder','grip','back'] },
+  'Deadlifts':                { f:'hinge',         fz:['back','grip'] },
+  'Sumo Deadlift HP':         { f:'hinge',         fz:['back','grip','shoulder'] },
+  'Front Squats':             { f:'squatting',     fz:['legs'] },
+  'Back Squats':              { f:'squatting',     fz:['legs','back'] },
+  'OHS':                      { f:'squatting',     fz:['legs','shoulder'] },
+  'Push Press':               { f:'weightlifting', fz:['shoulder','legs'] },
+  'Push Jerks':               { f:'weightlifting', fz:['shoulder','legs'] },
+  'Strict Press':             { f:'weightlifting', fz:['shoulder'] },
+  'Shoulder to OH':           { f:'weightlifting', fz:['shoulder'] },
+  'Burpee Over Bar':          { f:'gymnastics',    fz:['lungs'] },
+  'Bar Facing Burpees':       { f:'gymnastics',    fz:['lungs'] },
+  // ── DB ──
+  'DB Thrusters':             { f:'weightlifting', fz:['shoulder','legs'] },
+  'DB Snatches alt.':         { f:'weightlifting', fz:['shoulder','grip'] },
+  'DB Hang Snatches':         { f:'weightlifting', fz:['shoulder','grip'] },
+  'DB Squat Snatches':        { f:'weightlifting', fz:['shoulder','grip','legs'] },
+  "Devil's Press":            { f:'weightlifting', fz:['shoulder','lungs','grip'] },
+  'DB Clean & Jerks':         { f:'weightlifting', fz:['shoulder','grip'] },
+  'DB Hang Clean & Jerks':    { f:'weightlifting', fz:['shoulder','grip'] },
+  'DB Deadlifts':             { f:'hinge',         fz:['back','grip'] },
+  'DB Lunges':                { f:'squatting',     fz:['legs'] },
+  'DB Walking Lunges':        { f:'squatting',     fz:['legs'] },
+  'DB OH Walking Lunges':     { f:'squatting',     fz:['legs','shoulder'] },
+  'DB Push Press':            { f:'weightlifting', fz:['shoulder'] },
+  'DB Farmer Carry (m)':      { f:'hinge',         fz:['grip','back'] },
+  'Burpee Over DB':           { f:'gymnastics',    fz:['lungs'] },
+  'DB Step-ups':              { f:'squatting',     fz:['legs'] },
+  // ── KB ──
+  'KB Swings':                { f:'hinge',         fz:['back','grip'] },
+  'Goblet Squats':            { f:'squatting',     fz:['legs'] },
+  'KB Cleans alt.':           { f:'weightlifting', fz:['grip','shoulder'] },
+  'KB Snatches alt.':         { f:'weightlifting', fz:['grip','shoulder'] },
+  'KB Clean & Jerks':         { f:'weightlifting', fz:['grip','shoulder'] },
+  'KB Shoulder to OH':        { f:'weightlifting', fz:['shoulder'] },
+  'KB Clean & Press':         { f:'weightlifting', fz:['shoulder','grip'] },
+  'Double KB Snatches':       { f:'weightlifting', fz:['shoulder','grip','back'] },
+  'Double KB Cleans':         { f:'weightlifting', fz:['grip','back'] },
+  'Double KB Clean & Jerks':  { f:'weightlifting', fz:['grip','shoulder','back'] },
+  'KB OH Squats':             { f:'squatting',     fz:['legs','shoulder'] },
+  'Double KB OH Squats':      { f:'squatting',     fz:['legs','shoulder'] },
+  'Turkish Get-ups alt.':     { f:'weightlifting', fz:['shoulder','core'] },
+  'KB Thrusters':             { f:'weightlifting', fz:['shoulder','legs'] },
+  'KB Farmer Carry (m)':      { f:'hinge',         fz:['grip'] },
+  'KB Walking Lunges':        { f:'squatting',     fz:['legs','grip'] },
+  'KB OH Walking Lunges':     { f:'squatting',     fz:['legs','shoulder'] },
+  // ── Box ──
+  'Box Jumps':                { f:'monostructural', fz:['legs'] },
+  'Box Jump Overs':           { f:'monostructural', fz:['legs','lungs'] },
+  'Box Step-ups':             { f:'monostructural', fz:['legs'] },
+  'Box Jump Step-overs':      { f:'monostructural', fz:['legs','lungs'] },
+  'Burpee Box Jumps':         { f:'gymnastics',     fz:['lungs','legs'] },
+  'Burpee Box Jump Overs':    { f:'gymnastics',     fz:['lungs','legs'] },
+  // ── Jump Rope ──
+  'Double Unders':            { f:'monostructural', fz:['lungs','legs'] },
+  'Single Unders':            { f:'monostructural', fz:['lungs'] },
+  'Cross Overs':              { f:'monostructural', fz:['lungs'] },
+  'Double Cross Overs':       { f:'monostructural', fz:['lungs'] },
+  // ── Pull-up bar ──
+  'Pull-ups':                 { f:'gymnastics', fz:['grip','shoulder'] },
+  'Toes to Bar':              { f:'gymnastics', fz:['core','grip'] },
+  'Knees to Elbows':          { f:'gymnastics', fz:['core','grip'] },
+  'HSPU':                     { f:'gymnastics', fz:['shoulder'] },
+  'Kipping Pull-ups':         { f:'gymnastics', fz:['grip','shoulder'] },
+  'Bar Muscle-ups':           { f:'gymnastics', fz:['grip','shoulder'] },
+  'Pull-Overs':               { f:'gymnastics', fz:['grip','shoulder'] },
+  // ── Rings ──
+  'Ring Dips':                { f:'gymnastics', fz:['shoulder'] },
+  'Muscle-ups':               { f:'gymnastics', fz:['shoulder','grip'] },
+  'Ring Push-ups':            { f:'gymnastics', fz:['shoulder'] },
+  'Toes to Rings':            { f:'gymnastics', fz:['core','grip'] },
+  // ── Erg ──
+  'Cal Rameur':               { f:'monostructural', fz:['lungs','back'] },
+  'Cal Ski Erg':              { f:'monostructural', fz:['lungs','shoulder'] },
+  'Cal Assault Bike':         { f:'monostructural', fz:['lungs','legs'] },
+  'm Rameur':                 { f:'monostructural', fz:['lungs','back'] },
+  // ── Med Ball ──
+  'Wall Balls':               { f:'weightlifting', fz:['lungs','legs','shoulder'] },
+  'MB Slams':                 { f:'hinge',         fz:['back','core'] },
+  'MB Cleans':                { f:'weightlifting', fz:['back','grip'] },
+  // ── Worm ──
+  'Worm Clean & Jerks':       { f:'weightlifting', fz:['back','shoulder'] },
+  'Worm Squats':              { f:'squatting',     fz:['legs','back'] },
+  'Worm Lunges':              { f:'squatting',     fz:['legs','back'] },
+  // ── Bodyweight ──
+  'Burpees':                  { f:'gymnastics',     fz:['lungs'] },
+  'Down Ups':                 { f:'gymnastics',     fz:['lungs'] },
+  'Air Squats':               { f:'squatting',      fz:['legs'] },
+  'Push-ups':                 { f:'gymnastics',     fz:['shoulder'] },
+  'Sit-ups':                  { f:'gymnastics',     fz:['core'] },
+  'Lunges alt.':              { f:'squatting',      fz:['legs'] },
+  'Pistol Squats':            { f:'gymnastics',     fz:['legs'] },
+  'HSPU Stricts':             { f:'gymnastics',     fz:['shoulder'] },
+  'Wall Facing HSPU':         { f:'gymnastics',     fz:['shoulder'] },
+  'Wall Walks':               { f:'gymnastics',     fz:['shoulder','core'] },
+  'Shuttle Run (×7.62m)':     { f:'monostructural', fz:['lungs','legs'] },
+};
+
+// Skeleton: per circuit+intent → ordered slots of allowed families
+type Skeleton = MvFamily[][];
+const SKELETONS: Record<string, Record<Intent, Skeleton>> = {
+  triplet: {
+    mixed:       [['monostructural'],         ['weightlifting','hinge'],     ['gymnastics']],
+    cardio:      [['monostructural'],         ['gymnastics'],                ['monostructural']],
+    strength:    [['hinge','squatting'],      ['weightlifting'],             ['gymnastics','squatting']],
+    gymnastics:  [['gymnastics'],             ['gymnastics'],                ['monostructural']],
+  },
+  couplet: {
+    mixed:       [['weightlifting','hinge'],  ['gymnastics','monostructural']],
+    cardio:      [['monostructural'],         ['gymnastics']],
+    strength:    [['hinge','weightlifting'],  ['squatting','gymnastics']],
+    gymnastics:  [['gymnastics'],             ['gymnastics']],
+  },
+  chipper: {
+    mixed:       [['monostructural'],  ['hinge','weightlifting'], ['gymnastics'],            ['weightlifting'],      ['monostructural']],
+    cardio:      [['monostructural'],  ['gymnastics'],            ['monostructural'],        ['gymnastics'],         ['monostructural']],
+    strength:    [['hinge'],           ['weightlifting'],         ['squatting'],             ['gymnastics'],         ['monostructural']],
+    gymnastics:  [['gymnastics'],      ['gymnastics'],            ['monostructural'],        ['gymnastics'],         ['hinge','weightlifting']],
+  },
+  emom: {
+    mixed:       [['monostructural'],         ['weightlifting','gymnastics']],
+    cardio:      [['monostructural'],         ['monostructural']],
+    strength:    [['weightlifting','hinge'],  ['gymnastics']],
+    gymnastics:  [['gymnastics'],             ['gymnastics','monostructural']],
+  },
+  tabata: {
+    mixed:       [['gymnastics','monostructural'], ['weightlifting','squatting']],
+    cardio:      [['monostructural'],              ['gymnastics']],
+    strength:    [['weightlifting','hinge'],       ['squatting']],
+    gymnastics:  [['gymnastics'],                  ['gymnastics']],
+  },
+  single: {
+    mixed:       [['weightlifting','gymnastics']],
+    cardio:      [['monostructural','gymnastics']],
+    strength:    [['weightlifting','hinge']],
+    gymnastics:  [['gymnastics']],
+  },
+};
+
+// Rep multiplier per intent: strength = lower reps, cardio = higher
+const INTENT_REP_MULT: Record<Intent, number> = { mixed: 1, cardio: 1.25, strength: 0.75, gymnastics: 1 };
+const INTENT_FATIGUE: Record<Intent, string> = {
+  mixed:      'Corps entier',
+  cardio:     'Cardio / Souffle',
+  strength:   'Dos / Grip',
+  gymnastics: 'Épaules / Core',
+};
+const INTENT_OPTIONS: { key: Intent; label: string; emoji: string }[] = [
+  { key: 'mixed',      label: 'Mixed',    emoji: '⚡' },
+  { key: 'cardio',     label: 'Cardio',   emoji: '🫀' },
+  { key: 'strength',   label: 'Force',    emoji: '💪' },
+  { key: 'gymnastics', label: 'Gym',      emoji: '🤸' },
+];
+
 // ── Benchmark WODs (Hero + Girl + Open) ───────────────────────────────
 interface BenchmarkWOD { title: string; cat: string; moves: string[]; scoring: string; tip: string }
 const BENCHMARKS: BenchmarkWOD[] = [
@@ -558,7 +812,7 @@ function pick<T>(arr: T[], n: number): T[] {
 }
 
 function getMoves(eqKeys: string[], li: number): Array<{ mv: string; scale: string[] }> {
-  const active = eqKeys.includes('bw') || eqKeys.length === 0 ? ['bw', ...eqKeys] : eqKeys;
+  const active = eqKeys.length === 0 ? Object.keys(MOVES) : (eqKeys.includes('bw') ? ['bw', ...eqKeys] : eqKeys);
   const pool: Array<{ mv: string; scale: string[] }> = [];
   active.forEach(k => { if (MOVES[k]) pool.push(...MOVES[k]); });
   if (pool.length === 0) pool.push(...MOVES['bw']);
@@ -654,7 +908,7 @@ function fmt(mv: { mv: string; scale: string[] }, reps: number, li: number): str
   return `${reps} ${mvName} (${s} kg)`;
 }
 
-function generateWOD(level: LK, format: string, duration: number, type: WODType, eqKeys: string[]): GeneratedWOD {
+function generateWOD(level: LK, format: string, duration: number, type: WODType, eqKeys: string[], intent: Intent = 'mixed'): GeneratedWOD {
   const li = LI[level];
   const isTeam = format !== 'Solo';
   const teamN = isTeam ? parseInt(format.replace(/\D/g, '')) || 2 : 1;
@@ -768,6 +1022,40 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
     return unifyLoads(getMovesForced(eqKeys, li, count));
   }
 
+  function pickFromSkeleton(skeleton: MvFamily[][], count: number): Array<{ mv: string; scale: string[] }> {
+    const allMoves = getMoves(eqKeys, li);
+    const result: Array<{ mv: string; scale: string[] }> = [];
+    const usedFatigues = new Set<FatigueZone>();
+    const usedMvs = new Set<string>();
+    for (let i = 0; i < count; i++) {
+      const slotFamilies = skeleton[i % skeleton.length];
+      let candidates = allMoves.filter(m => {
+        const meta = MOVE_META[m.mv];
+        return meta && slotFamilies.includes(meta.f) && !usedMvs.has(m.mv);
+      });
+      const noStack = candidates.filter(m => !MOVE_META[m.mv]?.fz.some(fz => usedFatigues.has(fz)));
+      const p = noStack.length > 0 ? noStack : candidates.length > 0 ? candidates : allMoves.filter(m => !usedMvs.has(m.mv));
+      if (p.length === 0) continue;
+      const picked = rand(p);
+      result.push(picked);
+      usedMvs.add(picked.mv);
+      MOVE_META[picked.mv]?.fz.forEach(fz => usedFatigues.add(fz));
+    }
+    if (result.length < count) {
+      const remaining = allMoves.filter(m => !usedMvs.has(m.mv));
+      while (result.length < count && remaining.length > 0) {
+        const idx = Math.floor(Math.random() * remaining.length);
+        result.push(remaining.splice(idx, 1)[0]);
+      }
+    }
+    return unifyLoads(result.slice(0, count));
+  }
+
+  const repM = INTENT_REP_MULT[intent];
+  function iReps(base: number, m: { mv: string; scale: string[] }, chipper = false): number {
+    return mvReps(Math.round(base * repM), m, li, chipper);
+  }
+
   let name = '', movements = '', scoring = '', coach = '', teamNote = '';
 
   // ── FOR TIME ──────────────────────────────────────────────────────────
@@ -775,24 +1063,24 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
     if (circuit === 'round') {
       name = rand(NAMES_FT);
       const rounds = roundsCal();
-      const mvs = ensureNoWrap(pickMvs(mvCountCal(3)));
-      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, mvReps(12, m, li), li)}`).join('\n');
+      const mvs = ensureNoWrap(pickFromSkeleton(SKELETONS.triplet[intent], mvCountCal(3)));
+      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, iReps(12, m), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min)`;
       coach = 'Gère ton effort : les 2 premiers rounds doivent sembler faciles.';
     } else if (circuit === 'chipper') {
       name = rand(NAMES_CH);
       const mvCount = mvCountCal(5);
-      const mvs = pickMvs(mvCount);
+      const mvs = pickFromSkeleton(SKELETONS.chipper[intent], mvCount);
       const chipReps = [50, 40, 30, 25, 20, 15, 10];
-      movements = `Chipper For Time :\n` + mvs.map((m, i) => `  ${fmt(m, mvReps(chipReps[i] ?? 10, m, li, true), li)}`).join('\n');
+      movements = `Chipper For Time :\n` + mvs.map((m, i) => `  ${fmt(m, iReps(chipReps[i] ?? 10, m, true), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min) — 1 passage`;
       coach = 'Du haut vers le bas. Fractionne les gros sets. Jamais plus de 10s d\'arrêt.';
     } else if (circuit === 'couplet' || circuit === 'triplet') {
       name = rand(NAMES_CP);
       const n = circuit === 'triplet' ? 3 : 2;
-      const mvs = pickMvs(n);
+      const mvs = pickFromSkeleton(SKELETONS[circuit === 'triplet' ? 'triplet' : 'couplet'][intent], n);
       const rounds = roundsCal();
-      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, mvReps(15, m, li), li)}`).join('\n');
+      movements = `${rounds} Rounds For Time :\n` + mvs.map(m => `  ${fmt(m, iReps(15, m), li)}`).join('\n');
       scoring = `Temps le plus court (cap ${duration} min) — ${circuit === 'triplet' ? 'Triplet' : 'Couplet'}`;
       coach = circuit === 'triplet'
         ? 'Triplet rythmé. Pas de repos entre les 3 mouvements.'
@@ -802,7 +1090,7 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
       const isPyramid = Math.random() < 0.5;
       const maxRung = duration <= 5 ? 7 : duration <= 10 ? 10 : duration <= 20 ? 12 : 15;
       const top = Math.floor(maxRung / 2);
-      const mvs = pickMvs(rand([1, 2]));
+      const mvs = pickFromSkeleton(SKELETONS.couplet[intent], rand([1, 2]));
       if (isPyramid) {
         movements = `Pyramide For Time (1→${top}→1) :\n` + mvs.map(m => `  ${fmtName(m, li)}`).join('\n');
         scoring = `Temps le plus court (cap ${duration} min) — pyramide 1→${top}→1`;
@@ -820,16 +1108,16 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
   else if (type === 'AMRAP') {
     if (circuit === 'round') {
       name = rand(NAMES_AM);
-      const mvs = ensureNoWrap(pickMvs(mvCountCal(3)));
+      const mvs = ensureNoWrap(pickFromSkeleton(SKELETONS.triplet[intent], mvCountCal(3)));
       const baseReps = [10, 15, 12, 20, 8, 15];
-      movements = `AMRAP ${duration} min :\n` + mvs.map((m, i) => `  ${fmt(m, mvReps(baseReps[i] ?? 12, m, li), li)}`).join('\n');
+      movements = `AMRAP ${duration} min :\n` + mvs.map((m, i) => `  ${fmt(m, iReps(baseReps[i] ?? 12, m), li)}`).join('\n');
       scoring = `Max rounds + reps en ${duration} min`;
       coach = 'Trouve UN rythme et tiens-le. Évite le sprint initial.';
     } else if (circuit === 'couplet' || circuit === 'triplet') {
       name = rand([...NAMES_AM, ...NAMES_CP]);
       const n = circuit === 'triplet' ? 3 : 2;
-      const mvs = pickMvs(n);
-      movements = `AMRAP ${duration} min :\n` + mvs.map(m => `  ${fmt(m, mvReps(15, m, li), li)}`).join('\n');
+      const mvs = pickFromSkeleton(SKELETONS[circuit === 'triplet' ? 'triplet' : 'couplet'][intent], n);
+      movements = `AMRAP ${duration} min :\n` + mvs.map(m => `  ${fmt(m, iReps(15, m), li)}`).join('\n');
       scoring = `Max rounds + reps en ${duration} min — ${circuit === 'triplet' ? 'Triplet' : 'Couplet'}`;
       coach = circuit === 'triplet'
         ? '3 mouvements en boucle. Rythme constant, transitions rapides.'
@@ -837,9 +1125,9 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
     } else if (circuit === 'chipper') {
       name = rand([...NAMES_AM, ...NAMES_CH]);
       const mvCount = mvCountCal(5);
-      const mvs = pickMvs(mvCount);
+      const mvs = pickFromSkeleton(SKELETONS.chipper[intent], mvCount);
       const chipReps = [40, 30, 25, 20, 15, 12, 10];
-      movements = `AMRAP ${duration} min (Chipper) :\n` + mvs.map((m, i) => `  ${fmt(m, mvReps(chipReps[i] ?? 10, m, li, true), li)}`).join('\n');
+      movements = `AMRAP ${duration} min (Chipper) :\n` + mvs.map((m, i) => `  ${fmt(m, iReps(chipReps[i] ?? 10, m, true), li)}`).join('\n');
       scoring = `Max rounds + reps en ${duration} min — Chipper style`;
       coach = 'Enchaîne sans pause. Chaque passage complet = 1 round.';
     }
@@ -864,10 +1152,10 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
     } else {
       name = rand(NAMES_EM);
       const n = circuit === 'triplet' ? 3 : 2;
-      const mvs = pickMvs(n);
+      const mvs = pickFromSkeleton(SKELETONS.emom[intent], n);
       const lines: string[] = [];
       for (let i = 0; i < n; i++) {
-        lines.push(`  Min ${i+1}: ${fmt(mvs[i], mvReps(10, mvs[i], li), li)}`);
+        lines.push(`  Min ${i+1}: ${fmt(mvs[i], iReps(10, mvs[i]), li)}`);
       }
       const cycles = Math.round(duration / n);
       lines.push(`  → Répéter le cycle (${cycles} fois = ${duration} min)`);
@@ -883,12 +1171,12 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
     name = rand(NAMES_TB);
     if (circuit === 'double_couplet') {
       const count = Math.max(2, Math.floor(duration / 4));
-      const mvs = pickMvs(count);
+      const mvs = pickFromSkeleton(SKELETONS.tabata[intent], count);
       movements = `Tabata ${duration} min (${count} mouv.) :\n` + mvs.map(m => `  8×20s ${fmtName(m, li)} / 10s repos`).join('\n');
       scoring = 'Score = min de reps sur un round (par mouvement)';
       coach = 'Maintiens le même nombre de reps à chaque round des 8.';
     } else {
-      const mvs = pickMvs(2);
+      const mvs = pickFromSkeleton(SKELETONS.tabata[intent], 2);
       const tabCycles = Math.max(1, Math.floor(duration / 4));
       movements = `Tabata ${duration} min :\n` + mvs.map(m => `  8×20s ${fmtName(m, li)} / 10s repos`).join('\n');
       if (tabCycles > 1) movements += `\n  → ${tabCycles} cycles`;
@@ -902,20 +1190,20 @@ function generateWOD(level: LK, format: string, duration: number, type: WODType,
   else {
     name = rand(NAMES_MR);
     const count = rand([1, 2]);
-    const pool = getMoves(eqKeys, li);
-    if (count === 1) {
-      const m = rand(pool);
-      movements = `Max reps en ${duration} min :\n  ${fmtName(m, li)}`;
+    const mrMvs = pickFromSkeleton(SKELETONS.single[intent], count);
+    if (mrMvs.length === 1) {
+      movements = `Max reps en ${duration} min :\n  ${fmtName(mrMvs[0], li)}`;
     } else {
-      const mvs = unifyLoads(pick(pool, 2));
-      movements = `Max reps en ${duration} min :\n` + mvs.map(m => `  ${fmtName(m, li)}`).join('\n');
+      movements = `Max reps en ${duration} min :\n` + mrMvs.map(m => `  ${fmtName(m, li)}`).join('\n');
     }
     scoring = `Score = total de reps (repos 15s max entre sets)`;
     coach = 'Sets réguliers. Repos jamais > 20s. Pousse jusqu\'au bout.';
     teamNote = isTeam ? `Équipe de ${teamN} : score = somme des reps. Alternance 30s.` : '';
   }
 
-  return { name, type, duration, level, movements, scoring, coach, teamNote: isTeam ? teamNote : undefined };
+  const intentLabel: Record<Intent, string> = { mixed: '⚡ Mixed', cardio: '🫀 Cardio', strength: '💪 Force', gymnastics: '🤸 Gym' };
+  const tags = [intentLabel[intent], `💀 ${INTENT_FATIGUE[intent]}`];
+  return { name, type, duration, level, movements, scoring, coach, teamNote: isTeam ? teamNote : undefined, intent, tags };
 }
 
 export default function WodGeneratorCard({ navigation: navProp }: { navigation?: Nav }) {
@@ -926,12 +1214,14 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const s = createStyles(theme);
 
   const [sport,       setSport]       = useState<Sport>('functional');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // Functional Fitness
   const [level,       setLevel]       = useState<LK>('rx');
   const [format,      setFormat]      = useState('Solo');
   const [duration,    setDuration]    = useState(10);
   const [wodType,     setWodType]     = useState<WODType>('AMRAP');
-  const [equipment,   setEquipment]   = useState<string[]>(['bw']);
+  const [intent,      setIntent]      = useState<Intent>('mixed');
+  const [equipment,   setEquipment]   = useState<string[]>([]);
   const [wod,         setWod]         = useState<GeneratedWOD | null>(null);
   // Hybrid / Hyrox
   const [hyroxLevel,  setHyroxLevel]  = useState('Men');
@@ -939,6 +1229,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const [hyroxType,   setHyroxType]   = useState('Race Simulation');
   const [hyroxDur,    setHyroxDur]    = useState(45);
   const [hyroxEquip,  setHyroxEquip]  = useState<string[]>(['ski', 'slp', 'row', 'wb']);
+  const [hyroxIntent, setHyroxIntent] = useState<HyroxIntent>('race_prep');
   const [hyroxWod,    setHyroxWod]    = useState<HyroxWOD | null>(null);
 
   const [loading, setLoading] = useState(false);
@@ -1061,10 +1352,10 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     setIsFavorite(false);
     await new Promise(r => setTimeout(r, 600));
     if (sport === 'hybrid') {
-      setHyroxWod(generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip));
+      setHyroxWod(generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip, hyroxIntent));
       setWod(null);
     } else {
-      setWod(generateWOD(level, format, duration, wodType, equipment));
+      setWod(generateWOD(level, format, duration, wodType, equipment, intent));
       setHyroxWod(null);
     }
     setLoading(false);
@@ -1105,7 +1396,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       <TouchableOpacity style={s.progBtn} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
         <BookOpen color={theme.accent} size={16} />
         <Text style={s.progBtnTxt}>Programmation</Text>
-        <ChevronRight color={theme.textMuted} size={14} />
+        <ChevronRight color={'rgba(255,255,255,0.8)'} size={14} />
       </TouchableOpacity>
 
       {/* Sport selector */}
@@ -1140,51 +1431,85 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         ))}
       </ScrollView>
 
-      {/* Format */}
-      <Text style={s.optLabel}>FORMAT</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
-        {FORMATS.map(f => (
-          <TouchableOpacity key={f} onPress={() => setFormat(f)} activeOpacity={0.7}
-            style={[s.chip, format === f && s.chipSel]}>
-            {f === 'Solo' ? <User color={format === f ? theme.accent : theme.textMuted} size={13} /> : <Users color={format === f ? theme.accent : theme.textMuted} size={13} />}
-            <Text style={[s.chipTxt, format === f && s.chipTxtSel]}>{f}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       {/* Duration */}
       <Text style={s.optLabel}>DURÉE</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
         {DURATIONS.map(d => (
           <TouchableOpacity key={d} onPress={() => setDuration(d)} activeOpacity={0.7}
             style={[s.chip, duration === d && s.chipSel]}>
-            <Clock color={duration === d ? theme.accent : theme.textMuted} size={12} />
+            <Clock color={duration === d ? theme.accent : 'rgba(255,255,255,0.8)'} size={12} />
             <Text style={[s.chipTxt, duration === d && s.chipTxtSel]}>{d} min</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Type */}
-      <Text style={s.optLabel}>TYPE D'ENTRAÎNEMENT</Text>
+      {/* Intent */}
+      <Text style={s.optLabel}>INTENTION</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
-        {UI_WOD_TYPES.map(t => (
-          <TouchableOpacity key={t} onPress={() => setWodType(t)} activeOpacity={0.7}
-            style={[s.chip, wodType === t && s.chipSel]}>
-            <Text style={[s.chipTxt, wodType === t && s.chipTxtSel]}>{t}</Text>
+        {INTENT_OPTIONS.map(o => (
+          <TouchableOpacity key={o.key} onPress={() => setIntent(o.key)} activeOpacity={0.7}
+            style={[s.chip, intent === o.key && s.chipSel, { flexDirection: 'row', gap: 6 }]}>
+            <Text style={{ fontSize: 14 }}>{o.emoji}</Text>
+            <Text style={[s.chipTxt, intent === o.key && s.chipTxtSel]}>{o.label}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Equipment */}
-      <Text style={s.optLabel}>ÉQUIPEMENT</Text>
-      <View style={s.eqGrid}>
-        {EQ_LIST.map(e => (
-          <TouchableOpacity key={e.key} onPress={() => toggleEq(e.key)} activeOpacity={0.7}
-            style={[s.eqChip, equipment.includes(e.key) && s.eqChipSel]}>
-            <Text style={[s.eqTxt, equipment.includes(e.key) && s.eqTxtSel]}>{e.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Options avancées toggle */}
+      <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} activeOpacity={0.7}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 12,
+          marginVertical: 8,
+          borderRadius: 12,
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        }}>
+        <ChevronRight color={'rgba(255,255,255,0.7)'} size={16} style={{ transform: [{ rotate: showAdvanced ? '90deg' : '0deg' }] }} />
+        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '700', marginLeft: 8 }}>
+          {showAdvanced ? '▼ Masquer les options' : '▶ Options avancées'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Options avancées conditionnelles */}
+      {showAdvanced && (<>
+        {/* Format */}
+        <Text style={s.optLabel}>FORMAT</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+          {FORMATS.map(f => (
+            <TouchableOpacity key={f} onPress={() => setFormat(f)} activeOpacity={0.7}
+              style={[s.chip, format === f && s.chipSel]}>
+              {f === 'Solo' ? <User color={format === f ? theme.accent : 'rgba(255,255,255,0.8)'} size={13} /> : <Users color={format === f ? theme.accent : 'rgba(255,255,255,0.8)'} size={13} />}
+              <Text style={[s.chipTxt, format === f && s.chipTxtSel]}>{f}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Type */}
+        <Text style={s.optLabel}>TYPE D'ENTRAÎNEMENT</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+          {UI_WOD_TYPES.map(t => (
+            <TouchableOpacity key={t} onPress={() => setWodType(t)} activeOpacity={0.7}
+              style={[s.chip, wodType === t && s.chipSel]}>
+              <Text style={[s.chipTxt, wodType === t && s.chipTxtSel]}>{t}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Equipment */}
+        <Text style={s.optLabel}>ÉQUIPEMENT</Text>
+        <View style={s.eqGrid}>
+          {EQ_LIST.map(e => (
+            <TouchableOpacity key={e.key} onPress={() => toggleEq(e.key)} activeOpacity={0.7}
+              style={[s.eqChip, equipment.includes(e.key) && s.eqChipSel]}>
+              <Text style={[s.eqTxt, equipment.includes(e.key) && s.eqTxtSel]}>{e.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </>)}
 
       </>) : (<>
 
@@ -1199,58 +1524,107 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         ))}
       </ScrollView>
 
-      {/* Hyrox format */}
-      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>FORMAT</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
-        {HYROX_FORMATS.map(f => (
-          <TouchableOpacity key={f} onPress={() => setHyroxFormat(f)} activeOpacity={0.7}
-            style={[s.chip, hyroxFormat === f && s.chipHybrid]}>
-            <Text style={[s.chipTxt, hyroxFormat === f && { color: HYROX_ORANGE, fontWeight: '900' }]}>{f}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Hyrox type */}
-      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>TYPE D'ENTRAÎNEMENT</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
-        {HYROX_TYPES.map(t => (
-          <TouchableOpacity key={t} onPress={() => setHyroxType(t)} activeOpacity={0.7}
-            style={[s.chip, hyroxType === t && s.chipHybrid]}>
-            <Text style={[s.chipTxt, hyroxType === t && { color: HYROX_ORANGE, fontWeight: '900' }]}>{t}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       {/* Hyrox duration */}
       <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>DURÉE</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
         {HYROX_DURATIONS.map(d => (
           <TouchableOpacity key={d} onPress={() => setHyroxDur(d)} activeOpacity={0.7}
             style={[s.chip, hyroxDur === d && s.chipHybrid]}>
-            <Clock color={hyroxDur === d ? HYROX_ORANGE : theme.textMuted} size={12} />
+            <Clock color={hyroxDur === d ? HYROX_ORANGE : 'rgba(255,255,255,0.8)'} size={12} />
             <Text style={[s.chipTxt, hyroxDur === d && { color: HYROX_ORANGE, fontWeight: '900' }]}>{d} min</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Hyrox equipment */}
-      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>ÉQUIPEMENT</Text>
-      <View style={s.eqGrid}>
-        {HYROX_EQ_LIST.map(e => (
-          <TouchableOpacity key={e.key} onPress={() => toggleHyroxEq(e.key)} activeOpacity={0.7}
-            style={[s.eqChip, hyroxEquip.includes(e.key) && s.eqChipHybrid]}>
-            <Text style={[s.eqTxt, hyroxEquip.includes(e.key) && { color: HYROX_ORANGE, fontWeight: '900' }]}>{e.label}</Text>
+      {/* Hyrox intent */}
+      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>INTENTION</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+        {HYROX_CARD_INTENT_OPTIONS.map(o => (
+          <TouchableOpacity key={o.key} onPress={() => setHyroxIntent(o.key)} activeOpacity={0.7}
+            style={[s.chip, hyroxIntent === o.key && s.chipHybrid, { flexDirection: 'row', gap: 6 }]}>
+            <Text style={{ fontSize: 14 }}>{o.emoji}</Text>
+            <Text style={[s.chipTxt, hyroxIntent === o.key && { color: HYROX_ORANGE, fontWeight: '900' }]}>{o.label}</Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
+
+      {/* Options avancées toggle */}
+      <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} activeOpacity={0.7}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 12,
+          marginVertical: 8,
+          borderRadius: 12,
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        }}>
+        <ChevronRight color={'rgba(255,255,255,0.7)'} size={16} style={{ transform: [{ rotate: showAdvanced ? '90deg' : '0deg' }] }} />
+        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '700', marginLeft: 8 }}>
+          {showAdvanced ? '▼ Masquer les options' : '▶ Options avancées'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Options avancées conditionnelles Hyrox */}
+      {showAdvanced && (<>
+        {/* Hyrox format */}
+        <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>FORMAT</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+          {HYROX_FORMATS.map(f => (
+            <TouchableOpacity key={f} onPress={() => setHyroxFormat(f)} activeOpacity={0.7}
+              style={[s.chip, hyroxFormat === f && s.chipHybrid]}>
+              <Text style={[s.chipTxt, hyroxFormat === f && { color: HYROX_ORANGE, fontWeight: '900' }]}>{f}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Hyrox type */}
+        <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>TYPE D'ENTRAÎNEMENT</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
+          {HYROX_TYPES.map(t => (
+            <TouchableOpacity key={t} onPress={() => setHyroxType(t)} activeOpacity={0.7}
+              style={[s.chip, hyroxType === t && s.chipHybrid]}>
+              <Text style={[s.chipTxt, hyroxType === t && { color: HYROX_ORANGE, fontWeight: '900' }]}>{t}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Hyrox equipment */}
+        <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>ÉQUIPEMENT</Text>
+        <View style={s.eqGrid}>
+          {HYROX_EQ_LIST.map(e => (
+            <TouchableOpacity key={e.key} onPress={() => toggleHyroxEq(e.key)} activeOpacity={0.7}
+              style={[s.eqChip, hyroxEquip.includes(e.key) && s.eqChipHybrid]}>
+              <Text style={[s.eqTxt, hyroxEquip.includes(e.key) && { color: HYROX_ORANGE, fontWeight: '900' }]}>{e.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </>)}
 
       </>)}
 
       {/* Generate button */}
       <TouchableOpacity onPress={handleGenerate} activeOpacity={0.85} disabled={loading}
-        style={[s.genBtn, { backgroundColor: accent }]}>
+        style={{
+          marginVertical: 16,
+          marginHorizontal: 20,
+          borderRadius: 16,
+          backgroundColor: sport === 'functional' ? 'rgba(16,185,129,0.25)' : 'rgba(249,115,22,0.25)',
+          borderWidth: 2,
+          borderColor: sport === 'functional' ? 'rgba(16,185,129,0.8)' : 'rgba(249,115,22,0.8)',
+          paddingVertical: 18,
+          paddingHorizontal: 28,
+          opacity: loading ? 0.6 : 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
         {loading ? <ActivityIndicator color="#fff" size="small" /> : (
-          <><Sparkles color="#fff" size={18} /><Text style={s.genBtnTxt}>GÉNÉRER MON WOD</Text></>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <Sparkles color="#fff" size={18} />
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 }}>GÉNÉRER MON WOD</Text>
+          </View>
         )}
       </TouchableOpacity>
 
@@ -1275,6 +1649,15 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             </TouchableOpacity>
           </View>
           <Text style={s.wodName}>{hyroxWod.name}</Text>
+          {hyroxWod.tags && hyroxWod.tags.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {hyroxWod.tags.map((tag, i) => (
+                <View key={i} style={{ backgroundColor: `${HYROX_ORANGE}18`, borderRadius: 8, borderWidth: 1, borderColor: `${HYROX_ORANGE}35`, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <Text style={{ color: HYROX_ORANGE, fontSize: 11, fontWeight: '700' }}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          )}
           <View style={[s.badge, { backgroundColor: `${HYROX_ORANGE}15`, alignSelf: 'flex-start' }]}>
             <Text style={[s.badgeTxt, { color: HYROX_ORANGE }]}>{hyroxWod.format} · {hyroxWod.type}</Text>
           </View>
@@ -1348,6 +1731,16 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           </View>
 
           <Text style={s.wodName}>{wod.name}</Text>
+
+          {wod.tags && wod.tags.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              {wod.tags.map((tag, i) => (
+                <View key={i} style={{ backgroundColor: `${theme.accent}18`, borderRadius: 8, borderWidth: 1, borderColor: `${theme.accent}35`, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '700' }}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           <View style={s.movBox}>
             {wod.movements.split('\n').map((line, i) => (
@@ -1495,7 +1888,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   wrapper: { paddingHorizontal: 16, marginTop: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   sectionTitle: { fontSize: 17, fontWeight: '900', color: t.text, letterSpacing: -0.2 },
-  optLabel: { fontSize: 10, fontWeight: '800', color: t.textMuted, letterSpacing: 1.2, marginBottom: 6 },
+  optLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.9)', letterSpacing: 1.2, marginBottom: 6 },
   chipScroll: { marginHorizontal: -16 },
   chipRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, marginBottom: 14, flexWrap: 'wrap' },
   chipScrollContent: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingBottom: 14 },
@@ -1505,7 +1898,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     backgroundColor: t.card, borderWidth: 1, borderColor: t.border,
   },
   chipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
-  chipTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
+  chipTxt: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
   chipTxtSel: { color: t.accent, fontWeight: '900' },
   eqGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
   eqChip: {
@@ -1513,7 +1906,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     backgroundColor: t.card, borderWidth: 1, borderColor: t.border,
   },
   eqChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
-  eqTxt: { fontSize: 11, fontWeight: '700', color: t.textMuted },
+  eqTxt: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
   eqTxtSel: { color: t.accent, fontWeight: '900' },
   quickAccessRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   quickAccessBtn: {
@@ -1584,14 +1977,14 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 18, fontWeight: '900', color: t.text },
-  modalLabel: { fontSize: 11, fontWeight: '800', color: t.textMuted, letterSpacing: 0.5, marginTop: 4 },
+  modalLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.9)', letterSpacing: 0.5, marginTop: 4 },
   modalTypeRow: { flexDirection: 'row', gap: 8 },
   modalTypeChip: {
     flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8,
     borderWidth: 1.5, borderColor: t.border, backgroundColor: t.surface,
   },
   modalTypeChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
-  modalTypeChipTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
+  modalTypeChipTxt: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
   modalTypeChipTxtSel: { color: t.accent, fontWeight: '900' },
   modalInput: {
     backgroundColor: t.surface, borderRadius: 10, borderWidth: 1, borderColor: t.border,

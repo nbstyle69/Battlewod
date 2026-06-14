@@ -369,7 +369,7 @@ export default function CompetitionScreen() {
           <>
             <TouchableOpacity
               activeOpacity={0.85}
-              style={[S.createButton, S.createGradient, { backgroundColor: '#C9A227' }]}
+              style={[S.createButton, S.createGradient, { backgroundColor: 'rgba(201,162,39,0.25)', borderColor: 'rgba(201,162,39,0.8)' }]}
               onPress={() => navigation.navigate('InterCompetitionList')}
             >
               <Globe2 color="#fff" size={20} />
@@ -418,7 +418,8 @@ function createStyles(theme: AppTheme) {
   createGradient: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 14, padding: 16, gap: 8,
-    backgroundColor: theme.accent,
+    backgroundColor: 'rgba(16,185,129,0.25)',
+    borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)',
   },
   createText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   vsAvatar: {

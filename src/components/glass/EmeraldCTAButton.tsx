@@ -1,6 +1,5 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp, GestureResponderEvent, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 
 type Size = 'sm' | 'md' | 'lg';
@@ -48,65 +47,43 @@ export default function EmeraldCTAButton({
         {
           borderRadius: radius,
           overflow: 'hidden',
-          // Emerald glow
+          // Glassmorphism style
+          backgroundColor: 'rgba(16,185,129,0.25)',
+          borderWidth: 2,
+          borderColor: 'rgba(16,185,129,0.8)',
           shadowColor: '#10b981',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: dark ? 0.5 : 0.35,
-          shadowRadius: 20,
-          elevation: 10,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: dark ? 0.3 : 0.2,
+          shadowRadius: 12,
+          elevation: 6,
           opacity: disabled ? 0.5 : 1,
         },
         style,
       ]}
     >
-      <LinearGradient
-        colors={['#10b981', '#059669', '#047857']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
         style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
           paddingVertical: padV,
           paddingHorizontal: padH,
           borderRadius: radius,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.25)',
+          gap: 10,
         }}
       >
-        {/* Top highlight reflection */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '55%',
-            backgroundColor: 'rgba(255,255,255,0.18)',
-            borderTopLeftRadius: radius,
-            borderTopRightRadius: radius,
-          }}
-        />
-        <View style={styles.row}>
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              {icon}
-              <Text style={[{ color: '#fff', fontSize, fontWeight: '900', letterSpacing: 0.5 }, textStyle]}>
-                {children}
-              </Text>
-            </>
-          )}
-        </View>
-      </LinearGradient>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            {icon}
+            <Text style={[{ color: '#fff', fontSize, fontWeight: '900', letterSpacing: 0.5 }, textStyle]}>
+              {children}
+            </Text>
+          </>
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-});
