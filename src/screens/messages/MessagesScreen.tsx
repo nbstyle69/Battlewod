@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator, RefreshControl,
-  Image, Modal, Pressable, Dimensions, ScrollView,
+  Image, Modal, Pressable, Dimensions, ScrollView, Keyboard,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -78,6 +78,13 @@ export default function MessagesScreen() {
   const [gifLoading, setGifLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+  const [kbOpen, setKbOpen] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const load = useCallback(async () => {
     if (!currentBox || !user) { setLoading(false); setRefreshing(false); return; }
@@ -480,7 +487,7 @@ export default function MessagesScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={S.container}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? tabBarHeight + 90 : tabBarHeight}
+      keyboardVerticalOffset={0}
     >
       <GlassBackground />
       {/* Header */}
@@ -642,7 +649,7 @@ export default function MessagesScreen() {
       )}
 
       {/* Input bar */}
-      <View style={[S.inputBar, { paddingBottom: 6 + tabBarHeight }]}>
+      <View style={[S.inputBar, { paddingBottom: kbOpen ? 6 : 6 + tabBarHeight }]}>
         <TouchableOpacity onPress={pickImage} style={S.imgBtn} activeOpacity={0.7}>
           <ImagePlus color={theme.textMuted} size={22} />
         </TouchableOpacity>

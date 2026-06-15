@@ -111,6 +111,39 @@ async function getUserAndVerifyOwnership(req: Request, boxId: string): Promise<{
   return { ok: false, status: 403, error: 'Not owner or coach of this box' };
 }
 
+/** Extract complete JSON objects from a truncated array string */
+function tryRecoverTruncatedArray(text: string): any[] | null {
+  const start = text.indexOf('[');
+  if (start === -1) return null;
+  const objects: any[] = [];
+  let i = start + 1;
+  while (i < text.length) {
+    // Skip whitespace / commas
+    while (i < text.length && /[\s,]/.test(text[i])) i++;
+    if (i >= text.length || text[i] === ']') break;
+    if (text[i] !== '{') break;
+    // Find end of this object by counting braces
+    let depth = 0; let j = i; let inStr = false; let escape = false;
+    while (j < text.length) {
+      const ch = text[j];
+      if (escape) { escape = false; j++; continue; }
+      if (ch === '\\' && inStr) { escape = true; j++; continue; }
+      if (ch === '"') { inStr = !inStr; j++; continue; }
+      if (!inStr) {
+        if (ch === '{') depth++;
+        else if (ch === '}') { depth--; if (depth === 0) { j++; break; } }
+      }
+      j++;
+    }
+    if (depth !== 0) break; // incomplete object — stop
+    try {
+      objects.push(JSON.parse(text.slice(i, j)));
+    } catch { break; }
+    i = j;
+  }
+  return objects.length > 0 ? objects : null;
+}
+
 async function callClaudePDF(pdfBase64: string, defaultStartDate: string | null): Promise<{ wods: ParsedWOD[]; usage: { input_tokens: number; output_tokens: number } }> {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
@@ -124,7 +157,7 @@ async function callClaudePDF(pdfBase64: string, defaultStartDate: string | null)
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 8192,
+      max_tokens: 16384,
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -157,8 +190,14 @@ async function callClaudePDF(pdfBase64: string, defaultStartDate: string | null)
   let parsed: any;
   try {
     parsed = JSON.parse(cleaned);
-  } catch (e) {
-    throw new Error(`Claude returned invalid JSON: ${cleaned.slice(0, 300)}`);
+  } catch (_e) {
+    // JSON truncated (max_tokens reached) — recover complete objects
+    const recovered = tryRecoverTruncatedArray(cleaned);
+    if (recovered !== null) {
+      parsed = recovered;
+    } else {
+      throw new Error(`Claude returned invalid JSON: ${cleaned.slice(0, 300)}`);
+    }
   }
   if (!Array.isArray(parsed)) throw new Error('Claude response is not a JSON array');
 

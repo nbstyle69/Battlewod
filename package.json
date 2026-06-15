@@ -9,7 +9,12 @@
     "web": "expo start --web",
     "postinstall": "node scripts/postinstall.js",
     "gen:types": "npx supabase gen types typescript --project-id lkwdlqlbrbxaiydkoxfp | Out-File -Encoding utf8 src/types/supabase.ts",
-    "test": "jest"
+    "test": "jest",
+    "test:agents": "node scripts/test-agents.mjs",
+    "test:formats": "node scripts/test-formats.mjs",
+    "test:league": "node scripts/test-league-detailed.mjs",
+    "test:bo-owner": "node scripts/test-bo-owner.mjs",
+    "test:athlete": "node scripts/test-athlete.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/barlow": "^0.4.1",
