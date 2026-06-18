@@ -11,6 +11,7 @@ import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
 import { Box } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
@@ -142,6 +143,7 @@ export default function BoxDirectoryScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
@@ -213,7 +215,7 @@ export default function BoxDirectoryScreen() {
           data={filtered}
           keyExtractor={b => b.id}
           renderItem={renderBox}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         />
       )}
@@ -223,7 +225,7 @@ export default function BoxDirectoryScreen() {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12,

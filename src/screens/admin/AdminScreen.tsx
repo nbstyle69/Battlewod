@@ -7,10 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Shield, CheckCircle, XCircle, Video, Clock, Users, Trophy, LogOut, Youtube, AlertTriangle, Zap, Plus, Trash2, Megaphone } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { formatScoreValue } from '../../utils/scoreFormat';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const TABS = ['Scores', 'Matchs', 'Tournois', 'Daily WOD', 'Changelog'];
 
@@ -233,6 +234,7 @@ export default function AdminScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <LinearGradient colors={mode === 'dark' ? ['#12121A', '#0A0A0F'] : [theme.accent, theme.accentDark ?? theme.accent]} style={S.header}>
         <View style={S.headerRow}>
           <View style={S.adminBadge}>
@@ -523,7 +525,7 @@ export default function AdminScreen() {
 
       {/* Changelog create modal */}
       <Modal visible={clModal} transparent animationType="slide">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={S.modalOverlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
           <View style={S.modalCard}>
             <Text style={S.modalTitle}>Nouvelle entrée changelog</Text>
 
@@ -577,7 +579,7 @@ export default function AdminScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   adminBadge: {

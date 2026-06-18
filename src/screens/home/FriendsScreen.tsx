@@ -15,6 +15,7 @@ import { sendFriendRequestNotification, sendFriendAcceptedNotification } from '.
 import { incrementCounter } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -163,6 +164,7 @@ export default function FriendsScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.textSecondary} size={24} />
@@ -382,7 +384,7 @@ export default function FriendsScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
       backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
@@ -404,7 +406,7 @@ function createStyles(theme: AppTheme) {
     tabActive: { borderBottomColor: theme.accent },
     tabText: { fontSize: 11, fontWeight: '700', color: theme.textMuted },
     tabTextActive: { color: theme.accent },
-    content: { padding: 16, gap: 10 },
+    content: { padding: 16, gap: 10, paddingBottom: 140 },
     subTitle: { fontSize: 13, fontWeight: '800', color: theme.textMuted, letterSpacing: 0.5, marginBottom: 4 },
     emptyCard: {
       backgroundColor: theme.card, borderRadius: 20, padding: 32,

@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CommunityStackParamList } from '../../navigation';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<CommunityStackParamList, 'CommunityMain'>;
 
@@ -68,6 +69,7 @@ export default function CommunityScreen() {
   if (!currentBox) {
     return (
       <View style={[S.container, S.center]}>
+        <GlassBackground />
         <Users color={theme.textMuted} size={48} />
         <Text style={S.emptyTitle}>Aucune box</Text>
         <Text style={S.emptySub}>Rejoins une box pour voir ses membres.</Text>
@@ -77,6 +79,7 @@ export default function CommunityScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View>
           <Text style={S.headerTitle}>Membres</Text>
@@ -160,7 +163,7 @@ export default function CommunityScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     center:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, padding: 24 },
     header: {
       paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,

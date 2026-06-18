@@ -12,9 +12,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { GenderTarget } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<any>;
 
@@ -398,7 +399,7 @@ export default function DailyTournamentsScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12,
@@ -412,7 +413,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   statBox: { alignItems: 'center' },
   statNum: { fontSize: 20, fontWeight: '900', color: t.text },
   statLabel: { fontSize: 10, fontWeight: '600', color: t.textMuted, marginTop: 2 },
-  list: { padding: 16, gap: 12, paddingBottom: 40 },
+  list: { padding: 16, gap: 12, paddingBottom: 140 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyEmoji: { fontSize: 48 },
@@ -450,9 +451,9 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   },
   joinedTxt: { fontSize: 11, fontWeight: '800', color: t.accent },
   // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: t.modalBackdrop },
   modalSheet: {
-    backgroundColor: t.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: t.modalCard, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 40, gap: 10,
   },
   modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 4 },

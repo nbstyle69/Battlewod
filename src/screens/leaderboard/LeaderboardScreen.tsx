@@ -9,12 +9,13 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const LEVELS: (AthleteLevel | 'all')[] = ['all', 'scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const MAIN_TABS = ['Individuel', 'Équipes', 'Box'];
@@ -181,6 +182,7 @@ export default function LeaderboardScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
           <ChevronLeft color={theme.textSecondary} size={24} />
@@ -384,7 +386,7 @@ export default function LeaderboardScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
@@ -426,7 +428,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
   },
   chipText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
-  list: { padding: 16, gap: 8 },
+  list: { padding: 16, gap: 8, paddingBottom: 140 },
   sectionHint: { fontSize: 12, color: theme.textMuted, marginBottom: 8 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

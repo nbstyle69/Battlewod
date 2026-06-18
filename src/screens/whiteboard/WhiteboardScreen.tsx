@@ -21,6 +21,8 @@ import { WhiteboardStackParamList } from '../../navigation';
 import { buildTimerRunParams, formatWODPreconfig, EmomOverride } from '../../utils/wodToTimer';
 import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
+import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
 
 function toISO(d: Date): string {
   const y = d.getFullYear();
@@ -29,10 +31,17 @@ function toISO(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  'for-time': '#EF4444', amrap: '#3B82F6', emom: '#8B5CF6',
-  tabata: '#F59E0B', strength: '#16A34A', custom: '#6B7280',
-};
+// Couleurs WOD types adaptées au thème
+function getTypeColors(theme: AppTheme): Record<string, string> {
+  return {
+    'for-time': theme.error,      // Rouge
+    amrap: '#3B82F6',             // Bleu
+    emom: '#8B5CF6',             // Violet
+    tabata: theme.warning,        // Orange
+    strength: theme.success,      // Vert
+    custom: theme.textMuted,      // Gris
+  };
+}
 
 type Nav = NativeStackNavigationProp<WhiteboardStackParamList>;
 
@@ -50,9 +59,11 @@ const TYPE_STYLES = StyleSheet.create({
 });
 
 function WodTypeBadge({ type }: { type?: string }) {
-  const color = TYPE_COLORS[type ?? 'custom'] ?? '#6B7280';
+  const { theme } = useTheme();
+  const colors = getTypeColors(theme);
+  const color = colors[type ?? 'custom'] ?? theme.textMuted;
   return (
-    <View style={[TYPE_STYLES.typeBadge, { backgroundColor: `${color}18` }]}>
+    <View style={[TYPE_STYLES.typeBadge, { backgroundColor: theme.mode === 'dark' ? `${color}25` : `${color}15` }]}>
       <Text style={[TYPE_STYLES.typeBadgeText, { color }]}>{(type ?? 'custom').toUpperCase()}</Text>
     </View>
   );
@@ -144,11 +155,17 @@ export default function WhiteboardScreen() {
             </TouchableOpacity>
           </View>
           <View style={S.emomStepRow}>
-            <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: Math.max(1, customSec - 5) })}>
+            <TouchableOpacity style={S.emomStepBtn} onPress={() => {
+              const next = customSec % 5 === 0 ? customSec - 5 : Math.floor(customSec / 5) * 5;
+              setEmomOverride({ ...ov, intervalMinutes: 0, customSec: Math.max(1, next) });
+            }}>
               <Text style={S.emomStepBtnText}>−</Text>
             </TouchableOpacity>
             <Text style={S.emomStepValue}>{customSs}<Text style={S.emomStepUnit}> sec</Text></Text>
-            <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: customSec + 5 })}>
+            <TouchableOpacity style={S.emomStepBtn} onPress={() => {
+              const next = customSec % 5 === 0 ? customSec + 5 : Math.ceil(customSec / 5) * 5;
+              setEmomOverride({ ...ov, intervalMinutes: 0, customSec: next });
+            }}>
               <Text style={S.emomStepBtnText}>+</Text>
             </TouchableOpacity>
           </View>
@@ -241,7 +258,7 @@ export default function WhiteboardScreen() {
     // Fetch user's active program memberships for this box
     let myProgramIds = new Set<string>();
     if (user) {
-      const { data: progMem } = await supabase
+      const { data: progMem } = await (supabase as any)
         .from('program_members')
         .select('program_id')
         .eq('user_id', user.id)
@@ -274,7 +291,7 @@ export default function WhiteboardScreen() {
         accessMap[r.wod_id].push(r.group_id);
       }
       // Fetch program access
-      const { data: progAccessRows } = await supabase
+      const { data: progAccessRows } = await (supabase as any)
         .from('wod_program_access')
         .select('wod_id, program_id')
         .in('wod_id', allWodIds);
@@ -327,7 +344,7 @@ export default function WhiteboardScreen() {
     if (!user) { setProgramWods([]); return; }
     (async () => {
       try {
-        const { data: memberships } = await supabase
+        const { data: memberships } = await (supabase as any)
           .from('program_members')
           .select('program_id, start_date, programs:program_id(id, title, type, duration_weeks, days_per_week)')
           .eq('user_id', user.id)
@@ -352,7 +369,7 @@ export default function WhiteboardScreen() {
             const weekNum = Math.ceil(dayNumber / 7);
             const dayInWeek = ((dayNumber - 1) % 7);
 
-            const { data: wods } = await supabase
+            const { data: wods } = await (supabase as any)
               .from('program_wods')
               .select('id, title, description, wod_type, time_cap_seconds')
               .eq('program_id', prog.id)
@@ -363,7 +380,7 @@ export default function WhiteboardScreen() {
             }
           } else {
             // ongoing: match by scheduled_date
-            const { data: wods } = await supabase
+            const { data: wods } = await (supabase as any)
               .from('program_wods')
               .select('id, title, description, wod_type, time_cap_seconds, week_number')
               .eq('program_id', prog.id)
@@ -395,7 +412,7 @@ export default function WhiteboardScreen() {
     (async () => {
       try {
         const [{ data: comps }, { data: scores }] = await Promise.all([
-          supabase.from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
+          (supabase as any).from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
           supabase.from('wod_scores').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
         ]);
         setCompletedIds(new Set((comps ?? []).map((c: any) => c.wod_id)));
@@ -417,10 +434,10 @@ export default function WhiteboardScreen() {
     });
     try {
       if (isDone) {
-        await supabase.from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
+        await (supabase as any).from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
       } else {
         hapticSuccess();
-        const { error } = await supabase.from('wod_completions').insert({
+        const { error } = await (supabase as any).from('wod_completions').insert({
           wod_id: wodId, member_id: user.id, box_id: currentBox.id,
         });
         if (error && error.code !== '23505') throw error;
@@ -467,7 +484,7 @@ export default function WhiteboardScreen() {
 
   // Fetch personal WODs (box_id IS NULL, created_by = user) when no current box
   const loadPersonalWODs = useCallback(async () => {
-    if (!user || currentBox) { setPersonalWODs([]); return; }
+    if (!user) { setPersonalWODs([]); return; }
     const { data } = await supabase
       .from('box_wods')
       .select('*')
@@ -476,7 +493,7 @@ export default function WhiteboardScreen() {
       .eq('scheduled_date', selectedDate)
       .order('sort_order');
     setPersonalWODs((data ?? []) as BoxWOD[]);
-  }, [user, currentBox, selectedDate]);
+  }, [user, selectedDate]);
 
   useFocusEffect(useCallback(() => { loadPersonalWODs(); }, [loadPersonalWODs]));
 
@@ -484,6 +501,7 @@ export default function WhiteboardScreen() {
     const todayISO = toISO(new Date());
     return (
       <View style={S.container}>
+      <GlassBackground />
         <View style={S.header}>
           <Text style={S.headerTitle}>Ma Box</Text>
         </View>
@@ -513,7 +531,7 @@ export default function WhiteboardScreen() {
         />
 
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 140 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadPersonalWODs().finally(() => setRefreshing(false)); }} />}
         >
@@ -575,14 +593,14 @@ export default function WhiteboardScreen() {
               <View style={S.noWodCard}>
                 <Text style={S.noWodEmoji}>📋</Text>
                 <Text style={S.noWodText}>Pas de WOD publié ce jour</Text>
-                <TouchableOpacity
-                  style={S.createWodPrimary}
+                <EmeraldCTAButton
+                  icon={<Sparkles size={16} color="#fff" />}
+                  size="md"
                   onPress={() => navigation.navigate('PersonalWODForm', { date: selectedDate })}
-                  activeOpacity={0.85}
+                  style={{ marginTop: 14 }}
                 >
-                  <Sparkles size={16} color="#fff" />
-                  <Text style={S.createWodPrimaryText}>+ Créer un WOD</Text>
-                </TouchableOpacity>
+                  + Créer un WOD
+                </EmeraldCTAButton>
               </View>
             )}
           </View>
@@ -696,6 +714,7 @@ export default function WhiteboardScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <View style={S.headerRow}>
@@ -774,14 +793,13 @@ export default function WhiteboardScreen() {
         if (!mainWod) return null;
         return (
           <View style={S.quickActions}>
-            <TouchableOpacity
-              style={S.scoreBtn}
+            <EmeraldCTAButton
+              icon={<Sparkles size={20} color="#fff" />}
               onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id })}
-              activeOpacity={0.85}
+              textStyle={{ fontSize: 17 }}
             >
-              <Sparkles size={20} color="#fff" />
-              <Text style={S.scoreBtnText}>ENTRER MON SCORE</Text>
-            </TouchableOpacity>
+              ENTRER MON SCORE
+            </EmeraldCTAButton>
             <TouchableOpacity
               style={S.rankBtn}
               onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id, scrollToLeaderboard: true })}
@@ -796,7 +814,7 @@ export default function WhiteboardScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetchWods(); }} />}
       >
         <View style={S.section}>
@@ -808,7 +826,8 @@ export default function WhiteboardScreen() {
           {dayWODs.length > 0 ? (
             <View style={S.dayGroup}>
               {dayWODs.map((wod, idx) => {
-                const tc = TYPE_COLORS[wod.wod_type ?? 'custom'] ?? '#6B7280';
+                const typeColors = getTypeColors(theme);
+                const tc = typeColors[wod.wod_type ?? 'custom'] ?? theme.textMuted;
                 return (
                   <View key={wod.id} style={S.wodRow}>
                     {isStaff && dayWODs.length > 1 && (
@@ -831,65 +850,71 @@ export default function WhiteboardScreen() {
                         </TouchableOpacity>
                       </View>
                     )}
-                    <TouchableOpacity
-                      style={[S.wodCard, { flex: 1 }]}
-                      onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
-                      activeOpacity={0.8}
-                    >
-                      <View style={S.wodCardTop}>
-                        <WodTypeBadge type={wod.wod_type} />
-                        
-                        {wod.video_url && (
-                          <View style={[S.timeCap, { backgroundColor: '#EF444418', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
-                            <Play color="#EF4444" size={10} />
-                            <Text style={[S.timeCapText, { color: '#EF4444' }]}>Vidéo</Text>
-                          </View>
+                    <View style={[S.wodCard, { flex: 1 }]}>
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
+                        activeOpacity={0.8}
+                      >
+                        <View style={S.wodCardTop}>
+                          <WodTypeBadge type={wod.wod_type} />
+
+                          {wod.video_url && (
+                            <View style={[S.timeCap, { backgroundColor: '#EF444418', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
+                              <Play color="#EF4444" size={10} />
+                              <Text style={[S.timeCapText, { color: '#EF4444' }]}>Vidéo</Text>
+                            </View>
+                          )}
+                          {wod.time_cap_seconds != null && (
+                            <View style={S.timeCap}>
+                              <Clock color={theme.textMuted} size={12} />
+                              <Text style={S.timeCapText}>
+                                Cap {Math.floor(wod.time_cap_seconds / 60)} min
+                              </Text>
+                            </View>
+                          )}
+                          {(() => {
+                            const hasScore = scoredIds.has(wod.id);
+                            const isDone = hasScore || completedIds.has(wod.id);
+                            return (
+                              <TouchableOpacity
+                                onPress={(e) => { e.stopPropagation(); toggleCompletion(wod.id); }}
+                                disabled={hasScore}
+                                style={S.checkboxRow}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                activeOpacity={0.7}
+                                accessibilityRole="checkbox"
+                                accessibilityState={{ checked: isDone, disabled: hasScore }}
+                                accessibilityLabel={isDone ? 'Réalisé' : 'Marquer comme réalisé'}
+                              >
+                                {isDone && (
+                                  <Text style={S.checkboxLabel}>{hasScore ? 'Scoré' : 'Réalisé'}</Text>
+                                )}
+                                <View style={[S.checkbox, isDone && S.checkboxChecked]}>
+                                  {isDone && <Check color="#fff" size={14} strokeWidth={3} />}
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })()}
+                        </View>
+                        <Text style={S.wodTitle}>{wod.title}</Text>
+                        {wod.description && (
+                          <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text>
                         )}
-                        {wod.time_cap_seconds != null && (
-                          <View style={S.timeCap}>
-                            <Clock color={theme.textMuted} size={12} />
-                            <Text style={S.timeCapText}>
-                              Cap {Math.floor(wod.time_cap_seconds / 60)} min
-                            </Text>
-                          </View>
-                        )}
-                        {(() => {
-                          const hasScore = scoredIds.has(wod.id);
-                          const isDone = hasScore || completedIds.has(wod.id);
-                          return (
-                            <TouchableOpacity
-                              onPress={(e) => { e.stopPropagation(); toggleCompletion(wod.id); }}
-                              disabled={hasScore}
-                              style={S.checkboxRow}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              activeOpacity={0.7}
-                              accessibilityRole="checkbox"
-                              accessibilityState={{ checked: isDone, disabled: hasScore }}
-                              accessibilityLabel={isDone ? 'Réalisé' : 'Marquer comme réalisé'}
-                            >
-                              {isDone && (
-                                <Text style={S.checkboxLabel}>{hasScore ? 'Scoré' : 'Réalisé'}</Text>
-                              )}
-                              <View style={[S.checkbox, isDone && S.checkboxChecked]}>
-                                {isDone && <Check color="#fff" size={14} strokeWidth={3} />}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })()}
-                      </View>
-                      <Text style={S.wodTitle}>{wod.title}</Text>
-                      {wod.description && (
-                        <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text>
-                      )}
+                      </TouchableOpacity>
                       <View style={S.wodCardFooter}>
-                        <View style={S.wodCardAction}>
+                        <TouchableOpacity
+                          style={S.wodCardAction}
+                          onPress={() => navigation.navigate('WODDetail', { wodId: wod.id })}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
                           <Text style={S.wodCardActionText}>Voir détails & score</Text>
                           <ChevronRight color={theme.accent} size={14} />
-                        </View>
+                        </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation(); openTimerModal(wod); }}
+                          onPress={() => openTimerModal(wod)}
                           style={S.timerBtn}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           activeOpacity={0.8}
                           accessibilityRole="button"
                           accessibilityLabel="Lancer le chrono"
@@ -897,7 +922,7 @@ export default function WhiteboardScreen() {
                           <TimerIcon color={theme.accent} size={16} />
                         </TouchableOpacity>
                       </View>
-                    </TouchableOpacity>
+                    </View>
                   </View>
                 );
               })}
@@ -906,6 +931,52 @@ export default function WhiteboardScreen() {
             <View style={S.noWodCard}>
               <Text style={S.noWodEmoji}>📋</Text>
               <Text style={S.noWodText}>Pas de WOD publié ce jour</Text>
+            </View>
+          )}
+
+          {/* ── Mes WODs perso (générateur) ─────────────────── */}
+          {personalWODs.length > 0 && (
+            <View style={{ marginTop: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Sparkles color={theme.accent} size={16} />
+                <Text style={[S.sectionTitle, { marginBottom: 0 }]}>Mes séances perso</Text>
+              </View>
+              <View style={S.dayGroup}>
+                {personalWODs.map(wod => (
+                  <TouchableOpacity
+                    key={wod.id}
+                    style={[S.wodCard, { borderLeftWidth: 3, borderLeftColor: `${theme.accent}80` }]}
+                    onPress={() => navigation.navigate('PersonalWODForm', { wodId: wod.id, date: selectedDate })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={S.wodCardTop}>
+                      <WodTypeBadge type={wod.wod_type} />
+                      {wod.time_cap_seconds != null && (
+                        <View style={S.timeCap}>
+                          <Clock color={theme.textMuted} size={12} />
+                          <Text style={S.timeCapText}>Cap {Math.floor(wod.time_cap_seconds / 60)} min</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={S.wodTitle}>{wod.title}</Text>
+                    {wod.description ? <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text> : null}
+                    <View style={S.wodCardFooter}>
+                      <View style={S.wodCardAction}>
+                        <Text style={S.wodCardActionText}>Modifier</Text>
+                        <ChevronRight color={theme.accent} size={14} />
+                      </View>
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation(); openTimerModal(wod); }}
+                        style={S.timerBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        activeOpacity={0.8}
+                      >
+                        <TimerIcon color={theme.accent} size={16} />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
 
@@ -924,7 +995,8 @@ export default function WhiteboardScreen() {
               </View>
               <View style={S.dayGroup}>
                 {group.wods.map(entry => {
-                  const tc = TYPE_COLORS[entry.wod.wod_type ?? 'custom'] ?? '#6B7280';
+                  const typeColors = getTypeColors(theme);
+                  const tc = typeColors[entry.wod.wod_type ?? 'custom'] ?? theme.textMuted;
                   return (
                     <View key={entry.wod.id} style={[S.wodCard, { borderLeftWidth: 3, borderLeftColor: theme.accent }]}>
                       <View style={S.wodCardTop}>
@@ -1064,7 +1136,7 @@ function createStyles(theme: AppTheme) {
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   };
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card,
@@ -1145,13 +1217,13 @@ function createStyles(theme: AppTheme) {
     borderWidth: 1, borderColor: `${theme.accent}35`,
   },
   timerModalBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    flex: 1, backgroundColor: theme.modalBackdrop,
     justifyContent: 'center', alignItems: 'center', padding: 20,
   },
   timerModalCard: {
     width: '100%', maxWidth: 420,
-    backgroundColor: theme.card, borderRadius: 20, padding: 20, gap: 14,
-    borderWidth: 1, borderColor: theme.border,
+    backgroundColor: theme.modalCard, borderRadius: 20, padding: 20, gap: 14,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
   },
   timerModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   timerModalTitle: { fontSize: 17, fontWeight: '800', color: theme.text },
@@ -1281,9 +1353,9 @@ function createStyles(theme: AppTheme) {
     paddingVertical: 16, paddingHorizontal: 20, marginTop: 4,
   },
   joinBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: theme.modalBackdrop },
   joinSheet: {
-    backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: theme.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, paddingBottom: 40, gap: 14,
   },
   joinHandle: {

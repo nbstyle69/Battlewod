@@ -9,11 +9,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { HomeStackParamList } from '../../navigation';
 import { AthleteLevel } from '../../types';
 import { formatScoreValue } from '../../utils/scoreFormat';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -255,6 +256,7 @@ export default function WodHistoryScreen() {
 
   return (
     <View style={S.screen}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
@@ -318,7 +320,7 @@ export default function WodHistoryScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12,
@@ -340,7 +342,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   filterChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
   filterTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
   filterTxtSel: { color: t.accent, fontWeight: '900' },
-  list: { padding: 16, gap: 12, paddingBottom: 40 },
+  list: { padding: 16, gap: 12, paddingBottom: 140 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyEmoji: { fontSize: 48 },

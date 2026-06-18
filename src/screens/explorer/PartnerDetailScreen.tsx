@@ -13,6 +13,7 @@ import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
 import { Partner } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 type Route = RouteProp<ExplorerStackParamList, 'PartnerDetail'>;
@@ -61,6 +62,7 @@ export default function PartnerDetailScreen() {
   if (loading) {
     return (
       <View style={[s.container, s.center]}>
+        <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -69,6 +71,7 @@ export default function PartnerDetailScreen() {
   if (!partner) {
     return (
       <View style={[s.container, s.center]}>
+        <GlassBackground />
         <Text style={s.emptyText}>Partenaire introuvable</Text>
       </View>
     );
@@ -76,6 +79,7 @@ export default function PartnerDetailScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
@@ -84,7 +88,7 @@ export default function PartnerDetailScreen() {
         <Text style={s.headerTitle} numberOfLines={1}>{partner.name}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
         {/* Logo + info */}
         <View style={s.heroSection}>
           {partner.logo_url ? (
@@ -166,7 +170,7 @@ export default function PartnerDetailScreen() {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     emptyText: { fontSize: 14, color: t.textMuted },
     header: {

@@ -28,7 +28,7 @@ interface AuthContextType {
   switchBox: (boxId: string) => Promise<void>;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, username: string, level: string, asBoxOwner?: boolean, gender?: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, username: string, level: string, asBoxOwner?: boolean, gender?: string) => Promise<{ error: string | null; finalUsername?: string }>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -215,15 +215,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(email: string, password: string, username: string, level: string, asBoxOwner = false, gender?: string) {
+    // 1) Resolve a free username BEFORE creating the auth user to avoid orphan auth.users rows.
+    //    If the chosen pseudo is taken, we auto-append a random 3-4 digit suffix until one is free.
+    const baseUsername = username.trim();
+    let finalUsername = baseUsername;
+    {
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('username', baseUsername)
+        .maybeSingle();
+      if (existing) {
+        let attempts = 0;
+        while (attempts < 10) {
+          const suffix = Math.floor(100 + Math.random() * 9900); // 100..9999
+          const candidate = `${baseUsername}${suffix}`;
+          const { data: clash } = await supabase
+            .from('profiles')
+            .select('id')
+            .ilike('username', candidate)
+            .maybeSingle();
+          if (!clash) {
+            finalUsername = candidate;
+            break;
+          }
+          attempts++;
+        }
+        if (finalUsername === baseUsername) {
+          return { error: 'Impossible de générer un pseudo libre. Réessaie avec un autre pseudo.' };
+        }
+      }
+    }
+
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
     if (data.user) {
+      // Reset onboarding tutorial flag — every new account sees the presentation
+      await AsyncStorage.removeItem('@athlex:onboardingDone');
       const role = asBoxOwner ? 'box_owner' : 'member';
       const referral_code = Math.random().toString(36).substring(2, 8).toUpperCase();
       const { error: profileError } = await supabase.from('profiles').insert({
         id: data.user.id,
         email,
-        username,
+        username: finalUsername,
         level,
         role,
         gender: gender || null,
@@ -233,7 +267,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         losses: 0,
         referral_code,
       });
-      if (profileError) return { error: `Profil: ${profileError.message}` };
+      if (profileError) {
+        // Best-effort sign-out so the auth state stays clean even if an orphan was created.
+        await supabase.auth.signOut().catch(() => {});
+        if (profileError.code === '23505' || /duplicate key/i.test(profileError.message)) {
+          return { error: 'Ce pseudo est déjà utilisé. Choisis-en un autre.' };
+        }
+        return { error: `Profil: ${profileError.message}` };
+      }
       // Award welcome badge (level_scaled) silently
       awardLevelBadge(data.user.id, 'level_scaled').catch(e => captureError(e, { action: 'awardWelcomeBadge' }));
       if (!data.session) return { error: 'CONFIRM_EMAIL' };
@@ -241,7 +282,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Profile is now in DB — explicitly refresh user state so navigation triggers
       await fetchProfile(data.user.id);
     }
-    return { error: null };
+    return { error: null, finalUsername };
   }
 
   async function joinBox(inviteCode: string): Promise<{ error: string | null }> {

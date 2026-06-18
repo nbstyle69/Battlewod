@@ -9,9 +9,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { HomeStackParamList } from '../../navigation';
+import { getBadgesCatalog, BadgeDef } from '../../services/gamification';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
+import ReportMenu from '../../components/ReportMenu';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'PublicProfile'>;
@@ -55,6 +58,7 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
   const [eloPoints, setEloPoints] = useState<EloPoint[]>([]);
   const [boxInfo, setBoxInfo] = useState<BoxInfo | null>(null);
   const [period, setPeriod] = useState<'7d' | '30d' | '365d' | 'all'>('all');
+  const [featuredBadges, setFeaturedBadges] = useState<BadgeDef[]>([]);
 
   useEffect(() => {
     loadProfile();
@@ -66,11 +70,17 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
   async function loadProfile() {
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, full_name, avatar_url, level, elo, wins, total_matches, bio')
+      .select('id, username, full_name, avatar_url, level, elo, wins, total_matches, bio, personal_records')
       .eq('id', userId)
       .single();
     setProfile(data as PublicUser);
     setLoading(false);
+    // Load featured badges from personal_records
+    const keys: string[] = (data as any)?.personal_records?._featured_badges ?? [];
+    if (keys.length > 0) {
+      const catalog = await getBadgesCatalog();
+      setFeaturedBadges(catalog.filter(b => keys.includes(b.badge_key)));
+    }
   }
 
   async function loadEloHistory() {
@@ -191,14 +201,28 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
           <ChevronLeft color={theme.text} size={24} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>Profil</Text>
-        <TouchableOpacity onPress={() => Share.share({ message: `Découvre mon profil sur AthleX ! athlex://profile/${route.params.userId}` })} style={S.backBtn}>
-          <Share2 color={theme.text} size={20} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity onPress={() => Share.share({ message: `Découvre mon profil sur AthleX ! athlex://profile/${route.params.userId}` })} style={S.backBtn}>
+            <Share2 color={theme.text} size={20} />
+          </TouchableOpacity>
+          {me?.id !== route.params.userId && (
+            <View style={S.backBtn}>
+              <ReportMenu
+                contentType="profile"
+                reportedUserId={route.params.userId}
+                onActionDone={() => navigation.goBack()}
+                size={20}
+                color={theme.text}
+              />
+            </View>
+          )}
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
@@ -224,6 +248,21 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
           {profile.bio ? <Text style={S.bio}>{profile.bio}</Text> : null}
           <FriendButton />
         </View>
+
+        {/* Featured badges trophy case */}
+        {featuredBadges.length > 0 && (
+          <View style={S.trophyCase}>
+            <Text style={S.trophyCaseTitle}>Trophées</Text>
+            <View style={S.trophyRow}>
+              {featuredBadges.map(b => (
+                <View key={b.badge_key} style={S.trophyCard}>
+                  <Text style={S.trophyIcon}>{b.icon}</Text>
+                  <Text style={S.trophyName} numberOfLines={2}>{b.title}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Stats */}
         <View style={S.statsRow}>
@@ -263,7 +302,7 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background },
   notFound: { fontSize: 15, color: theme.textMuted },
   header: {
@@ -329,6 +368,19 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   boxName: { fontSize: 14, fontWeight: '700', color: theme.text },
   boxCity: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
+  trophyCase: {
+    backgroundColor: theme.card, borderRadius: 16,
+    borderWidth: 1, borderColor: '#f59e0b40', padding: 16,
+  },
+  trophyCaseTitle: { fontSize: 11, fontWeight: '800', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
+  trophyRow: { flexDirection: 'row', gap: 10 },
+  trophyCard: {
+    flex: 1, alignItems: 'center', backgroundColor: theme.surface,
+    borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#f59e0b30',
+    gap: 6,
+  },
+  trophyIcon: { fontSize: 32 },
+  trophyName: { fontSize: 11, fontWeight: '700', color: theme.text, textAlign: 'center', lineHeight: 14 },
 }); }
 
 // ── ELO Chart for Public Profile ─────────────────────────────────────

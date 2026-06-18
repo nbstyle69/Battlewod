@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface Article {
   id: string;
@@ -177,6 +178,7 @@ export default function ArticlesScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -185,7 +187,8 @@ export default function ArticlesScreen() {
   // ── Detail view ──
   if (selectedArticle) {
     return (
-      <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <GlassBackground />
         <View style={S.header}>
           <TouchableOpacity onPress={() => { setSelectedArticle(null); setComments([]); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <ArrowLeft color={theme.text} size={22} />
@@ -265,6 +268,7 @@ export default function ArticlesScreen() {
   // ── List view ──
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <ArrowLeft color={theme.text} size={22} />
@@ -275,7 +279,7 @@ export default function ArticlesScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
       >
         {articles.length === 0 ? (
@@ -319,7 +323,7 @@ export default function ArticlesScreen() {
 }
 
 function styles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

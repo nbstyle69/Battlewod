@@ -1,4 +1,3 @@
-import { Colors } from '../theme/colors';
 
 // ── CF Games points table ─────────────────────────────────────────────────────
 export const CF_GAMES_POINTS: number[] = [
@@ -19,7 +18,7 @@ export const MOVEMENT_BADGE_LEVELS = [
   { level: 2, reps: 500,   label: 'Intermédiaire', emoji: '🥈', color: '#C0C0C0' },
   { level: 3, reps: 1000,  label: 'Confirmé',      emoji: '🥇', color: '#FFD700' },
   { level: 4, reps: 3000,  label: 'Expert',        emoji: '💎', color: '#60A5FA' },
-  { level: 5, reps: 10000, label: 'Elite',         emoji: '⚡', color: Colors.primary },
+  { level: 5, reps: 10000, label: 'Elite',         emoji: '⚡', color: '#111827' },
 ];
 
 // ── Normalize movement names ──────────────────────────────────────────────────

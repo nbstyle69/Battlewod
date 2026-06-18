@@ -14,11 +14,13 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
+import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
 import { Program } from '../../types';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
@@ -100,16 +102,17 @@ const BADGE_CATEGORY_MAP: Record<string, string> = {
   tournament: 'Compétition',
   social: 'Communauté',
   wod: 'Entraînement',
-  elo: 'Classement',
+  elo: 'Classement ELO',
+  Classement: 'Classement',
 };
-const CATEGORY_ORDER = ['activity', 'tournament', 'wod', 'elo', 'social'];
+const CATEGORY_ORDER = ['activity', 'tournament', 'wod', 'elo', 'Classement', 'social'];
 
 export default function ProfileScreen() {
   const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser, myBoxes, switchBox } = useAuth();
   const { theme, mode, toggleTheme } = useTheme();
   const navigation = useNavigation<Nav>();
   const S = createStyles(theme);
-  const [activeTab, setActiveTab]   = useState(3);
+  const [activeTab, setActiveTab]   = useState(0);
   const [expandedPR, setExpandedPR] = useState<string | null>('Haltérophilie');
 
   // ── Referral code
@@ -125,6 +128,7 @@ export default function ProfileScreen() {
   // ── PR editing
   const [editingPR, setEditingPR] = useState<string | null>(null);
   const [prValues, setPrValues] = useState<Record<string, string>>({});
+  const [featuredBadges, setFeaturedBadges] = useState<string[]>([]);
 
   // ── Box join modal
   const [joinModal, setJoinModal]   = useState(false);
@@ -152,7 +156,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('program_members')
         .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
         .eq('user_id', user.id)
@@ -166,15 +170,24 @@ export default function ProfileScreen() {
     if (!progCode.trim() || !user) return;
     setJoiningProg(true);
     try {
-      const { data: prog } = await supabase
+      const { data: prog } = await (supabase as any)
         .from('programs')
         .select('*')
         .eq('invite_code', progCode.trim().toUpperCase())
         .eq('is_active', true)
         .single();
       if (!prog) { Alert.alert('Erreur', 'Code programme invalide.'); setJoiningProg(false); return; }
+      // iOS: block paid programs (App Store IAP rules — must go through web)
+      if (Platform.OS === 'ios' && prog.price_cents > 0) {
+        Alert.alert(
+          'Programme payant',
+          'Les programmes payants sont disponibles uniquement via athlex.app depuis un navigateur. Une fois ton inscription confirmée, le programme apparaîtra automatiquement dans ton app.',
+        );
+        setJoiningProg(false);
+        return;
+      }
       // Check not already member
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from('program_members')
         .select('id')
         .eq('program_id', prog.id)
@@ -183,7 +196,7 @@ export default function ProfileScreen() {
       if (existing) { Alert.alert('Déjà inscrit', 'Tu fais déjà partie de ce programme.'); setJoiningProg(false); return; }
       // For now: free join (Stripe integration later)
       const today = new Date().toISOString().split('T')[0];
-      const { error } = await supabase.from('program_members').insert({
+      const { error } = await (supabase as any).from('program_members').insert({
         program_id: prog.id,
         user_id: user.id,
         start_date: today,
@@ -194,7 +207,7 @@ export default function ProfileScreen() {
       Alert.alert('Bienvenue !', `Tu as rejoint le programme « ${prog.title} ».`);
       setProgModal(false); setProgCode('');
       // Refresh programs
-      const { data: refreshed } = await supabase
+      const { data: refreshed } = await (supabase as any)
         .from('program_members')
         .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
         .eq('user_id', user.id)
@@ -234,8 +247,10 @@ export default function ProfileScreen() {
     if (!profileData) return;
     setWodCount(profileData.wodCount);
     if (profileData.prValues && typeof profileData.prValues === 'object') {
-      const prs = profileData.prValues as Record<string, string>;
-      setPrValues(prev => ({ ...prev, ...prs }));
+      const prs = profileData.prValues as Record<string, string | string[]>;
+      const { _featured_badges, ...rest } = prs as any;
+      setPrValues(prev => ({ ...prev, ...(rest as Record<string, string>) }));
+      if (Array.isArray(_featured_badges)) setFeaturedBadges(_featured_badges);
     }
     setBadgesCatalog(profileData.badgesCatalog);
     setEarnedBadges(profileData.earnedBadges);
@@ -269,7 +284,20 @@ export default function ProfileScreen() {
 
   async function savePRs(updated: Record<string, string>) {
     if (!user) return;
-    await supabase.from('profiles').update({ personal_records: updated }).eq('id', user.id);
+    await supabase.from('profiles').update({ personal_records: { ...updated, _featured_badges: featuredBadges } }).eq('id', user.id);
+  }
+
+  async function toggleFeaturedBadge(badgeKey: string) {
+    if (!user) return;
+    let next: string[];
+    if (featuredBadges.includes(badgeKey)) {
+      next = featuredBadges.filter(k => k !== badgeKey);
+    } else {
+      if (featuredBadges.length >= 3) return;
+      next = [...featuredBadges, badgeKey];
+    }
+    setFeaturedBadges(next);
+    await supabase.from('profiles').update({ personal_records: { ...prValues, _featured_badges: next } }).eq('id', user.id);
   }
 
   async function loadWodCount() {
@@ -454,7 +482,20 @@ export default function ProfileScreen() {
   const winRate = user?.total_matches
     ? Math.round((user.wins / user.total_matches) * 100)
     : 0;
-  const eloProgress = Math.max(0, Math.min(100, ((user?.elo ?? 1000) - 1000) / 10));
+  const currentElo = user?.elo ?? 1000;
+  const ELO_STEPS: { min: number; label: string }[] = [
+    { min: 0,    label: 'Scaled' },
+    { min: 800,  label: 'Inter' },
+    { min: 1200, label: 'RX' },
+    { min: 1400, label: 'RX+' },
+    { min: 1600, label: 'Elite' },
+    { min: 1800, label: 'Pro' },
+  ];
+  const currentStep = [...ELO_STEPS].reverse().find(s => currentElo >= s.min) ?? ELO_STEPS[0];
+  const nextStep = ELO_STEPS[ELO_STEPS.indexOf(currentStep) + 1] ?? null;
+  const eloProgress = nextStep
+    ? Math.round(Math.max(0, Math.min(100, ((currentElo - currentStep.min) / (nextStep.min - currentStep.min)) * 100)))
+    : 100;
 
   async function handleSignOut() {
     Alert.alert('Déconnexion', 'Tu veux vraiment te déconnecter ?', [
@@ -505,10 +546,14 @@ export default function ProfileScreen() {
                   : user?.role === 'super_admin' ? 'Super Admin'
                   : 'Athlète';
 
-  const roleColor = user?.role === 'box_owner'  ? '#C9A227'
-                  : user?.role === 'admin'       ? '#8B5CF6'
-                  : user?.role === 'super_admin' ? '#EF4444'
-                  : theme.accent;
+  // Couleurs de rôle depuis le thème
+const roleColors: Record<string, string> = {
+  box_owner: '#C9A227',
+  admin: '#8B5CF6',
+  super_admin: theme.error,
+  athlete: theme.accent,
+};
+const roleColor = roleColors[user?.role ?? 'athlete'];
 
   async function handleShareBoxCode() {
     if (!currentBox?.invite_code) return;
@@ -533,15 +578,21 @@ export default function ProfileScreen() {
   const earnedCount = earnedBadges.length;
   const totalBadges = badgesCatalog.length;
 
-  // Group badges by category
-  const badgesByCategory = CATEGORY_ORDER.map(cat => ({
-    key: cat,
-    label: BADGE_CATEGORY_MAP[cat] ?? cat,
-    badges: badgesCatalog.filter(b => b.category === cat),
-  })).filter(c => c.badges.length > 0);
+  // Group badges by category — show ALL categories from DB (CATEGORY_ORDER first, unknowns appended)
+  const badgesByCategory = (() => {
+    const allCats = [...new Set(badgesCatalog.map(b => b.category))];
+    const ordered = CATEGORY_ORDER.filter(c => allCats.includes(c));
+    const extras  = allCats.filter(c => !CATEGORY_ORDER.includes(c));
+    return [...ordered, ...extras].map(cat => ({
+      key: cat,
+      label: BADGE_CATEGORY_MAP[cat] ?? cat,
+      badges: badgesCatalog.filter(b => b.category === cat),
+    }));
+  })();
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View style={S.headerTop}>
           <UserAvatar
@@ -590,13 +641,19 @@ export default function ProfileScreen() {
 
         <View style={S.progressSection}>
           <View style={S.progressHeader}>
-            <Text style={S.progressLabel}>Progression vers Légende</Text>
-            <Text style={S.progressPct}>{Math.round(eloProgress)}%</Text>
+            <Text style={S.progressLabel}>
+              {nextStep ? `Vers ${nextStep.label}` : '🏆 Niveau maximum atteint'}
+            </Text>
+            <Text style={S.progressPct}>{eloProgress}%</Text>
           </View>
           <View style={S.progressTrack}>
-            <View style={[S.progressFill, { width: `${eloProgress}%` as any }]} />
+            <View style={[S.progressFill, { width: `${eloProgress}%` as any, backgroundColor: levelColor }]} />
           </View>
-          <Text style={S.progressNote}>{(user?.elo ?? 1000)} / 2000 ELO</Text>
+          <Text style={S.progressNote}>
+            {nextStep
+              ? `${currentElo} / ${nextStep.min} ELO · Niveau actuel : ${currentStep.label}`
+              : `${currentElo} ELO · Pro Legend`}
+          </Text>
         </View>
       </View>
 
@@ -712,6 +769,9 @@ export default function ProfileScreen() {
                 {' '}badges obtenus sur{' '}
                 <Text style={{ fontWeight: '900' }}>{totalBadges}</Text>
               </Text>
+              <Text style={{ fontSize: 11, color: theme.accent, fontWeight: '700' }}>
+                ⭐ {featuredBadges.length}/3 épinglés
+              </Text>
             </View>
             {/* Streak widget */}
             <View style={S.streakWidget}>
@@ -725,21 +785,35 @@ export default function ProfileScreen() {
               </View>
             </View>
 
+            <Text style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, marginTop: -4 }}>
+              Appuie sur un badge débloqué pour l’épingler sur ton profil public
+            </Text>
+
             {badgesByCategory.map((cat) => (
               <View key={cat.key} style={S.badgeCategoryBlock}>
                 <Text style={S.badgeCategoryTitle}>{cat.label}</Text>
                 <View style={S.badgesGrid}>
                   {cat.badges.map((badge) => {
                     const earned = earnedKeys.has(badge.badge_key);
+                    const isFeatured = featuredBadges.includes(badge.badge_key);
+                    const canFeature = earned && (isFeatured || featuredBadges.length < 3);
                     return (
-                      <View key={badge.badge_key} style={[S.badgeCard, !earned && S.badgeCardLocked]}>
+                      <TouchableOpacity
+                        key={badge.badge_key}
+                        style={[S.badgeCard, !earned && S.badgeCardLocked, isFeatured && { borderColor: '#f59e0b', borderWidth: 2 }]}
+                        onPress={() => canFeature && toggleFeaturedBadge(badge.badge_key)}
+                        activeOpacity={earned ? 0.75 : 1}
+                      >
+                        {isFeatured && (
+                          <Text style={{ position: 'absolute', top: 4, right: 4, fontSize: 12 }}>⭐</Text>
+                        )}
                         <Text style={S.badgeIcon}>{earned ? badge.icon : '🔒'}</Text>
                         <Text style={[S.badgeName, !earned && { color: theme.textMuted }]}>
                           {badge.title}
                         </Text>
                         <Text style={S.badgeDesc}>{badge.description}</Text>
                         {earned && <View style={S.earnedBar} />}
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
@@ -832,8 +906,8 @@ export default function ProfileScreen() {
               ) : (
                 <Text style={S.noBoxText}>Aucun programme rejoint.</Text>
               )}
-              <TouchableOpacity style={[S.joinBtn, { backgroundColor: theme.accent }]} onPress={() => setProgModal(true)} activeOpacity={0.8}>
-                <BookOpen color={theme.background} size={16} />
+              <TouchableOpacity style={S.joinBtn} onPress={() => setProgModal(true)} activeOpacity={0.8}>
+                <BookOpen color="#fff" size={16} />
                 <Text style={S.joinBtnText}>Rejoindre un programme</Text>
               </TouchableOpacity>
             </View>
@@ -1002,6 +1076,18 @@ export default function ProfileScreen() {
               </View>
             </View>
 
+            {/* ── Utilisateurs bloqués ──────────────────── */}
+            <TouchableOpacity
+              style={S.compteCard}
+              onPress={() => navigation.navigate('BlockedUsers' as never)}
+              activeOpacity={0.8}
+            >
+              <View style={S.themeRow}>
+                <Text style={S.compteCardTitle}>Utilisateurs bloqués</Text>
+                <ChevronRight color={theme.textMuted} size={16} />
+              </View>
+            </TouchableOpacity>
+
             {/* ── Notifications ─────────────────────────── */}
             <TouchableOpacity
               style={S.compteCard}
@@ -1150,7 +1236,7 @@ function createStyles(t: AppTheme) {
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   };
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 58, paddingHorizontal: 20, paddingBottom: 20,
     backgroundColor: t.card,
@@ -1278,7 +1364,8 @@ function createStyles(t: AppTheme) {
   noBoxText: { fontSize: 13, color: t.textMuted },
   joinBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: t.accent, borderRadius: 14, padding: 14,
+    gap: 8, backgroundColor: 'rgba(16,185,129,0.25)', borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)',
   },
   joinBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   leaveBtn: {
@@ -1310,9 +1397,9 @@ function createStyles(t: AppTheme) {
   },
   saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: t.modalBackdrop },
   modalSheet: {
-    backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: t.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, gap: 14, paddingBottom: 40,
   },
   modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 4 },

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'r
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Tab = 'cgu' | 'privacy';
 
@@ -15,6 +16,7 @@ export default function LegalScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => nav.goBack()} hitSlop={12}>
           <ArrowLeft color={theme.text} size={22} />
@@ -70,11 +72,32 @@ function CGUContent({ theme, S }: { theme: AppTheme; S: any }) {
       <Text style={S.li}>• Messagerie et communication entre membres d'une box</Text>
       <Text style={S.li}>• Gestion de box pour les gérants</Text>
 
-      <Text style={S.h2}>4. Comportement</Text>
+      <Text style={S.h2}>4. Comportement et contenu interdit</Text>
       <Text style={S.p}>
-        L'utilisateur s'engage à ne pas tricher, falsifier ses scores ou adopter un comportement nuisible.
-        Tout faux score entraîne une disqualification et perte d'ELO. AthleX se réserve le droit de suspendre
-        ou supprimer tout compte enfreignant ces règles.
+        AthleX applique une politique de tolérance zéro envers les abus. Sont strictement interdits :
+      </Text>
+      <Text style={S.li}>• Harcèlement, intimidation ou menaces</Text>
+      <Text style={S.li}>• Discours haineux, racistes, sexistes, homophobes ou discriminatoires</Text>
+      <Text style={S.li}>• Contenu sexuellement explicite, nudité ou pornographie</Text>
+      <Text style={S.li}>• Violence, menaces physiques ou incitation à la violence</Text>
+      <Text style={S.li}>• Spam, publicité non sollicitée, phishing</Text>
+      <Text style={S.li}>• Tricherie, falsification de scores ou de vidéos de performance</Text>
+      <Text style={S.li}>• Usurpation d'identité d'un autre athlète ou coach</Text>
+      <Text style={S.li}>• Partage de contenu illégal ou violant les droits d'auteur</Text>
+      <Text style={S.p}>
+        Tout utilisateur peut signaler un contenu ou un utilisateur via le menu ⋮ présent sur chaque
+        message, vidéo, profil ou commentaire. AthleX s'engage à examiner chaque signalement sous{' '}
+        <Text style={{ fontWeight: '800' }}>24 heures ouvrées</Text> et à prendre les mesures appropriées :
+        suppression du contenu, suspension ou bannissement définitif du compte fautif.
+      </Text>
+      <Text style={S.p}>
+        Chaque utilisateur peut également bloquer un autre utilisateur à tout moment depuis son profil.
+        Le blocage masque instantanément tout contenu (messages, commentaires, profil) de la personne bloquée.
+      </Text>
+      <Text style={S.p}>
+        AthleX se réserve le droit, sans préavis, de suspendre, restreindre ou supprimer tout compte
+        enfreignant ces règles, y compris en cas de faux score, tricherie avérée ou comportement nuisible
+        récurrent. Les données des comptes bannis peuvent être conservées à des fins légales.
       </Text>
 
       <Text style={S.h2}>5. Propriété intellectuelle</Text>
@@ -212,7 +235,7 @@ function PrivacyContent({ theme, S }: { theme: AppTheme; S: any }) {
 
 function createStyles(t: AppTheme, isDark: boolean) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12,

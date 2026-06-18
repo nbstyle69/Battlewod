@@ -1,16 +1,36 @@
 import { supabase } from '../lib/supabase';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { captureError } from '../lib/sentry';
 import { hapticHeavy } from '../lib/haptics';
 
 // ── Badge title cache (avoid re-fetching) ───────────────────────────
-let badgeTitleCache: Record<string, { title: string; icon: string }> = {};
-async function getBadgeTitle(key: string): Promise<{ title: string; icon: string }> {
+let badgeTitleCache: Record<string, { title: string; icon: string; description: string }> = {};
+async function getBadgeTitle(key: string): Promise<{ title: string; icon: string; description: string }> {
   if (badgeTitleCache[key]) return badgeTitleCache[key];
-  const { data } = await supabase.from('badges_catalog').select('title, icon').eq('badge_key', key).single();
-  const result = { title: data?.title ?? key, icon: data?.icon ?? '🏅' };
+  const { data } = await supabase.from('badges_catalog').select('title, icon, description').eq('badge_key', key).single();
+  const result = { title: data?.title ?? key, icon: data?.icon ?? '🏅', description: data?.description ?? '' };
   badgeTitleCache[key] = result;
   return result;
+}
+
+// ── Badge unlock queue (for HomeScreen popup) ────────────────────────
+export interface BadgeQueueItem {
+  badge_key: string;
+  title: string;
+  icon: string;
+  description: string;
+}
+
+export async function readBadgeQueue(userId: string): Promise<BadgeQueueItem[]> {
+  try {
+    const raw = await AsyncStorage.getItem(`@athlex:badge_queue_${userId}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export async function clearBadgeQueue(userId: string): Promise<void> {
+  try { await AsyncStorage.removeItem(`@athlex:badge_queue_${userId}`); } catch (_e) { }
 }
 
 // ── Badge catalog (mirrors DB) ──────────────────────────────────────
@@ -25,7 +45,7 @@ export interface BadgeDef {
 
 export interface EarnedBadge {
   badge_key: string;
-  earned_at: string;
+  achieved_at: string;
 }
 
 export interface StreakInfo {
@@ -49,7 +69,7 @@ export async function getBadgesCatalog(): Promise<BadgeDef[]> {
 export async function getEarnedBadges(userId: string): Promise<EarnedBadge[]> {
   const { data } = await supabase
     .from('athlete_badges')
-    .select('badge_key, earned_at')
+    .select('badge_key, achieved_at')
     .eq('athlete_id', userId);
   return (data ?? []) as unknown as EarnedBadge[];
 }
@@ -96,6 +116,15 @@ async function awardBadge(userId: string, badgeKey: string): Promise<boolean> {
     .from('athlete_badges')
     .insert({ athlete_id: userId, badge_key: badgeKey });
   if (error) return false;
+
+  // Queue badge for HomeScreen popup
+  try {
+    const { title, icon, description } = await getBadgeTitle(badgeKey);
+    const raw = await AsyncStorage.getItem(`@athlex:badge_queue_${userId}`);
+    const q: BadgeQueueItem[] = raw ? JSON.parse(raw) : [];
+    q.push({ badge_key: badgeKey, title, icon, description });
+    await AsyncStorage.setItem(`@athlex:badge_queue_${userId}`, JSON.stringify(q));
+  } catch (_e) { }
 
   // Send local notification + haptic for badge unlock
   try {

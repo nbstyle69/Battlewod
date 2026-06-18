@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const THEME_KEY = '@app_theme';
+
+// Android has no native BlurView → translucent cards look washed-out / "double rectangle".
+// On Android, we force more opaque card/surface fills so blocks render as crisp,
+// clearly-visible cards on every screen that uses theme.card or theme.surface directly.
+const IS_ANDROID = Platform.OS === 'android';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -20,6 +26,7 @@ export interface AppTheme {
   accentShadow: string;
   secondary: string;
   text: string;
+  textPrimary: string;
   textSecondary: string;
   textMuted: string;
   border: string;
@@ -34,30 +41,35 @@ export interface AppTheme {
   error: string;
   warning: string;
   shadow: string;
+  modalCard: string;
+  modalBackdrop: string;
 }
 
 export const lightTheme: AppTheme = {
   mode: 'light',
-  background: '#F8F8FA',
-  card: '#FFFFFF',
-  cardBorder: '#E2E2EA',
-  surface: '#F1F1F5',
-  surfaceAlt: '#E8E8EE',
-  primary: '#1A1A2E',
-  primaryLight: '#3A3A50',
-  accent: '#059669',
+  background: '#ffffff',
+  // Glassmorphism: cards/surfaces are translucent so the emerald gradient/blobs show through on iOS.
+  // On Android (no BlurView), we use more opaque fills to keep cards crisp and legible.
+  card: IS_ANDROID ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.55)',
+  cardBorder: IS_ANDROID ? 'rgba(16,185,129,0.20)' : 'rgba(255,255,255,0.55)',
+  surface: IS_ANDROID ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.40)',
+  surfaceAlt: IS_ANDROID ? 'rgba(236,253,245,0.88)' : 'rgba(236,253,245,0.50)',
+  primary: '#111827',
+  primaryLight: '#374151',
+  accent: '#10b981',
   accentDark: '#047857',
   accentLight: '#34d399',
-  accentShadow: 'rgba(5,150,105,0.30)',
-  secondary: '#6B6B80',
-  text: '#1A1A2E',
-  textSecondary: '#6B6B80',
-  textMuted: '#9E9EB0',
-  border: '#E2E2EA',
-  tabBar: '#FFFFFF',
-  tabBarBorder: '#E8E8EE',
-  tabBarActive: '#059669',
-  tabBarInactive: '#9E9EB0',
+  accentShadow: 'rgba(16,185,129,0.30)',
+  secondary: '#6b7280',
+  text: '#111827',
+  textPrimary: '#111827',
+  textSecondary: '#6b7280',
+  textMuted: '#9ca3af',
+  border: 'rgba(16,185,129,0.18)',
+  tabBar: 'rgba(255,255,255,0.85)',
+  tabBarBorder: 'rgba(16,185,129,0.20)',
+  tabBarActive: '#10b981',
+  tabBarInactive: '#9ca3af',
   gold: '#FFD700',
   silver: '#C0C0C0',
   bronze: '#CD7F32',
@@ -65,30 +77,35 @@ export const lightTheme: AppTheme = {
   error: '#ef4444',
   warning: '#f59e0b',
   shadow: 'rgba(0,0,0,0.06)',
+  modalCard: '#ffffff',
+  modalBackdrop: 'rgba(0,0,0,0.55)',
 };
 
 export const darkTheme: AppTheme = {
   mode: 'dark',
-  background: '#0A0A0F',
-  card: '#141419',
-  cardBorder: '#2A2A35',
-  surface: '#1C1C24',
-  surfaceAlt: '#26262F',
-  primary: '#F5F5F7',
-  primaryLight: '#C8C8D0',
+  background: '#0a0a0a',
+  // Glassmorphism: cards/surfaces are translucent so the emerald gradient/blobs show through on iOS.
+  // On Android (no BlurView), we use more opaque dark fills to keep cards crisp and legible.
+  card: IS_ANDROID ? 'rgba(22,28,26,0.82)' : 'rgba(255,255,255,0.06)',
+  cardBorder: IS_ANDROID ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.12)',
+  surface: IS_ANDROID ? 'rgba(26,32,30,0.80)' : 'rgba(255,255,255,0.04)',
+  surfaceAlt: IS_ANDROID ? 'rgba(28,36,34,0.80)' : 'rgba(255,255,255,0.08)',
+  primary: '#f9fafb',
+  primaryLight: '#d1d5db',
   accent: '#10b981',
   accentDark: '#059669',
   accentLight: '#34d399',
   accentShadow: 'rgba(16,185,129,0.40)',
-  secondary: '#A0A0B0',
-  text: '#F5F5F7',
-  textSecondary: '#A0A0B0',
-  textMuted: '#5C5C6E',
-  border: '#2A2A35',
-  tabBar: '#111116',
-  tabBarBorder: '#1C1C24',
+  secondary: '#9ca3af',
+  text: '#f9fafb',
+  textPrimary: '#f9fafb',
+  textSecondary: '#cbd5e1',
+  textMuted: '#94a3b8',
+  border: 'rgba(255,255,255,0.10)',
+  tabBar: 'rgba(10,10,10,0.85)',
+  tabBarBorder: 'rgba(16,185,129,0.20)',
   tabBarActive: '#10b981',
-  tabBarInactive: '#5C5C6E',
+  tabBarInactive: '#6b7280',
   gold: '#FFD700',
   silver: '#C0C0C0',
   bronze: '#CD7F32',
@@ -96,6 +113,8 @@ export const darkTheme: AppTheme = {
   error: '#f87171',
   warning: '#fbbf24',
   shadow: 'rgba(0,0,0,0.4)',
+  modalCard: '#14161b',
+  modalBackdrop: 'rgba(0,0,0,0.80)',
 };
 
 interface ThemeContextType {
@@ -111,7 +130,7 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('dark');
+  const [mode, setMode] = useState<ThemeMode>('light');
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_KEY).then(saved => {

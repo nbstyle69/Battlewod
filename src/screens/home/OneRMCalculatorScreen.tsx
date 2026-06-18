@@ -11,6 +11,8 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import GlassBackground from '../../components/glass/GlassBackground';
+import GlassCard from '../../components/glass/GlassCard';
 
 const STORAGE_KEY = '@athlex:1rm_calc';
 
@@ -121,6 +123,7 @@ export default function OneRMCalculatorScreen() {
 
   return (
     <SafeAreaView style={S.screen}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn} activeOpacity={0.7}>
           <ArrowLeft color={theme.text} size={22} />
@@ -137,83 +140,93 @@ export default function OneRMCalculatorScreen() {
         {/* PR Quick Select */}
         {savedPRs.length > 0 && (
           <View style={S.prSection}>
-            <TouchableOpacity
-              style={S.prToggle}
-              onPress={() => setShowPRList(!showPRList)}
-              activeOpacity={0.7}
-            >
-              <Dumbbell color={theme.accent} size={16} />
-              <Text style={S.prToggleText}>
-                {selectedMovement ?? 'Choisir un mouvement (mes PR)'}
-              </Text>
-              {showPRList
-                ? <ChevronUp color={theme.textMuted} size={16} />
-                : <ChevronDown color={theme.textMuted} size={16} />}
-            </TouchableOpacity>
+            <GlassCard radius={14} variant="emerald">
+              <TouchableOpacity
+                style={S.prToggle}
+                onPress={() => setShowPRList(!showPRList)}
+                activeOpacity={0.7}
+              >
+                <Dumbbell color={theme.accent} size={16} />
+                <Text style={S.prToggleText}>
+                  {selectedMovement ?? 'Choisir un mouvement (mes PR)'}
+                </Text>
+                {showPRList
+                  ? <ChevronUp color={theme.textMuted} size={16} />
+                  : <ChevronDown color={theme.textMuted} size={16} />}
+              </TouchableOpacity>
+            </GlassCard>
 
             {showPRList && (
-              <View style={S.prList}>
-                {savedPRs.map(pr => (
-                  <TouchableOpacity
-                    key={pr.key}
-                    style={[S.prItem, selectedMovement === pr.name && S.prItemActive]}
-                    onPress={() => selectPR(pr)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[S.prItemName, selectedMovement === pr.name && { color: theme.accent }]}>
-                      {pr.name}
-                    </Text>
-                    <Text style={S.prItemValue}>{pr.value} kg</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <GlassCard radius={14} style={{ marginTop: 6 }}>
+                <View>
+                  {savedPRs.map(pr => (
+                    <TouchableOpacity
+                      key={pr.key}
+                      style={[S.prItem, selectedMovement === pr.name && S.prItemActive]}
+                      onPress={() => selectPR(pr)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[S.prItemName, selectedMovement === pr.name && { color: theme.accent }]}>
+                        {pr.name}
+                      </Text>
+                      <Text style={S.prItemValue}>{pr.value} kg</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </GlassCard>
             )}
           </View>
         )}
 
         {/* Input */}
-        <View style={S.inputCard}>
-          <Text style={S.inputLabel}>
-            {selectedMovement ? `1RM — ${selectedMovement}` : 'TON 1RM'}
-          </Text>
-          <View style={S.inputRow}>
-            <TextInput
-              style={S.input}
-              value={input}
-              onChangeText={(v) => { setInput(v); setSelectedMovement(null); }}
-              keyboardType="decimal-pad"
-              placeholder="ex: 100"
-              placeholderTextColor={theme.textMuted}
-              maxLength={6}
-            />
-            <Text style={S.inputUnit}>{unit}</Text>
-          </View>
+        <GlassCard radius={16} style={{ marginTop: 20, marginBottom: 20 }}>
+          <View style={S.inputCardInner}>
+            <Text style={S.inputLabel}>
+              {selectedMovement ? `1RM — ${selectedMovement}` : 'TON 1RM'}
+            </Text>
+            <View style={S.inputRow}>
+              <TextInput
+                style={S.input}
+                value={input}
+                onChangeText={(v) => { setInput(v); setSelectedMovement(null); }}
+                keyboardType="decimal-pad"
+                placeholder="ex: 100"
+                placeholderTextColor={theme.textMuted}
+                maxLength={6}
+              />
+              <Text style={S.inputUnit}>{unit}</Text>
+            </View>
 
-          <View style={S.toggleRow}>
-            <Text style={[S.toggleLabel, !isLbs && { color: theme.success, fontWeight: '800' }]}>KG</Text>
-            <Switch
-              value={isLbs}
-              onValueChange={setIsLbs}
-              trackColor={{ false: theme.success, true: '#FF3B30' }}
-              thumbColor="#fff"
-            />
-            <Text style={[S.toggleLabel, isLbs && { color: '#FF3B30', fontWeight: '800' }]}>LBS</Text>
+            <View style={S.toggleRow}>
+              <Text style={[S.toggleLabel, !isLbs && { color: theme.success, fontWeight: '800' }]}>KG</Text>
+              <Switch
+                value={isLbs}
+                onValueChange={setIsLbs}
+                trackColor={{ false: theme.success, true: '#FF3B30' }}
+                thumbColor="#fff"
+              />
+              <Text style={[S.toggleLabel, isLbs && { color: '#FF3B30', fontWeight: '800' }]}>LBS</Text>
+            </View>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Table header */}
-        <View style={S.tableHeader}>
-          <Text style={[S.thTxt, { flex: 0.7 }]}>%</Text>
-          <Text style={[S.thTxt, { flex: 1 }]}>Charge</Text>
-          <Text style={[S.thTxt, { flex: 1.5 }]}>Zone</Text>
-          <Text style={[S.thTxt, { flex: 1.3 }]}>Reps</Text>
-        </View>
+        <GlassCard radius={10} style={{ marginBottom: 4 }}>
+          <View style={S.tableHeader}>
+            <Text style={[S.thTxt, { flex: 0.7 }]}>%</Text>
+            <Text style={[S.thTxt, { flex: 1 }]}>Charge</Text>
+            <Text style={[S.thTxt, { flex: 1.5 }]}>Zone</Text>
+            <Text style={[S.thTxt, { flex: 1.3 }]}>Reps</Text>
+          </View>
+        </GlassCard>
 
         {/* Table rows */}
         {ZONES.map((z) => {
           const load = valid ? round(raw * z.pct / 100, step) : null;
+          // Convertir les couleurs hex en rgba pour glassmorphism
+          const bgGlass = z.bg + '40'; // 25% opacité
           return (
-            <View key={z.pct} style={[S.row, { backgroundColor: z.bg }]}>
+            <View key={z.pct} style={[S.row, { backgroundColor: bgGlass, borderColor: z.color + '40' }]}>
               <View style={[S.pctBadge, { borderColor: z.color }]}>
                 <Text style={[S.pctTxt, { color: z.color }]}>{z.pct}%</Text>
               </View>
@@ -238,7 +251,7 @@ export default function OneRMCalculatorScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
@@ -248,12 +261,13 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { fontSize: 16, fontWeight: '900', color: theme.text, letterSpacing: 0.2 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 140 },
   inputCard: {
     backgroundColor: theme.card, borderRadius: 16, padding: 20,
     marginTop: 20, marginBottom: 20,
     borderWidth: 1, borderColor: theme.border,
   },
+  inputCardInner: { padding: 20 },
   inputLabel: {
     fontSize: 10, fontWeight: '800', color: theme.success,
     letterSpacing: 1.5, marginBottom: 12,
@@ -273,38 +287,38 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   tableHeader: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 8,
-    backgroundColor: theme.card, borderRadius: 10, marginBottom: 4,
+    borderRadius: 10,
   },
   thTxt: { fontSize: 9, fontWeight: '800', color: theme.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
   row: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 8, paddingVertical: 11,
-    borderRadius: 10, marginBottom: 3,
-    gap: 4,
+    paddingHorizontal: 12, paddingVertical: 12,
+    borderRadius: 12, marginBottom: 6,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   pctBadge: {
     flex: 0.7, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderRadius: 6, paddingVertical: 3, marginRight: 4,
+    borderWidth: 1, borderRadius: 8, paddingVertical: 4, marginRight: 6,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   pctTxt: { fontSize: 12, fontWeight: '900' },
   loadTxt: { fontSize: 13, fontWeight: '800' },
-  zoneTxt: { fontSize: 11, fontWeight: '700' },
-  repsTxt: { fontSize: 10, fontWeight: '600', color: theme.textSecondary },
+  zoneTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+  repsTxt: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
   footer: { marginTop: 20, paddingHorizontal: 4 },
   footerTxt: { fontSize: 11, color: theme.textMuted, lineHeight: 18, textAlign: 'center' },
   prSection: { marginTop: 20, marginBottom: 0 },
   prToggle: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: theme.card, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: `${theme.accent}30`,
+    padding: 14,
   },
   prToggleText: {
     flex: 1, fontSize: 14, fontWeight: '700', color: theme.text,
   },
-  prList: {
-    backgroundColor: theme.card, borderRadius: 14, marginTop: 6,
-    borderWidth: 1, borderColor: theme.border, overflow: 'hidden',
-  },
+  prList: { overflow: 'hidden' },
   prItem: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 13,

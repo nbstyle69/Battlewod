@@ -17,6 +17,7 @@ import { hapticSuccess } from '../../lib/haptics';
 import { computeAndSaveElo, sortScoresRxFirst } from '../../services/eloCompute';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
 import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScoreReminder } from '../../services/notifications';
@@ -26,14 +27,24 @@ import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
+import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
+import ReportMenu from '../../components/ReportMenu';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
 
-const TYPE_COLORS: Record<string, string> = {
-  'for-time': '#EF4444', amrap: '#3B82F6', emom: '#8B5CF6',
-  tabata: '#F59E0B', strength: '#16A34A', custom: '#6B7280',
-};
+// Couleurs WOD types adaptées au thème
+function getTypeColors(theme: AppTheme): Record<string, string> {
+  return {
+    'for-time': theme.error,
+    amrap: '#3B82F6',
+    emom: '#8B5CF6',
+    tabata: theme.warning,
+    strength: theme.success,
+    custom: theme.textMuted,
+  };
+}
 
 function allowedScoreTypes(wodType?: string | null): { types: ScoreType[]; default: ScoreType } {
   switch (wodType) {
@@ -260,7 +271,7 @@ export default function WODDetailScreen() {
 
     // Dedup: if user already marked this WOD as "réalisé", the activity was already counted.
     // Remove the completion row (score is authoritative) and skip double-counting the streak.
-    const { data: existingCompletion } = await supabase
+    const { data: existingCompletion } = await (supabase as any)
       .from('wod_completions')
       .select('id')
       .eq('wod_id', wod.id)
@@ -268,7 +279,7 @@ export default function WODDetailScreen() {
       .maybeSingle();
     const alreadyCounted = !!existingCompletion;
     if (alreadyCounted) {
-      await supabase.from('wod_completions').delete().eq('wod_id', wod.id).eq('member_id', user.id);
+      await (supabase as any).from('wod_completions').delete().eq('wod_id', wod.id).eq('member_id', user.id);
     }
 
     incrementCounter(user.id, 'total_scores_submitted', 1, currentBox?.id, { skipStreak: alreadyCounted })
@@ -426,6 +437,7 @@ export default function WODDetailScreen() {
   if (!wod) {
     return (
       <View style={S.container}>
+      <GlassBackground />
         <View style={S.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
             <ChevronLeft color={theme.text} size={22} />
@@ -436,11 +448,13 @@ export default function WODDetailScreen() {
     );
   }
 
-  const color = TYPE_COLORS[wod.wod_type ?? 'custom'] ?? '#6B7280';
+  const typeColors = getTypeColors(theme);
+  const color = typeColors[wod.wod_type ?? 'custom'] ?? theme.textMuted;
   const myRank = myScore ? scores.findIndex(s => s.id === myScore.id) + 1 : null;
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
           <ChevronLeft color={theme.text} size={22} />
@@ -453,7 +467,7 @@ export default function WODDetailScreen() {
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
       >
         {/* WOD info card */}
@@ -546,10 +560,14 @@ export default function WODDetailScreen() {
               <Text style={S.expiredText}>Soumission de score terminée (minuit passé)</Text>
             </View>
           ) : (
-            <TouchableOpacity style={S.enterScoreBtn} onPress={() => setModalOpen(true)} activeOpacity={0.85}>
-              <Plus color="#fff" size={18} />
-              <Text style={S.enterScoreBtnText}>Entrer mon score</Text>
-            </TouchableOpacity>
+            <EmeraldCTAButton
+              icon={<Plus color="#fff" size={18} />}
+              size="md"
+              onPress={() => setModalOpen(true)}
+              style={{ marginTop: 4 }}
+            >
+              Entrer mon score
+            </EmeraldCTAButton>
           )}
         </View>
 
@@ -573,9 +591,13 @@ export default function WODDetailScreen() {
               ))}
             </View>
             <View style={S.leaderboard}>
-              {scores.filter(sc => genderFilter === 'mix' || (sc.profile as any)?.gender === genderFilter).map((sc, i) => {
+              {(() => {
+                const rankMap: Record<string, number> = {};
+                scores.forEach((sc, i) => { rankMap[sc.id] = i + 1; });
+                return scores.filter(sc => genderFilter === 'mix' || (sc.profile as any)?.gender === genderFilter).map((sc) => {
+                const globalRank = rankMap[sc.id] ?? 1;
                 const isMe = sc.member_id === user?.id;
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+                const medal = globalRank === 1 ? '🥇' : globalRank === 2 ? '🥈' : globalRank === 3 ? '🥉' : null;
                 const elo = (sc.profile as any)?.elo ?? 1000;
                 return (
                   <TouchableOpacity
@@ -584,7 +606,7 @@ export default function WODDetailScreen() {
                     onPress={() => openScoreDetail(sc)}
                     activeOpacity={0.75}
                   >
-                    <Text style={S.leaderRank}>{medal ?? `${i + 1}`}</Text>
+                    <Text style={S.leaderRank}>{medal ?? `${globalRank}`}</Text>
                     <UserAvatar
                       uri={(sc.profile as any)?.avatar_url}
                       name={(sc.profile as any)?.username ?? '?'}
@@ -601,7 +623,7 @@ export default function WODDetailScreen() {
                       <View style={S.leaderSubRow}>
                         <Text style={S.leaderElo}>{elo} ELO</Text>
                         {isExpired && eloDeltas[sc.member_id] != null && (
-                          <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[sc.member_id] > 0 ? '#22c55e' : eloDeltas[sc.member_id] < 0 ? '#ef4444' : theme.textMuted }}>
+                          <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[sc.member_id] > 0 ? theme.success : eloDeltas[sc.member_id] < 0 ? theme.error : theme.textMuted }}>
                             {eloDeltas[sc.member_id] > 0 ? '+' : ''}{eloDeltas[sc.member_id]}
                           </Text>
                         )}
@@ -620,7 +642,7 @@ export default function WODDetailScreen() {
                       </View>
                     </View>
                     <View style={S.leaderRight}>
-                      <Text style={[S.leaderScore, i === 0 && S.leaderScoreGold]}>{formatScore(sc)}</Text>
+                      <Text style={[S.leaderScore, globalRank === 1 && S.leaderScoreGold]}>{formatScore(sc)}</Text>
                       <View style={[S.leaderRxBadge, { backgroundColor: sc.rx ? `${theme.success}18` : `${theme.warning}18` }]}>
                         <Text style={{ fontSize: 9, fontWeight: '800', color: sc.rx ? theme.success : theme.warning }}>
                           {sc.rx ? 'RX' : 'Scaled'}
@@ -629,7 +651,8 @@ export default function WODDetailScreen() {
                     </View>
                   </TouchableOpacity>
                 );
-              })}
+              });
+              })()}
             </View>
           </View>
         )}
@@ -777,16 +800,14 @@ export default function WODDetailScreen() {
                 multiline
               />
 
-              <TouchableOpacity
-                style={[S.submitBtn, (!(dnf ? capReps.trim() : scoreType === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting) && S.submitBtnDisabled]}
+              <EmeraldCTAButton
+                loading={submitting}
+                disabled={!(dnf ? capReps.trim() : scoreType === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim())}
                 onPress={submitScore}
-                disabled={!(dnf ? capReps.trim() : scoreType === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting}
-                activeOpacity={0.85}
+                style={{ marginTop: 8 }}
               >
-                {submitting
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.submitBtnText}>Valider le score</Text>}
-              </TouchableOpacity>
+                Valider le score
+              </EmeraldCTAButton>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -823,20 +844,14 @@ export default function WODDetailScreen() {
                   </ViewShot>
                 </View>
 
-                <TouchableOpacity
-                  style={S.shareCTA}
+                <EmeraldCTAButton
+                  loading={sharing}
+                  icon={<Share2 color="#fff" size={18} />}
                   onPress={handleShare}
-                  disabled={sharing}
-                  activeOpacity={0.85}
+                  style={{ marginHorizontal: 20 }}
                 >
-                  {sharing
-                    ? <ActivityIndicator color="#fff" />
-                    : <>
-                        <Share2 color="#fff" size={18} />
-                        <Text style={S.shareCTAText}>Partager ma performance</Text>
-                      </>
-                  }
-                </TouchableOpacity>
+                  Partager ma performance
+                </EmeraldCTAButton>
               </>
             )}
 
@@ -861,9 +876,21 @@ export default function WODDetailScreen() {
                   {selectedScore ? formatScore(selectedScore) : ''} · {selectedScore?.rx ? 'RX' : 'Scaled'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setSelectedScore(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X color={theme.textMuted} size={22} />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {selectedScore && selectedScore.member_id !== user?.id && (
+                  <ReportMenu
+                    contentType="score"
+                    contentId={selectedScore.id}
+                    reportedUserId={selectedScore.member_id}
+                    size={20}
+                    color={theme.textMuted}
+                    onActionDone={() => { setSelectedScore(null); load(); }}
+                  />
+                )}
+                <TouchableOpacity onPress={() => setSelectedScore(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X color={theme.textMuted} size={22} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Score card */}
@@ -977,6 +1004,15 @@ export default function WODDetailScreen() {
                         />
                         <Text style={S.sdCommentAuthor}>{author?.username ?? 'Inconnu'}</Text>
                         <Text style={S.sdCommentTime}>{timeLabel}</Text>
+                        {!isMyComment && author?.id && (
+                          <ReportMenu
+                            contentType="comment"
+                            contentId={item.id}
+                            reportedUserId={author.id}
+                            size={14}
+                            color={theme.textMuted}
+                          />
+                        )}
                       </View>
                       <Text style={S.sdCommentContent}>{item.content}</Text>
                     </View>
@@ -1027,7 +1063,7 @@ function createStyles(theme: AppTheme) {
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   };
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,
     backgroundColor: theme.card,
@@ -1124,7 +1160,7 @@ function createStyles(theme: AppTheme) {
   leaderScore: { fontSize: 15, fontWeight: '900', color: theme.text, fontVariant: ['tabular-nums'] },
   leaderScoreGold: { color: theme.gold },
   leaderRxBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
-  modalContainer: { flex: 1, backgroundColor: theme.background },
+  modalContainer: { flex: 1, backgroundColor: theme.modalCard },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16,
@@ -1178,7 +1214,7 @@ function createStyles(theme: AppTheme) {
   submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   // ── Score Detail Modal ──
-  sdContainer: { flex: 1, backgroundColor: theme.background },
+  sdContainer: { flex: 1, backgroundColor: theme.modalCard },
   sdHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16,
@@ -1286,12 +1322,12 @@ function createStyles(theme: AppTheme) {
 
   // ── Share Modal ──
   shareOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
+    flex: 1, backgroundColor: theme.modalBackdrop,
     justifyContent: 'center', alignItems: 'center', padding: 20,
   },
   shareContainer: {
-    width: '100%', maxWidth: 400, backgroundColor: theme.card,
-    borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: theme.border,
+    width: '100%', maxWidth: 400, backgroundColor: theme.modalCard,
+    borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
   },
   shareHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

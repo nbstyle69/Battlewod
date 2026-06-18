@@ -1,17 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, ActivityIndicator,
+  Modal, Alert,
 } from 'react-native';
+import { supabase } from '../../lib/supabase';
+import { BoxWODType } from '../../types';
 import { Sparkles, ChevronLeft, Clock, Zap, RefreshCw, History, Heart, BookOpen, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WODStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { incrementCounter } from '../../services/gamification';
 import { captureError } from '../../lib/sentry';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel, WODType } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
+import GlassCard from '../../components/glass/GlassCard';
 
 const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const DURATIONS = [5, 10, 15, 20];
@@ -29,13 +35,53 @@ const HYROX_ORANGE = '#F97316';
 
 const HYROX_LEVELS = ['Women', 'Women Pro', 'Men', 'Men Pro'];
 const HYROX_FORMATS = ['Solo', 'Doubles', 'Relais', 'Mixed Relais'];
-const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force'];
+const HYROX_TYPES  = ['Race Simulation', 'Station Training', 'Cardio Force', 'Named WOD'];
 const HYROX_DURATIONS = [20, 30, 45, 60];
 const HYROX_EQUIPMENT = [
   'SkiErg', 'Sled Push', 'Sled Pull', 'RowErg', 'BikeErg',
   'Burpee Broad Jump', 'Farmers Carry', 'Sandbag Lunges', 'Wall Balls',
-  'Tapis de course', 'Haltères',
+  'Tapis de course', 'Haltères', 'Kettlebell',
 ];
+
+type HyroxIntent  = 'race_prep' | 'complete' | 'interval' | 'engine' | 'aerobic' | 'run_interval' | 'strength';
+type HyroxFatigue = 'upper' | 'lower' | 'full' | 'grip';
+
+const HYROX_INTENT_OPTIONS: { key: HyroxIntent; label: string; emoji: string; rpe: string }[] = [
+  { key: 'race_prep',    label: 'Race Sim',   emoji: '🏁', rpe: '7-9' },
+  { key: 'complete',     label: 'Complete',   emoji: '💥', rpe: '7-8' },
+  { key: 'interval',     label: 'Interval',   emoji: '⚡', rpe: '8-9' },
+  { key: 'engine',       label: 'Engine',     emoji: '🔧', rpe: '7'   },
+  { key: 'aerobic',      label: 'Aerobic',    emoji: '🏃', rpe: '5-6' },
+  { key: 'run_interval', label: 'Run Split',  emoji: '🎽', rpe: '8-9' },
+  { key: 'strength',     label: 'Force',      emoji: '💪', rpe: '6-7' },
+];
+const HYROX_VOL_MULT: Record<HyroxIntent, number> = {
+  race_prep: 1.0, complete: 1.0, interval: 0.7, engine: 0.85, aerobic: 0.5, run_interval: 0.4, strength: 0.6,
+};
+const HYROX_RUN_M: Record<HyroxIntent, number> = {
+  race_prep: 1000, complete: 500, interval: 400, engine: 400, aerobic: 6000, run_interval: 400, strength: 200,
+};
+const HYROX_RPE: Record<HyroxIntent, string> = {
+  race_prep: '7-9 / 10', complete: '7-8 / 10', interval: '8-9 / 10',
+  engine: '7 / 10', aerobic: '5-6 / 10', run_interval: '8-9 / 10', strength: '6-7 / 10',
+};
+const HYROX_SESSION_LABEL: Record<HyroxIntent, string> = {
+  race_prep:    '🏁 HYBRID RACE SIM',
+  complete:     '💥 HYBRID COMPLETE',
+  interval:     '⚡ HYBRID INTERVAL',
+  engine:       '🔧 HYBRID ENGINE',
+  aerobic:      '🏃 HYBRID AEROBIC',
+  run_interval: '🎽 HYBRID RUN INTERVAL',
+  strength:     '💪 HYBRID STRENGTH',
+};
+const HYROX_INTENT_TAG: Record<HyroxIntent, string> = {
+  race_prep: '🏁 Race Sim', complete: '💥 Complete', interval: '⚡ Interval',
+  engine: '🔧 Engine', aerobic: '🏃 Aerobic', run_interval: '🎽 Run Split', strength: '💪 Force',
+};
+const HYROX_FATIGUE_LABEL: Record<HyroxFatigue, string> = {
+  upper: '💀 Haut du corps', lower: '🦵 Jambes',
+  full:  '💀 Corps entier',  grip:  '✊ Grip / Dos',
+};
 
 
 interface HyroxWOD {
@@ -47,17 +93,23 @@ interface HyroxWOD {
   stations: string[];
   scoring: string;
   tip: string;
+  intent: HyroxIntent;
+  tags: string[];
+  rpe: string;
+  sessionLabel: string;
+  coachingNotes: string[];
 }
 
 const HYROX_SCR_NAMES: Record<string, string[]> = {
-  'Race Simulation':   ['Race Day Protocol','HYROX Race Sim','Competition Mode','Full Distance','Race Forge','Pre-Race Drill','Event Simulator','Race Crusher','Qualifier Prep','Podium Run'],
-  'Station Training':  ['Station Domination','Power Station','Station Mastery','Station Siege','Platform Work','Station Builder','Force Station','Block Drill','Station Storm','Grid Work','Station Blast','Iron Circuit','Station Crusher','Grind Session','Power Grid','Station Burner','Heavy Rotation','Machine Room','Station Gauntlet','The Furnace'],
+  'Race Simulation':   ['Race Day Protocol','Hybrid Race Sim','Competition Mode','Full Distance','Race Forge','Pre-Race Drill','Event Simulator','Race Crusher','Qualifier Prep','Podium Run'],
+  'Station Training':  ['Station Domination','Power Station','Station Mastery','Station Siege','Platform Work','Station Builder','Force Station','Block Drill','Station Storm','Grid Work'],
   'Cardio Force':      ['Hybrid Forge','Cardio Machine','Hybrid Engine','Power Cardio','Endurance Force','Hybrid Burn','Engine Room','Cross Cardio','Hybrid Blast','Force Cardio'],
+  'Named WOD':         ['George','Legend','Manson','Turner','Sting','Winehouse','Starr','Cash','Osbourne','Mitchell','Bega','Combs','Clapton','Domino'],
 };
 const HYROX_SCR_TIPS: Record<string, string[]> = {
   'Race Simulation': [
     'Gère ton allure sur les courses. Attaque chaque station à 85% max.',
-    'Ne sprint jamais. La régularité fait la performance en HYROX.',
+    'Ne sprint jamais. La régularité fait la performance en Hybrid.',
     'Optimise tes transitions : chaque seconde perdue compte.',
     'Les courses sont ta récupération active. Allure constante.',
     'Objectif : sortir de chaque station sans dépasser le seuil anaérobie.',
@@ -68,13 +120,6 @@ const HYROX_SCR_TIPS: Record<string, string[]> = {
     'Travaille chaque station comme si tu sortais d\'un 1km.',
     'Focus sur le pattern de mouvement. La technique prime sous la fatigue.',
     'Repos strictement respecté. La surcharge vient du volume.',
-    'Chronomètre tes transitions. En course, c\'est là que tu gagnes du temps.',
-    'Alterne haut du corps / bas du corps entre les blocs pour récupérer.',
-    'Intensité progressive : 70% → 80% → 90% au fil des rounds.',
-    'Mémorise tes scores par station. L\'amélioration se mesure.',
-    'Chaque répétition doit être identique à la première. La constance bat la vitesse.',
-    'Règle des 3 respirations : reprends ton souffle avant chaque transition.',
-    'En compétition tu seras fatigué. Entraîne-toi à performer fatigué.',
   ],
   'Cardio Force': [
     'Enchaîne sans repos. Adapte les charges pour tenir le rythme.',
@@ -83,7 +128,72 @@ const HYROX_SCR_TIPS: Record<string, string[]> = {
     'Optimise ta respiration sur les stations de force.',
     'Marcher c\'est acceptable. S\'asseoir non.',
   ],
+  'Named WOD': [
+    'WOD nommé Hybrid. Bats ton temps à chaque retour.',
+    'Note ton temps — ce sont des benchmarks à retester toutes les 4 semaines.',
+    'Pace is king. Gère l\'effort sur les 2/3 et attaque le dernier tiers.',
+    'Compare avec les temps de la communauté Hybrid mondiale.',
+  ],
 };
+
+const HYROX_NAMED_WODS: { name: string; stations: string[]; scoring: string; tip: string; coachingNotes: string[] }[] = [
+  {
+    name: 'George',
+    stations: ['1000m Run','── 5 Rounds ──','20 Squats','20 Burpees','20 Sit-ups','20 Push-ups','── Finisher ──','1000m Run'],
+    scoring: 'For Time — cap 40 min',
+    tip: 'Les 2 runs sandwichent 5 rounds de bodyweight. Rythme constant sur le premier run.',
+    coachingNotes: ['Objectif : splits de run identiques entre le premier et le dernier','Squats & Situps : rythme régulier, pas de sprint','Burpees : allure race-pace (1 toutes les 3-4s)'],
+  },
+  {
+    name: 'Manson',
+    stations: ['400m Run','25m Sled Push (charge max possible)','600m Run','25m Sled Pull (charge max possible)','800m Run','50 Lunges (total)','1000m Run','50 cal RowErg','800m Run','30 cal SkiErg','600m Run','30 Burpees','400m Run'],
+    scoring: 'For Time — cap 60 min',
+    tip: 'Format chipper progressif. Les distances de run augmentent puis décroissent. Gère les sleds lourds.',
+    coachingNotes: ['Sled push/pull : aussi lourd que possible, pas de marche arrière','Les runs augmentent en distance → save ton énergie sur les 25m sled','RowErg + SkiErg : allure race-pace 2:00-2:15/500m','Burpees finaux : chest to floor, saut complet'],
+  },
+  {
+    name: 'Turner',
+    stations: ['── Bloc A : Force ──','4× 30s Farmers Carry (aussi lourd que possible) — repos 30s','4× 1-5 Strict Pull-Ups — repos 30s','── Bloc B : AMRAP 30 min ──','400m Run','25 Wall Balls','400m Run','25m Sled Push'],
+    scoring: 'Bloc A : qualité / Bloc B : max rounds en 30 min',
+    tip: 'Session A+B format Zone5. Force d\'abord à froid, puis AMRAP soutenu.',
+    coachingNotes: ['Farmers Carry : sac lourd, pas de repos sauf repose KBs au sol','Wall Balls : rythme constant, vise 10 unbroken minimum','Sled push après run : short powerful steps, don\'t stop moving'],
+  },
+  {
+    name: 'Winehouse',
+    stations: ['── Bloc A : Strength ──','5× 25m Sled Push (lourd) — repos 1:30','5× 25m Sled Pull (lourd) — repos 1:30','── Bloc B : 5 Rounds INTERVAL ──','1 min Wall Balls — repos 30s','1 min Burpee Broad Jump — repos 30s','1 min RowErg (cal) — repos 30s','1 min Shuttle Run 10m — repos 30s'],
+    scoring: 'Bloc A : charge max / Bloc B : score = total reps+cals',
+    tip: 'Sled first, high intensity second. Récupère bien entre les deux blocs.',
+    coachingNotes: ['Sled : charge max, bonne technique de prise','Wall Balls : unbroken si possible 1 min','Burpee Broad Jump : rythme régulier, plant hands close to feet','RowErg : sprint, vise +5 cal/min vs ta moyenne race'],
+  },
+  {
+    name: 'Osbourne',
+    stations: ['400m Run','20 Burpees','400m Run + 20 Burpees + 20 Squats','400m Run + 20 Burpees + 20 Squats + 20 Push-ups','400m Run + 20 Burpees + 20 Squats + 20 Push-ups + 20 Lunges','400m Run + 20 Burpees + 20 Squats + 20 Push-ups + 20 Lunges + 20 Sit-ups'],
+    scoring: 'For Time — chaque round ajoute un mouvement — cap 45 min',
+    tip: 'Format ladder ascendant. Le volume augmente chaque round. Gère ton énergie dès le début.',
+    coachingNotes: ['Ne sprint pas les premiers 400m — tu vas le payer','Burpees : allure constante tout du long','Lunges : total, pas par jambe','Dernier round = 400m + 5 mouvements = le plus long'],
+  },
+  {
+    name: 'Domino',
+    stations: ['5 min Run (distance max)','50 Squats','5 min Run (distance max)','50 Burpees','5 min Run (distance max)','50 Push-ups','5 min Run (distance max)','50 Sit-ups'],
+    scoring: 'For Time — score = temps total + distance totale courue',
+    tip: '4 blocs de 5 min run + station. Maintiens ta distance de run constante.',
+    coachingNotes: ['Objectif : même distance sur chaque run de 5 min','Squats & push-ups : unbroken si possible','Burpees : pace régulier et constant','Sit-ups : rapides, core engagé'],
+  },
+  {
+    name: 'Starr',
+    stations: ['1600m Run','30 Burpees','1200m Run','30 Lunges lestées (×2 KB/DB)','800m Run','30 Goblet Squats (KB)','400m Run','30 Wall Balls'],
+    scoring: 'For Time — format descendant — cap 50 min',
+    tip: 'Format descendant : les runs raccourcissent, les stations restent à 30 reps.',
+    coachingNotes: ['1600m : allure aérobie confortable — tu as beaucoup devant toi','Lunges lestées : unbroken si possible, même poids tout du long','800m + Goblet : transition directe','Wall Balls finaux : si tu t\'es bien géré, tu peux attaquer'],
+  },
+  {
+    name: 'Sting',
+    stations: ['COUNTDOWN 50-40-30-20-10 :','RowErg (cal)','Burpees','Lunges (total)'],
+    scoring: 'For Time — cap 35 min',
+    tip: 'Format countdown. Le volume décroît. Attaque les petits rounds.',
+    coachingNotes: ['Round 50 : allure conservatrice sur le RowErg','Burpees : regular pace, ne t\'arrête pas','Lunges : total reps, alterner jambes','Rounds 20-10 : sprint effort'],
+  },
+];
 function srand<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function spick<T>(arr: T[], n: number): T[] {
   const copy = [...arr]; const result: T[] = [];
@@ -94,70 +204,132 @@ function spick<T>(arr: T[], n: number): T[] {
   return result;
 }
 
-function generateHyroxWOD(level: string, format: string, type: string, duration: number, equipment: string[]): HyroxWOD {
-  const li = ({ Women: 0, 'Women Pro': 1, Men: 2, 'Men Pro': 3 } as Record<string, number>)[level] ?? 2;
-  const ski  = equipment.includes('SkiErg');
-  const slp  = equipment.includes('Sled Push');
-  const slpu = equipment.includes('Sled Pull');
-  const row  = equipment.includes('RowErg');
-  const bike = equipment.includes('BikeErg');
-  const sbl  = equipment.includes('Sandbag Lunges');
-  const wb   = equipment.includes('Wall Balls');
-  const bbj  = equipment.includes('Burpee Broad Jump');
-  const fc   = equipment.includes('Farmers Carry');
-  const db   = equipment.includes('Haltères');
-  const trd  = equipment.includes('Tapis de course');
+function generateHyroxWOD(
+  level: string, format: string, type: string,
+  duration: number, equipment: string[],
+  intent: HyroxIntent = 'race_prep'
+): HyroxWOD {
+  const li    = ({ Women: 0, 'Women Pro': 1, Men: 2, 'Men Pro': 3 } as Record<string, number>)[level] ?? 2;
+  const isPro = level.includes('Pro');
+  const vM    = HYROX_VOL_MULT[intent];
+  const dF    = ({ 20: 0.25, 30: 0.45, 45: 0.70, 60: 1.0 } as Record<number,number>)[duration] ?? 0.70;
+  const runM  = Math.max(100, Math.round(HYROX_RUN_M[intent] * dF / 100) * 100);
 
-  const sp_kg  = ['75','125','125','175'][li];
-  const sl_kg  = ['50','75','75','125'][li];
-  const wb_rep = [75, 100, 100, 100][li];
-  const wb_kg  = ['4','6','6','9'][li];
-  const fc_kg  = ['16','24','24','32'][li];
-  const sb_kg  = ['10','20','20','30'][li];
-  const db_kg  = ['12.5','15','15','22.5'][li];
-  const bbj_d  = '80m';
-  const ski_d  = '1000m';
-  const row_d  = '1000m';
-  const bike_d = '1000m';
-  const r1k  = trd ? '1 km Tapis' : '1 km Run';
-  const r800 = trd ? '800m Tapis' : '800m Run';
+  const hasSki  = equipment.includes('SkiErg');
+  const hasSlp  = equipment.includes('Sled Push');
+  const hasSlpu = equipment.includes('Sled Pull');
+  const hasRow  = equipment.includes('RowErg');
+  const hasBike = equipment.includes('BikeErg');
+  const hasSbl  = equipment.includes('Sandbag Lunges');
+  const hasWb   = equipment.includes('Wall Balls');
+  const hasBbj  = equipment.includes('Burpee Broad Jump');
+  const hasFc   = equipment.includes('Farmers Carry');
+  const hasDb   = equipment.includes('Haltères');
+  const hasTrd  = equipment.includes('Tapis de course');
+  const hasKb   = equipment.includes('Kettlebell');
 
-  // DB : pool varié d'exercices haltères (pas seulement Thrusters)
-  const dbExercises = [
-    `${[12,15,15,20][li]} DB Thrusters (${db_kg} kg/main)`,
-    `${[12,15,15,20][li]} DB Front Squats (${db_kg} kg/main)`,
-    `${[10,12,12,15][li]} DB Push Press (${db_kg} kg/main)`,
-    `${[12,15,15,20][li]} DB Lunges (${db_kg} kg/main)`,
-    `${[10,12,12,15][li]} DB Deadlifts (${db_kg} kg/main)`,
-    `${[10,12,12,15][li]} DB Rows (${db_kg} kg/main)`,
-  ];
+  // Official loads by level [Women, Women Pro, Men, Men Pro]
+  const spKg  = ['75','125','125','175'][li];
+  const slKg  = ['50','75','75','125'][li];
+  const wbRof = [75, 100, 100, 100][li];
+  const wbKg  = ['4','6','6','9'][li];
+  const fcKg  = ['16','24','24','32'][li];
+  const sbKg  = ['10','20','20','30'][li];
+  const dbKg  = ['12.5','15','15','22.5'][li];
+  const hcKg  = isPro ? ['24','32'][li > 1 ? 1 : 0] : ['16','24'][li > 1 ? 1 : 0];
 
-  const S = {
-    // Cardio : toujours dispo (SkiErg/RowErg/BikeErg même sans sélection)
-    ski:  ski  ? `${ski_d} SkiErg`  : row ? `${row_d} RowErg` : bike ? `${bike_d} BikeErg` : `${ski_d} SkiErg`,
-    row:  row  ? `${row_d} RowErg`  : ski ? `${ski_d} SkiErg` : bike ? `${bike_d} BikeErg` : `${row_d} RowErg`,
-    bike: bike ? `${bike_d} BikeErg` : ski ? `${ski_d} SkiErg` : row ? `${row_d} RowErg`  : `${bike_d} BikeErg`,
-    slp:  slp  ? `4×12.5m Sled Push (${sp_kg} kg)` : bbj ? `${bbj_d} Burpee Broad Jump` : `${[20,25,25,30][li]} Push-ups`,
-    slpu: slpu ? `4×12.5m Sled Pull (${sl_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : null,
-    sbl:  sbl  ? `100m Sandbag Lunges (${sb_kg} kg)` : fc ? `200m Farmers Carry (${fc_kg} kg×2)` : `${[40,50,50,60][li]} Walking Lunges`,
-    wb:   wb   ? `${wb_rep} Wall Balls (${wb_kg} kg)` : `${[60,80,80,100][li]} Air Squats`,
-    fc:   fc   ? `200m Farmers Carry (${fc_kg} kg×2)` : sbl ? `100m Sandbag Lunges (${sb_kg} kg)` : `${[40,50,50,60][li]} Goblet Squats`,
-    bbj:  bbj  ? `${bbj_d} Burpee Broad Jump` : srand([`${[10,12,12,15][li]} Broad Jumps`, `${[10,12,12,15][li]} Burpees`, `${bbj_d} Burpee Broad Jump`]),
-    db:   db   ? srand(dbExercises) : `${[15,20,20,25][li]} Box Step-ups`,
-  };
+  // Scale helpers
+  const scaleM = (off: number, step: number) => Math.max(step, Math.round(off * vM / step) * step);
+  const scaleR = (off: number, step: number) => Math.max(step, Math.round(off * vM / step) * step);
+
+  const skiD = Math.max(100, Math.round(1000 * vM * dF / 100) * 100);
+  const sblD = scaleM(100, 10);
+  const fcD  = scaleM(200, 25);
+  const bbD  = scaleM(80, 10);
+  const wbR  = scaleR(wbRof, 5);
+  const slpSets  = Math.max(1, Math.round(4 * vM));
+  const slpuSets = Math.max(1, Math.round(4 * vM));
+
+  type StDef = { str: string; fat: HyroxFatigue };
+
+  const slpDef:  StDef = hasSlp  ? { str: `${slpSets}×12.5m Sled Push (${spKg} kg)`,  fat: 'lower' }
+                        : hasBbj ? { str: `${bbD}m Burpee Broad Jump`,                  fat: 'full'  }
+                                  : { str: `${[20,25,25,30][li]} Push-ups`,              fat: 'upper' };
+  const slpuDef: StDef | null = hasSlpu ? { str: `${slpuSets}×12.5m Sled Pull (${slKg} kg)`, fat: 'grip'  }
+                               : hasFc  ? { str: `${fcD}m Farmers Carry (${fcKg} kg×2)`,  fat: 'grip'  }
+                                         : null;
+  const sblDef:  StDef = hasSbl  ? { str: `${sblD}m Sandbag Lunges (${sbKg} kg)`,      fat: 'lower' }
+                        : hasFc  ? { str: `${Math.round(fcD*0.5/25)*25}m Farmers Carry (${fcKg} kg×2)`, fat: 'grip' }
+                                  : { str: `${scaleR([40,50,50,60][li],5)} Walking Lunges`, fat: 'lower' };
+  const wbDef:   StDef = hasWb   ? { str: `${wbR} Wall Balls (${wbKg} kg)`,            fat: 'full'  }
+                                  : { str: `${scaleR([60,80,80,100][li],10)} Air Squats`, fat: 'lower' };
+  const fcDef:   StDef = hasFc   ? { str: `${fcD}m Farmers Carry (${fcKg} kg×2)`,      fat: 'grip'  }
+                        : hasSbl ? sblDef
+                                  : { str: `${scaleR([40,50,50,60][li],5)} Goblet Squats`, fat: 'lower' };
+  const bbjDef:  StDef = hasBbj  ? { str: `${bbD}m Burpee Broad Jump`,                 fat: 'full'  }
+                                  : { str: `${scaleR([10,12,12,15][li],1)} Broad Jumps`, fat: 'lower' };
+  const dbDef:   StDef = hasDb   ? { str: `${scaleR([12,15,15,20][li],1)} DB Thrusters (${dbKg} kg/main)`, fat: 'full' }
+                                  : { str: `${scaleR([15,20,20,25][li],5)} Jumping Squats`, fat: 'lower' };
+  const hcDef:   StDef = { str: `${scaleR([10,12,12,15][li],1)} Headcutters (${hcKg} kg×2)`, fat: 'full' };
+  const kbKg = ['12','16','16','24'][li];
+  const kbSwingUsDef:  StDef | null = hasKb ? { str: `${scaleR([15,20,20,25][li],5)} KB Swing US (${kbKg} kg)`,       fat: 'full'  } : null;
+  const kbSwingRusDef: StDef | null = hasKb ? { str: `${scaleR([20,25,25,30][li],5)} KB Swing Russian (${kbKg} kg)`, fat: 'lower' } : null;
+  const kbCleanDef:    StDef | null = hasKb ? { str: `${scaleR([10,12,12,15][li],1)} KB Clean (${kbKg} kg)`,          fat: 'grip'  } : null;
+  const kbFsqDef:      StDef | null = hasKb ? { str: `${scaleR([10,12,12,15][li],1)} KB Front Squat (${kbKg} kg)`,    fat: 'lower' } : null;
+  const kbSntDef:      StDef | null = hasKb ? { str: `${scaleR([8,10,10,12][li],1)} KB Snatch (${kbKg} kg)`,           fat: 'full'  } : null;
+  const dkbKgLight = ['8','12','12','16'][li];
+  const dkbKgHeavy = ['16','20','20','24'][li];
+  const dkbIsHeavy = srand([true, false]);
+  const dkbKg = dkbIsHeavy ? dkbKgHeavy : dkbKgLight;
+  const dkbSwingUsDef:  StDef | null = hasKb ? { str: `${dkbIsHeavy ? scaleR([12,15,15,20][li],5) : scaleR([20,25,25,30][li],5)} Double KB Swing US (2×${dkbKg} kg)`,       fat: 'full'  } : null;
+  const dkbSwingRusDef: StDef | null = hasKb ? { str: `${dkbIsHeavy ? scaleR([15,20,20,25][li],5) : scaleR([25,30,30,35][li],5)} Double KB Swing Russian (2×${dkbKg} kg)`, fat: 'lower' } : null;
+  const dkbCleanDef:    StDef | null = hasKb ? { str: `${dkbIsHeavy ? scaleR([6,8,8,10][li],1)   : scaleR([10,12,12,15][li],1)} Double KB Clean (2×${dkbKg} kg)`,           fat: 'grip'  } : null;
+  const dkbFsqDef:      StDef | null = hasKb ? { str: `${dkbIsHeavy ? scaleR([8,10,10,12][li],1)  : scaleR([12,15,15,20][li],1)} Double KB Front Squat (2×${dkbKg} kg)`,     fat: 'lower' } : null;
+  const dkbSntDef:      StDef | null = hasKb ? { str: `${dkbIsHeavy ? scaleR([4,5,5,6][li],1)     : scaleR([6,8,8,10][li],1)}  Double KB Snatch (2×${dkbKg} kg)`,            fat: 'full'  } : null;
+
+  const seenSt = new Set<string>();
+  const allSt: StDef[] = ([slpDef, slpuDef, sblDef, wbDef, fcDef, bbjDef, dbDef, hcDef, kbSwingUsDef, kbSwingRusDef, kbCleanDef, kbFsqDef, kbSntDef, dkbSwingUsDef, dkbSwingRusDef, dkbCleanDef, dkbFsqDef, dkbSntDef] as (StDef | null)[])
+    .filter((s): s is StDef => { if (!s) return false; if (seenSt.has(s.str)) return false; seenSt.add(s.str); return true; });
+
+  const skiStr  = hasSki  ? `${skiD}m SkiErg`  : hasRow  ? `${skiD}m RowErg`  : hasBike ? `${skiD}m BikeErg` : null;
+  const rowStr  = hasRow  ? `${skiD}m RowErg`  : hasSki  ? `${skiD}m SkiErg`  : hasBike ? `${skiD}m BikeErg` : null;
+  const bikeStr = hasBike ? `${skiD}m BikeErg` : hasSki  ? `${skiD}m SkiErg`  : hasRow  ? `${skiD}m RowErg`  : null;
+  const trdLabel = runM >= 1000 ? `${runM / 1000} km Tapis` : `${runM}m Tapis`;
+  const runStr   = hasTrd ? trdLabel : (skiStr ?? rowStr ?? bikeStr ?? `${[30,40,40,50][li]} Burpees`);
 
   const cardioPool: string[] = [];
-  if (S.ski)  cardioPool.push(S.ski);
-  if (S.row && !cardioPool.includes(S.row))  cardioPool.push(S.row);
-  if (S.bike && !cardioPool.includes(S.bike)) cardioPool.push(S.bike);
-  cardioPool.push(r1k);
-  cardioPool.push(r800);
-  const forcePool  = [S.slp, S.slpu, S.wb, S.sbl, S.fc, S.bbj, S.db].filter((s): s is string => s !== null);
-  const allStations = [S.slp, S.slpu, S.sbl, S.wb, S.fc, S.bbj, S.db].filter((s): s is string => s !== null);
+  [skiStr, rowStr, bikeStr].forEach(s => { if (s && !cardioPool.includes(s)) cardioPool.push(s); });
+  if (hasTrd && !cardioPool.includes(trdLabel)) cardioPool.push(trdLabel);
+  const hasAnyCo = cardioPool.length > 0;
+  if (!hasAnyCo) cardioPool.push(`${[30,40,40,50][li]} Burpees`);
 
-  // ── Anti-doublons : aucune station identique consécutive + dédup ──
+  const emomCardioPool: string[] = [];
+  if (hasSki)  emomCardioPool.push(`${[10,12,12,15][li]} cal SkiErg`);
+  if (hasRow)  emomCardioPool.push(`${[8,10,12,14][li]} cal RowErg`);
+  if (hasBike) emomCardioPool.push(`${[12,15,18,20][li]} cal BikeErg`);
+  if (hasTrd && emomCardioPool.length === 0) emomCardioPool.push('200m Tapis');
+  if (emomCardioPool.length === 0) emomCardioPool.push(`${[8,10,10,12][li]} Burpees`);
+
+  // Smart station picker — avoids consecutive same fatigue zone
+  function pickSmart(pool: StDef[], n: number): StDef[] {
+    const avail = [...pool]; const res: StDef[] = []; let lastFat: HyroxFatigue | null = null;
+    for (let i = 0; i < n && avail.length > 0; i++) {
+      const cands = avail.filter(s => s.fat !== lastFat);
+      const src = cands.length > 0 ? cands : avail;
+      const picked = src[Math.floor(Math.random() * src.length)];
+      res.push(picked); lastFat = picked.fat;
+      avail.splice(avail.findIndex(s => s.str === picked.str), 1);
+    }
+    return res;
+  }
+
+  function dominantFatigue(defs: StDef[]): HyroxFatigue {
+    const c: Record<HyroxFatigue, number> = { upper: 0, lower: 0, full: 0, grip: 0 };
+    defs.forEach(d => c[d.fat]++);
+    return Object.entries(c).sort((a, b) => b[1] - a[1])[0][0] as HyroxFatigue;
+  }
+
   function noConsecutive(arr: string[]): string[] {
-    // Pass 1 — try to swap consecutive duplicates with a later different item
     for (let i = 1; i < arr.length; i++) {
       if (arr[i] === arr[i - 1]) {
         let swapped = false;
@@ -166,7 +338,6 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
             [arr[i], arr[j]] = [arr[j], arr[i]]; swapped = true; break;
           }
         }
-        // Pass 2 — if swap failed, remove the duplicate entirely
         if (!swapped) { arr.splice(i, 1); i--; }
       }
     }
@@ -177,312 +348,363 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
   const tip   = srand(HYROX_SCR_TIPS[type]  ?? HYROX_SCR_TIPS['Race Simulation']);
   let stations: string[] = [];
   let scoring  = '';
-  const isPro = level.includes('Pro');
+  let coachingNotes: string[] = [];
+  let pickedDefs: StDef[] = [];
 
-  if (type === 'Race Simulation') {
-    const blocCount = duration <= 20 ? srand([3,4]) : duration <= 30 ? srand([4,5]) : duration <= 45 ? srand([6,7]) : 8;
-    const picked = spick(allStations, Math.min(blocCount, allStations.length));
-    while (picked.length < blocCount) picked.push(srand(allStations.filter(s => s !== picked[picked.length - 1])));
-    const result: string[] = [];
-    for (let i = 0; i < blocCount; i++) { result.push(srand(cardioPool)); result.push(picked[i]); }
-    stations = noConsecutive(result);
-    const timeTarget = isPro ? `< ${duration} min` : `< ${duration + 5} min`;
-    scoring = `For Time — ${blocCount} blocs Cardio + Station — objectif ${timeTarget}`;
+  // ── NAMED WOD ────────────────────────────────────────────────────────
+  if (type === 'Named WOD') {
+    const named = srand(HYROX_NAMED_WODS);
+    const fmtSuffix = format !== 'Solo' ? ` [${format}]` : '';
+    return {
+      title: named.name + fmtSuffix, type, level, format, duration,
+      stations: named.stations, scoring: named.scoring, tip: named.tip,
+      intent, tags: ['📋 Named WOD', HYROX_FATIGUE_LABEL['full']],
+      rpe: HYROX_RPE[intent], sessionLabel: HYROX_SESSION_LABEL[intent],
+      coachingNotes: named.coachingNotes,
+    };
   }
 
-  else if (type === 'Station Training') {
-    // Pool mixte : force + cardio pour que chaque WOD intègre des ergomètres
-    const fullPool = [...allStations];
-    if (S.ski) fullPool.push(S.ski);
-    if (S.row && !fullPool.includes(S.row)) fullPool.push(S.row);
-    if (S.bike && !fullPool.includes(S.bike)) fullPool.push(S.bike);
-    const pickN = (pool: string[], n: number) => spick(pool, Math.min(n, pool.length));
-    // Garantit au moins 1 cardio dans la sélection quand dispo
-    const pickMixed = (n: number) => {
-      if (cardioPool.length === 0 || n <= 1) return pickN(fullPool, n);
-      const c = [srand(cardioPool)];
-      const rest = fullPool.filter(s => s !== c[0]);
-      return [...c, ...pickN(rest, Math.min(n - 1, rest.length))];
-    };
-    const cardio1 = () => srand(cardioPool.length > 0 ? cardioPool : [`${[30,40,40,50][li]} Burpees`]);
-    const cardio2 = () => {
-      const c1 = cardio1();
-      const rest = cardioPool.filter(c => c !== c1);
-      return { c1, c2: srand(rest.length > 0 ? rest : [c1]) };
-    };
-
-    // ──────── 20 min ────────
-    if (duration <= 20) {
-      const tpl = srand([1, 2, 3, 4, 5]);
-      if (tpl === 1) {
-        // AMRAP continu avec cardio + force
-        const mvs = pickMixed(srand([3, 4]));
-        stations = [`AMRAP ${duration} min :`, ...mvs];
-        scoring = `AMRAP ${duration} min — max rounds + reps`;
-      } else if (tpl === 2) {
-        // EMOM station drill
-        const mvs = pickMixed(srand([4, 5]));
-        const totalMin = Math.floor(duration / mvs.length) * mvs.length;
-        stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
-        scoring = `EMOM ${totalMin} min — ${Math.floor(totalMin / mvs.length)} cycles`;
-      } else if (tpl === 3) {
-        // For Time Chipper linéaire (pas de rounds)
-        const mvs = pickMixed(srand([4, 5]));
-        stations = [`For Time (cap ${duration} min) :`, ...mvs];
-        scoring = `Chipper For Time — cap ${duration} min`;
-      } else if (tpl === 4) {
-        // Tabata avec cardio
-        const n = Math.min(srand([3, 4, 5]), Math.floor(duration / 4));
-        const mvs = pickMixed(n);
-        stations = [`Tabata — 8 × 20s ON / 10s OFF par station :`, ...mvs];
-        scoring = `Tabata — ${mvs.length} stations × 4 min = ${mvs.length * 4} min`;
-      } else {
-        // Intervalles 40s ON / 20s OFF
-        const mvs = pickMixed(srand([4, 5]));
-        const rounds = Math.floor(duration / (mvs.length));
-        stations = [`Intervalles ${rounds} rounds — 40s travail / 20s repos :`, ...mvs];
-        scoring = `Intervalles — ${rounds} rounds × ${mvs.length} stations`;
-      }
+  // ── RACE SIMULATION ──────────────────────────────────────────────────
+  else if (type === 'Race Simulation' || intent === 'race_prep') {
+    const blocCount = duration <= 20 ? srand([3,4]) : duration <= 30 ? srand([4,5]) : duration <= 45 ? srand([5,6]) : 8;
+    pickedDefs = pickSmart(allSt, Math.min(blocCount, allSt.length));
+    while (pickedDefs.length < blocCount) {
+      const fill = allSt.filter(s => s.str !== pickedDefs[pickedDefs.length - 1]?.str);
+      pickedDefs.push(srand(fill.length > 0 ? fill : allSt));
     }
-
-    // ──────── 30 min ────────
-    else if (duration <= 30) {
-      const tpl = srand([1, 2, 3, 4, 5, 6, 7]);
-      if (tpl === 1) {
-        // AMRAP long avec cardio interleaving
-        const mvs = pickMixed(srand([4, 5]));
-        stations = [`AMRAP ${duration} min :`, ...mvs];
-        scoring = `AMRAP ${duration} min — max rounds + reps`;
-      } else if (tpl === 2) {
-        // EMOM multi-station
-        const mvs = pickMixed(srand([5, 6]));
-        const totalMin = Math.floor(duration / mvs.length) * mvs.length;
-        stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
-        scoring = `EMOM ${totalMin} min — ${Math.floor(totalMin / mvs.length)} cycles`;
-      } else if (tpl === 3) {
-        // Chipper linéaire (vrais reps, pas de rounds)
-        const mvs = pickMixed(srand([5, 6, 7]));
-        stations = [`For Time (cap ${duration} min) :`, ...mvs];
-        scoring = `Chipper For Time — cap ${duration} min`;
-      } else if (tpl === 4) {
-        // V-shape / Pyramide Hyrox : Cardio→Force→Force→Cardio
-        const { c1, c2 } = cardio2();
-        const fMvs = pickN(allStations, srand([2, 3]));
-        stations = [`For Time — V-Shape (cap ${duration} min) :`, c1, ...fMvs, c2];
-        scoring = `V-Shape For Time — cap ${duration} min`;
-      } else if (tpl === 5) {
-        // Buy-in cardio + AMRAP + Buy-out cardio
-        const { c1, c2 } = cardio2();
-        const amrapMvs = pickMixed(3);
-        const amrapMin = duration - 8;
-        stations = [
-          `── Buy-in ──`, c1,
-          `── AMRAP ${amrapMin} min ──`, ...amrapMvs,
-          `── Buy-out ──`, c2,
-        ];
-        scoring = `Buy-in + AMRAP ${amrapMin} min + Buy-out`;
-      } else if (tpl === 6) {
-        // Pyramide reps : 2-4-6-8-10-8-6-4-2
-        const mvs = pickMixed(srand([2, 3]));
-        const ladder = isPro ? '2-4-6-8-10-8-6-4-2' : '2-4-6-8-6-4-2';
-        stations = [`Pyramide ${ladder} For Time (cap ${duration} min) :`, ...mvs];
-        scoring = `Pyramide For Time — cap ${duration} min`;
-      } else {
-        // 3 × AMRAP avec repos
-        const amrapMin = srand([7, 8]);
-        const restMin = 2;
-        const mvs1 = pickMixed(2);
-        const mvs2 = pickMixed(2);
-        const mvs3 = pickMixed(2);
-        stations = [
-          `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
-          `── Repos ${restMin} min ──`,
-          `── AMRAP 2 : ${amrapMin} min ──`, ...mvs2,
-          `── Repos ${restMin} min ──`,
-          `── AMRAP 3 : ${amrapMin} min ──`, ...mvs3,
-        ];
-        scoring = `3 × AMRAP ${amrapMin} min — repos ${restMin} min`;
-      }
-    }
-
-    // ──────── 45 min ────────
-    else if (duration <= 45) {
-      const tpl = srand([1, 2, 3, 4, 5, 6, 7]);
-      if (tpl === 1) {
-        // AMRAP long endurance avec cardio
-        const mvs = pickMixed(srand([4, 5]));
-        stations = [`AMRAP ${duration} min :`, ...mvs];
-        scoring = `AMRAP ${duration} min — max rounds + reps`;
-      } else if (tpl === 2) {
-        // EMOM long multi-station
-        const mvs = pickMixed(srand([5, 6]));
-        const totalMin = Math.floor(duration / mvs.length) * mvs.length;
-        stations = [`EMOM ${totalMin} min :`, ...mvs.map((m, i) => `  Min ${i + 1}: ${m}`)];
-        scoring = `EMOM ${totalMin} min — ${Math.floor(totalMin / mvs.length)} cycles`;
-      } else if (tpl === 3) {
-        // Chipper long linéaire
-        const mvs = pickMixed(srand([6, 7, 8]));
-        stations = [`For Time (cap ${duration} min) :`, ...mvs];
-        scoring = `Chipper For Time — cap ${duration} min`;
-      } else if (tpl === 4) {
-        // Buy-in cardio + Rounds + Buy-out cardio
-        const { c1, c2 } = cardio2();
-        const rounds = srand([4, 5]);
-        const mvs = pickMixed(3);
-        stations = [
-          `── Buy-in ──`, c1,
-          `── ${rounds} Rounds For Time ──`, ...mvs,
-          `── Buy-out ──`, c2,
-        ];
-        scoring = `Buy-in + ${rounds} Rounds + Buy-out — cap ${duration} min`;
-      } else if (tpl === 5) {
-        // 3 × AMRAP avec repos
-        const amrapMin = 12;
-        const restMin = srand([2, 3]);
-        const mvs1 = pickMixed(3);
-        const mvs2 = pickMixed(3);
-        const mvs3 = pickMixed(3);
-        stations = [
-          `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
-          `── Repos ${restMin} min ──`,
-          `── AMRAP 2 : ${amrapMin} min ──`, ...mvs2,
-          `── Repos ${restMin} min ──`,
-          `── AMRAP 3 : ${amrapMin} min ──`, ...mvs3,
-        ];
-        scoring = `3 × AMRAP ${amrapMin} min — repos ${restMin} min`;
-      } else if (tpl === 6) {
-        // Pyramide ascendante-descendante
-        const mvs = pickMixed(srand([2, 3]));
-        const ladder = isPro ? '3-6-9-12-15-12-9-6-3' : '2-4-6-8-10-8-6-4-2';
-        stations = [`Pyramide ${ladder} For Time (cap ${duration} min) :`, ...mvs];
-        scoring = `Pyramide For Time — cap ${duration} min`;
-      } else {
-        // Intervalles par blocs : 4 × 8 min ON / 2 min OFF
-        const blocMin = srand([8, 10]);
-        const restMin = 2;
-        const blocs = Math.floor(duration / (blocMin + restMin));
-        const allMvs: string[][] = [];
-        for (let b = 0; b < blocs; b++) allMvs.push(pickMixed(srand([2, 3])));
-        const built: string[] = [];
-        allMvs.forEach((mvs, i) => {
-          built.push(`── Bloc ${i + 1} : AMRAP ${blocMin} min ──`);
-          built.push(...mvs);
-          if (i < allMvs.length - 1) built.push(`── Repos ${restMin} min ──`);
-        });
-        stations = built;
-        scoring = `${blocs} × AMRAP ${blocMin} min — repos ${restMin} min`;
-      }
-    }
-
-    // ──────── 60 min ────────
-    else {
-      const tpl = srand([1, 2, 3, 4, 5, 6]);
-      if (tpl === 1) {
-        // AMRAP 60 min endurance totale
-        const mvs = pickMixed(srand([5, 6]));
-        stations = [`AMRAP ${duration} min :`, ...mvs];
-        scoring = `AMRAP ${duration} min — max rounds + reps`;
-      } else if (tpl === 2) {
-        // 4 × AMRAP avec repos
-        const amrapMin = 12;
-        const restMin = 3;
-        const mvs1 = pickMixed(2);
-        const mvs2 = pickMixed(2);
-        const mvs3 = pickMixed(3);
-        const mvs4 = pickMixed(3);
-        stations = [
-          `── AMRAP 1 : ${amrapMin} min ──`, ...mvs1,
-          `── Repos ${restMin} min ──`,
-          `── AMRAP 2 : ${amrapMin} min ──`, ...mvs2,
-          `── Repos ${restMin} min ──`,
-          `── AMRAP 3 : ${amrapMin} min ──`, ...mvs3,
-          `── Repos ${restMin} min ──`,
-          `── AMRAP 4 : ${amrapMin} min ──`, ...mvs4,
-        ];
-        scoring = `4 × AMRAP ${amrapMin} min — repos ${restMin} min`;
-      } else if (tpl === 3) {
-        // 3 phases : Cardio → Force → Chipper mixte
-        const { c1, c2 } = cardio2();
-        const forceMvs = pickN(allStations, 3);
-        const chipMvs = pickMixed(4);
-        stations = [
-          `── Phase 1 : Cardio For Time ──`, c1, c2,
-          `── Phase 2 : 5 Rounds For Time ──`, ...forceMvs,
-          `── Phase 3 : Chipper For Time ──`, ...chipMvs,
-        ];
-        scoring = `3 phases — Temps total (cap ${duration} min)`;
-      } else if (tpl === 4) {
-        // EMOM long + Chipper
-        const emomMins = srand([2, 3]);
-        const emomMvs = pickMixed(emomMins);
-        const emomTotal = srand([30, 36]);
-        const chipMvs = pickMixed(5);
-        stations = [
-          `── Partie 1 : E${emomMins}MOM ${emomTotal} min ──`,
-          ...emomMvs.map((m, i) => `  Min ${i + 1}: ${m}`),
-          `── Partie 2 : Chipper For Time (cap ${duration - emomTotal} min) ──`,
-          ...chipMvs,
-        ];
-        scoring = `EMOM ${emomTotal} min + Chipper (cap ${duration - emomTotal} min)`;
-      } else if (tpl === 5) {
-        // Vagues progressives
-        const mvs = pickMixed(3);
-        const w1 = isPro ? 3 : 2;
-        stations = [
-          `── Vague 1 : ${w1} Rounds ──`, ...mvs,
-          `── Vague 2 : ${w1 + 1} Rounds ──`, ...mvs,
-          `── Vague 3 : ${w1 + 2} Rounds ──`, ...mvs,
-        ];
-        scoring = `3 vagues progressives — cap ${duration} min`;
-      } else {
-        // Chipper géant linéaire
-        const mvs = pickMixed(srand([8, 9, 10]));
-        stations = [`For Time (cap ${duration} min) :`, ...mvs];
-        scoring = `Chipper For Time — cap ${duration} min`;
-      }
-    }
-    stations = noConsecutive(stations);
-  }
-
-  else {
-    const blocCount = duration <= 20 ? 4 : duration <= 30 ? 6 : duration <= 45 ? 8 : 10;
-    const nC = Math.ceil(blocCount / 2);
-    const nF = Math.floor(blocCount / 2);
-    const pC = spick(cardioPool, Math.min(nC, cardioPool.length));
-    while (pC.length < nC) pC.push(srand(cardioPool.filter(c => c !== pC[pC.length - 1])));
-    const pF = spick(forcePool, Math.min(nF, forcePool.length));
-    while (pF.length < nF) pF.push(srand(forcePool.filter(f => f !== pF[pF.length - 1])));
-    const combined: string[] = [];
-    for (let i = 0; i < Math.max(nC, nF); i++) {
-      if (pC[i]) combined.push(pC[i]);
-      if (pF[i]) combined.push(pF[i]);
-    }
-    const useEMOM = duration >= 30 && Math.random() < 0.5;
-    if (useEMOM) {
-      const mins = combined.length;
-      stations = [`EMOM ${mins} min (${Math.floor(duration / mins)} cycles = ${duration} min) :`];
-      combined.forEach((m, i) => stations.push(`  Min ${i + 1}: ${m}`));
-      scoring = `EMOM ${duration} min — score = cycles complétés`;
+    if (hasAnyCo) {
+      const result: string[] = [];
+      for (let i = 0; i < blocCount; i++) { result.push(runStr); if (pickedDefs[i]) result.push(pickedDefs[i].str); }
+      stations = result;
+      const rLabel = runM >= 1000 ? `${runM / 1000}km` : `${runM}m`;
+      const timeTarget = isPro ? `< ${duration} min` : `< ${duration + 5} min`;
+      scoring = `For Time — ${blocCount} blocs ${rLabel} Run + Station — objectif ${timeTarget}`;
     } else {
-      const rounds = Math.max(2, Math.floor(duration / (combined.length * 1.5)));
-      stations = [`${rounds} Rounds For Time :`].concat(combined);
-      scoring = `For Time — ${rounds} rounds (cap ${duration} min)`;
+      stations = pickedDefs.map(s => s.str);
+      scoring = `For Time — ${blocCount} stations enchaînées — cap ${duration} min`;
     }
-    stations = noConsecutive(stations);
+    coachingNotes = [
+      'Gère ton allure sur les courses — Ne sprint jamais le 1er km',
+      'Attaque chaque station à 85% max pour tenir le rythme',
+      'Optimise les transitions : chaque seconde compte',
+      `Allure de run cible : ${isPro ? '4:00-4:30' : '5:00-5:30'}/km`,
+    ];
   }
 
+  // ── HYROX COMPLETE (Zone5) ────────────────────────────────────────────
+  else if (type === 'Station Training' || intent === 'complete') {
+    const formats = ['rft', 'amrap', 'ladder', 'countdown', 'emom'];
+    const fmt = srand(formats);
+    if (fmt === 'rft') {
+      const rounds = duration <= 20 ? srand([3,4]) : duration <= 30 ? srand([4,5]) : srand([5,6]);
+      pickedDefs = pickSmart(allSt, srand([2,3]));
+      const cardio = srand(cardioPool);
+      stations = [`${rounds} RFT :`, cardio, ...pickedDefs.map(s => s.str)];
+      scoring = `For Time — ${rounds} rounds (cap ${duration} min) — score = temps total`;
+    } else if (fmt === 'amrap') {
+      pickedDefs = pickSmart(allSt, srand([2,3]));
+      const cardio = srand(cardioPool);
+      stations = [`AMRAP ${duration} min :`, cardio, ...pickedDefs.map(s => s.str)];
+      scoring = `Max rounds en ${duration} min — score = rounds + reps`;
+    } else if (fmt === 'ladder') {
+      const repPool = allSt.filter(s => !/^\d+m\s/.test(s.str));
+      pickedDefs = pickSmart(repPool.length >= 2 ? repPool : allSt, 2);
+      const steps = [5, 10, 15, 20, 25];
+      const cardioLadder = srand(emomCardioPool);
+      stations = [
+        `LADDER ASCENDANTE :`,
+        ...steps.map(n => `${n} reps : ${pickedDefs.map(s => s.str.replace(/^\d+/, String(n))).join(' + ')}`),
+        `${cardioLadder} (fixe à chaque palier)`,
+      ];
+      scoring = `For Time — ladder 5-10-15-20-25 (cap ${duration} min)`;
+    } else if (fmt === 'countdown') {
+      pickedDefs = pickSmart(allSt, 3);
+      const reps = [50, 40, 30, 20, 10];
+      stations = [`COUNTDOWN 50-40-30-20-10 :`, ...pickedDefs.map(s => s.str.replace(/^\d+\s*/, ''))];
+      scoring = `For Time — countdown 50→10 reps (cap ${duration} min)`;
+    } else {
+      pickedDefs = pickSmart(allSt, srand([1, 2]));
+      const cardioEmom = srand(emomCardioPool);
+      const cycleLen = pickedDefs.length + 1;
+      const totalMin = Math.floor(duration / cycleLen) * cycleLen;
+      stations = [
+        `EMOM × ${totalMin} min — cycle ${cycleLen} min :`,
+        `Min 1 : ${cardioEmom}`,
+        ...pickedDefs.map((s, i) => `Min ${i + 2} : ${s.str}`),
+        `→ Score = cycles complétés sans faute`,
+      ];
+      scoring = `EMOM ${totalMin} min — score = cycles terminés à temps`;
+    }
+    coachingNotes = [
+      'Stay consistent, don\'t start too hot',
+      'Pace yourself — le but est de finir plus fort qu\'au départ',
+      hasWb ? 'Wall Balls : vise des sets de 10+ unbroken' : 'Maintiens des sets réguliers sur chaque mouvement',
+      hasFc ? 'Farmers Carry : walk with purpose, pose si nécessaire mais reprends vite' : 'Gère ton grip entre les stations',
+    ];
+  }
+
+  // ── HYROX INTERVAL (Zone5) ───────────────────────────────────────────
+  else if (intent === 'interval') {
+    const schemes = ['4on2off', '3on3off', 'emom2', 'emom3'];
+    const scheme = srand(schemes);
+    if (scheme === '4on2off') {
+      const rounds = duration <= 20 ? 4 : duration <= 30 ? 5 : 6;
+      pickedDefs = pickSmart(allSt, 2);
+      stations = [
+        `${rounds}× AMRAP 4:00 — repos 2:00 :`,
+        runStr.replace(/\d+m/, '400m'),
+        ...pickedDefs.map(s => s.str),
+        `MAX cal ${srand(['Bike','Ski','Row'])} (dernier mouvement)`,
+      ];
+      scoring = `Score = total reps + cals accumulés | objectif : rester constant sur chaque round`;
+    } else if (scheme === '3on3off') {
+      const rounds = duration <= 20 ? 4 : duration <= 30 ? 5 : 6;
+      pickedDefs = pickSmart(allSt, 1);
+      const calMachine = srand(cardioPool.filter(c => c.includes('m')) ?? cardioPool);
+      stations = [
+        `${rounds}× AMRAP 3:00 — repos 3:00 (ratio 1:1) :`,
+        calMachine,
+        pickedDefs[0]?.str ?? bbjDef.str,
+        `→ Score = total reps | objectif 90% d'effort chaque round`,
+      ];
+      scoring = `Intervalles ${rounds}×3 min — score = total accumulé`;
+    } else if (scheme === 'emom2') {
+      const cycles = Math.floor(duration / 2);
+      pickedDefs = pickSmart(allSt, 2);
+      const cardio = srand(emomCardioPool);
+      stations = [
+        `E2MOM × ${cycles} (= ${duration} min) :`,
+        `  Min 1 : ${cardio}`,
+        `  Min 2 : ${pickedDefs[0]?.str ?? bbjDef.str}`,
+        `→ Reste du temps = repos | objectif : sprint effort chaque min`,
+      ];
+      scoring = `E2MOM ${duration} min — score = rounds complétés à temps`;
+    } else {
+      const cycles = Math.floor(duration / 3);
+      pickedDefs = pickSmart(allSt, 2);
+      const cardio3 = srand(emomCardioPool);
+      stations = [
+        `EMOM × ${cycles * 3} min — cycle 3 min :`,
+        `Min 1 : ${cardio3}`,
+        `Min 2 : ${pickedDefs[0]?.str ?? bbjDef.str}`,
+        `Min 3 : ${pickedDefs[1]?.str ?? slpDef.str}`,
+        `→ Effort sprint chaque minute — max reps/cal dans le temps alloué`,
+      ];
+      scoring = `EMOM 3-min cycle × ${cycles} — score = total reps + cals`;
+    }
+    coachingNotes = [
+      'Chaque round doit être un effort sprint — 90% ou plus',
+      'Objectif : maintenir le même score à chaque round (consistency)',
+      'Si tu as trop de temps de repos c\'est que tu n\'as pas assez poussé',
+      hasSlp ? 'Sled : AHAP — pas d\'arrêt en cours de distance' : 'Maximise l\'effort sur la dernière min de chaque round',
+    ];
+  }
+
+  // ── HYROX ENGINE (Zone5) ─────────────────────────────────────────────
+  else if (intent === 'engine') {
+    const fmtEng = srand(['chipper', 'emom']);
+    if (fmtEng === 'emom') {
+      const totalMin = Math.min(duration, 20);
+      const cardioEng = srand(emomCardioPool);
+      pickedDefs = pickSmart(allSt, 1);
+      stations = [
+        `EMOM × ${totalMin} min (alternating) :`,
+        `Min impaire : ${cardioEng}`,
+        `Min paire : ${pickedDefs[0]?.str ?? bbjDef.str}`,
+        `→ Même reps/cal chaque round — allure steady RPE 7`,
+      ];
+      scoring = `EMOM ${totalMin} min — score = rounds complétés | allure stable`;
+      coachingNotes = [
+        'Rounds 1-3 doivent sembler faciles — c\'est voulu, tiens l\'allure',
+        `RPE cible : ${HYROX_RPE[intent]} — stable tout du long`,
+        hasRow ? 'RowErg : cible 2:00-2:10/500m — varie de moins de 5s' : 'Garde ton rythme de respiration constant',
+        'Si tu finis le round avec 0s de marge : réduis les reps la prochaine fois',
+      ];
+    } else {
+      const chipCount = duration <= 20 ? 3 : duration <= 30 ? 4 : duration <= 45 ? 5 : 6;
+      pickedDefs = pickSmart(allSt, Math.min(chipCount - 1, allSt.length));
+      const buyIn  = srand(cardioPool);
+      const cashOut = cardioPool.filter(c => c !== buyIn)[0] ?? buyIn;
+      const wbTotal = hasWb ? `${scaleR(wbRof * 2, 25)} Wall Balls` : `${scaleR([60,80,80,100][li], 10)} Air Squats`;
+      stations = [
+        `── Buy-in : ${buyIn} ──`,
+        ...pickedDefs.map(s => s.str),
+        wbTotal,
+        `── Cash-out : ${cashOut} ──`,
+        `→ Partition les reps comme tu veux`,
+      ];
+      scoring = `For Time — partition any way — cap ${duration} min — allure steady`;
+      coachingNotes = [
+        'Allure steady et constante — pas d\'effort sprint, pas de marche passive',
+        `RPE cible : ${HYROX_RPE[intent]} — tu dois pouvoir parler par phrases courtes`,
+        'Partition les grosses stations (Wall Balls, Lunges) en sets gérables',
+        hasRow ? 'RowErg : vise 2:00-2:10/500m, stay consistent' : 'Maintiens ton rythme de respiration constant tout au long',
+      ];
+    }
+  }
+
+  // ── HYROX AEROBIC (Zone5) ────────────────────────────────────────────
+  else if (intent === 'aerobic') {
+    if (!hasAnyCo && !hasTrd) {
+      const rounds = Math.floor(duration / 3);
+      stations = [
+        `${rounds} Rounds à allure Zone 2 :`,
+        `${scaleR([20,25,25,30][li], 5)} Squats`,
+        `${scaleR([15,20,20,25][li], 5)} Lunges (total)`,
+        `${scaleR([10,15,15,20][li], 5)} Push-ups`,
+        `→ Conversational pace tout du long — RPE 5-6`,
+      ];
+      scoring = `AMRAP ${duration} min — allure Zone 2 basse`;
+    } else if (hasTrd) {
+      const kmStr = `${Math.round(duration * 0.15 * 10) / 10} km`;
+      stations = [
+        `${kmStr} run continu à allure conversationnelle (Zone 2)`,
+        hasBbj ? `  → Toutes les 5 min : ${scaleR(5, 1)} Burpee Broad Jumps` : '',
+        hasWb   ? `  → Toutes les 5 min : ${scaleR(10, 5)} Wall Balls` : '',
+        `→ Objectif allure : ${isPro ? '4:45-5:15' : '5:30-6:30'}/km`,
+        `→ Test : tu dois pouvoir tenir une conversation`,
+      ].filter(s => s.length > 0);
+      scoring = `Allure Zone 2 constante — ${duration} min`;
+    } else {
+      const machines = cardioPool;
+      const fmtAer = srand(['rotating', 'emom']);
+      if (fmtAer === 'emom') {
+        const calTarget = [10, 12, 12, 15][li];
+        const machineStr = machines[0] ?? 'RowErg';
+        const machineName = machineStr.includes('Ski') ? 'SkiErg' : machineStr.includes('Row') ? 'RowErg' : machineStr.includes('Bike') ? 'BikeErg' : machineStr;
+        stations = [
+          `EMOM × ${duration} min à allure Zone 2 :`,
+          `Chaque minute : ${calTarget} cal ${machineName}`,
+          `  → reste du temps : récupération active (marche)`,
+          `→ Objectif : même reps chaque minute — RPE 5-6`,
+          `→ Si < 10s de récup : baisser l'allure`,
+        ];
+        scoring = `Zone 2 EMOM ${duration} min — score = rounds complets`;
+      } else {
+        const timePerBlock = Math.floor(duration / machines.length);
+        stations = [
+          `${duration} min — rotatif cardio machines :`,
+          ...machines.map(m => `${timePerBlock} min : ${m} à allure conversationnelle`),
+          `→ Pause 30s entre chaque machine — RPE 5-6`,
+          `→ Se mettre à ruer : pas le but. Consistent > intense.`,
+        ];
+        scoring = `Zone 2 ${duration} min — score = distance totale accumulée`;
+      }
+    }
+    coachingNotes = [
+      'Zone 2 : tu dois pouvoir parler en phrases complètes',
+      'Ce n\'est pas facile de s\'y tenir — résiste à la tentation d\'accélérer',
+      hasRow ? 'RowErg Zone 2 cible : 2:15-2:30/500m (selon niveau)' : '',
+      hasSki ? 'SkiErg Zone 2 cible : 2:20-2:40/500m (selon niveau)' : '',
+      'Cette session construit ton moteur aérobie — la base de la performance Hybrid',
+    ].filter(n => n.length > 0);
+  }
+
+  // ── HYROX RUN INTERVAL (Zone5) ───────────────────────────────────────
+  else if (intent === 'run_interval') {
+    const scheme = duration <= 20 ? srand(['400x6', 'e5mom']) : duration <= 30 ? srand(['400x8', '800x4', 'e5mom']) : srand(['800x4', '1000x4', 'e5mom']);
+    if (scheme === 'e5mom') {
+      const rounds = Math.floor(duration / 5);
+      const runDist = duration >= 45 ? '800m' : '400m';
+      const paceTgt = isPro
+        ? (runDist === '800m' ? '< 3:20' : '< 1:40')
+        : (runDist === '800m' ? '< 4:00' : '< 2:05');
+      stations = [
+        `E5MOM × ${rounds} (= ${rounds * 5} min) :`,
+        `→ ${runDist} run à race pace`,
+        `→ Reste du temps : marche ou jogging de récupération`,
+        `→ Cible : ${paceTgt} par répétition`,
+        `→ Enregistre chaque split`,
+        hasTrd ? `→ Sur tapis : 1-2% inclinaison` : `→ Sur piste ou route`,
+      ];
+      scoring = `E5MOM ${rounds} rounds — score = meilleur split et moyenne`;
+      coachingNotes = [
+        `Objectif : rester dans les ${paceTgt} sur les ${rounds} rounds`,
+        'Si ton split dérape de plus de 10s : tu es parti trop vite',
+        `La récupération entre les rounds est aussi importante que l'effort`,
+        hasTrd ? 'Sur tapis : inclinaison 1-2% pour compenser l\'absence d\'air' : 'Note chaque split — référentiel à battre au prochain cycle',
+      ];
+    } else {
+      const distOptions: Record<string, { dist: string; reps: number; rest: string }> = {
+        '200x12': { dist: '200m',  reps: 12, rest: '90s' },
+        '400x6':  { dist: '400m',  reps: 6,  rest: '2 min' },
+        '400x8':  { dist: '400m',  reps: 8,  rest: '2 min' },
+        '800x4':  { dist: '800m',  reps: 4,  rest: '2 min' },
+        '1000x4': { dist: '1000m', reps: 4,  rest: '2-3 min' },
+      };
+      const { dist, reps, rest } = distOptions[scheme];
+      const paceTarget = isPro
+        ? ({ '200m': '< :45', '400m': '< 1:40', '800m': '< 3:30', '1000m': '< 4:30' } as Record<string,string>)[dist]
+        : ({ '200m': '< :55', '400m': '< 2:00', '800m': '< 4:00', '1000m': '< 5:00' } as Record<string,string>)[dist];
+      stations = [
+        `${reps}× ${dist} run — repos ${rest} entre chaque`,
+        `→ Objectif : race pace ou plus rapide`,
+        `→ Cible : ${paceTarget} par répétition`,
+        `→ Enregistre chaque split`,
+        hasTrd ? `→ Sur tapis de course` : `→ Sur piste ou route`,
+      ];
+      scoring = `Score = moyenne des splits + meilleur split`;
+      coachingNotes = [
+        `Objectif : trouver ton allure de course que tu peux tenir ${reps} fois`,
+        'Ne pars pas trop vite au 1er — le split moyen compte plus que le meilleur',
+        'Si les splits s\'écroulent après la moitié : tu es parti trop vite',
+        'Note chaque split — c\'est un référentiel à battre à chaque cycle',
+      ];
+    }
+  }
+
+  // ── HYROX STRENGTH (Zone5) ───────────────────────────────────────────
+  else {
+    const setsA = isPro ? 4 : 3;
+    const strengthMoves: StDef[] = [];
+    if (hasFc) strengthMoves.push(fcDef);
+    if (hasSlp) strengthMoves.push(slpDef);
+    if (hasSlpu) strengthMoves.push(slpuDef!);
+    if (hasWb) strengthMoves.push(wbDef);
+    if (strengthMoves.length === 0) strengthMoves.push(...pickSmart(allSt, 2));
+
+    pickedDefs = pickSmart(strengthMoves, Math.min(2, strengthMoves.length));
+    const finisherDef = pickSmart(allSt.filter(s => !pickedDefs.includes(s)), 1);
+    const cardioFinisher = srand(cardioPool);
+    stations = [
+      `── Bloc A : FORCE (${setsA} sets) ──`,
+      ...pickedDefs.flatMap(s => [`${setsA}× ${s.str} — repos 90s`]),
+      `── Bloc B : Finisher ${Math.round(duration * 0.25)} min ──`,
+      cardioFinisher,
+      finisherDef[0]?.str ?? bbjDef.str,
+      `→ Enchaîner sans repos — allure soutenue`,
+    ];
+    scoring = `Bloc A : charge maximale notée | Bloc B : For Time`;
+    coachingNotes = [
+      'Qualité > vitesse — les dernières reps doivent être les plus difficiles',
+      hasFc ? `Farmers Carry : charge assez lourde pour devoir poser 1-2 fois en ${fcD}m` : 'Choisis des charges où les 3 dernières reps sont difficiles',
+      hasSlp ? 'Sled Push : AHAP — short powerful steps — don\'t stop moving' : '',
+      'Repos stricts entre les sets — l\'adaptation vient du respect des temps de récup',
+    ].filter(n => n.length > 0);
+  }
+
+  // ── Format team adaptations ───────────────────────────────────────────
   const fmtS = (s: string): string => {
-    if (s.startsWith('──') || s.startsWith('AMRAP') || s.startsWith('For Time')
-        || s.startsWith('EMOM') || /^\d+ Rounds/.test(s) || s.startsWith('  Min')
-        || s.startsWith('Tabata') || s.startsWith('Ladder') || s.startsWith('Pyramide')
-        || s.startsWith('Intervalles')) return s;
-    if (format === 'Doubles')      return `${s}  ⟨split ×2 — I go / You go⟩`;
-    if (format === 'Relais')       return `${s}  ⟨relais — 1 athlète par station⟩`;
-    if (format === 'Mixed Relais') return `${s}  ⟨mixed H/F — charges adaptées⟩`;
+    if (s.startsWith('──') || s.startsWith('─') || s.startsWith('AMRAP') || s.startsWith('For Time')
+        || s.startsWith('EMOM') || s.startsWith('LADDER') || s.startsWith('COUNTDOWN')
+        || /^\d+ RFT/.test(s) || /^\d+× /.test(s) || s.startsWith('E2MOM') || s.startsWith('E5MOM') || s.startsWith('  ')
+        || s.startsWith('→') || s.startsWith('Score')) return s;
+    if (format === 'Doubles')      return `${s}  ⟨I go / You go⟩`;
+    if (format === 'Relais')       return `${s}  ⟨1 athlète / station⟩`;
+    if (format === 'Mixed Relais') return `${s}  ⟨charges H/F adaptées⟩`;
     return s;
   };
-  stations = stations.map(fmtS);
-  return { title, type, level, format, duration, stations, scoring, tip };
+  stations = noConsecutive(stations.map(fmtS));
+
+  const domFat = pickedDefs.length > 0 ? dominantFatigue(pickedDefs) : 'full';
+  const tags = [HYROX_INTENT_TAG[intent], HYROX_FATIGUE_LABEL[domFat]];
+
+  return {
+    title, type, level, format, duration, stations, scoring, tip, intent, tags,
+    rpe: HYROX_RPE[intent],
+    sessionLabel: HYROX_SESSION_LABEL[intent],
+    coachingNotes,
+  };
 }
 
 type Sport = 'functional' | 'hybrid';
@@ -495,7 +717,186 @@ interface GeneratedWOD {
   movements: string[];
   scoring: string;
   tip: string;
+  intent?: Intent;
+  tags?: string[];
 }
+
+// ── Intent + Movement metadata ──────────────────────────────────────────
+type MvFamily = 'gymnastics' | 'weightlifting' | 'monostructural' | 'hinge' | 'squatting';
+type FatigueZone = 'grip' | 'shoulder' | 'legs' | 'lungs' | 'back' | 'core';
+type Intent = 'mixed' | 'cardio' | 'strength' | 'gymnastics';
+
+interface MvtMeta { f: MvFamily; fz: FatigueZone[] }
+const MVTS_META: Record<string, MvtMeta> = {
+  // ── Bodyweight ──
+  'Burpees':            { f:'gymnastics',     fz:['lungs'] },
+  'Air Squats':         { f:'squatting',      fz:['legs'] },
+  'Down Up':            { f:'gymnastics',     fz:['lungs'] },
+  'Push-ups':           { f:'gymnastics',     fz:['shoulder'] },
+  'Sit-ups':            { f:'gymnastics',     fz:['core'] },
+  'Lunges':             { f:'squatting',      fz:['legs'] },
+  'Jumping Squats':     { f:'squatting',      fz:['legs'] },
+  'HSPU Stricts':       { f:'gymnastics',     fz:['shoulder'] },
+  'Wall Facing HSPU':   { f:'gymnastics',     fz:['shoulder'] },
+  'Pistol Squats (assistés)': { f:'gymnastics', fz:['legs'] },
+  'Pistol Squats':      { f:'gymnastics',     fz:['legs'] },
+  'Up-Downs':           { f:'gymnastics',     fz:['lungs'] },
+  'Course':             { f:'monostructural', fz:['lungs','legs'] },
+  'Wall Walks (partiels)': { f:'gymnastics',  fz:['shoulder','core'] },
+  'Wall Walks':         { f:'gymnastics',     fz:['shoulder','core'] },
+  'Shuttle Run':        { f:'monostructural', fz:['lungs','legs'] },
+  'Burpee Over the Bar': { f:'gymnastics',    fz:['lungs'] },
+  'Bar Facing Burpee':  { f:'gymnastics',     fz:['lungs'] },
+  'Burpee Over the DB': { f:'gymnastics',     fz:['lungs'] },
+  // ── Barbell ──
+  'Thrusters':          { f:'weightlifting',  fz:['shoulder','legs'] },
+  'Clusters':           { f:'weightlifting',  fz:['shoulder','legs','grip'] },
+  'Deadlifts':          { f:'hinge',          fz:['back','grip'] },
+  'Power Clean':        { f:'weightlifting',  fz:['back','grip'] },
+  'Hang Power Clean':   { f:'weightlifting',  fz:['back','grip'] },
+  'Clean':              { f:'weightlifting',  fz:['back','grip'] },
+  'Squat Clean':        { f:'weightlifting',  fz:['back','grip','legs'] },
+  'Hang Clean':         { f:'weightlifting',  fz:['back','grip'] },
+  'Hang Squat Clean':   { f:'weightlifting',  fz:['back','grip','legs'] },
+  'Front Squats':       { f:'squatting',      fz:['legs'] },
+  'Back Squats':        { f:'squatting',      fz:['legs','back'] },
+  'Overhead Squat':     { f:'squatting',      fz:['legs','shoulder'] },
+  'Clean & Jerk':       { f:'weightlifting',  fz:['back','grip','shoulder'] },
+  'Hang Clean & Jerk':  { f:'weightlifting',  fz:['back','grip','shoulder'] },
+  'Hang Squat Clean & Jerk': { f:'weightlifting', fz:['back','grip','shoulder','legs'] },
+  'Snatch':             { f:'weightlifting',  fz:['shoulder','grip','back'] },
+  'Squat Snatch':       { f:'weightlifting',  fz:['shoulder','grip','back','legs'] },
+  'Hang Snatch':        { f:'weightlifting',  fz:['shoulder','grip','back'] },
+  'Power Snatch':       { f:'weightlifting',  fz:['shoulder','grip','back'] },
+  'Shoulder to Overhead': { f:'weightlifting', fz:['shoulder'] },
+  'Strict Press':       { f:'weightlifting',  fz:['shoulder'] },
+  'Push Press':         { f:'weightlifting',  fz:['shoulder','legs'] },
+  'Push Jerk':          { f:'weightlifting',  fz:['shoulder','legs'] },
+  'Sumo Deadlift HP':   { f:'hinge',          fz:['back','grip','shoulder'] },
+  'High Sumo Deadlift': { f:'hinge',          fz:['back','grip'] },
+  // ── Haltères ──
+  'DB Snatch':          { f:'weightlifting',  fz:['shoulder','grip'] },
+  'DB Hang Snatch':     { f:'weightlifting',  fz:['shoulder','grip'] },
+  'DB Squat Snatch':    { f:'weightlifting',  fz:['shoulder','grip','legs'] },
+  'DB Thrusters':       { f:'weightlifting',  fz:['shoulder','legs'] },
+  'DB Clean & Jerk':    { f:'weightlifting',  fz:['shoulder','grip'] },
+  'DB Hang Clean & Jerk': { f:'weightlifting', fz:['shoulder','grip'] },
+  'DB Lunges':          { f:'squatting',      fz:['legs'] },
+  'Devil Press':        { f:'weightlifting',  fz:['shoulder','lungs','grip'] },
+  'DB Push Press':      { f:'weightlifting',  fz:['shoulder'] },
+  'DB Walking Lunge':   { f:'squatting',      fz:['legs'] },
+  'DB OH Walking Lunge': { f:'squatting',     fz:['legs','shoulder'] },
+  'DB Farmer Carry':    { f:'hinge',          fz:['grip','back'] },
+  'DB Step Up':         { f:'squatting',      fz:['legs'] },
+  'Double DB Step Up':  { f:'squatting',      fz:['legs'] },
+  // ── Kettlebell ──
+  'KB Swings':          { f:'hinge',          fz:['back','grip'] },
+  'Goblet Squats':      { f:'squatting',      fz:['legs'] },
+  'KB Snatch':          { f:'weightlifting',  fz:['grip','shoulder'] },
+  'KB Clean':           { f:'weightlifting',  fz:['grip'] },
+  'KB Clean & Jerk':    { f:'weightlifting',  fz:['grip','shoulder'] },
+  'KB Shoulder to OH':  { f:'weightlifting',  fz:['shoulder'] },
+  'KB Clean & Press':   { f:'weightlifting',  fz:['shoulder','grip'] },
+  'Double KB Snatch':   { f:'weightlifting',  fz:['shoulder','grip','back'] },
+  'Double KB Clean':    { f:'weightlifting',  fz:['grip','back'] },
+  'Double KB Clean & Jerk': { f:'weightlifting', fz:['grip','shoulder','back'] },
+  'KB Overhead Squat':  { f:'squatting',      fz:['legs','shoulder'] },
+  'Double KB OH Squat': { f:'squatting',      fz:['legs','shoulder'] },
+  'Turkish Get-up':     { f:'weightlifting',  fz:['shoulder','core'] },
+  'KB Thruster':        { f:'weightlifting',  fz:['shoulder','legs'] },
+  'KB Farmer Carry':    { f:'hinge',          fz:['grip'] },
+  'KB Walking Lunge':   { f:'squatting',      fz:['legs','grip'] },
+  'KB OH Walking Lunge': { f:'squatting',     fz:['legs','shoulder'] },
+  // ── Box ──
+  'Box Jump':           { f:'monostructural', fz:['legs'] },
+  'Box Jump Over':      { f:'monostructural', fz:['legs','lungs'] },
+  'Box Step-ups':       { f:'monostructural', fz:['legs'] },
+  'Box Jump Step-overs': { f:'monostructural', fz:['legs','lungs'] },
+  'Burpee Box Jump':    { f:'gymnastics',     fz:['lungs','legs'] },
+  'Burpee Box Jump Over': { f:'gymnastics',   fz:['lungs','legs'] },
+  'Med-Ball Box Step-Overs': { f:'monostructural', fz:['legs'] },
+  // ── Corde ──
+  'Single Unders':      { f:'monostructural', fz:['lungs'] },
+  'Double Unders':      { f:'monostructural', fz:['lungs','legs'] },
+  'Cross Over':         { f:'monostructural', fz:['lungs'] },
+  'Double Cross Over':  { f:'monostructural', fz:['lungs'] },
+  // ── Barre de traction ──
+  'Pull-ups':           { f:'gymnastics', fz:['grip','shoulder'] },
+  'Chest-to-bar':       { f:'gymnastics', fz:['grip','shoulder'] },
+  'Toes-to-bar':        { f:'gymnastics', fz:['core','grip'] },
+  'Knees-to-elbows':    { f:'gymnastics', fz:['core','grip'] },
+  'Bar Muscle-ups':     { f:'gymnastics', fz:['grip','shoulder'] },
+  'Kipping Pull-ups':   { f:'gymnastics', fz:['grip','shoulder'] },
+  'Pull-Over':          { f:'gymnastics', fz:['grip','shoulder'] },
+  // ── Anneaux ──
+  'Ring Dips':          { f:'gymnastics', fz:['shoulder'] },
+  'Ring Muscle-ups':    { f:'gymnastics', fz:['shoulder','grip'] },
+  'Toes to Rings':      { f:'gymnastics', fz:['core','grip'] },
+  'Ring Push-ups':      { f:'gymnastics', fz:['shoulder'] },
+  // ── Erg ──
+  'Assault Bike':       { f:'monostructural', fz:['lungs','legs'] },
+  'Echo Bike':          { f:'monostructural', fz:['lungs','legs'] },
+  'Ski Erg':            { f:'monostructural', fz:['lungs','shoulder'] },
+  'Row':                { f:'monostructural', fz:['lungs','back'] },
+  // ── Worm ──
+  'Worm Clean & Jerk':  { f:'weightlifting',  fz:['back','shoulder'] },
+  'Worm Squat':         { f:'squatting',      fz:['legs','back'] },
+  'Worm Lunge':         { f:'squatting',      fz:['legs','back'] },
+  // ── Med Ball ──
+  'Wall Ball':          { f:'weightlifting',  fz:['lungs','legs','shoulder'] },
+  'MB Slam':            { f:'hinge',          fz:['back','core'] },
+};
+
+type Skeleton = MvFamily[][];
+const SKELETONS: Record<string, Record<Intent, Skeleton>> = {
+  triplet: {
+    mixed:       [['monostructural'],         ['weightlifting','hinge'],     ['gymnastics']],
+    cardio:      [['monostructural'],         ['gymnastics'],                ['monostructural']],
+    strength:    [['hinge','squatting'],      ['weightlifting'],             ['gymnastics','squatting']],
+    gymnastics:  [['gymnastics'],             ['gymnastics'],                ['monostructural']],
+  },
+  couplet: {
+    mixed:       [['weightlifting','hinge'],  ['gymnastics','monostructural']],
+    cardio:      [['monostructural'],         ['gymnastics']],
+    strength:    [['hinge','weightlifting'],  ['squatting','gymnastics']],
+    gymnastics:  [['gymnastics'],             ['gymnastics']],
+  },
+  chipper: {
+    mixed:       [['monostructural'],  ['hinge','weightlifting'], ['gymnastics'],     ['weightlifting'],   ['monostructural']],
+    cardio:      [['monostructural'],  ['gymnastics'],            ['monostructural'], ['gymnastics'],      ['monostructural']],
+    strength:    [['hinge'],           ['weightlifting'],         ['squatting'],      ['gymnastics'],      ['monostructural']],
+    gymnastics:  [['gymnastics'],      ['gymnastics'],            ['monostructural'], ['gymnastics'],      ['hinge','weightlifting']],
+  },
+  emom: {
+    mixed:       [['monostructural'],         ['weightlifting','gymnastics']],
+    cardio:      [['monostructural'],         ['monostructural']],
+    strength:    [['weightlifting','hinge'],  ['gymnastics']],
+    gymnastics:  [['gymnastics'],             ['gymnastics','monostructural']],
+  },
+  tabata: {
+    mixed:       [['gymnastics','monostructural'], ['weightlifting','squatting']],
+    cardio:      [['monostructural'],              ['gymnastics']],
+    strength:    [['weightlifting','hinge'],       ['squatting']],
+    gymnastics:  [['gymnastics'],                  ['gymnastics']],
+  },
+  single: {
+    mixed:       [['weightlifting','gymnastics']],
+    cardio:      [['monostructural','gymnastics']],
+    strength:    [['weightlifting','hinge']],
+    gymnastics:  [['gymnastics']],
+  },
+};
+
+const INTENT_REP_MULT: Record<Intent, number> = { mixed: 1, cardio: 1.25, strength: 0.75, gymnastics: 1 };
+const INTENT_FATIGUE: Record<Intent, string> = {
+  mixed: 'Corps entier', cardio: 'Cardio / Souffle', strength: 'Dos / Grip', gymnastics: 'Épaules / Core',
+};
+const INTENT_OPTIONS: { key: Intent; label: string; emoji: string }[] = [
+  { key: 'mixed',      label: 'Mixed',  emoji: '⚡' },
+  { key: 'cardio',     label: 'Cardio', emoji: '🫀' },
+  { key: 'strength',   label: 'Force',  emoji: '💪' },
+  { key: 'gymnastics', label: 'Gym',    emoji: '🤸' },
+];
 
 // ── Movement database ─────────────────────────────────────────────────
 const _LI: Record<AthleteLevel, number> = { scaled: 0, inter: 1, rx: 2, 'rx+': 3, elite: 4, pro: 5 };
@@ -605,7 +1006,7 @@ const MVTS: Mvt[] = [
   { name: 'Pull-Over',            eq: ['Barre de traction'], reps: [0,3,5,8,10,12] },
   // ── Anneaux ──
   { name: 'Ring Dips',            eq: ['Anneaux'],           reps: [0,3,5,8,10,12] },
-  { name: 'Ring Muscle-ups',      eq: ['Anneaux'],           reps: [0,0,0,2,4,5] },
+  { name: 'Ring Muscle-ups',      eq: ['Anneaux'],           reps: [0,0,2,3,5,7] },
   { name: 'Toes to Rings',        eq: ['Anneaux'],           reps: [0,5,8,10,12,15] },
   // ── Erg ──
   { name: 'Assault Bike',         eq: ['Erg'],               reps: [8,10,12,15,18,20], unit: 'cal' },
@@ -787,7 +1188,7 @@ function fmtMvtLabel(m: Mvt, li: number): string {
   return m.name;
 }
 
-function generateWOD(level: AthleteLevel, duration: number, type: WODType, equipment: string[], teamSize: number = 1): GeneratedWOD {
+function generateWOD(level: AthleteLevel, duration: number, type: WODType, equipment: string[], teamSize: number = 1, intent: Intent = 'mixed'): GeneratedWOD {
   // ── Benchmark mode ──
   if (equipment.includes('Benchmark')) {
     const bm = srand(BENCHMARKS);
@@ -804,7 +1205,7 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
   }
 
   const li = _LI[level];
-  const noEquip = equipment.includes('Aucun matériel') || equipment.length === 0;
+  const noEquip = equipment.includes('Aucun matériel');
   const realEquip = equipment.filter(e => e !== 'Aucun matériel' && e !== 'Benchmark');
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -816,6 +1217,7 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
   const pool = MVTS.filter(m => {
     if (m.reps[li] === 0) return false;
     if (noEquip) return m.eq.length === 0;
+    if (equipment.length === 0) return true;
     return m.eq.every(e => equipment.includes(e));
   });
 
@@ -863,6 +1265,34 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
     }
     return unifyLoads(result.slice(0, n));
   };
+
+  function pickFromSkeleton(skeleton: MvFamily[][], count: number): Mvt[] {
+    const result: Mvt[] = [];
+    const usedFatigues = new Set<FatigueZone>();
+    const usedNames = new Set<string>();
+    for (let i = 0; i < count; i++) {
+      const slotFamilies = skeleton[i % skeleton.length];
+      let candidates = pool.filter(m => {
+        const meta = MVTS_META[m.name];
+        return meta && slotFamilies.includes(meta.f) && !usedNames.has(m.name);
+      });
+      const noStack = candidates.filter(m => !MVTS_META[m.name]?.fz.some(fz => usedFatigues.has(fz)));
+      const p = noStack.length > 0 ? noStack : candidates.length > 0 ? candidates : pool.filter(m => !usedNames.has(m.name));
+      if (p.length === 0) continue;
+      const picked = srand(p);
+      result.push(picked);
+      usedNames.add(picked.name);
+      MVTS_META[picked.name]?.fz.forEach(fz => usedFatigues.add(fz));
+    }
+    if (result.length < count) {
+      const remaining = pool.filter(m => !usedNames.has(m.name));
+      while (result.length < count && remaining.length > 0) {
+        const idx = Math.floor(Math.random() * remaining.length);
+        result.push(remaining.splice(idx, 1)[0]);
+      }
+    }
+    return unifyLoads(result.slice(0, count));
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // RÈGLE 1 — Matrice format → type de circuit interne
@@ -923,12 +1353,12 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
   if (type === 'For Time') {
     if (circuit === 'round') {
       const rounds = roundsCal();
-      const mvts = ensureNoWrap(pickWithForced(mvCountCal(3)));
+      const mvts = ensureNoWrap(pickFromSkeleton(SKELETONS.triplet[intent], mvCountCal(3)));
       movements = [`${rounds} Rounds For Time :`].concat(mvts.map(m => fmtMvt(m, li)));
       scoring = `${rounds} RFT — Temps (cap ${duration} min)`;
     } else if (circuit === 'chipper') {
       const mvCount = mvCountCal(5);
-      const mvts = pickWithForced(mvCount);
+      const mvts = pickFromSkeleton(SKELETONS.chipper[intent], mvCount);
       const chipReps = [50, 40, 30, 25, 20, 15, 10];
       movements = mvts.map((m, i) => {
         const base = chipReps[i] ?? 10;
@@ -945,14 +1375,14 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
     } else if (circuit === 'couplet' || circuit === 'triplet') {
       const n = circuit === 'triplet' ? 3 : 2;
       const rounds = roundsCal();
-      const mvts = pickWithForced(n);
+      const mvts = pickFromSkeleton(SKELETONS[circuit === 'triplet' ? 'triplet' : 'couplet'][intent], n);
       movements = [`${rounds} Rounds For Time :`].concat(mvts.map(m => fmtMvt(m, li)));
       scoring = `${circuit === 'triplet' ? 'Triplet' : 'Couplet'} — Temps (cap ${duration} min)`;
     } else if (circuit === 'ladder') {
       const isPyramid = Math.random() < 0.5;
       const maxRung = duration <= 5 ? 7 : duration <= 10 ? 10 : duration <= 20 ? 12 : 15;
       const top = Math.floor(maxRung / 2);
-      const mvts = pickWithForced(srand([1, 2]));
+      const mvts = pickFromSkeleton(SKELETONS.couplet[intent], srand([1, 2]));
       if (isPyramid) {
         movements = [`Pyramide For Time (1→${top}→1) :`, ...mvts.map(m => fmtMvtLabel(m, li))];
         scoring = `Pyramide — Temps (cap ${duration} min)`;
@@ -966,17 +1396,17 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
   // ── AMRAP ─────────────────────────────────────────────────────────────
   else if (type === 'AMRAP') {
     if (circuit === 'round') {
-      const mvts = ensureNoWrap(pickWithForced(mvCountCal(3)));
+      const mvts = ensureNoWrap(pickFromSkeleton(SKELETONS.triplet[intent], mvCountCal(3)));
       movements = mvts.map(m => fmtMvt(m, li));
       scoring = `Max rounds en ${duration} min`;
     } else if (circuit === 'couplet' || circuit === 'triplet') {
       const n = circuit === 'triplet' ? 3 : 2;
-      const mvts = pickWithForced(n);
+      const mvts = pickFromSkeleton(SKELETONS[circuit === 'triplet' ? 'triplet' : 'couplet'][intent], n);
       movements = mvts.map(m => fmtMvt(m, li));
       scoring = `Max rounds en ${duration} min — ${circuit === 'triplet' ? 'Triplet' : 'Couplet'}`;
     } else if (circuit === 'chipper') {
       const mvCount = mvCountCal(5);
-      const mvts = pickWithForced(mvCount);
+      const mvts = pickFromSkeleton(SKELETONS.chipper[intent], mvCount);
       const chipReps = [40, 30, 25, 20, 15, 12, 10];
       movements = mvts.map((m, i) => {
         const base = chipReps[i] ?? 10;
@@ -1006,7 +1436,7 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
       scoring = `Score = dernière minute complétée`;
     } else {
       const n = circuit === 'triplet' ? 3 : 2;
-      const mvts = pickWithForced(n);
+      const mvts = pickFromSkeleton(SKELETONS.emom[intent], n);
       movements = mvts.map((m, i) => `Min ${i + 1} : ${fmtMvt(m, li)}`);
       const cycles = Math.round(duration / n);
       movements.push(`→ Répéter (${cycles} fois = ${duration} min)`);
@@ -1018,11 +1448,11 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
   else if (type === 'Tabata') {
     if (circuit === 'double_couplet') {
       const count = Math.max(2, Math.floor(duration / 4));
-      const mvts = pickWithForced(count);
+      const mvts = pickFromSkeleton(SKELETONS.tabata[intent], count);
       movements = mvts.map(m => `20s ${m.name} / 10s Repos × 8`);
       scoring = 'Score = min de reps sur un round (par mouvement)';
     } else {
-      const mvts = pickWithForced(2);
+      const mvts = pickFromSkeleton(SKELETONS.tabata[intent], 2);
       const tabCycles = Math.max(1, Math.floor(duration / 4));
       movements = mvts.map(m => `20s ${m.name} / 10s Repos × 8`);
       if (tabCycles > 1) movements.push(`→ ${tabCycles} cycles`);
@@ -1033,7 +1463,7 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
   // ── MAX REPS ──────────────────────────────────────────────────────────
   else {
     const count = srand([1, 2]);
-    const mvts = pickWithForced(count);
+    const mvts = pickFromSkeleton(SKELETONS.single[intent], count);
     movements = mvts.map(m => {
       const ld = m.load?.[li];
       const suffix = ld ? ` (${ld} kg)` : '';
@@ -1053,19 +1483,26 @@ function generateWOD(level: AthleteLevel, duration: number, type: WODType, equip
     movements = [`── ${srand(teamModes)} ──`, ...movements];
   }
 
-  return { title, type, duration, level, movements, scoring, tip };
+  const intentLabel: Record<Intent, string> = { mixed: '⚡ Mixed', cardio: '🫀 Cardio', strength: '💪 Force', gymnastics: '🤸 Gym' };
+  const tags = [intentLabel[intent], `💀 ${INTENT_FATIGUE[intent]}`];
+  return { title, type, duration, level, movements, scoring, tip, intent, tags };
 }
 
 export default function WODGeneratorScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<WODStackParamList>>();
   const { theme } = useTheme();
   const { user, currentBox } = useAuth();
+  const insets = useSafeAreaInsets();
+  // Tab bar (~70px) + system gesture bar + safe area inset bottom + breathing space.
+  // Augmenté pour que le bouton soit totalement visible
+  const scrollBottomPadding = 100 + insets.bottom + 120; // tabBar + inset + spacer
   const S = createStyles(theme);
 
   const [sport,        setSport]        = useState<Sport>('functional');
   const [level,        setLevel]        = useState<AthleteLevel>('rx');
   const [duration,     setDuration]     = useState(5);
   const [wodType,      setWODType]      = useState<WODType>('AMRAP');
+  const [intent,       setIntent]       = useState<Intent>('mixed');
   const [equipment,    setEquipment]    = useState<string[]>(['Barre + Disques', 'Corde à sauter']);
   const [teamSize,     setTeamSize]     = useState(1);
   const [generatedWOD, setGeneratedWOD] = useState<GeneratedWOD | null>(null);
@@ -1073,11 +1510,73 @@ export default function WODGeneratorScreen() {
   const [hyroxFormat,  setHyroxFormat]  = useState('Solo');
   const [hyroxType,    setHyroxType]    = useState('Race Simulation');
   const [hyroxDur,     setHyroxDur]     = useState(45);
-  const [hyroxEquip,   setHyroxEquip]   = useState<string[]>(['SkiErg', 'Sled Push', 'RowErg', 'Wall Balls']);
+  const [hyroxEquip,   setHyroxEquip]   = useState<string[]>([]);
+  const [hyroxIntent,    setHyroxIntent]    = useState<HyroxIntent>('race_prep');
   const [generatedHyrox, setGeneratedHyrox] = useState<HyroxWOD | null>(null);
   const [loading,      setLoading]      = useState(false);
+  const [showWBModal,  setShowWBModal]  = useState(false);
+  const [wbDate,       setWbDate]       = useState('');
+  const [wbSaving,     setWbSaving]     = useState(false);
 
   const accentColor = sport === 'hybrid' ? HYROX_ORANGE : theme.accent;
+
+  function toISO(d: Date) {
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${day}`;
+  }
+
+  function mapWodType(t: string): BoxWODType {
+    const m: Record<string, BoxWODType> = {
+      'AMRAP': 'amrap', 'For Time': 'for-time',
+      'EMOM': 'emom', 'Tabata': 'tabata',
+    };
+    return (m[t] ?? 'custom') as BoxWODType;
+  }
+
+  function openWBModal() {
+    setWbDate(toISO(new Date()));
+    setShowWBModal(true);
+  }
+
+  async function saveToWhiteboard() {
+    if (!user || !generatedWOD || !wbDate) return;
+    setWbSaving(true);
+    try {
+      const description = generatedWOD.movements.join('\n') + '\n\n📊 ' + generatedWOD.scoring;
+      const { error } = await supabase.from('box_wods').insert({
+        box_id: null,
+        created_by: user.id,
+        title: generatedWOD.title,
+        description,
+        wod_type: mapWodType(generatedWOD.type),
+        scheduled_date: wbDate,
+        time_cap_seconds: generatedWOD.duration * 60,
+        notes: generatedWOD.tip,
+        is_published: true,
+        leaderboard_enabled: false,
+        sort_order: 0,
+      });
+      if (error) throw error;
+      setShowWBModal(false);
+      Alert.alert('✅ Ajouté !', `WOD planifié le ${new Date(wbDate + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message ?? 'Impossible d\'ajouter au Whiteboard.');
+    } finally {
+      setWbSaving(false);
+    }
+  }
+
+  const wbDays = useCallback(() => {
+    const days = [];
+    for (let i = 0; i < 14; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, [])();
 
   function toggleEquipment(item: string) {
     setEquipment(prev =>
@@ -1095,11 +1594,11 @@ export default function WODGeneratorScreen() {
     setLoading(true);
     await new Promise(r => setTimeout(r, 800));
     if (sport === 'hybrid') {
-      const wod = generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip);
+      const wod = generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip, hyroxIntent);
       setGeneratedHyrox(wod);
       setGeneratedWOD(null);
     } else {
-      const wod = generateWOD(level, duration, wodType, equipment, teamSize);
+      const wod = generateWOD(level, duration, wodType, equipment, teamSize, intent);
       setGeneratedWOD(wod);
       setGeneratedHyrox(null);
     }
@@ -1109,6 +1608,7 @@ export default function WODGeneratorScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.textSecondary} size={24} />
@@ -1117,53 +1617,70 @@ export default function WODGeneratorScreen() {
         <Text style={S.headerSub}>Crée ton WOD sur mesure</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[S.content, { paddingBottom: scrollBottomPadding }]}
+      >
 
         {/* Quick access: Historique & Favoris */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-          <TouchableOpacity
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.surface, borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: theme.border }}
-            onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
-          >
-            <History color={theme.text} size={16} />
-            <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Historique</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.surface, borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: theme.border }}
-            onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
-          >
-            <Heart color="#EF4444" size={16} />
-            <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Favoris</Text>
-          </TouchableOpacity>
+          <GlassCard radius={12} style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12 }}
+              onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
+            >
+              <History color={theme.text} size={16} />
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Historique</Text>
+            </TouchableOpacity>
+          </GlassCard>
+          <GlassCard radius={12} style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12 }}
+              onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
+            >
+              <Heart color="#EF4444" size={16} />
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Favoris</Text>
+            </TouchableOpacity>
+          </GlassCard>
         </View>
 
         {/* Programmation button */}
-        <TouchableOpacity style={S.progBtn} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
-          <BookOpen color={theme.accent} size={16} />
-          <Text style={S.progBtnTxt}>Programmation</Text>
-          <ChevronRight color={theme.textMuted} size={14} />
-        </TouchableOpacity>
+        <GlassCard radius={12} variant="emerald" style={{ marginBottom: 16 }}>
+          <TouchableOpacity style={S.progBtnInner} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
+            <BookOpen color={theme.accent} size={16} />
+            <Text style={S.progBtnTxt}>Programmation</Text>
+            <ChevronRight color={theme.textMuted} size={14} />
+          </TouchableOpacity>
+        </GlassCard>
 
         {/* Sport selector */}
         <View style={S.sportRow}>
-          <TouchableOpacity
-            style={[S.sportCard, sport === 'functional' && S.sportCardActive]}
-            onPress={() => setSport('functional')}
-            activeOpacity={0.8}
+          <GlassCard
+            radius={16}
+            variant={sport === 'functional' ? 'emerald' : 'default'}
+            style={{ flex: 1, borderWidth: 0 }}
           >
-            <Text style={S.sportEmoji}>🏋️</Text>
-            <Text style={[S.sportLabel, sport === 'functional' && { color: theme.accent }]}>Functional{"\n"}Fitness</Text>
-            {sport === 'functional' && <View style={[S.sportDot, { backgroundColor: theme.accent }]} />}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[S.sportCard, sport === 'hybrid' && S.sportCardHybrid]}
-            onPress={() => setSport('hybrid')}
-            activeOpacity={0.8}
-          >
-            <Text style={S.sportEmoji}>⚡</Text>
-            <Text style={[S.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>Hybrid</Text>
-            {sport === 'hybrid' && <View style={[S.sportDot, { backgroundColor: HYROX_ORANGE }]} />}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.sportCardInner, sport === 'functional' && { borderColor: theme.accent, borderWidth: 2 }]}
+              onPress={() => setSport('functional')}
+              activeOpacity={0.8}
+            >
+              <Text style={S.sportEmoji}>🏋️</Text>
+              <Text style={[S.sportLabel, sport === 'functional' && { color: theme.accent }]}>Functional{"\n"}Fitness</Text>
+              {sport === 'functional' && <View style={[S.sportDot, { backgroundColor: theme.accent }]} />}
+            </TouchableOpacity>
+          </GlassCard>
+          <GlassCard radius={16} style={{ flex: 1, borderWidth: 0 }}>
+            <TouchableOpacity
+              style={[S.sportCardInner, sport === 'hybrid' && { borderColor: HYROX_ORANGE, borderWidth: 2 }]}
+              onPress={() => setSport('hybrid')}
+              activeOpacity={0.8}
+            >
+              <Text style={S.sportEmoji}>⚡</Text>
+              <Text style={[S.sportLabel, sport === 'hybrid' && { color: HYROX_ORANGE }]}>Hybrid</Text>
+              {sport === 'hybrid' && <View style={[S.sportDot, { backgroundColor: HYROX_ORANGE }]} />}
+            </TouchableOpacity>
+          </GlassCard>
         </View>
 
         {sport === 'functional' ? (
@@ -1196,6 +1713,22 @@ export default function WODGeneratorScreen() {
               >
                 <Clock color={duration === d ? theme.accent : theme.textMuted} size={14} />
                 <Text style={[S.chipText, duration === d && { color: theme.accent }]}>{d} min</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={S.section}>
+          <Text style={S.sectionTitle}>Intention</Text>
+          <View style={[S.chipRow, { flexWrap: 'nowrap' }]}>
+            {INTENT_OPTIONS.map(o => (
+              <TouchableOpacity
+                key={o.key}
+                onPress={() => setIntent(o.key)}
+                style={[S.chip, intent === o.key && S.chipSelected, { flex: 1, justifyContent: 'center' }]}
+              >
+                <Text style={{ fontSize: 14 }}>{o.emoji}</Text>
+                <Text style={[S.chipText, intent === o.key && { color: theme.accent }]}>{o.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -1335,26 +1868,65 @@ export default function WODGeneratorScreen() {
                 ))}
               </View>
             </View>
+
+            {/* Hyrox intent */}
+            <View style={S.section}>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Type de session</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+                <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4, paddingBottom: 4 }}>
+                  {HYROX_INTENT_OPTIONS.map(o => (
+                    <TouchableOpacity
+                      key={o.key}
+                      onPress={() => setHyroxIntent(o.key)}
+                      style={[S.chip, hyroxIntent === o.key && { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE }, { justifyContent: 'center', minWidth: 80 }]}
+                    >
+                      <Text style={{ fontSize: 14, textAlign: 'center' }}>{o.emoji}</Text>
+                      <Text style={[S.chipText, hyroxIntent === o.key && { color: HYROX_ORANGE }, { textAlign: 'center' }]}>{o.label}</Text>
+                      <Text style={{ fontSize: 10, color: hyroxIntent === o.key ? `${HYROX_ORANGE}BB` : theme.textMuted, textAlign: 'center', fontWeight: '600' }}>RPE {o.rpe}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
           </>
         )}
 
+        {/* Bouton Générer - Style Glassmorphism */}
         <TouchableOpacity
           onPress={handleGenerate}
           disabled={loading}
           activeOpacity={0.8}
-          style={[S.generateBtn, S.generateGradient, { backgroundColor: accentColor }]}
+          style={{
+            marginVertical: 16,
+            marginHorizontal: 20,
+            borderRadius: 16,
+            backgroundColor: sport === 'functional' ? 'rgba(16,185,129,0.25)' : 'rgba(249,115,22,0.25)',
+            borderWidth: 2,
+            borderColor: sport === 'functional' ? 'rgba(16,185,129,0.8)' : 'rgba(249,115,22,0.8)',
+            paddingVertical: 18,
+            paddingHorizontal: 28,
+            opacity: loading ? 0.6 : 1,
+          }}
         >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
                 <Sparkles color="#fff" size={20} />
-                <Text style={S.generateText}>GÉNÉRER MON WOD</Text>
+                <Text style={{ color: '#FF0000', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 }}>
+                  GÉNÉRER MON WOD
+                </Text>
               </>
-            }
+            )}
+          </View>
         </TouchableOpacity>
 
         {generatedHyrox && (
-          <View style={[S.resultCard, { borderColor: `${HYROX_ORANGE}40` }]}>
+          <GlassCard radius={20} style={{ marginTop: 20 }}>
+            <View style={[S.resultCard, { backgroundColor: 'transparent', borderColor: `${HYROX_ORANGE}40`, borderWidth: 1, marginTop: 0 }]}>
+
+            {/* Header: badges + refresh */}
             <View style={S.resultHeader}>
               <View style={S.resultBadges}>
                 <View style={[S.badge, { backgroundColor: `${HYROX_ORANGE}25` }]}>
@@ -1372,35 +1944,82 @@ export default function WODGeneratorScreen() {
                 <RefreshCw color={HYROX_ORANGE} size={20} />
               </TouchableOpacity>
             </View>
+
+            {/* Session Type + RPE banner */}
+            <View style={{ backgroundColor: `${HYROX_ORANGE}18`, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: HYROX_ORANGE, fontSize: 13, fontWeight: '900', letterSpacing: 0.5 }}>{generatedHyrox.sessionLabel}</Text>
+              <View style={{ backgroundColor: `${HYROX_ORANGE}30`, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <Text style={{ color: HYROX_ORANGE, fontSize: 11, fontWeight: '800' }}>RPE {generatedHyrox.rpe}</Text>
+              </View>
+            </View>
+
             <Text style={S.resultTitle}>{generatedHyrox.title}</Text>
+
+            {generatedHyrox.tags && generatedHyrox.tags.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {generatedHyrox.tags.map((tag, i) => (
+                  <View key={i} style={{ backgroundColor: `${HYROX_ORANGE}18`, borderRadius: 8, borderWidth: 1, borderColor: `${HYROX_ORANGE}35`, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ color: HYROX_ORANGE, fontSize: 12, fontWeight: '700' }}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <View style={[S.hyroxFormatBadge]}>
               <Text style={[S.hyroxFormatText]}>{generatedHyrox.format} · {generatedHyrox.type}</Text>
             </View>
+
+            {/* Stations list */}
             <View style={S.movementsList}>
-              {generatedHyrox.stations.map((station, i) => (
-                <View key={i} style={S.movementItem}>
-                  <View style={[S.movementDot, { backgroundColor: HYROX_ORANGE }]} />
-                  <Text style={S.movementText}>{station}</Text>
-                </View>
-              ))}
+              {generatedHyrox.stations.map((station, i) => {
+                const isHeader = station.startsWith('──') || station.startsWith('AMRAP') || station.startsWith('EMOM')
+                  || station.startsWith('LADDER') || station.startsWith('COUNTDOWN') || /^\d+ RFT/.test(station) || /^\d+×/.test(station) || station.startsWith('E2MOM');
+                return (
+                  <View key={i} style={[S.movementItem, isHeader && { marginTop: 6 }]}>
+                    {!isHeader && <View style={[S.movementDot, { backgroundColor: HYROX_ORANGE }]} />}
+                    <Text style={[S.movementText, isHeader && { fontWeight: '800', color: HYROX_ORANGE, fontSize: 13 }]}>{station}</Text>
+                  </View>
+                );
+              })}
             </View>
+
+            {/* Scoring */}
             <View style={[S.scoringBox, { backgroundColor: `${HYROX_ORANGE}15` }]}>
               <Zap color={HYROX_ORANGE} size={16} />
               <Text style={[S.scoringText, { color: HYROX_ORANGE }]}>{generatedHyrox.scoring}</Text>
             </View>
+
+            {/* Coaching Notes (Zone5 style) */}
+            {generatedHyrox.coachingNotes && generatedHyrox.coachingNotes.length > 0 && (
+              <View style={{ backgroundColor: theme.surface, borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: HYROX_ORANGE, marginBottom: 8 }}>🎯 Notes coach</Text>
+                {generatedHyrox.coachingNotes.map((note, i) => (
+                  <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+                    <Text style={{ color: HYROX_ORANGE, fontSize: 12, fontWeight: '700', marginTop: 1 }}>•</Text>
+                    <Text style={{ fontSize: 12, color: theme.text, flex: 1, lineHeight: 18 }}>{note}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Coach tip */}
             <View style={S.tipBox}>
               <Text style={S.tipLabel}>💡 Conseil coach</Text>
               <Text style={S.tipText}>{generatedHyrox.tip}</Text>
             </View>
-            <TouchableOpacity activeOpacity={0.8} style={[S.startButton, { backgroundColor: HYROX_ORANGE }]}>
-              <Zap color="#fff" size={18} />
-              <Text style={S.startButtonText}>LANCER CET ENTRAÎNEMENT</Text>
+
+            <TouchableOpacity activeOpacity={0.8} style={[S.startButton, { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE, borderWidth: 2 }]}>
+              <Zap color={HYROX_ORANGE} size={18} />
+              <Text style={[S.startButtonText, { color: HYROX_ORANGE }]}>LANCER CET ENTRAÎNEMENT</Text>
             </TouchableOpacity>
-          </View>
+
+            </View>
+          </GlassCard>
         )}
 
         {generatedWOD && (
-          <View style={S.resultCard}>
+          <GlassCard radius={20} style={{ marginTop: 20 }}>
+            <View style={[S.resultCard, { backgroundColor: 'transparent', borderWidth: 1, marginTop: 0 }]}>
             <View style={S.resultHeader}>
               <View style={S.resultBadges}>
                 <View style={[S.badge, { backgroundColor: `${theme.accent}25` }]}>
@@ -1422,6 +2041,16 @@ export default function WODGeneratorScreen() {
             </View>
 
             <Text style={S.resultTitle}>{generatedWOD.title}</Text>
+
+            {generatedWOD.tags && generatedWOD.tags.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {generatedWOD.tags.map((tag, i) => (
+                  <View key={i} style={{ backgroundColor: `${theme.accent}18`, borderRadius: 8, borderWidth: 1, borderColor: `${theme.accent}35`, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '700' }}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
             <View style={S.movementsList}>
               {generatedWOD.movements.map((m, i) => (
@@ -1446,23 +2075,115 @@ export default function WODGeneratorScreen() {
                 <Zap color="#fff" size={18} />
                 <Text style={S.startButtonText}>LANCER CE WOD</Text>
             </TouchableOpacity>
-          </View>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[S.startButton, { marginTop: 10, backgroundColor: `${theme.accent}18`, borderColor: theme.accent }]}
+              onPress={openWBModal}
+            >
+              <BookOpen color={theme.accent} size={18} />
+              <Text style={[S.startButtonText, { color: theme.accent }]}>AJOUTER AU WHITEBOARD</Text>
+            </TouchableOpacity>
+            </View>
+          </GlassCard>
         )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── Modal Whiteboard ─────────────────────────────────── */}
+      <Modal
+        visible={showWBModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWBModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.82)' }}>
+          <View style={{ backgroundColor: theme.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16, borderTopWidth: 1, borderColor: `${theme.accent}30` }}>
+
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 4 }} />
+
+            <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }}>📋 Ajouter au Whiteboard</Text>
+            <Text style={{ fontSize: 13, color: theme.textSecondary }}>
+              Choisir le jour de la séance
+            </Text>
+
+            {/* WOD preview */}
+            {generatedWOD && (
+              <View style={{ backgroundColor: `${theme.accent}14`, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: `${theme.accent}30` }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: theme.accent, marginBottom: 4 }}>{generatedWOD.title}</Text>
+                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                  {generatedWOD.type} · {generatedWOD.duration} min · {generatedWOD.level.toUpperCase()}
+                </Text>
+              </View>
+            )}
+
+            {/* Date picker — 14 prochains jours */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+              {wbDays.map((d) => {
+                const iso = toISO(d);
+                const isToday = iso === toISO(new Date());
+                const isSelected = iso === wbDate;
+                const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' });
+                const dayNum = d.getDate();
+                return (
+                  <TouchableOpacity
+                    key={iso}
+                    onPress={() => setWbDate(iso)}
+                    style={[{
+                      width: 58, alignItems: 'center', paddingVertical: 10, borderRadius: 14,
+                      borderWidth: 2, gap: 4,
+                      backgroundColor: isSelected ? theme.accent : theme.surface,
+                      borderColor: isSelected ? theme.accent : (isToday ? `${theme.accent}60` : theme.border),
+                    }]}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? '#fff' : theme.textMuted, textTransform: 'uppercase' }}>{dayName}</Text>
+                    <Text style={{ fontSize: 20, fontWeight: '900', color: isSelected ? '#fff' : theme.text }}>{dayNum}</Text>
+                    {isToday && <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: isSelected ? '#fff' : theme.accent }} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+              <TouchableOpacity
+                onPress={() => setShowWBModal(false)}
+                style={{ flex: 1, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: theme.border, alignItems: 'center' }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: theme.textSecondary, fontWeight: '700' }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={saveToWhiteboard}
+                disabled={!wbDate || wbSaving}
+                style={{ flex: 2, padding: 16, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center', opacity: (!wbDate || wbSaving) ? 0.5 : 1 }}
+                activeOpacity={0.85}
+              >
+                {wbSaving
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15 }}>Ajouter ✓</Text>
+                }
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ height: 16 }} />
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   back: { marginBottom: 12 },
   headerTitle: { fontSize: 24, fontWeight: '900', color: theme.text },
   headerSub: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
-  content: { padding: 16 },
+  content: { padding: 16, paddingBottom: 140 },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: theme.text, marginBottom: 12 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -1485,6 +2206,10 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   sportCard: {
     flex: 1, borderRadius: 16, padding: 16, alignItems: 'center', gap: 4,
     backgroundColor: theme.card, borderWidth: 2, borderColor: theme.border,
+  },
+  sportCardInner: {
+    padding: 16, alignItems: 'center', gap: 4,
+    borderRadius: 16, borderWidth: 2, borderColor: 'transparent',
   },
   sportCardActive: { borderColor: theme.accent, backgroundColor: `${theme.accent}10` },
   sportCardHybrid: { borderColor: HYROX_ORANGE, backgroundColor: `${HYROX_ORANGE}10` },
@@ -1531,13 +2256,19 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   startButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 14, padding: 16, gap: 8,
-    backgroundColor: theme.accent,
+    backgroundColor: 'rgba(16,185,129,0.25)',
+    borderWidth: 2,
+    borderColor: 'rgba(16,185,129,0.8)',
   },
   startButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
   progBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: theme.card, borderRadius: 12, paddingVertical: 12,
     borderWidth: 1, borderColor: theme.border, marginBottom: 16,
+  },
+  progBtnInner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 12,
   },
   progBtnTxt: { fontSize: 13, fontWeight: '800', color: theme.text },
 }); }

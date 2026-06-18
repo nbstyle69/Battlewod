@@ -11,6 +11,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
+import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
 
 interface ClassSchedule {
   id: string;
@@ -297,6 +299,7 @@ export default function ReservationScreen() {
   if (!currentBox) {
     return (
       <View style={S.emptyContainer}>
+        <GlassBackground />
         <CalendarClock color={theme.textMuted} size={48} strokeWidth={1.5} />
         <Text style={S.emptyTitle}>Pas de box associée</Text>
         <Text style={S.emptySubtitle}>Rejoins une box pour voir les créneaux disponibles.</Text>
@@ -306,6 +309,7 @@ export default function ReservationScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
@@ -355,7 +359,7 @@ export default function ReservationScreen() {
           });
           return (
             <ScrollView
-              contentContainerStyle={{ paddingBottom: 40 }}
+              contentContainerStyle={{ paddingBottom: 140 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.accent} />}
             >
               <View style={S.dayBlock}>
@@ -539,12 +543,12 @@ export default function ReservationScreen() {
 
             {/* Action buttons */}
             {detailItem && !detailItem.my_status && detailItem.available_spots > 0 && (
-              <TouchableOpacity
-                style={[S.modalActionBtn, { backgroundColor: theme.accent }]}
+              <EmeraldCTAButton
                 onPress={() => { setDetailItem(null); toggleBooking(detailItem); }}
+                size="md"
               >
-                <Text style={S.modalActionBtnText}>Réserver ce créneau</Text>
-              </TouchableOpacity>
+                Réserver ce créneau
+              </EmeraldCTAButton>
             )}
             {detailItem && detailItem.my_status && (
               <TouchableOpacity
@@ -565,8 +569,8 @@ export default function ReservationScreen() {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container:          { flex: 1, backgroundColor: t.background },
-    emptyContainer:     { flex: 1, backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, gap: 12 },
+    container:          { flex: 1, backgroundColor: 'transparent' },
+    emptyContainer:     { flex: 1, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, gap: 12 },
     emptyTitle:         { fontSize: 20, fontWeight: '800', color: t.text },
     emptySubtitle:      { fontSize: 14, color: t.textMuted, textAlign: 'center' },
 
@@ -622,7 +626,7 @@ function createStyles(t: AppTheme) {
     spotsLabel:         { fontSize: 11, fontWeight: '600', color: t.accent },
     waitingPositionLabel: { fontSize: 11, fontWeight: '700', color: '#f59e0b' },
 
-    bookBtn:            { backgroundColor: t.accent, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
+    bookBtn:            { backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
     bookBtnBooked:      { backgroundColor: 'rgba(201,162,39,0.15)', borderWidth: 1, borderColor: '#C9A227' },
     bookBtnWaiting:     { backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 1, borderColor: '#f59e0b' },
     bookBtnQueue:       { backgroundColor: t.card, borderWidth: 1, borderColor: t.border },
@@ -634,8 +638,8 @@ function createStyles(t: AppTheme) {
     emptyWeekTitle:     { fontSize: 18, fontWeight: '800', color: t.text },
     emptyWeekSub:       { fontSize: 13, color: t.textMuted, textAlign: 'center', paddingHorizontal: 32 },
 
-    modalOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-    modalSheet:         { backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 34, maxHeight: '75%' },
+    modalOverlay:       { flex: 1, backgroundColor: t.modalBackdrop, justifyContent: 'flex-end' },
+    modalSheet:         { backgroundColor: t.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 34, maxHeight: '75%' },
     modalHeader:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: t.border },
     modalTitle:         { fontSize: 18, fontWeight: '900', color: t.text },
     modalSubtitle:      { fontSize: 13, color: t.textMuted, marginTop: 2 },

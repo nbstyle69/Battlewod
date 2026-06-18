@@ -8,11 +8,12 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { CompetitionStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'CompetitionList'>;
 
@@ -155,6 +156,7 @@ export default function CompetitionScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View>
           <Text style={S.headerTitle}>Compétitions</Text>
@@ -367,7 +369,7 @@ export default function CompetitionScreen() {
           <>
             <TouchableOpacity
               activeOpacity={0.85}
-              style={[S.createButton, S.createGradient, { backgroundColor: '#C9A227' }]}
+              style={[S.createButton, S.createGradient, { backgroundColor: 'rgba(201,162,39,0.25)', borderColor: 'rgba(201,162,39,0.8)' }]}
               onPress={() => navigation.navigate('InterCompetitionList')}
             >
               <Globe2 color="#fff" size={20} />
@@ -393,7 +395,7 @@ function createStyles(theme: AppTheme) {
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   };
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card,
@@ -410,13 +412,14 @@ function createStyles(theme: AppTheme) {
   tabActive: { borderBottomColor: theme.accent },
   tabText: { fontSize: 12, fontWeight: '600', color: theme.textMuted, textAlign: 'center' },
   tabTextActive: { color: theme.accent, fontWeight: '700' },
-  content: { padding: 16 },
+  content: { padding: 16, paddingBottom: 140 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 12, marginTop: 8 },
   createButton: { marginBottom: 16 },
   createGradient: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 14, padding: 16, gap: 8,
-    backgroundColor: theme.accent,
+    backgroundColor: 'rgba(16,185,129,0.25)',
+    borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)',
   },
   createText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   vsAvatar: {

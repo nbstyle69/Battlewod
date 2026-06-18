@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -157,6 +158,7 @@ export default function DocumentsScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
@@ -231,7 +233,7 @@ export default function DocumentsScreen() {
 function createStyles(theme: AppTheme) {
   const isDark = theme.mode === 'dark';
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
       paddingTop: 56, paddingHorizontal: 20, paddingBottom: 14,
       backgroundColor: theme.card,

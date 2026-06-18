@@ -16,6 +16,7 @@ import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterTeam'>;
 type Route = RouteProp<CompetitionStackParamList, 'InterTeam'>;
@@ -231,13 +232,15 @@ export default function InterTeamScreen() {
 
   if (loading) return (
     <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <GlassBackground />
       <ActivityIndicator color={theme.accent} size="large" />
     </View>
   );
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={S.container}>
+      <GlassBackground />
         {/* Header */}
         <View style={S.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={S.backBtn}>
@@ -474,7 +477,7 @@ export default function InterTeamScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container:   { flex: 1, backgroundColor: theme.background },
+    container:   { flex: 1, backgroundColor: 'transparent' },
     header: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,

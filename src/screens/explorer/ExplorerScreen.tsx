@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
@@ -15,6 +16,7 @@ export default function ExplorerScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       <View style={s.header}>
         <View style={s.headerIcon}>
           <Compass color={theme.accent} size={22} />
@@ -25,7 +27,7 @@ export default function ExplorerScreen() {
         </View>
       </View>
 
-      <ScrollView style={s.content} contentContainerStyle={{ paddingBottom: 40, gap: 10 }}>
+      <ScrollView style={s.content} contentContainerStyle={{ paddingBottom: 140, gap: 10 }}>
         {/* Annuaire des Boxes */}
         <TouchableOpacity
           style={s.sectionBtn}
@@ -79,7 +81,7 @@ export default function ExplorerScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,

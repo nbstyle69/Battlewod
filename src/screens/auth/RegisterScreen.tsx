@@ -5,11 +5,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Building2, Dumbbell, User as UserIcon, Eye, EyeOff } from 'lucide-react-native';
+import GlassBackground from '../../components/glass/GlassBackground';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { AuthStackParamList } from '../../navigation';
 import { Gender } from '../../types';
+import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'> };
 
@@ -31,25 +33,32 @@ export default function RegisterScreen({ navigation }: Props) {
     if (password.length < 6) { Alert.alert('Erreur', 'Mot de passe trop court (6 caractères min)'); return; }
     if (!acceptedCGU) { Alert.alert('CGU requises', 'Tu dois accepter les Conditions Générales d\'Utilisation pour t\'inscrire.'); return; }
     setLoading(true);
-    const { error } = await signUp(email.trim(), password, username.trim(), 'inter', asBoxOwner, gender);
+    const requestedUsername = username.trim();
+    const { error, finalUsername } = await signUp(email.trim(), password, requestedUsername, 'inter', asBoxOwner, gender);
     setLoading(false);
+
+    // Inform the user if their pseudo was auto-suffixed because the requested one was taken
+    const pseudoChanged = !!finalUsername && finalUsername !== requestedUsername;
+    const pseudoNotice = pseudoChanged
+      ? `\n\nℹ️ Le pseudo « ${requestedUsername} » était déjà pris, le tien est devenu « ${finalUsername} ». Tu peux le changer plus tard dans ton profil.`
+      : '';
+
     if (error === 'CONFIRM_EMAIL') {
       Alert.alert(
         '📧 Confirme ton email',
-        `Un lien de confirmation a été envoyé à ${email.trim()}.\n\nClique sur le lien dans l'email pour activer ton compte, puis connecte-toi.`,
+        `Un lien de confirmation a été envoyé à ${email.trim()}.\n\nClique sur le lien dans l'email pour activer ton compte, puis connecte-toi.${pseudoNotice}`,
         [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
       );
     } else if (error) {
       Alert.alert('Inscription impossible', error);
+    } else if (pseudoChanged) {
+      Alert.alert('Pseudo modifié', `Le pseudo « ${requestedUsername} » était déjà pris, le tien est devenu « ${finalUsername} ». Tu peux le changer plus tard dans ton profil.`);
     }
   }
 
-  const gradColors = mode === 'dark'
-    ? ['#0A0A0F', '#12121A', '#0A0A0F'] as const
-    : ['#f0fdf9', '#ffffff', '#f0fdf9'] as const;
-
   return (
-    <LinearGradient colors={gradColors} style={S.gradient}>
+    <View style={S.gradient}>
+      <GlassBackground />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.flex}>
         <ScrollView contentContainerStyle={S.container} keyboardShouldPersistTaps="handled">
           <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
@@ -182,67 +191,133 @@ export default function RegisterScreen({ navigation }: Props) {
               </Text>
             </View>
 
-            <TouchableOpacity onPress={handleRegister} disabled={loading || !acceptedCGU} activeOpacity={0.8} accessibilityLabel="Créer un compte" accessibilityRole="button">
-              <LinearGradient colors={[theme.accent, theme.accentDark]} style={[S.button, !acceptedCGU && { opacity: 0.5 }]}>
-                {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.buttonText}>REJOINDRE LA BATAILLE</Text>}
-              </LinearGradient>
+            <TouchableOpacity onPress={handleRegister} disabled={loading || !acceptedCGU} activeOpacity={0.8} accessibilityLabel="Créer un compte" accessibilityRole="button"
+              style={[S.button, { backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)' }, !acceptedCGU && { opacity: 0.5 }]}>
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={S.buttonText}>REJOINDRE LA BATAILLE</Text>}
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 function createStyles(theme: AppTheme) {
   const isDark = theme.mode === 'dark';
-  const cardShadow = isDark ? {} : {
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-  };
   return StyleSheet.create({
-  gradient: { flex: 1 },
-  flex: { flex: 1 },
-  container: { flexGrow: 1, padding: 24, paddingTop: 60 },
-  back: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  backText: { color: theme.textSecondary, fontSize: 15, marginLeft: 4 },
-  logoContainer: { alignItems: 'center', marginBottom: 32 },
-  logo: {
-    width: 90, height: 90, resizeMode: 'contain', marginBottom: 12,
-  },
-  appName: { fontSize: 34, fontFamily: 'Barlow_900Black', color: theme.text, letterSpacing: 3 },
-  form: {
-    backgroundColor: theme.card, borderRadius: 20,
-    padding: 24, borderWidth: 1, borderColor: theme.border,
-    ...cardShadow,
-  },
-  title: { fontSize: 22, fontWeight: '700', color: theme.text, marginBottom: 24 },
-  inputContainer: { marginBottom: 16 },
-  label: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '500' },
-  input: {
-    backgroundColor: isDark ? theme.surface : theme.background, borderRadius: 14, padding: 14,
-    color: theme.text, fontSize: 15, borderWidth: 1, borderColor: theme.border,
-  },
-  roleRow:       { flexDirection: 'row', gap: 10 },
-  roleCard: {
-    flex: 1, padding: 14, borderRadius: 14,
-    borderWidth: 1, borderColor: theme.border,
-    backgroundColor: isDark ? theme.surface : theme.background, alignItems: 'center', gap: 4,
-  },
-  roleCardActive: { borderColor: theme.accent, backgroundColor: `${theme.accent}10` },
-  roleLabel:      { fontSize: 13, fontWeight: '700', color: theme.textMuted, textAlign: 'center' },
-  roleLabelActive: { color: theme.accent },
-  roleDesc:       { fontSize: 10, color: theme.textMuted, textAlign: 'center' },
-  button: { borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-  cguRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12 },
-  cguCheckbox: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
-    borderColor: theme.accent, justifyContent: 'center', alignItems: 'center', marginTop: 1,
-  },
-  cguChecked: { width: 12, height: 12, borderRadius: 3, backgroundColor: theme.accent },
-  cguText: { flex: 1, fontSize: 12, color: theme.textMuted, lineHeight: 18 },
-  cguLink: { color: theme.accent, fontWeight: '700', textDecorationLine: 'underline' },
-}); }
+    gradient: { flex: 1, backgroundColor: 'transparent' },
+    flex: { flex: 1 },
+    container: { flexGrow: 1, padding: spacing.xl, paddingTop: spacing.xxxl },
+    back: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+    backText: { color: theme.textSecondary, ...typography.body },
+    logoContainer: { alignItems: 'center', marginBottom: spacing.xl },
+    logo: {
+      width: 80, height: 80, resizeMode: 'contain', marginBottom: spacing.sm,
+    },
+    appName: { 
+      ...typography.h2, 
+      fontFamily: 'Barlow_900Black', 
+      color: theme.text, 
+      letterSpacing: 2,
+    },
+    form: {
+      backgroundColor: theme.card,
+      borderRadius: borderRadius.xl,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...shadows.md,
+    },
+    title: { 
+      ...typography.h3, 
+      color: theme.text, 
+      marginBottom: spacing.lg,
+    },
+    inputContainer: { marginBottom: spacing.md },
+    label: { 
+      ...typography.label, 
+      color: theme.textSecondary, 
+      marginBottom: spacing.xs,
+      textTransform: 'none',
+    },
+    input: {
+      backgroundColor: isDark ? theme.surface : theme.background,
+      borderRadius: borderRadius.lg,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      color: theme.text,
+      ...typography.body,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    roleRow: { flexDirection: 'row', gap: spacing.sm },
+    roleCard: {
+      flex: 1,
+      padding: spacing.md,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surface : theme.background,
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    roleCardActive: { 
+      borderColor: theme.accent, 
+      backgroundColor: `${theme.accent}15`,
+    },
+    roleLabel: { 
+      ...typography.buttonSmall, 
+      color: theme.textMuted, 
+      textAlign: 'center',
+    },
+    roleLabelActive: { color: theme.accent },
+    roleDesc: { 
+      ...typography.caption, 
+      color: theme.textMuted, 
+      textAlign: 'center',
+    },
+    button: { 
+      borderRadius: borderRadius.lg, 
+      padding: spacing.md, 
+      alignItems: 'center', 
+      marginTop: spacing.sm,
+    },
+    buttonText: { 
+      color: '#fff', 
+      ...typography.buttonLarge,
+    },
+    cguRow: { 
+      flexDirection: 'row', 
+      alignItems: 'flex-start', 
+      gap: spacing.sm, 
+      marginTop: spacing.md,
+    },
+    cguCheckbox: {
+      width: 22, height: 22, 
+      borderRadius: borderRadius.sm, 
+      borderWidth: 2,
+      borderColor: theme.accent, 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      marginTop: spacing.xxs,
+    },
+    cguChecked: { 
+      width: 12, height: 12, 
+      borderRadius: 3, 
+      backgroundColor: theme.accent,
+    },
+    cguText: { 
+      flex: 1, 
+      ...typography.bodySmall, 
+      color: theme.textMuted, 
+      lineHeight: 18,
+    },
+    cguLink: { 
+      color: theme.accent, 
+      fontWeight: '700', 
+      textDecorationLine: 'underline',
+    },
+  });
+}

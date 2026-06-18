@@ -13,7 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { hapticSuccess } from '../../lib/haptics';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { cancelTodayScoreReminder } from '../../services/notifications';
@@ -24,6 +24,7 @@ import { formatScoreValue } from '../../utils/scoreFormat';
 import { calculatePairwiseDeltas, SCALED_MULTIPLIER } from '../../utils/elo';
 
 import { HomeStackParamList, TimerType } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 type Route = RouteProp<{ DailyTournamentDetail: { tournamentId: string } }, 'DailyTournamentDetail'>;
@@ -821,7 +822,7 @@ export default function DailyTournamentDetailScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -829,7 +830,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
   headerTitle: { fontSize: 18, fontWeight: '900', color: t.text, flex: 1, textAlign: 'center' },
-  content: { padding: 16, gap: 14, paddingBottom: 40 },
+  content: { padding: 16, gap: 14, paddingBottom: 140 },
   badges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgeTxt: { fontSize: 10, fontWeight: '800' },
@@ -889,9 +890,9 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   },
   winnerTxt: { fontSize: 14, fontWeight: '900', color: t.gold, flex: 1 },
   // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: t.modalBackdrop },
   modalSheet: {
-    backgroundColor: t.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: t.modalCard, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 40, gap: 12,
   },
   modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: t.border, alignSelf: 'center', marginBottom: 4 },

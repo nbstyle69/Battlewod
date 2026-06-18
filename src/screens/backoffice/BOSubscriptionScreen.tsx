@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, AppState,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, AppState, Platform,
 } from 'react-native';
 import { ArrowLeft, Crown, Clock, CreditCard, ExternalLink, Shield, Zap, Check } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
@@ -150,41 +150,53 @@ export default function BOSubscriptionScreen({ navigation }: any) {
         </View>
 
         {/* Actions */}
-        {!isActive && (
-          <TouchableOpacity
-            style={S.primaryBtn}
-            onPress={handleCheckout}
-            disabled={loadingCheckout}
-            activeOpacity={0.85}
-          >
-            {loadingCheckout ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <CreditCard color="#fff" size={18} />
-                <Text style={S.primaryBtnText}>
-                  {isExpired ? 'Souscrire — 79€/mois' : 'Souscrire maintenant'}
-                </Text>
-              </>
+        {Platform.OS === 'ios' ? (
+          <View style={S.iosNotice}>
+            <Text style={S.iosNoticeTitle}>Gestion de l'abonnement via le web</Text>
+            <Text style={S.iosNoticeText}>
+              Pour souscrire, modifier ou annuler ton abonnement AthleX Pro, connecte-toi sur
+              athlex.app depuis un navigateur. Les changements sont automatiquement synchronisés dans l'app.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {!isActive && (
+              <TouchableOpacity
+                style={S.primaryBtn}
+                onPress={handleCheckout}
+                disabled={loadingCheckout}
+                activeOpacity={0.85}
+              >
+                {loadingCheckout ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <CreditCard color="#fff" size={18} />
+                    <Text style={S.primaryBtnText}>
+                      {isExpired ? 'Souscrire — 79€/mois' : 'Souscrire maintenant'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
-        )}
 
-        {(isActive || isPastDue) && boxSubscription?.stripe_customer_id && (
-          <TouchableOpacity
-            style={S.secondaryBtn}
-            onPress={handlePortal}
-            activeOpacity={0.85}
-          >
-            <ExternalLink color={theme.accent} size={16} />
-            <Text style={S.secondaryBtnText}>Gérer mon abonnement</Text>
-          </TouchableOpacity>
-        )}
+            {(isActive || isPastDue) && boxSubscription?.stripe_customer_id && (
+              <TouchableOpacity
+                style={S.secondaryBtn}
+                onPress={handlePortal}
+                activeOpacity={0.85}
+              >
+                <ExternalLink color={theme.accent} size={16} />
+                <Text style={S.secondaryBtnText}>Gérer mon abonnement</Text>
+              </TouchableOpacity>
+            )}
 
-        {isExpired && (
-          <Text style={S.retentionText}>
-            Tes données sont conservées 30 jours. Souscris pour retrouver ton back-office complet.
-          </Text>
+            {isExpired && (
+              <Text style={S.retentionText}>
+                Tes données sont conservées 30 jours. Souscris pour retrouver ton back-office complet.
+              </Text>
+            )}
+          </>
         )}
       </ScrollView>
     </View>
@@ -241,4 +253,10 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     fontSize: 12, color: t.textMuted, textAlign: 'center',
     lineHeight: 18, paddingHorizontal: 12,
   },
+  iosNotice: {
+    backgroundColor: t.card, borderRadius: 16, padding: 20,
+    borderWidth: 1, borderColor: t.border, gap: 8,
+  },
+  iosNoticeTitle: { fontSize: 15, fontWeight: '800', color: t.text, textAlign: 'center' },
+  iosNoticeText: { fontSize: 13, color: t.textSecondary, lineHeight: 20, textAlign: 'center' },
 }); }

@@ -14,6 +14,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'TournamentWOD'>;
 type Route = RouteProp<CompetitionStackParamList, 'TournamentWOD'>;
@@ -180,6 +181,7 @@ export default function TournamentWODScreen() {
   // ══ PHASE : DETAIL ═════════════════════════════════════════════════════
   if (phase === 'detail') return (
     <View style={S.container}>
+      <GlassBackground />
       <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color="rgba(255,255,255,0.6)" size={24} />
@@ -253,19 +255,14 @@ export default function TournamentWODScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={S.actionBtn} onPress={launchTimer} activeOpacity={0.85}>
-          <LinearGradient colors={['#EF4444', '#DC2626']} style={S.actionBtnInner}>
-            <Play color="#fff" size={18} />
-            <Text style={S.actionBtnText}>Lancer le WOD avec caméra</Text>
-          </LinearGradient>
+        <TouchableOpacity style={[S.actionBtn, S.actionBtnInner, { backgroundColor: 'rgba(239,68,68,0.25)', borderColor: 'rgba(239,68,68,0.8)' }]} onPress={launchTimer} activeOpacity={0.85}>
+          <Play color="#fff" size={18} />
+          <Text style={S.actionBtnText}>Lancer le WOD avec caméra</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={S.actionBtn}
-          onPress={() => { startCountdown(); setPhase('submit'); }} activeOpacity={0.85}>
-          <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.actionBtnInner}>
-            <FileText color="#fff" size={18} />
-            <Text style={S.actionBtnText}>Soumettre mon score</Text>
-          </LinearGradient>
+        <TouchableOpacity style={[S.actionBtn, S.actionBtnInner]} onPress={() => { startCountdown(); setPhase('submit'); }} activeOpacity={0.85}>
+          <FileText color="#fff" size={18} />
+          <Text style={S.actionBtnText}>Soumettre mon score</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -276,6 +273,7 @@ export default function TournamentWODScreen() {
   // ══ PHASE : SUBMIT ═════════════════════════════════════════════════════
   return (
     <View style={S.container}>
+      <GlassBackground />
       <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
         <TouchableOpacity onPress={() => setPhase('detail')} style={S.back}>
           <ChevronLeft color="rgba(255,255,255,0.6)" size={24} />
@@ -369,19 +367,15 @@ export default function TournamentWODScreen() {
         </View>
 
         <TouchableOpacity
-          style={[S.actionBtn, (submitting || remainingMs <= 0) && { opacity: 0.5 }]}
+          style={[S.actionBtn, S.actionBtnInner, (submitting || remainingMs <= 0) && { opacity: 0.5 }]}
           onPress={handleSubmit}
           disabled={submitting || remainingMs <= 0}
           activeOpacity={0.85}>
-          <LinearGradient
-            colors={remainingMs <= 0 ? [theme.surface, theme.surface] : [theme.accent, theme.secondary ?? theme.accent]}
-            style={S.actionBtnInner}>
-            {submitting
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={S.actionBtnText}>
-                  {remainingMs <= 0 ? 'DÉLAI EXPIRÉ' : 'SOUMETTRE MON SCORE'}
-                </Text>}
-          </LinearGradient>
+          {submitting
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <Text style={S.actionBtnText}>
+                {remainingMs <= 0 ? 'DÉLAI EXPIRÉ' : 'SOUMETTRE MON SCORE'}
+              </Text>}
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -416,7 +410,7 @@ export default function TournamentWODScreen() {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container:   { flex: 1, backgroundColor: theme.background },
+  container:   { flex: 1, backgroundColor: 'transparent' },
   header:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 20, flexDirection: 'row', gap: 12 },
   back:        { paddingTop: 4 },
   headerInfo:  { flex: 1 },
@@ -453,7 +447,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   ytHelpText: { fontSize: 12, color: theme.accent, fontWeight: '600' },
   honorText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 21 },
   actionBtn:      { marginBottom: 12 },
-  actionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, paddingVertical: 18 },
+  actionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, paddingVertical: 18, backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)' },
   actionBtnText:  { color: '#fff', fontSize: 15, fontWeight: '900' },
   successContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16 },
   successTitle:     { fontSize: 26, fontWeight: '900', color: '#fff' },

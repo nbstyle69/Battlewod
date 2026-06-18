@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator, RefreshControl,
-  Image, Modal, Pressable, Dimensions,
+  Image, Modal, Pressable, Dimensions, ScrollView, Keyboard,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Send, Megaphone, ImagePlus, X, Search, ChevronLeft } from 'lucide-react-native';
 
 const TENOR_API_KEY = process.env.EXPO_PUBLIC_TENOR_KEY ?? '';
@@ -19,6 +20,9 @@ import { sendNewMessageNotification } from '../../services/notifications';
 import { incrementCounter } from '../../services/gamification';
 import { MessageType } from '../../types';
 import UserAvatar from '../../components/UserAvatar';
+import GlassBackground from '../../components/glass/GlassBackground';
+import ReportMenu from '../../components/ReportMenu';
+import { getBlockedUserIds } from '../../services/moderation';
 
 const REACTION_EMOJIS = ['❤️', '🔥', '💪', '😂', '👏', '👀'];
 const SCREEN_W = Dimensions.get('window').width;
@@ -52,8 +56,13 @@ export default function MessagesScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation();
   const canGoBack = navigation.canGoBack();
+  // Bottom tab bar uses position:'absolute' (see navigation/index.tsx) → must
+  // reserve its height as bottom padding to keep the input bar visible.
+  let tabBarHeight = 0;
+  try { tabBarHeight = useBottomTabBarHeight(); } catch { /* not inside tabs */ }
   const S = createStyles(theme);
   const [messages,   setMessages]   = useState<MsgRow[]>([]);
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
   const [groups,     setGroups]     = useState<Group[]>([]);
   const [activeTab,  setActiveTab]  = useState<string | null>(null); // null = Tous
   const [input,      setInput]      = useState('');
@@ -69,6 +78,13 @@ export default function MessagesScreen() {
   const [gifLoading, setGifLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+  const [kbOpen, setKbOpen] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const load = useCallback(async () => {
     if (!currentBox || !user) { setLoading(false); setRefreshing(false); return; }
@@ -84,7 +100,6 @@ export default function MessagesScreen() {
       g ? { id: g.id, name: g.name, color: g.color } : null
     ).filter(Boolean) as Group[];
     setGroups(userGroups);
-    if (userGroups.length > 0 && activeTab === null) setActiveTab(userGroups[0].id);
 
     // 2. Annonces admin depuis box_messages (filtrées par groupe si besoin)
     let adminQuery = supabase
@@ -150,10 +165,15 @@ export default function MessagesScreen() {
       }));
     }
 
-    // 5. Merge + tri chronologique
-    const all = [...adminRows, ...groupChatRows].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    // 5. Merge + tri chronologique + filtre users bloqués
+    const blocked = await getBlockedUserIds();
+    setBlockedIds(blocked);
+    const blockedSet = new Set(blocked);
+    const all = [...adminRows, ...groupChatRows]
+      .filter(m => m.sender_id === 'admin' || !blockedSet.has(m.sender_id))
+      .sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
 
     // 6. Load reactions for all messages
     const allIds = all.map(m => m.id);
@@ -183,6 +203,14 @@ export default function MessagesScreen() {
   }, [currentBox, user]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-select first group ONLY at initial mount (avoid stale-closure resets on refresh)
+  useEffect(() => {
+    if (activeTab === null && groups.length > 0) {
+      setActiveTab(groups[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups.length]);
 
   useFocusEffect(useCallback(() => {
     load().then(() => {
@@ -418,6 +446,7 @@ export default function MessagesScreen() {
   if (!currentBox) {
     return (
       <View style={S.container}>
+      <GlassBackground />
         <View style={S.header}><Text style={S.headerTitle}>Messages</Text></View>
         <View style={S.empty}><Text style={S.emptyText}>Rejoins une box pour accéder aux messages 🏋️</Text></View>
       </View>
@@ -427,6 +456,7 @@ export default function MessagesScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -459,6 +489,7 @@ export default function MessagesScreen() {
       style={S.container}
       keyboardVerticalOffset={0}
     >
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -477,7 +508,11 @@ export default function MessagesScreen() {
       {/* Group tabs */}
       {groups.length > 0 && (
         <View style={S.tabsContainer}>
-          <View style={S.tabsContent}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={S.tabsContent}
+          >
             {groups.map(g => (
               <TouchableOpacity
                 key={g.id}
@@ -491,7 +526,7 @@ export default function MessagesScreen() {
                 <Text style={[S.tabText, activeTab === g.id && S.tabTextActive]} numberOfLines={1}>{g.name}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
       )}
 
@@ -556,6 +591,18 @@ export default function MessagesScreen() {
                   )}
                   <Text style={[S.timeText, isMe && S.timeTextMe]}>{formatTime(msg.created_at)}</Text>
                 </View>
+                {!isMe && msg.sender_id !== 'admin' && !msg.id.startsWith('temp-') && (
+                  <View style={{ position: 'absolute', top: 6, right: -18, opacity: 0.4 }}>
+                    <ReportMenu
+                      contentType="message"
+                      contentId={msg.id.replace(/^gc-/, '')}
+                      reportedUserId={msg.sender_id}
+                      size={14}
+                      color={theme.textMuted}
+                      onActionDone={() => load()}
+                    />
+                  </View>
+                )}
                 {hasReactions && (
                   <View style={[S.reactionsRow, isMe && { justifyContent: 'flex-end' }]}>
                     {msg.reactions!.map(r => (
@@ -602,7 +649,7 @@ export default function MessagesScreen() {
       )}
 
       {/* Input bar */}
-      <View style={S.inputBar}>
+      <View style={[S.inputBar, { paddingBottom: kbOpen ? 6 : 6 + tabBarHeight }]}>
         <TouchableOpacity onPress={pickImage} style={S.imgBtn} activeOpacity={0.7}>
           <ImagePlus color={theme.textMuted} size={22} />
         </TouchableOpacity>
@@ -709,7 +756,7 @@ export default function MessagesScreen() {
 function createStyles(theme: AppTheme) {
   const isDark = theme.mode === 'dark';
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
     backgroundColor: theme.card,
@@ -766,8 +813,8 @@ function createStyles(theme: AppTheme) {
   tabsContainer: { backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   tabsContent:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   tab: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, paddingHorizontal: 16,
     borderRadius: 20, borderWidth: 1, borderColor: theme.border,
     backgroundColor: theme.surface,
   },

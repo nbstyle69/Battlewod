@@ -6,6 +6,7 @@ import {
 import { ChevronLeft, Hash, LogIn } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 export default function JoinBoxScreen({ navigation }: any) {
   const { joinBox, user } = useAuth();
@@ -27,9 +28,11 @@ export default function JoinBoxScreen({ navigation }: any) {
   }
 
   return (
+    <View style={S.container}>
+    <GlassBackground />
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={S.container}
+      style={{ flex: 1 }}
     >
       <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
         <ChevronLeft color={theme.textSecondary} size={22} />
@@ -78,11 +81,12 @@ export default function JoinBoxScreen({ navigation }: any) {
         </Text>
       </View>
     </KeyboardAvoidingView>
+    </View>
   );
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   back: { paddingTop: 56, paddingLeft: 20, paddingBottom: 8 },
   inner: { flex: 1, paddingHorizontal: 28, justifyContent: 'center', gap: 18, marginTop: -60 },
   iconWrap: {

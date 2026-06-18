@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Hash, Building2, LogOut, ArrowRight } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 export default function WaitingScreen({ navigation }: any) {
   const { user, signOut, skipBox } = useAuth();
@@ -11,6 +12,7 @@ export default function WaitingScreen({ navigation }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.inner}>
         <Text style={S.emoji}>🏋️</Text>
         <Text style={S.title}>Rejoins ta box</Text>
@@ -59,7 +61,7 @@ export default function WaitingScreen({ navigation }: any) {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   inner: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
     paddingHorizontal: 32, gap: 20,

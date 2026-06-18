@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions, ActivityIndicator, ScrollView, Modal,
-  TextInput, Linking, Clipboard, Alert, useWindowDimensions, Image, KeyboardAvoidingView, Platform, Vibration,
+  TextInput, Linking, Clipboard, Alert, useWindowDimensions, Image, KeyboardAvoidingView, Platform, Vibration, AppState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle } from 'react-native-svg';
@@ -11,15 +11,19 @@ import { useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { RealtimeRecorderView, updateOverlayState, startRecording as nativeStartRec, stopRecording as nativeStopRec } from 'realtime-recorder';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Audio } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Audio, InterruptionModeAndroid } from 'expo-av';
 import { Square, Play, X, RotateCcw, CheckCircle, RefreshCw, Download, Settings, Youtube, Copy, ExternalLink, RotateCw } from 'lucide-react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { incrementCounter } from '../../services/gamification';
+import * as Notifications from 'expo-notifications';
+import { spacing, borderRadius, typography } from '../../theme/designTokens';
 import { captureError } from '../../lib/sentry';
 import { hapticLight, hapticMedium, hapticHeavy } from '../../lib/haptics';
 
@@ -99,16 +103,21 @@ type ClockStyle = 'arc' | 'bar' | 'digits';
 interface TimerDisplayOpts {
   clockStyle: ClockStyle; fontSize: number; digitColor: string;
   bgCountdown: string; bgRunning: string; bgDone: string; bipsEnabled: boolean;
-  allowRotation: boolean;
+  allowRotation: boolean; themeId: string;
 }
-const DISPLAY_OPTS_KEY = 'bwod_timer_display_opts';
+const DISPLAY_OPTS_KEY = 'bwod_timer_display_opts_v2';
+// App theme — emerald / dark, aligned with GlassBackground.tsx
+const THEME_EMERALD       = '#10B981';
+const THEME_EMERALD_DEEP  = '#059669';
+const THEME_BG_COUNTDOWN  = '#0d1f17';   // deep emerald-dark (preparation)
+const THEME_BG_RUNNING    = '#022c22';   // emerald-dark (in progress)
+const THEME_BG_DONE       = '#14532d';   // emerald-success (completed)
+const THEME_DIGIT_COLOR   = '#FFFFFF';
 const DEFAULT_DISPLAY: TimerDisplayOpts = {
-  clockStyle: 'arc', fontSize: Math.round(SW * 0.22), digitColor: '#FFFFFF',
-  bgCountdown: '#2a2a2a', bgRunning: '#111111', bgDone: '#0d2a18', bipsEnabled: true,
-  allowRotation: false,
+  clockStyle: 'arc', fontSize: Math.round(SW * 0.22), digitColor: THEME_DIGIT_COLOR,
+  bgCountdown: THEME_BG_COUNTDOWN, bgRunning: THEME_BG_RUNNING, bgDone: THEME_BG_DONE,
+  bipsEnabled: true, allowRotation: false, themeId: 'emerald',
 };
-const COLOR_PRESETS = ['#FFFFFF', '#4ADE80', '#60A5FA', '#FACC15', '#F87171', '#C084FC'];
-const BG_PRESETS    = ['#000000', '#111111', '#1a1a2e', '#0d2a18', '#2a1a1a', '#1a1a2a', '#2a2a2a'];
 
 // Ensure digit color contrasts with background — returns safe color
 function ensureContrast(digitColor: string, bgColor: string): string {
@@ -132,14 +141,37 @@ const PHASE_COLORS = {
   ready:   '#FFFFFF',  // white
 };
 
+// ─── Timer themes ──────────────────────────────────────────────────────────────
+const TIMER_THEMES = [
+  { id: 'emerald',  label: 'Lime',     emoji: '🌿', digitColor: '#39FF14', bgCountdown: '#001a0d', bgRunning: '#002616', bgDone: '#004d2a', accent: '#39FF14' },
+  { id: 'fire',     label: 'Orange',   emoji: '🔥', digitColor: '#FF6600', bgCountdown: '#1a0500', bgRunning: '#2e0800', bgDone: '#5c1500', accent: '#FF6600' },
+  { id: 'electric', label: 'Cyan Blue',emoji: '⚡', digitColor: '#00BFFF', bgCountdown: '#00091a', bgRunning: '#001433', bgDone: '#002255', accent: '#00BFFF' },
+  { id: 'midnight', label: 'Violet',   emoji: '🌙', digitColor: '#CC00FF', bgCountdown: '#0d001a', bgRunning: '#1a0033', bgDone: '#330066', accent: '#CC00FF' },
+  { id: 'ocean',    label: 'Cyan',     emoji: '🌊', digitColor: '#00FFFF', bgCountdown: '#001a1a', bgRunning: '#002626', bgDone: '#004040', accent: '#00FFFF' },
+  { id: 'solar',    label: 'Yellow',   emoji: '☀️', digitColor: '#FFFF00', bgCountdown: '#1a1400', bgRunning: '#292000', bgDone: '#4d3d00', accent: '#FFFF00' },
+  { id: 'neon',     label: 'Pink',     emoji: '🩷', digitColor: '#FF0090', bgCountdown: '#1a0011', bgRunning: '#2d001e', bgDone: '#500035', accent: '#FF0090' },
+  { id: 'rage',     label: 'Red',      emoji: '🔴', digitColor: '#FF1414', bgCountdown: '#1a0000', bgRunning: '#260000', bgDone: '#4d0000', accent: '#FF1414' },
+];
+
+const DIGIT_COLORS = [
+  '#FFFF00', '#39FF14', '#FF0000', '#00FFFF',
+  '#CC00FF', '#FF6600', '#00BFFF', '#FF0090',
+  '#FFFFFF', '#FFD700', '#FF4500', '#7B2FFF',
+  '#00FF80', '#00E5FF', '#FF1493', '#10ff9f',
+];
+
 // ─── ARC clock (SVG) ─────────────────────────────────────────────────────────
-function ArcTimer({ time, progress, color, strokeColor, landscape }: { time: string; progress: number; color: string; strokeColor?: string; landscape?: boolean }) {
+function ArcTimer({ time, progress, color, fontSize, strokeColor, landscape, customSize }: { time: string; progress: number; color: string; fontSize?: number; strokeColor?: string; landscape?: boolean; customSize?: number }) {
   const { width: aw, height: ah } = useWindowDimensions();
-  const size = landscape ? Math.min(ah * 0.75, aw * 0.45) : Math.min(Math.min(aw, ah) * 0.76, 280);
+  const size = customSize ?? (landscape ? Math.min(ah * 0.85, aw * 0.5) : Math.min(aw, ah) * 0.86);
   const r    = size / 2 - 18;
   const circ = 2 * Math.PI * r;
   const dash = circ * (1 - Math.max(0, Math.min(1, progress)));
   const sc = strokeColor || color;
+  // Use user-chosen fontSize, but cap so the digits stay readable inside the circle
+  const innerDiam = size - 50;
+  const maxFs = Math.round(Math.min(size * 0.42, innerDiam / 2.7));
+  const fs = Math.min(fontSize ?? Math.round(size * 0.2), maxFs);
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', width: size, height: size }}>
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
@@ -147,8 +179,8 @@ function ArcTimer({ time, progress, color, strokeColor, landscape }: { time: str
         <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={sc} strokeWidth={14}
           strokeLinecap="round" strokeDasharray={`${circ} ${circ}`} strokeDashoffset={dash} />
       </Svg>
-      <Text style={{ fontSize: Math.round(size * 0.2), fontWeight: '200', color, letterSpacing: -2,
-        textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 }}>
+      <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
+        textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 22 }}>
         {time}
       </Text>
     </View>
@@ -168,7 +200,7 @@ function BarTimer({ time, progress, color, fontSize, strokeColor, landscape }: {
         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%` as `${number}%`, backgroundColor: sc, borderRadius: 9 }} />
       </View>
       <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
-        textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 }}>
+        textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 18 }}>
         {time}
       </Text>
     </View>
@@ -181,7 +213,7 @@ function DigitsTimer({ time, color, fontSize, landscape }: { time: string; color
   const fs = landscape ? Math.max(fontSize, Math.round(dh * 0.4)) : fontSize;
   return (
     <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
-      textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 14 }}>
+      textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 22 }}>
       {time}
     </Text>
   );
@@ -191,97 +223,151 @@ function DigitsTimer({ time, color, fontSize, landscape }: { time: string; color
 function TimerSettingsModal({ opts, onUpdate, onClose }: {
   opts: TimerDisplayOpts; onUpdate: (u: Partial<TimerDisplayOpts>) => void; onClose: () => void;
 }) {
+  const cardW = Math.floor((SW - 48 - 30) / 4);
   const SLabel = ({ label }: { label: string }) => (
-    <Text style={{ fontSize: 10, color: '#555', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>{label}</Text>
+    <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase', fontWeight: '800' }}>{label}</Text>
   );
-  const Sw = ({ color, active, onPress, round = true }: { color: string; active: boolean; onPress: () => void; round?: boolean }) => (
-    <TouchableOpacity onPress={onPress}
-      style={{ width: 36, height: 36, borderRadius: round ? 18 : 8, backgroundColor: color,
-        borderWidth: active ? 3 : 1, borderColor: active ? '#fff' : 'rgba(255,255,255,0.15)' }} />
-  );
+  function applyTheme(t: typeof TIMER_THEMES[number]) {
+    onUpdate({ themeId: t.id, digitColor: t.digitColor, bgCountdown: t.bgCountdown, bgRunning: t.bgRunning, bgDone: t.bgDone });
+  }
+  const activeTheme = TIMER_THEMES.find(t => t.id === opts.themeId) ?? TIMER_THEMES[0];
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }} activeOpacity={1} onPress={onClose} />
-      <View style={{ backgroundColor: '#141414', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 8, maxHeight: '80%' }}>
-        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#2a2a2a', alignSelf: 'center', marginBottom: 20 }} />
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
-          <Text style={{ color: '#00ff88', fontSize: 11, letterSpacing: 5, marginBottom: 24 }}>⚙ AFFICHAGE MINUTEUR</Text>
+      <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' }} activeOpacity={1} onPress={onClose} />
+      <View style={{ backgroundColor: '#0a0a0a', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 8, maxHeight: '90%', borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', alignSelf: 'center', marginBottom: 20 }} />
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 44 }} showsVerticalScrollIndicator={false}>
 
-          <SLabel label="Style d'horloge" />
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
-            {(['arc', 'bar', 'digits'] as ClockStyle[]).map(s => (
-              <TouchableOpacity key={s} onPress={() => onUpdate({ clockStyle: s })}
-                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-                  backgroundColor: opts.clockStyle === s ? '#1b4232' : '#1e1e1e',
-                  borderWidth: 1, borderColor: opts.clockStyle === s ? '#00ff88' : '#2a2a2a' }}>
-                <Text style={{ color: opts.clockStyle === s ? '#00ff88' : '#555', fontSize: 12, fontWeight: '700' }}>
-                  {s.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <SLabel label={`Taille : ${opts.fontSize}px`} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-            <TouchableOpacity onPress={() => onUpdate({ fontSize: Math.max(20, opts.fontSize - 4) })}
-              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#1e1e1e', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#333' }}>
-              <Text style={{ color: '#fff', fontSize: 24 }}>−</Text>
-            </TouchableOpacity>
-            <View style={{ flex: 1, height: 4, backgroundColor: '#222', borderRadius: 2 }}>
-              <View style={{ width: `${Math.round(((opts.fontSize - 20) / 100) * 100)}%` as `${number}%`, height: '100%', backgroundColor: '#00ff88', borderRadius: 2 }} />
+          {/* Header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 }}>🎨 Design du minuteur</Text>
+            <View style={{ backgroundColor: `${activeTheme.accent}20`, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: `${activeTheme.accent}50` }}>
+              <Text style={{ color: activeTheme.accent, fontSize: 11, fontWeight: '900', letterSpacing: 1 }}>{activeTheme.emoji} {activeTheme.label.toUpperCase()}</Text>
             </View>
-            <TouchableOpacity onPress={() => onUpdate({ fontSize: Math.min(120, opts.fontSize + 4) })}
-              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#1e1e1e', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#333' }}>
-              <Text style={{ color: '#fff', fontSize: 24 }}>+</Text>
+          </View>
+
+          {/* ── THÈME */}
+          <SLabel label="Thème" />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28 }}>
+            {TIMER_THEMES.map(t => {
+              const isActive = opts.themeId === t.id;
+              return (
+                <TouchableOpacity key={t.id} onPress={() => applyTheme(t)} activeOpacity={0.75}
+                  style={{ width: cardW, borderRadius: 16, overflow: 'hidden', borderWidth: 2.5,
+                    borderColor: isActive ? t.accent : 'rgba(255,255,255,0.06)',
+                    shadowColor: t.accent, shadowOpacity: isActive ? 0.6 : 0, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } }}>
+                  <View style={{ backgroundColor: t.bgRunning, paddingVertical: 12, alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: cardW - 22, height: cardW - 22, borderRadius: (cardW - 22) / 2, borderWidth: 3,
+                      borderColor: t.accent, justifyContent: 'center', alignItems: 'center',
+                      backgroundColor: `${t.accent}15` }}>
+                      <Text style={{ color: t.digitColor, fontSize: 10, fontWeight: '200', letterSpacing: -0.5 }}>01:30</Text>
+                    </View>
+                    <Text style={{ color: t.accent, fontSize: 8, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' }}>{t.label}</Text>
+                    {isActive && (
+                      <View style={{ position: 'absolute', top: 5, right: 5, width: 16, height: 16, borderRadius: 8,
+                        backgroundColor: t.accent, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ color: '#000', fontSize: 9, fontWeight: '900' }}>✓</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* ── COULEUR DES CHIFFRES */}
+          <SLabel label="Couleur des chiffres" />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28 }}>
+            {DIGIT_COLORS.map(c => {
+              const isActive = opts.digitColor === c;
+              return (
+                <TouchableOpacity key={c} onPress={() => onUpdate({ digitColor: c })} activeOpacity={0.75}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c,
+                    borderWidth: isActive ? 3 : 1.5,
+                    borderColor: isActive ? '#fff' : 'rgba(255,255,255,0.1)',
+                    shadowColor: c, shadowOpacity: isActive ? 0.9 : 0.3,
+                    shadowRadius: isActive ? 12 : 4, shadowOffset: { width: 0, height: 0 },
+                    justifyContent: 'center', alignItems: 'center' }}>
+                  {isActive && <Text style={{ color: '#0a0a0a', fontSize: 14, fontWeight: '900' }}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* ── STYLE D'HORLOGE */}
+          <SLabel label="Style d'affichage" />
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 28 }}>
+            {([
+              { id: 'arc',    label: 'Cercle', icon: '◯' },
+              { id: 'bar',    label: 'Barre',  icon: '▬' },
+              { id: 'digits', label: 'Digits', icon: '99' },
+            ] as { id: ClockStyle; label: string; icon: string }[]).map(s => {
+              const active = opts.clockStyle === s.id;
+              return (
+                <TouchableOpacity key={s.id} onPress={() => onUpdate({ clockStyle: s.id })} activeOpacity={0.8}
+                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', gap: 4,
+                    backgroundColor: active ? `${opts.digitColor}20` : 'rgba(255,255,255,0.04)',
+                    borderWidth: 1.5, borderColor: active ? opts.digitColor : 'rgba(255,255,255,0.08)' }}>
+                  <Text style={{ color: active ? opts.digitColor : 'rgba(255,255,255,0.35)', fontSize: 20 }}>{s.icon}</Text>
+                  <Text style={{ color: active ? opts.digitColor : 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '900', letterSpacing: 1 }}>{s.label.toUpperCase()}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* ── TAILLE */}
+          <SLabel label={`Taille des chiffres · ${opts.fontSize}px`} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 28 }}>
+            <TouchableOpacity onPress={() => onUpdate({ fontSize: Math.max(20, opts.fontSize - 8) })} activeOpacity={0.8}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)',
+                justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+              <Text style={{ color: '#fff', fontSize: 24, fontWeight: '700' }}>−</Text>
+            </TouchableOpacity>
+            <View style={{ flex: 1, height: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{ width: `${Math.round(((opts.fontSize - 20) / 120) * 100)}%` as `${number}%`,
+                height: '100%', backgroundColor: opts.digitColor, borderRadius: 3 }} />
+            </View>
+            <TouchableOpacity onPress={() => onUpdate({ fontSize: Math.min(140, opts.fontSize + 8) })} activeOpacity={0.8}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)',
+                justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+              <Text style={{ color: '#fff', fontSize: 24, fontWeight: '700' }}>+</Text>
             </TouchableOpacity>
           </View>
 
-          <SLabel label="Couleur chiffres" />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            {COLOR_PRESETS.map(c => <Sw key={c} color={c} active={opts.digitColor === c} onPress={() => onUpdate({ digitColor: c })} />)}
+          {/* ── SONS + ROTATION */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 28 }}>
+            <TouchableOpacity onPress={() => onUpdate({ bipsEnabled: !opts.bipsEnabled })} activeOpacity={0.8}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14,
+                backgroundColor: opts.bipsEnabled ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
+                borderWidth: 1, borderColor: opts.bipsEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)' }}>
+              <Text style={{ fontSize: 18 }}>{opts.bipsEnabled ? '🔊' : '🔇'}</Text>
+              <Text style={{ color: opts.bipsEnabled ? '#fff' : 'rgba(255,255,255,0.35)', fontWeight: '700', fontSize: 12 }}>
+                Sons {opts.bipsEnabled ? 'ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onUpdate({ allowRotation: !opts.allowRotation })} activeOpacity={0.8}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14,
+                backgroundColor: opts.allowRotation ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
+                borderWidth: 1, borderColor: opts.allowRotation ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)' }}>
+              <RotateCw size={18} color={opts.allowRotation ? '#fff' : 'rgba(255,255,255,0.35)'} />
+              <Text style={{ color: opts.allowRotation ? '#fff' : 'rgba(255,255,255,0.35)', fontWeight: '700', fontSize: 12 }}>
+                {opts.allowRotation ? 'Rotation' : 'Portrait'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <SLabel label="Fond décompte" />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            {BG_PRESETS.map(c => <Sw key={c} color={c} active={opts.bgCountdown === c} round={false} onPress={() => onUpdate({ bgCountdown: c })} />)}
+          {/* ── RÉINITIALISER + FERMER */}
+          <View style={{ gap: 10 }}>
+            <TouchableOpacity onPress={() => onUpdate({ ...DEFAULT_DISPLAY })} activeOpacity={0.8}
+              style={{ paddingVertical: 13, borderRadius: 14, alignItems: 'center',
+                backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: '700', letterSpacing: 1.5 }}>RÉINITIALISER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.85}
+              style={{ paddingVertical: 16, borderRadius: 14, alignItems: 'center', backgroundColor: opts.digitColor }}>
+              <Text style={{ color: '#0a0a0a', fontSize: 14, fontWeight: '900', letterSpacing: 1.5 }}>FERMER</Text>
+            </TouchableOpacity>
           </View>
-
-          <SLabel label="Fond en cours" />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            {BG_PRESETS.map(c => <Sw key={c} color={c} active={opts.bgRunning === c} round={false} onPress={() => onUpdate({ bgRunning: c })} />)}
-          </View>
-
-          <SLabel label="Fond terminée" />
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            {BG_PRESETS.map(c => <Sw key={c} color={c} active={opts.bgDone === c} round={false} onPress={() => onUpdate({ bgDone: c })} />)}
-          </View>
-
-          <SLabel label="Sons (bips)" />
-          <TouchableOpacity onPress={() => onUpdate({ bipsEnabled: !opts.bipsEnabled })}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, marginBottom: 24,
-              backgroundColor: opts.bipsEnabled ? '#1b4232' : '#1e1e1e',
-              borderWidth: 1, borderColor: opts.bipsEnabled ? '#00ff88' : '#2a2a2a' }}>
-            <Text style={{ fontSize: 20 }}>{opts.bipsEnabled ? '🔊' : '🔇'}</Text>
-            <Text style={{ color: opts.bipsEnabled ? '#00ff88' : '#555', fontWeight: '700', fontSize: 14 }}>
-              {opts.bipsEnabled ? 'Bips activés' : 'Bips désactivés'}
-            </Text>
-          </TouchableOpacity>
-
-          <SLabel label="Rotation écran" />
-          <TouchableOpacity onPress={() => onUpdate({ allowRotation: !opts.allowRotation })}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, marginBottom: 24,
-              backgroundColor: opts.allowRotation ? '#1b4232' : '#1e1e1e',
-              borderWidth: 1, borderColor: opts.allowRotation ? '#00ff88' : '#2a2a2a' }}>
-            <RotateCw size={20} color={opts.allowRotation ? '#00ff88' : '#555'} />
-            <Text style={{ color: opts.allowRotation ? '#00ff88' : '#555', fontWeight: '700', fontSize: 14 }}>
-              {opts.allowRotation ? 'Rotation activée' : 'Rotation verrouillée'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={onClose}
-            style={{ padding: 16, backgroundColor: '#1e1e1e', borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#2a2a2a' }}>
-            <Text style={{ color: '#555', fontSize: 12, letterSpacing: 2 }}>FERMER</Text>
-          </TouchableOpacity>
         </ScrollView>
       </View>
     </Modal>
@@ -289,6 +375,9 @@ function TimerSettingsModal({ opts, onUpdate, onClose }: {
 }
 
 export default function TimerRunScreen() {
+  // Empêche l'écran de se verrouiller pendant toute la session timer (avec ou sans caméra)
+  useKeepAwake('timer-run');
+
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { currentBox, user } = useAuth();
@@ -342,6 +431,7 @@ export default function TimerRunScreen() {
   const lastTickTimeRef = useRef<number>(Date.now());
   const timerStartOffsetRef = useRef<number | null>(null);
   const timerStopOffsetRef = useRef<number | null>(null);
+  const bgNotifIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     if (!withTimestamp) return;
@@ -426,6 +516,111 @@ export default function TimerRunScreen() {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   }, []);
 
+  function cancelBgBeeps() {
+    bgNotifIdsRef.current.forEach(id => {
+      Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+    });
+    bgNotifIdsRef.current = [];
+  }
+
+  async function scheduleBgBeeps() {
+    if (withCamera) return;
+    cancelBgBeeps();
+    const ids: string[] = [];
+
+    const add = async (sec: number) => {
+      if (sec < 1 || ids.length > 58) return;
+      try {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: { sound: 'default' },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.round(sec), repeats: false },
+        });
+        ids.push(id);
+      } catch {}
+    };
+    const ticks = async (atSec: number) => {
+      await add(atSec - 3);
+      await add(atSec - 2);
+      await add(atSec - 1);
+    };
+
+    switch (timerType) {
+      case 'for-time':
+        if (maxTime > 0) { await ticks(maxTime); await add(maxTime); }
+        break;
+
+      case 'amrap':
+        await ticks(totalSeconds); await add(totalSeconds);
+        break;
+
+      case 'emom': {
+        for (let r = 1; r <= rounds && ids.length < 55; r++) {
+          const t = r * interval * 60;
+          await ticks(t); await add(t);
+        }
+        break;
+      }
+
+      case 'tabata': {
+        let t = 0;
+        for (let r = 1; r <= rounds && ids.length < 55; r++) {
+          t += workTime; await ticks(t); await add(t);
+          if (r < rounds) { t += restTime; await ticks(t); await add(t); }
+        }
+        break;
+      }
+
+      case 'splits': {
+        for (let r = 1; r <= rounds && ids.length < 55; r++) {
+          const t = r * workTime;
+          await ticks(t); await add(t);
+        }
+        break;
+      }
+
+      case 'ywyr':
+        // Durée dynamique (repos = travail accumulé) — impossible à pré-planifier.
+        // Le delta wall-clock garantit la précision à l'affichage.
+        break;
+
+      case 'libre': {
+        let blocks: SeqBlock[] = [];
+        try { blocks = JSON.parse(sequence); } catch {}
+        let cursor = 0;
+        for (const blk of blocks) {
+          if (ids.length > 55) break;
+          switch (blk.type) {
+            case 'amrap':
+            case 'for-time': {
+              const dur = blk.durationMin > 0 ? blk.durationMin * 60 : 0;
+              if (dur > 0) { cursor += dur; await ticks(cursor); await add(cursor); }
+              break;
+            }
+            case 'emom': {
+              const ivSec = blk.emomInterval === 0 ? (blk.emomCustomSec ?? 90) : blk.emomInterval * 60;
+              for (let r = 1; r <= blk.emomRounds && ids.length < 55; r++) {
+                cursor += ivSec; await ticks(cursor); await add(cursor);
+              }
+              break;
+            }
+            case 'tabata': {
+              for (let r = 1; r <= blk.tabRounds && ids.length < 55; r++) {
+                cursor += blk.workSec; await ticks(cursor); await add(cursor);
+                if (r < blk.tabRounds) { cursor += blk.restSec; await ticks(cursor); await add(cursor); }
+              }
+              break;
+            }
+            case 'ywyr': break; // dynamique
+          }
+          if (blk.pauseSec > 0) cursor += blk.pauseSec;
+        }
+        break;
+      }
+    }
+
+    bgNotifIdsRef.current = ids;
+  }
+
   const { theme } = useTheme();
   const { width: winW, height: winH } = useWindowDimensions();
   const isLandscape = winW > winH;
@@ -465,10 +660,10 @@ export default function TimerRunScreen() {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
+          staysActiveInBackground: !withCamera,
           // Android: force playback through the main speaker and don't let
           // the concurrent mic recording duck our beeps.
-          interruptionModeAndroid: Audio.InterruptionModeAndroid.DoNotMix,
+          interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
           shouldDuckAndroid: false,
           playThroughEarpieceAndroid: false,
         });
@@ -607,6 +802,7 @@ export default function TimerRunScreen() {
 
   function stopAndSave() {
     clearTimer();
+    cancelBgBeeps();
     if (withCamera && recordingActiveRef.current) {
       timerStopOffsetRef.current = Date.now() - videoStartTimeRef.current;
       setPhase('stopped');
@@ -738,35 +934,39 @@ export default function TimerRunScreen() {
       if (countdown === 0) playBeep('go');
 
       lastTickTimeRef.current = Date.now();
+      scheduleBgBeeps();
       intervalRef.current = setInterval(() => {
-        lastTickTimeRef.current = Date.now();
+        const _now = Date.now();
+        const deltaSecs = Math.max(1, Math.round((_now - lastTickTimeRef.current) / 1000));
+        lastTickTimeRef.current = _now;
+        const recovering = deltaSecs > 1;
         switch (timerType) {
 
           case 'for-time':
-            timerValRef.current += 1;
+            timerValRef.current += deltaSecs;
             setTimerVal(timerValRef.current);
             if (maxTime > 0 && timerValRef.current >= maxTime) {
               playBeep('done');
               stopAndSave();
-            } else if (maxTime > 0) {
+            } else if (maxTime > 0 && !recovering) {
               const remaining = maxTime - timerValRef.current;
               if (remaining === 3 || remaining === 2 || remaining === 1) playBeep('tick');
             }
             break;
 
           case 'amrap':
-            roundTimeLeftRef.current -= 1;
+            roundTimeLeftRef.current -= deltaSecs;
             setRoundTimeLeft(roundTimeLeftRef.current);
             if (roundTimeLeftRef.current <= 0) {
               playBeep('done');
               stopAndSave();
-            } else if (roundTimeLeftRef.current <= 3) {
+            } else if (roundTimeLeftRef.current <= 3 && !recovering) {
               playBeep('tick');
             }
             break;
 
           case 'emom':
-            roundTimeLeftRef.current -= 1;
+            roundTimeLeftRef.current -= deltaSecs;
             setRoundTimeLeft(roundTimeLeftRef.current);
             if (roundTimeLeftRef.current <= 0) {
               const next = currentRoundRef.current + 1;
@@ -778,15 +978,15 @@ export default function TimerRunScreen() {
                 setCurrentRound(next);
                 roundTimeLeftRef.current = interval * 60;
                 setRoundTimeLeft(interval * 60);
-                playBeep('go');
+                if (!recovering) playBeep('go');
               }
-            } else if (roundTimeLeftRef.current <= 3) {
+            } else if (roundTimeLeftRef.current <= 3 && !recovering) {
               playBeep('tick');
             }
             break;
 
           case 'tabata':
-            roundTimeLeftRef.current -= 1;
+            roundTimeLeftRef.current -= deltaSecs;
             setRoundTimeLeft(roundTimeLeftRef.current);
             if (roundTimeLeftRef.current <= 0) {
               if (innerPhaseRef.current === 'work') {
@@ -794,7 +994,7 @@ export default function TimerRunScreen() {
                 setInnerPhase('rest');
                 roundTimeLeftRef.current = restTime;
                 setRoundTimeLeft(restTime);
-                playBeep('go');
+                if (!recovering) playBeep('go');
               } else {
                 const next = currentRoundRef.current + 1;
                 if (next > rounds) {
@@ -807,38 +1007,38 @@ export default function TimerRunScreen() {
                   setInnerPhase('work');
                   roundTimeLeftRef.current = workTime;
                   setRoundTimeLeft(workTime);
-                  playBeep('go');
+                  if (!recovering) playBeep('go');
                 }
               }
-            } else if (roundTimeLeftRef.current <= 3) {
+            } else if (roundTimeLeftRef.current <= 3 && !recovering) {
               playBeep('tick');
             }
             break;
 
           case 'splits':
-            roundTimeLeftRef.current -= 1;
+            roundTimeLeftRef.current -= deltaSecs;
             setRoundTimeLeft(roundTimeLeftRef.current);
             if (roundTimeLeftRef.current <= 0) {
               splitsRoundDone();
-            } else if (roundTimeLeftRef.current <= 3) {
+            } else if (roundTimeLeftRef.current <= 3 && !recovering) {
               playBeep('tick');
             }
             break;
 
           case 'ywyr':
             if (innerPhaseRef.current === 'work') {
-              ywyrWorkRef.current += 1;
+              ywyrWorkRef.current += deltaSecs;
               setTimerVal(ywyrWorkRef.current);
             } else {
-              timerValRef.current -= 1;
+              timerValRef.current -= deltaSecs;
               setTimerVal(timerValRef.current);
               if (timerValRef.current <= 0) {
                 innerPhaseRef.current = 'work';
                 setInnerPhase('work');
                 ywyrWorkRef.current = 0;
                 timerValRef.current = 0;
-                playBeep('go');
-              } else if (timerValRef.current <= 3) {
+                if (!recovering) playBeep('go');
+              } else if (timerValRef.current <= 3 && !recovering) {
                 playBeep('tick');
               }
             }
@@ -849,7 +1049,7 @@ export default function TimerRunScreen() {
             if (!blk) { stopAndSave(); break; }
             // Inter-block pause
             if (seqPausingRef.current) {
-              seqPauseLeftRef.current -= 1;
+              seqPauseLeftRef.current -= deltaSecs;
               setSeqPauseLeft(seqPauseLeftRef.current);
               if (seqPauseLeftRef.current <= 0) advanceSeq();
               break;
@@ -857,36 +1057,36 @@ export default function TimerRunScreen() {
             // Run current block
             switch (blk.type) {
               case 'amrap':
-                roundTimeLeftRef.current -= 1; setRoundTimeLeft(roundTimeLeftRef.current);
+                roundTimeLeftRef.current -= deltaSecs; setRoundTimeLeft(roundTimeLeftRef.current);
                 if (roundTimeLeftRef.current <= 0) seqBlockDone();
-                else if (roundTimeLeftRef.current <= 3) playBeep('tick');
+                else if (roundTimeLeftRef.current <= 3 && !recovering) playBeep('tick');
                 break;
               case 'for-time':
-                timerValRef.current += 1; setTimerVal(timerValRef.current);
+                timerValRef.current += deltaSecs; setTimerVal(timerValRef.current);
                 if (blk.durationMin > 0 && timerValRef.current >= blk.durationMin * 60) seqBlockDone();
                 break;
               case 'emom':
-                roundTimeLeftRef.current -= 1; setRoundTimeLeft(roundTimeLeftRef.current);
+                roundTimeLeftRef.current -= deltaSecs; setRoundTimeLeft(roundTimeLeftRef.current);
                 if (roundTimeLeftRef.current <= 0) {
                   const nxt = currentRoundRef.current + 1;
                   if (nxt > blk.emomRounds) seqBlockDone();
                   else {
                     const ivSec = blk.emomInterval === 0 ? (blk.emomCustomSec ?? 90) : blk.emomInterval * 60;
                     currentRoundRef.current = nxt; setCurrentRound(nxt);
-                    roundTimeLeftRef.current = ivSec; setRoundTimeLeft(ivSec); playBeep('go');
+                    roundTimeLeftRef.current = ivSec; setRoundTimeLeft(ivSec); if (!recovering) playBeep('go');
                   }
-                } else if (roundTimeLeftRef.current <= 3) { playBeep('tick'); }
+                } else if (roundTimeLeftRef.current <= 3 && !recovering) { playBeep('tick'); }
                 break;
               case 'tabata':
-                roundTimeLeftRef.current -= 1; setRoundTimeLeft(roundTimeLeftRef.current);
+                roundTimeLeftRef.current -= deltaSecs; setRoundTimeLeft(roundTimeLeftRef.current);
                 if (roundTimeLeftRef.current <= 0) {
-                  if (innerPhaseRef.current === 'work') { innerPhaseRef.current = 'rest'; setInnerPhase('rest'); roundTimeLeftRef.current = blk.restSec; setRoundTimeLeft(blk.restSec); playBeep('go'); }
-                  else { const nxt = currentRoundRef.current + 1; if (nxt > blk.tabRounds) seqBlockDone(); else { currentRoundRef.current = nxt; setCurrentRound(nxt); innerPhaseRef.current = 'work'; setInnerPhase('work'); roundTimeLeftRef.current = blk.workSec; setRoundTimeLeft(blk.workSec); playBeep('go'); } }
-                } else if (roundTimeLeftRef.current <= 3) { playBeep('tick'); }
+                  if (innerPhaseRef.current === 'work') { innerPhaseRef.current = 'rest'; setInnerPhase('rest'); roundTimeLeftRef.current = blk.restSec; setRoundTimeLeft(blk.restSec); if (!recovering) playBeep('go'); }
+                  else { const nxt = currentRoundRef.current + 1; if (nxt > blk.tabRounds) seqBlockDone(); else { currentRoundRef.current = nxt; setCurrentRound(nxt); innerPhaseRef.current = 'work'; setInnerPhase('work'); roundTimeLeftRef.current = blk.workSec; setRoundTimeLeft(blk.workSec); if (!recovering) playBeep('go'); } }
+                } else if (roundTimeLeftRef.current <= 3 && !recovering) { playBeep('tick'); }
                 break;
               case 'ywyr':
-                if (innerPhaseRef.current === 'work') { ywyrWorkRef.current += 1; setTimerVal(ywyrWorkRef.current); }
-                else { timerValRef.current -= 1; setTimerVal(timerValRef.current); if (timerValRef.current <= 0) seqBlockDone(); else if (timerValRef.current <= 3) playBeep('tick'); }
+                if (innerPhaseRef.current === 'work') { ywyrWorkRef.current += deltaSecs; setTimerVal(ywyrWorkRef.current); }
+                else { timerValRef.current -= deltaSecs; setTimerVal(timerValRef.current); if (timerValRef.current <= 0) seqBlockDone(); else if (timerValRef.current <= 3 && !recovering) playBeep('tick'); }
                 break;
             }
             break;
@@ -895,7 +1095,7 @@ export default function TimerRunScreen() {
       }, 1000);
     }
 
-    return clearTimer;
+    return () => { clearTimer(); cancelBgBeeps(); };
   }, [phase]);
 
   // ─── Sequence helpers ─────────────────────────────────────────────────────
@@ -1190,16 +1390,18 @@ export default function TimerRunScreen() {
     camState === 2 ? handleStop :
     stopVideoAndFinish;
 
-  const renderTopBar = () => (
-    <View style={styles.topBar}>
+  const renderTopBar = (extraPadTop = 0) => (
+    <View style={[styles.topBar, extraPadTop > 0 && { paddingTop: extraPadTop }]}>
       {hideUI
         ? <View style={{ width: 44 }} />
         : <TouchableOpacity onPress={handleClose} style={styles.iconBtn}>
             <X color="rgba(255,255,255,0.8)" size={24} />
           </TouchableOpacity>
       }
-      <View style={styles.topCenter}>
-        <Text style={styles.modeLabel}>{displayLabel}</Text>
+      <View style={[styles.topCenter, isLandscape && { flexDirection: 'row', gap: 10 }]}>
+        {/* In camera mode the native overlay already burns `videoTitle` at the top
+            of the preview. Skipping the React label avoids a duplicate row. */}
+        {/* modeLabel supprimé — géré par le header de chaque layout */}
         {withCamera && camState >= 1 && camState <= 3 && (
           <View style={styles.recIndicator}>
             <View style={styles.recDot} />
@@ -1210,12 +1412,17 @@ export default function TimerRunScreen() {
       {hideUI
         ? <View style={{ width: 44 }} />
         : withCamera
-          ? <TouchableOpacity
-              onPress={() => setFacing(f => f === 'front' ? 'back' : 'front')}
-              style={styles.iconBtn} activeOpacity={0.7}
-            >
-              <RefreshCw color="rgba(255,255,255,0.8)" size={22} />
-            </TouchableOpacity>
+          ? // Camera flip is allowed ONLY before "Démarrer" is pressed (camState === 0).
+            // Once recording starts, both camera facing and orientation are locked
+            // (orientation lock is handled in the ScreenOrientation effect above).
+            camState === 0
+              ? <TouchableOpacity
+                  onPress={() => setFacing(f => f === 'front' ? 'back' : 'front')}
+                  style={styles.iconBtn} activeOpacity={0.7}
+                >
+                  <RefreshCw color="rgba(255,255,255,0.8)" size={22} />
+                </TouchableOpacity>
+              : <View style={{ width: 44 }} />
           : <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.iconBtn} activeOpacity={0.7}>
               <Settings color="rgba(255,255,255,0.8)" size={20} />
             </TouchableOpacity>
@@ -1224,250 +1431,408 @@ export default function TimerRunScreen() {
   );
 
   const renderContent = () => (
-    <View style={[styles.overlay, isLandscape && { paddingVertical: 20 }]}>
-      {renderTopBar()}
+    <View style={[styles.overlay, withCamera && isLandscape && { paddingVertical: 20 }, !withCamera && { paddingVertical: 0 }]}>
+      {!(isLandscape && !withCamera && phase !== 'done') && renderTopBar(phase === 'done' ? 72 : 0)}
 
       {phase === 'done' ? (
-        /* ── SESSION CARD ─────────────────────────────────── */
-        <ScrollView
-          contentContainerStyle={styles.sessionScroll}
-          showsVerticalScrollIndicator={false}
-        >
-          <ViewShot ref={cardRef} options={{ format: 'png', quality: 1 }} style={styles.sessionCard}>
-            <View style={styles.sessionCardInner}>
-              <Text style={styles.sessionApp}>⚡ ATHLEX</Text>
-              <View style={styles.sessionBadge}>
-                <Text style={styles.sessionBadgeText}>{displayLabel}</Text>
-              </View>
-              <Text style={styles.sessionTime}>{mainTime}</Text>
-              {videoTitle ? (
-                <Text style={styles.sessionTitle} numberOfLines={2}>{videoTitle}</Text>
-              ) : null}
-              {withCamera && <Text style={styles.sessionDate}>{clockStr}</Text>}
-              {withCamera && (
-                <View style={styles.sessionQRWrap}>
-                  <QRCode value={qrData} size={96} color="#111111" backgroundColor="#FFFFFF" />
-                  <Text style={styles.sessionQRHint}>Scanner pour les détails</Text>
+        /* ── RÉSULTAT PLEIN ÉCRAN ──────────────────────────────── */
+        <View style={{ flex: 1 }}>
+          <ViewShot ref={cardRef} options={{ format: 'png', quality: 1 }} style={{ flex: 1 }}>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 28, paddingBottom: 28, paddingTop: 4 }}>
+
+              {/* ── TOP : logo + badge ── */}
+              <View style={{ alignItems: 'center', gap: 14, paddingTop: 8 }}>
+                <View style={{ width: 110, height: 110, borderRadius: 55, backgroundColor: '#FFFFFF',
+                  justifyContent: 'center', alignItems: 'center',
+                  shadowColor: '#ffffff', shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } }}>
+                  <Image
+                    source={require('../../../assets/athex-logo.png')}
+                    style={{ width: 80, height: 80, resizeMode: 'contain' }}
+                  />
                 </View>
-              )}
+                <View style={[styles.sessionBadge, {
+                  backgroundColor: `${accentColor}22`,
+                  borderColor: `${accentColor}55`,
+                  paddingHorizontal: 20, paddingVertical: 7,
+                }]}>
+                  <Text style={[styles.sessionBadgeText, { color: accentColor, fontSize: 13, letterSpacing: 2 }]}>{displayLabel}</Text>
+                </View>
+              </View>
+
+              {/* ── CENTRE : temps final ── */}
+              <View style={{ alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.35)', letterSpacing: 4, textTransform: 'uppercase' }}>TEMPS FINAL</Text>
+                <Text style={[styles.sessionTime, {
+                  fontSize: SW * 0.25,
+                  color: accentColor,
+                  textShadowColor: accentColor,
+                  textShadowOffset: { width: 0, height: 0 },
+                  textShadowRadius: 30,
+                }]}>{mainTime}</Text>
+                {videoTitle ? <Text style={styles.sessionTitle} numberOfLines={2}>{videoTitle}</Text> : null}
+                {withCamera && <Text style={styles.sessionDate}>{clockStr}</Text>}
+                {withCamera && (
+                  <View style={[styles.sessionQRWrap, { marginTop: 12 }]}>
+                    <QRCode value={qrData} size={80} color="#111111" backgroundColor="#FFFFFF" />
+                    <Text style={styles.sessionQRHint}>Scanner pour les détails</Text>
+                  </View>
+                )}
+                {/* Bouton recommencer centré sous le timer */}
+                <TouchableOpacity onPress={handleReset} style={[styles.resetBtn, { marginTop: 16 }]} activeOpacity={0.8}>
+                  <RotateCcw color="#fff" size={26} />
+                </TouchableOpacity>
+              </View>
+
+              {/* ── BAS : actions ── */}
+              <View style={{ width: '100%', gap: 12, alignItems: 'center' }}>
+                {withCamera && (
+                  <View style={styles.savedBanner}>
+                    {saving
+                      ? <><ActivityIndicator color="#fff" size="small" /><Text style={styles.savedText}>Sauvegarde vidéo…</Text></>
+                      : savedUri
+                        ? <><CheckCircle color="#4ADE80" size={18} /><Text style={[styles.savedText, { color: '#4ADE80' }]}>Vidéo enregistrée ✓</Text></>
+                        : null}
+                  </View>
+                )}
+                {sessionMeta && (
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('VideoPlayback', {
+                      videoURL: sessionMeta.videoURL,
+                      title: sessionMeta.title || undefined,
+                      recordedAt: sessionMeta.recordedAt,
+                      timerStartOffset: sessionMeta.timerStartOffset,
+                      timerStopOffset: sessionMeta.timerStopOffset,
+                      countdownDuration: sessionMeta.countdownDuration,
+                      overlaysBurned: sessionMeta.overlaysBurned ?? false,
+                    })}
+                    style={[styles.playbackBtn, { width: '100%', justifyContent: 'center' }]}
+                    activeOpacity={0.85}
+                  >
+                    <Play color="#fff" size={16} fill="#fff" />
+                    <Text style={styles.playbackBtnText}>Lire la vidéo</Text>
+                  </TouchableOpacity>
+                )}
+                {withCamera && (
+                  <TouchableOpacity onPress={saveCard} style={[styles.saveCardBtn, { width: '100%' }]} activeOpacity={0.85}>
+                    {savingCard
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : cardSaved
+                        ? <><CheckCircle color="#4ADE80" size={18} /><Text style={[styles.saveCardBtnText, { color: '#4ADE80' }]}>Carte sauvegardée ✓</Text></>
+                        : <><Download color="#fff" size={18} /><Text style={styles.saveCardBtnText}>Sauvegarder la carte</Text></>}
+                  </TouchableOpacity>
+                )}
+                {withCamera && (
+                  <TouchableOpacity style={[styles.ytBtn, { width: '100%', justifyContent: 'center' }]} activeOpacity={0.85} onPress={() => setShowYT(true)}>
+                    <Youtube color="#fff" size={18} />
+                    <Text style={styles.ytBtnTxt}>Partager sur YouTube</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={handleClose} style={[styles.closeResultBtn, { width: '100%', alignItems: 'center' }]} activeOpacity={0.8}>
+                  <Text style={styles.closeResultText}>Fermer</Text>
+                </TouchableOpacity>
+              </View>
+
             </View>
           </ViewShot>
-
-          {withCamera && (
-            <View style={styles.savedBanner}>
-              {saving
-                ? <><ActivityIndicator color="#fff" size="small" /><Text style={styles.savedText}>Sauvegarde vidéo…</Text></>
-                : savedUri
-                  ? <><CheckCircle color="#4ADE80" size={18} /><Text style={[styles.savedText, { color: '#4ADE80' }]}>Vidéo enregistrée ✓</Text></>
-                  : null}
-            </View>
-          )}
-
-          {sessionMeta && (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('VideoPlayback', {
-                videoURL: sessionMeta.videoURL,
-                title: sessionMeta.title || undefined,
-                recordedAt: sessionMeta.recordedAt,
-                timerStartOffset: sessionMeta.timerStartOffset,
-                timerStopOffset: sessionMeta.timerStopOffset,
-                countdownDuration: sessionMeta.countdownDuration,
-                overlaysBurned: sessionMeta.overlaysBurned ?? false,
-              })}
-              style={styles.playbackBtn}
-              activeOpacity={0.85}
-            >
-              <Play color="#fff" size={16} fill="#fff" />
-              <Text style={styles.playbackBtnText}>Lire la vidéo</Text>
-            </TouchableOpacity>
-          )}
-
-          {withCamera && (
-            <TouchableOpacity onPress={saveCard} style={styles.saveCardBtn} activeOpacity={0.85}>
-              {savingCard
-                ? <ActivityIndicator color="#fff" size="small" />
-                : cardSaved
-                  ? <><CheckCircle color="#4ADE80" size={18} /><Text style={[styles.saveCardBtnText, { color: '#4ADE80' }]}>Carte sauvegardée ✓</Text></>
-                  : <><Download color="#fff" size={18} /><Text style={styles.saveCardBtnText}>Sauvegarder la carte</Text></>}
-            </TouchableOpacity>
-          )}
-
-          {/* YouTube share — only in camera mode */}
-          {withCamera && (
-            <TouchableOpacity style={styles.ytBtn} activeOpacity={0.85} onPress={() => setShowYT(true)}>
-              <Youtube color="#fff" size={18} />
-              <Text style={styles.ytBtnTxt}>Partager sur YouTube</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.doneRow}>
-            <TouchableOpacity onPress={handleReset} style={styles.resetBtn} activeOpacity={0.8}>
-              <RotateCcw color="#fff" size={26} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleClose} style={styles.closeResultBtn} activeOpacity={0.8}>
-              <Text style={styles.closeResultText}>Fermer</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+        </View>
       ) : (
         /* ── RUNNING / COUNTDOWN ─────────────────────────── */
         <>
-          {/* DÉCOMPTE non-caméra: rendu dans le portrait layout via timerCenter */}
-
           {/* ── LANDSCAPE LAYOUT ─────────────────────────────────── */}
           {isLandscape ? (
             <View style={{ flex: 1 }}>
-              {/* Timer centered */}
-              {phase !== 'countdown' && (!withCamera || camState >= 1) && (
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                  {!!phaseLabel && phase === 'running' && (
-                    <Text style={[styles.phaseLabelGiant, { fontSize: 18, marginBottom: 2, color: ensureContrast(phaseColor, currentBg),
-                      textShadowColor: phaseColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>
-                      {phaseLabel}
-                    </Text>
-                  )}
-                  {timerType === 'libre' && seqBlockLabel ? (
-                    <Text style={[styles.seqSubLabel, { fontSize: 11, marginBottom: 2 }]}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
-                  ) : null}
+              {!withCamera ? (
+                /* ── SANS CAMÉRA : plein écran, X/Settings intégrés, bouton décalé ── */
+                <View style={[styles.phaseZone, {
+                  margin: 0, borderRadius: 0, borderWidth: 0, flex: 1,
+                  flexDirection: 'column',
+                  justifyContent: 'flex-start', alignItems: 'stretch',
+                  paddingVertical: 0, paddingHorizontal: 0,
+                  backgroundColor: 'transparent',
+                }]}>
 
-                  {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} strokeColor={phaseColor} landscape />}
-                  {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />}
-                  {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} landscape />}
-
-                  {/* Round info inline */}
-                  {hasRounds && phase === 'running' && !seqPausing && (
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4, letterSpacing: 2 }}>
-                      ROUND {currentRound} / {currentRound + roundsLeft}
-                    </Text>
-                  )}
-                </View>
-              )}
-
-              {/* Landscape bottom corners — FIN DU BLOC left, Stop right */}
-              {phase !== 'countdown' && phase !== 'ready' && !withCamera && (
-                <View style={{ position: 'absolute', bottom: 10, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }} pointerEvents="box-none">
-                  <View>
-                    {showEndWorkBtn && (
-                      <TouchableOpacity onPress={ywyrEndWork} style={[styles.ywyrBtn, { paddingHorizontal: 18, paddingVertical: 10 }]} activeOpacity={0.8}>
-                        <Text style={[styles.ywyrBtnText, { fontSize: 12 }]}>FIN DU TRAVAIL</Text>
-                      </TouchableOpacity>
-                    )}
-                    {showEndBlockBtn && (
-                      <TouchableOpacity onPress={libreEndForTimeBlock} style={[styles.ywyrBtn, { paddingHorizontal: 18, paddingVertical: 10 }]} activeOpacity={0.8}>
-                        <Text style={[styles.ywyrBtnText, { fontSize: 12 }]}>FIN DU BLOC</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  {(showNormalStop || showEndWorkBtn || showEndBlockBtn) && (
-                    <TouchableOpacity onPress={handleStop} style={styles.stopBtnSmall} activeOpacity={0.8}>
-                      <Square color="rgba(255,255,255,0.6)" size={22} fill="rgba(255,255,255,0.6)" />
+                  {/* TOP BAR intégrée dans la carte */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4 }}>
+                    <TouchableOpacity onPress={handleClose} style={styles.iconBtn}>
+                      <X color="rgba(255,255,255,0.8)" size={24} />
                     </TouchableOpacity>
-                  )}
-                </View>
-              )}
-
-              {/* Landscape ready — play right */}
-              {phase === 'ready' && !withCamera && (
-                <View style={{ position: 'absolute', bottom: 16, right: 24, alignItems: 'center' }}>
-                  <View style={styles.ctrlGroup}>
-                    <View>
-                      <TouchableOpacity onPress={handleStart} style={styles.playBtn} activeOpacity={0.8}>
-                        <Play color="#fff" size={36} fill="#fff" />
+                    <View style={{ alignItems: 'center', gap: 1 }}>
+                      <Text style={styles.newHeaderType}>{displayLabel}</Text>
+                      {videoTitle ? <Text style={styles.newHeaderTitle} numberOfLines={1}>{videoTitle}</Text> : null}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text style={styles.newHeaderTotal}>{formatTime(totalRemaining)}</Text>
+                      <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.iconBtn} activeOpacity={0.7}>
+                        <Settings color="rgba(255,255,255,0.8)" size={20} />
                       </TouchableOpacity>
-                      {countdown > 0 && (
-                        <View style={styles.countdownBadge}>
-                          <Text style={styles.countdownBadgeText}>{countdown}s</Text>
+                    </View>
+                  </View>
+
+                  {/* 3 colonnes : [play] [timer] [rounds] */}
+                  <View style={{ flex: 1, flexDirection: 'row' }}>
+
+                    {/* LEFT : bouton play/stop décalé vers le centre */}
+                    <View style={{ width: 160, justifyContent: 'center', alignItems: 'center', gap: 10, paddingLeft: 84 }}>
+                      <View>
+                        <TouchableOpacity
+                          style={[styles.newBigPlayBtn, { width: 70, height: 70, borderRadius: 35 },
+                            isActive && styles.newBigPlayBtnStop]}
+                          onPress={phase === 'ready' ? handleStart : isActive ? handleStop : handleStart}
+                          activeOpacity={0.8}
+                        >
+                          {isActive ? (
+                            <Square color="#fff" size={26} fill="#fff" />
+                          ) : (
+                            <Play color="#fff" size={30} fill="#fff" />
+                          )}
+                        </TouchableOpacity>
+                        {phase === 'ready' && countdown > 0 && (
+                          <View style={styles.countdownBadge}>
+                            <Text style={styles.countdownBadgeText}>{countdown}s</Text>
+                          </View>
+                        )}
+                      </View>
+                      {phase === 'ready' && (
+                        <Text style={[styles.readyHint, { fontSize: 9, letterSpacing: 1.5, textAlign: 'center' }]}>APPUIE{"\n"}POUR{"\n"}DÉMARRER</Text>
+                      )}
+                      {showEndWorkBtn && (
+                        <TouchableOpacity onPress={ywyrEndWork} style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
+                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center' }]}>FIN DU{"\n"}TRAVAIL</Text>
+                        </TouchableOpacity>
+                      )}
+                      {showEndBlockBtn && (
+                        <TouchableOpacity onPress={libreEndForTimeBlock} style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
+                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center' }]}>FIN DU{"\n"}BLOC</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* CENTER : timer */}
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: phaseColor,
+                          shadowColor: phaseColor, shadowOpacity: 0.9, shadowRadius: 5, shadowOffset: { width: 0, height: 0 } }} />
+                        <Text style={[styles.phaseZoneLabel, { fontSize: 11, marginBottom: 0, color: phaseColor }]}>
+                          {phase === 'ready' ? 'PRÊT' :
+                           phase === 'countdown' ? 'PRÉPARER' :
+                           innerPhase === 'work' ? 'EXERCICE' :
+                           innerPhase === 'rest' ? 'REPOS' : phaseLabel || 'PRÊT'}
+                        </Text>
+                      </View>
+                      {timerType === 'libre' && seqBlockLabel
+                        ? <Text style={[styles.seqSubLabel, { fontSize: 9, marginBottom: 2 }]}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
+                        : null}
+                      {displayOpts.clockStyle === 'arc' && (
+                        <ArcTimer
+                          time={phase === 'countdown' ? String(countdownVal) : mainTime}
+                          progress={arcProgress}
+                          color={phase === 'countdown' ? '#10b981' : accentColor}
+                          fontSize={phase === 'countdown' ? Math.round(winH * 0.25) : displayOpts.fontSize}
+                          strokeColor={phaseColor}
+                          customSize={winH - 110}
+                          landscape
+                        />
+                      )}
+                      {displayOpts.clockStyle === 'bar' && (
+                        <BarTimer time={phase === 'countdown' ? String(countdownVal) : mainTime}
+                          progress={arcProgress} color={phase === 'countdown' ? '#10b981' : accentColor}
+                          fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />
+                      )}
+                      {displayOpts.clockStyle === 'digits' && (
+                        <DigitsTimer time={phase === 'countdown' ? String(countdownVal) : mainTime}
+                          color={phase === 'countdown' ? '#10b981' : accentColor}
+                          fontSize={displayOpts.fontSize} landscape />
+                      )}
+                      {hasRounds && (timerType === 'tabata' || (timerType === 'libre' && curBlk?.type === 'tabata'))
+                        && (curBlk?.restSec ?? restTime) > 0 && phase === 'running' && (
+                        <View style={[styles.phaseZoneRoundInfo, { marginTop: 6 }]}>
+                          <Text style={[styles.phaseZoneRoundText, { fontSize: 11 }]}>
+                            {innerPhase === 'work'
+                              ? `REPOS DANS : ${formatTime(roundTimeLeft)}`
+                              : `EXERCICE DANS : ${formatTime(roundTimeLeft)}`}
+                          </Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.actionLabel}>Démarrer</Text>
-                  </View>
-                </View>
-              )}
 
-              {/* Landscape camera controls */}
-              {withCamera && (
-                <View style={{ position: 'absolute', bottom: 10, left: 0, right: 0, alignItems: 'center' }}>
-                  <TouchableOpacity
-                    onPress={camPrimaryAction}
-                    disabled={camState === 0 && !isCameraReady}
-                    style={[
-                      styles.camPrimaryBtn,
-                      camState === 0 && !isCameraReady && { opacity: 0.4 },
-                      camState === 1 && styles.camPrimaryBtnGo,
-                      (camState === 2 || camState === 3) && styles.camPrimaryBtnStop,
-                    ]}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.camPrimaryBtnText}>
-                      {camState === 0 && !isCameraReady ? 'Initialisation…' : camPrimaryLabel}
-                    </Text>
-                  </TouchableOpacity>
+                    {/* RIGHT : infos rounds */}
+                    <View style={{ width: 100, justifyContent: 'center', alignItems: 'center', gap: 8, paddingRight: 12 }}>
+                      {hasRounds && (
+                        <>
+                          <View style={{ width: '100%', alignItems: 'center', backgroundColor: 'rgba(56,189,248,0.15)', borderRadius: 14, padding: 10, borderWidth: 1, borderColor: 'rgba(56,189,248,0.25)' }}>
+                            <Text style={[styles.newRoundNum, { color: '#38BDF8', fontSize: 30 }]}>{currentRound}</Text>
+                            <Text style={[styles.newRoundLabel, { textAlign: 'center' }]}>ROUND{"\n"}EN COURS</Text>
+                          </View>
+                          <View style={{ width: '100%', alignItems: 'center', backgroundColor: 'rgba(250,204,21,0.15)', borderRadius: 14, padding: 10, borderWidth: 1, borderColor: 'rgba(250,204,21,0.25)' }}>
+                            <Text style={[styles.newRoundNum, { color: '#FACC15', fontSize: 30 }]}>{roundsLeft}</Text>
+                            <Text style={[styles.newRoundLabel, { textAlign: 'center' }]}>CYCLES{"\n"}RESTANTS</Text>
+                          </View>
+                        </>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Barre de progression en bas de la carte */}
+                  {totalWodSeconds > 0 && (
+                    <View style={styles.newTotalBar}>
+                      <View style={[styles.newTotalFill, { width: `${Math.round(totalProgress * 100)}%` as `${number}%`, backgroundColor: phaseColor }]} />
+                    </View>
+                  )}
                 </View>
+              ) : (
+                /* ── AVEC CAMÉRA : layout centré classique ── */
+                <>
+                  {phase === 'countdown' && countdownVal > 0 && (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
+                      <Text style={[styles.phaseLabelGiant, { fontSize: 22, marginBottom: 4, color: '#FFFFFF' }]}>PRÉPARER</Text>
+                      <Text style={[styles.countdownBig, { color: accentColor, textShadowColor: accentColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 18 }]}>{countdownVal}</Text>
+                    </View>
+                  )}
+                  {phase !== 'countdown' && camState >= 1 && (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      {!!phaseLabel && phase === 'running' && (
+                        <Text style={[styles.phaseLabelGiant, { fontSize: 18, marginBottom: 2, color: ensureContrast(phaseColor, currentBg), textShadowColor: phaseColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>{phaseLabel}</Text>
+                      )}
+                      {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />}
+                      {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />}
+                      {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} landscape />}
+                      {hasRounds && phase === 'running' && !seqPausing && (
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4, letterSpacing: 2 }}>ROUND {currentRound} / {currentRound + roundsLeft}</Text>
+                      )}
+                    </View>
+                  )}
+                  <View style={{ position: 'absolute', bottom: 12, left: 0, right: 0, alignItems: 'center' }} pointerEvents="box-none">
+                    <TouchableOpacity onPress={camPrimaryAction} disabled={camState === 0 && !isCameraReady}
+                      style={[styles.camPrimaryBtn, { paddingHorizontal: 28, paddingVertical: 12, minWidth: 200 },
+                        camState === 0 && !isCameraReady && { opacity: 0.4 },
+                        camState === 1 && styles.camPrimaryBtnGo,
+                        (camState === 2 || camState === 3) && styles.camPrimaryBtnStop,
+                      ]} activeOpacity={0.85}>
+                      <Text style={[styles.camPrimaryBtnText, { fontSize: 15 }]}>
+                        {camState === 0 && !isCameraReady ? 'Initialisation…' : camPrimaryLabel}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
               )}
             </View>
           ) : (
           /* ── PORTRAIT LAYOUT ──────────────────────────────────── */
-          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          {/* DÉCOMPTE PORTRAIT — dans le même conteneur que le timer */}
-          {!withCamera && phase === 'countdown' && countdownVal > 0 && (
-            <View style={styles.timerCenter} pointerEvents="none">
-              <Text style={[styles.phaseLabelGiant, { color: '#FFFFFF' }]}>PRÉPARER</Text>
-              <Text style={[styles.countdownBig, {
-                color: accentColor,
-                textShadowColor: accentColor,
-                textShadowOffset: { width: 0, height: 0 },
-                textShadowRadius: 18,
-              }]}>{countdownVal}</Text>
+          <View style={{ flex: 1 }}>
+            {/* Header avec type et total */}
+            <View style={styles.newHeader}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.newHeaderType}>{displayLabel}</Text>
+                {videoTitle ? <Text style={styles.newHeaderTitle} numberOfLines={1}>{videoTitle}</Text> : null}
+              </View>
+              <Text style={styles.newHeaderTotal}>{formatTime(totalRemaining)}</Text>
             </View>
-          )}
-          {/* TIMER — visible seulement hors countdown */}
-          {phase !== 'countdown' && (!withCamera || camState >= 1) && (
-            <View style={styles.timerCenter}>
-              {/* Phase label giant */}
-              {!!phaseLabel && phase === 'running' && (
-                <Text style={[styles.phaseLabelGiant, { color: ensureContrast(phaseColor, currentBg),
-                  textShadowColor: phaseColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>
-                  {phaseLabel}
+
+            {/* Zone principale colorée selon la phase */}
+            <View style={[styles.phaseZone, {
+              backgroundColor: currentBg,
+              borderColor: `${accentColor}30`,
+            }]}>
+              {/* Label de phase */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: phaseColor,
+                  shadowColor: phaseColor, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }} />
+                <Text style={[styles.phaseZoneLabel, { color: phaseColor, marginBottom: 0 }]}>
+                  {phase === 'ready' ? 'PRÊT' :
+                   phase === 'countdown' ? 'PRÉPARER' :
+                   innerPhase === 'work' ? 'EXERCICE' :
+                   innerPhase === 'rest' ? 'REPOS' : phaseLabel || 'PRÊT'}
                 </Text>
-              )}
-              {/* Libre bloc sub-label */}
-              {timerType === 'libre' && seqBlockLabel ? (
-                <Text style={styles.seqSubLabel}>{seqPausing ? 'REPOS' : seqBlockLabel}</Text>
-              ) : null}
+              </View>
 
-              {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color={accentColor} strokeColor={phaseColor} />}
-              {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color={accentColor} fontSize={displayOpts.fontSize} strokeColor={phaseColor} />}
-              {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color={accentColor} fontSize={displayOpts.fontSize} />}
+              {/* Chrono principal — cercle de progression */}
+              <ArcTimer
+                time={phase === 'countdown' ? String(countdownVal) : mainTime}
+                progress={arcProgress}
+                color={phase === 'countdown' ? '#10b981' : accentColor}
+                fontSize={phase === 'countdown' ? Math.round(SW * 0.28) : displayOpts.fontSize}
+                strokeColor={phaseColor}
+                customSize={Math.min(SW - 56, 300)}
+              />
 
-              {/* Total progress bar */}
-              {totalWodSeconds > 0 && phase === 'running' && (
-                <View style={styles.totalBarWrap}>
-                  <View style={styles.totalBarTrack}>
-                    <View style={[styles.totalBarFill, { width: `${Math.round(totalProgress * 100)}%` as any, backgroundColor: phaseColor }]} />
-                  </View>
-                  <Text style={[styles.totalBarLabel, { color: phaseColor }]}>
-                    TOTAL  {formatTime(totalRemaining)}
+              {/* Info repos/exercice — uniquement pour Tabata qui a des phases travail/repos */}
+              {hasRounds && (timerType === 'tabata' || (timerType === 'libre' && curBlk?.type === 'tabata'))
+                && (curBlk?.restSec ?? restTime) > 0 && phase === 'running' && (
+                <View style={styles.phaseZoneRoundInfo}>
+                  <Text style={styles.phaseZoneRoundText}>
+                    {innerPhase === 'work'
+                      ? `REPOS DANS : ${formatTime(roundTimeLeft)}`
+                      : `EXERCICE DANS : ${formatTime(roundTimeLeft)}`}
                   </Text>
                 </View>
               )}
+            </View>
 
+            {/* Zone noire avec les stats */}
+            <View style={styles.statsZone}>
               {/* Round badges */}
-              {hasRounds && phase === 'running' && !seqPausing && (
-                <View style={styles.roundBadgesRow}>
-                  <View style={styles.roundBadge}>
-                    <Text style={[styles.roundBadgeNum, { color: phaseColor }]}>{currentRound}</Text>
-                    <Text style={styles.roundBadgeSub}>ROUND</Text>
+              {hasRounds && (
+                <View style={styles.newRoundRow}>
+                  <View style={[styles.newRoundBox, { backgroundColor: 'rgba(56,189,248,0.1)', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)' }]}>
+                    <Text style={[styles.newRoundNum, { color: '#38BDF8' }]}>{currentRound}</Text>
+                    <Text style={styles.newRoundLabel}>ROUND{"\n"}EN COURS</Text>
                   </View>
-                  <View style={[styles.roundBadgeDivider, { backgroundColor: phaseColor + '30' }]} />
-                  <View style={styles.roundBadge}>
-                    <Text style={[styles.roundBadgeNum, { color: 'rgba(255,255,255,0.7)' }]}>{roundsLeft}</Text>
-                    <Text style={styles.roundBadgeSub}>RESTANTS</Text>
+
+                  <TouchableOpacity 
+                    style={[styles.newPlayBtn, isActive && styles.newPlayBtnStop]}
+                    onPress={isActive ? handleStop : handleStart}
+                    activeOpacity={0.8}
+                  >
+                    {isActive ? (
+                      <Square color="#fff" size={28} fill="#fff" />
+                    ) : (
+                      <Play color="#fff" size={32} fill="#fff" />
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={[styles.newRoundBox, { backgroundColor: 'rgba(250,204,21,0.1)', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: 'rgba(250,204,21,0.2)' }]}>
+                    <Text style={[styles.newRoundNum, { color: '#FACC15' }]}>{roundsLeft}</Text>
+                    <Text style={styles.newRoundLabel}>CYCLES{"\n"}RESTANTS</Text>
                   </View>
                 </View>
               )}
+
+              {!hasRounds && (
+                <View style={styles.simpleControls}>
+                  <TouchableOpacity 
+                    style={[styles.newBigPlayBtn, isActive && styles.newBigPlayBtnStop]}
+                    onPress={isActive ? handleStop : handleStart}
+                    activeOpacity={0.8}
+                  >
+                    {isActive ? (
+                      <Square color="#fff" size={32} fill="#fff" />
+                    ) : (
+                      <Play color="#fff" size={36} fill="#fff" />
+                    )}
+                  </TouchableOpacity>
+                  {phase === 'ready' && (
+                    <Text style={styles.readyHint}>APPUIE POUR DÉMARRER</Text>
+                  )}
+                  {showEndWorkBtn && (
+                    <TouchableOpacity onPress={ywyrEndWork} style={[styles.ywyrBtn, { marginTop: 4 }]} activeOpacity={0.8}>
+                      <Text style={styles.ywyrBtnText}>FIN DU TRAVAIL</Text>
+                    </TouchableOpacity>
+                  )}
+                  {showEndBlockBtn && (
+                    <TouchableOpacity onPress={libreEndForTimeBlock} style={[styles.ywyrBtn, { marginTop: 4 }]} activeOpacity={0.8}>
+                      <Text style={styles.ywyrBtnText}>FIN DU BLOC</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
             </View>
-          )}
+
+            {/* Total bar */}
+            {totalWodSeconds > 0 && (
+              <View style={styles.newTotalBar}>
+                <View style={[styles.newTotalFill, { width: `${Math.round(totalProgress * 100)}%`, backgroundColor: phaseColor }]} />
+              </View>
+            )}
 
           {/* INFOBAR — titre/timestamp, uniquement en mode caméra */}
           {withCamera && (videoTitle || withTimestamp) && phase === 'running' && camState >= 2 && (
@@ -1476,86 +1841,6 @@ export default function TimerRunScreen() {
               {withTimestamp ? <Text style={styles.infoTimestamp}>{clockStr}</Text> : null}
             </View>
           )}
-
-          <View style={styles.controls}>
-            {withCamera ? (
-              /* ── SINGLE BUTTON (camera mode) ─────────────────────── */
-              <>
-                <TouchableOpacity
-                  onPress={camPrimaryAction}
-                  disabled={camState === 0 && !isCameraReady}
-                  style={[
-                    styles.camPrimaryBtn,
-                    camState === 0 && !isCameraReady && { opacity: 0.4 },
-                    camState === 1 && styles.camPrimaryBtnGo,
-                    (camState === 2 || camState === 3) && styles.camPrimaryBtnStop,
-                  ]}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.camPrimaryBtnText}>
-                    {camState === 0 && !isCameraReady ? 'Initialisation…' : camPrimaryLabel}
-                  </Text>
-                </TouchableOpacity>
-                {camState === 2 && showEndWorkBtn && (
-                  <TouchableOpacity onPress={ywyrEndWork} style={[styles.ywyrBtn, { marginTop: 12 }]} activeOpacity={0.8}>
-                    <Text style={styles.ywyrBtnText}>FIN DU TRAVAIL</Text>
-                  </TouchableOpacity>
-                )}
-                {camState === 2 && showEndBlockBtn && (
-                  <TouchableOpacity onPress={libreEndForTimeBlock} style={[styles.ywyrBtn, { marginTop: 12 }]} activeOpacity={0.8}>
-                    <Text style={styles.ywyrBtnText}>FIN DU BLOC</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            ) : (
-              /* ── MULTI BUTTON (no-camera mode) ───────────────────── */
-              <>
-                {phase === 'ready' && (
-                  <View style={styles.ctrlGroup}>
-                    <View>
-                      <TouchableOpacity onPress={handleStart} style={styles.playBtn} activeOpacity={0.8}>
-                        <Play color="#fff" size={36} fill="#fff" />
-                      </TouchableOpacity>
-                      {countdown > 0 && (
-                        <View style={styles.countdownBadge}>
-                          <Text style={styles.countdownBadgeText}>{countdown}s</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.actionLabel}>Démarrer</Text>
-                  </View>
-                )}
-                {showEndWorkBtn && (
-                  <View style={styles.ctrlGroup}>
-                    <TouchableOpacity onPress={ywyrEndWork} style={styles.ywyrBtn} activeOpacity={0.8}>
-                      <Text style={styles.ywyrBtnText}>FIN DU TRAVAIL</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleStop} style={styles.stopBtnSmall} activeOpacity={0.8}>
-                      <Square color="rgba(255,255,255,0.6)" size={22} fill="rgba(255,255,255,0.6)" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-                {showEndBlockBtn && (
-                  <View style={styles.ctrlGroup}>
-                    <TouchableOpacity onPress={libreEndForTimeBlock} style={styles.ywyrBtn} activeOpacity={0.8}>
-                      <Text style={styles.ywyrBtnText}>FIN DU BLOC</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleStop} style={styles.stopBtnSmall} activeOpacity={0.8}>
-                      <Square color="rgba(255,255,255,0.6)" size={22} fill="rgba(255,255,255,0.6)" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-                {showNormalStop && (
-                  <View style={styles.ctrlGroup}>
-                    <TouchableOpacity onPress={handleStop} style={styles.stopBtn} activeOpacity={0.8}>
-                      <Square color="#fff" size={30} fill="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.actionLabel}>Arrêter</Text>
-                  </View>
-                )}
-              </>
-            )}
-          </View>
           </View>
           )}
         </>
@@ -1693,26 +1978,26 @@ const styles = StyleSheet.create({
   containerDark: { flex: 1, backgroundColor: '#0A0A0A' },
   cameraDim: { backgroundColor: 'rgba(0,0,0,0.3)' },
   noCamera: { backgroundColor: '#111', justifyContent: 'center', alignItems: 'center' },
-  noCameraText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
-  overlay: { flex: 1, justifyContent: 'space-between', paddingVertical: 60 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24 },
+  noCameraText: { color: 'rgba(255,255,255,0.4)', ...typography.body },
+  overlay: { flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xxxl },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl },
   iconBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center', alignItems: 'center',
   },
   iconBtnDisabled: { opacity: 0.4 },
-  topCenter: { alignItems: 'center', gap: 5 },
-  modeLabel: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: 1.5 },
+  topCenter: { alignItems: 'center', gap: spacing.xxs },
+  modeLabel: { ...typography.label, color: '#FFFFFF', letterSpacing: 1.5 },
   recIndicator: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(220,38,38,0.85)', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 3,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xxs,
+    backgroundColor: 'rgba(220,38,38,0.85)', borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: spacing.xxs,
   },
   recDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#fff' },
-  recText: { fontSize: 10, fontWeight: '900', color: '#fff', letterSpacing: 1 },
-  totalLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)', minWidth: 44, textAlign: 'right' },
-  timerCenter: { alignItems: 'center', justifyContent: 'center', flex: 1, gap: 10 },
+  recText: { ...typography.overline, color: '#fff', fontSize: 10 },
+  totalLabel: { ...typography.bodySmall, color: 'rgba(255,255,255,0.5)', minWidth: 44, textAlign: 'right' },
+  timerCenter: { alignItems: 'center', justifyContent: 'center', flex: 1, gap: spacing.sm },
   countdownOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'center', alignItems: 'center', zIndex: 99,
@@ -1732,7 +2017,7 @@ const styles = StyleSheet.create({
   timerDisplay: { fontSize: SW * 0.22, fontWeight: '200', color: '#FFFFFF', letterSpacing: -2 },
   countdownBig: { fontSize: SW * 0.42, fontWeight: '200', letterSpacing: -4 },
   goText: { fontSize: SW * 0.22, fontWeight: '900', color: '#FFFFFF', letterSpacing: 6 },
-  doneLabel: { fontSize: 18, fontWeight: '900', color: 'rgba(255,255,255,0.45)', letterSpacing: 4 },
+  doneLabel: { ...typography.h4, color: 'rgba(255,255,255,0.45)', letterSpacing: 4 },
   savedBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12,
@@ -1989,5 +2274,176 @@ const styles = StyleSheet.create({
   },
   splitsTapHint: {
     fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)', letterSpacing: 1,
+  },
+
+  // NEW DESIGN - Phase-based color layout (AthleX style)
+  newHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  newHeaderType: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#10b981',
+    letterSpacing: 1.5,
+  },
+  newHeaderTotal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 0.5,
+  },
+  phaseZone: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    margin: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  phaseZoneLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 3,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  phaseZoneTimer: {
+    fontSize: SW * 0.28,
+    fontWeight: '200',
+    color: '#FFFFFF',
+    letterSpacing: -2,
+    textShadowColor: 'rgba(255,255,255,0.3)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
+  phaseZoneRoundInfo: {
+    marginTop: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  phaseZoneRoundText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#10b981',
+    letterSpacing: 1,
+  },
+  statsZone: {
+    backgroundColor: 'transparent',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+  },
+  newRoundRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,185,129,0.08)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.2)',
+  },
+  newRoundBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  newRoundNum: {
+    fontSize: 42,
+    fontWeight: '900',
+    letterSpacing: -1,
+    marginBottom: 6,
+    color: '#FFFFFF',
+  },
+  newRoundLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  newPlayBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(74,222,128,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(74,222,128,0.6)',
+    shadowColor: '#4ADE80',
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  newPlayBtnStop: {
+    backgroundColor: 'rgba(239,68,68,0.2)',
+    borderColor: 'rgba(239,68,68,0.6)',
+    shadowColor: '#EF4444',
+  },
+  simpleControls: {
+    alignItems: 'center',
+    gap: 14,
+  },
+  newBigPlayBtn: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(74,222,128,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(74,222,128,0.6)',
+    shadowColor: '#4ADE80',
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  newBigPlayBtnStop: {
+    backgroundColor: 'rgba(239,68,68,0.2)',
+    borderColor: 'rgba(239,68,68,0.6)',
+    shadowColor: '#EF4444',
+  },
+  newPlayBtnText: {
+    display: 'none',
+  },
+  readyHint: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+  },
+  newHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 0.3,
+  },
+  newTotalBar: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  newTotalFill: {
+    height: '100%',
+    borderRadius: 2,
   },
 });

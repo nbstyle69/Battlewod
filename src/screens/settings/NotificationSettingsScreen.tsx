@@ -5,7 +5,6 @@ import {
 import { ArrowLeft, Bell, Clock, Users, Trophy, Zap, MessageCircle, Heart } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
-import { Colors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import {
   NotificationPrefs,
@@ -14,6 +13,7 @@ import {
   registerForPushNotifications,
   savePushToken,
 } from '../../services/notifications';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -211,14 +211,14 @@ export default function NotificationSettingsScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
   headerTitle: { fontSize: 18, fontWeight: '900', color: t.text },
-  content: { padding: 16, gap: 20, paddingBottom: 40 },
+  content: { padding: 16, gap: 20, paddingBottom: 140 },
   section: {
     backgroundColor: t.card, borderRadius: 14, padding: 16,
     borderWidth: 1, borderColor: t.border, gap: 14,

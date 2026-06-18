@@ -9,6 +9,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { AuthStackParamList } from '../../navigation';
+import GlassBackground from '../../components/glass/GlassBackground';
+import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
@@ -29,12 +31,9 @@ export default function LoginScreen({ navigation }: Props) {
     if (error) Alert.alert('Connexion impossible', error);
   }
 
-  const gradColors = mode === 'dark'
-    ? ['#0A0A0F', '#12121A', '#0A0A0F'] as const
-    : ['#f0fdf9', '#ffffff', '#f0fdf9'] as const;
-
   return (
-    <LinearGradient colors={gradColors} style={S.gradient}>
+    <View style={S.gradient}>
+      <GlassBackground />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.flex}>
         <ScrollView contentContainerStyle={S.container} keyboardShouldPersistTaps="handled">
           <View style={S.logoContainer}>
@@ -97,12 +96,11 @@ export default function LoginScreen({ navigation }: Props) {
               <Text style={S.forgotText}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8} accessibilityLabel="Se connecter" accessibilityRole="button">
-              <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
-                {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.buttonText}>SE CONNECTER</Text>}
-              </LinearGradient>
+            <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8} accessibilityLabel="Se connecter" accessibilityRole="button"
+              style={[S.button, { backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)' }]}>
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={S.buttonText}>SE CONNECTER</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.navigate('Register')} style={S.registerLink} accessibilityLabel="Créer un compte" accessibilityRole="button">
@@ -113,43 +111,96 @@ export default function LoginScreen({ navigation }: Props) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 function createStyles(theme: AppTheme) {
   const isDark = theme.mode === 'dark';
-  const cardShadow = isDark ? {} : {
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-  };
   return StyleSheet.create({
-  gradient: { flex: 1 },
-  flex: { flex: 1 },
-  container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  logoContainer: { alignItems: 'center', marginBottom: 48 },
-  logo: {
-    width: 120, height: 120, resizeMode: 'contain', marginBottom: 16,
-  },
-  appName: { fontSize: 42, fontFamily: 'Barlow_900Black', color: theme.text, letterSpacing: 3 },
-  tagline: { fontSize: 13, color: theme.textSecondary, marginTop: 4, letterSpacing: 1 },
-  form: {
-    backgroundColor: theme.card, borderRadius: 20, padding: 24,
-    borderWidth: 1, borderColor: theme.border,
-    ...cardShadow,
-  },
-  title: { fontSize: 22, fontWeight: '700', color: theme.text, marginBottom: 24 },
-  inputContainer: { marginBottom: 16 },
-  label: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, fontWeight: '500' },
-  input: {
-    backgroundColor: isDark ? theme.surface : theme.background, borderRadius: 14, padding: 14,
-    color: theme.text, fontSize: 15, borderWidth: 1, borderColor: theme.border,
-  },
-  button: { borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-  forgotLink: { alignItems: 'flex-end', marginTop: -8, marginBottom: 8 },
-  forgotText: { color: theme.accent, fontSize: 13, fontWeight: '600' },
-  registerLink: { alignItems: 'center', marginTop: 20 },
-  registerText: { color: theme.textSecondary, fontSize: 14 },
-  registerHighlight: { color: theme.accent, fontWeight: '700' },
-}); }
+    gradient: { flex: 1, backgroundColor: 'transparent' },
+    flex: { flex: 1 },
+    container: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl },
+    logoContainer: { alignItems: 'center', marginBottom: spacing.xxxl },
+    logo: {
+      width: 100, height: 100, resizeMode: 'contain', marginBottom: spacing.md,
+    },
+    appName: { 
+      ...typography.h1, 
+      color: theme.text, 
+      letterSpacing: 2,
+      fontFamily: 'Barlow_900Black',
+    },
+    tagline: { 
+      ...typography.bodySmall, 
+      color: theme.textSecondary, 
+      marginTop: spacing.xs, 
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+    form: {
+      backgroundColor: theme.card,
+      borderRadius: borderRadius.xl,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...shadows.md,
+    },
+    title: { 
+      ...typography.h3, 
+      color: theme.text, 
+      marginBottom: spacing.lg,
+    },
+    inputContainer: { marginBottom: spacing.md },
+    label: { 
+      ...typography.label, 
+      color: theme.textSecondary, 
+      marginBottom: spacing.xs,
+      textTransform: 'none',
+    },
+    input: {
+      backgroundColor: isDark ? theme.surface : theme.background,
+      borderRadius: borderRadius.lg,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      color: theme.text,
+      ...typography.body,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    button: { 
+      borderRadius: borderRadius.lg, 
+      padding: spacing.md, 
+      alignItems: 'center', 
+      marginTop: spacing.sm,
+      justifyContent: 'center',
+    },
+    buttonText: { 
+      color: '#fff', 
+      ...typography.buttonLarge,
+    },
+    forgotLink: { 
+      alignSelf: 'flex-end', 
+      marginTop: spacing.sm, 
+      marginBottom: spacing.md,
+      paddingVertical: spacing.xs,
+    },
+    forgotText: { 
+      color: theme.accent, 
+      ...typography.button,
+    },
+    registerLink: { 
+      alignItems: 'center', 
+      marginTop: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    registerText: { 
+      color: theme.textSecondary, 
+      ...typography.body,
+    },
+    registerHighlight: { 
+      color: theme.accent, 
+      fontWeight: '700',
+    },
+  });
+}
