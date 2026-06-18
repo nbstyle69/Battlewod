@@ -139,7 +139,7 @@ export default function BOArticlesScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={S.header}>
         <Newspaper color={theme.accent} size={22} />
         <Text style={S.headerTitle}>Actualités</Text>

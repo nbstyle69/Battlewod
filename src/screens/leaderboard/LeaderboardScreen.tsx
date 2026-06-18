@@ -9,7 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';

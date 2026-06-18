@@ -159,7 +159,7 @@ export default function PersonalWODFormScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={S.container}
     >
       <GlassBackground />

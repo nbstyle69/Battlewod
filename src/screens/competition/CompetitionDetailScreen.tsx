@@ -6,7 +6,7 @@ import { ChevronLeft, Calendar, Users, Zap, Clock, Timer } from 'lucide-react-na
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel } from '../../types';
 import { HomeStackParamList, TimerType } from '../../navigation';
 import { supabase } from '../../lib/supabase';

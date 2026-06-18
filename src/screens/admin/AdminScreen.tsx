@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Shield, CheckCircle, XCircle, Video, Clock, Users, Trophy, LogOut, Youtube, AlertTriangle, Zap, Plus, Trash2, Megaphone } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { formatScoreValue } from '../../utils/scoreFormat';
@@ -525,7 +525,7 @@ export default function AdminScreen() {
 
       {/* Changelog create modal */}
       <Modal visible={clModal} transparent animationType="slide">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={S.modalOverlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
           <View style={S.modalCard}>
             <Text style={S.modalTitle}>Nouvelle entrée changelog</Text>
 

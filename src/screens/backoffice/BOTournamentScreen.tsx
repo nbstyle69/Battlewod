@@ -17,7 +17,7 @@ import { sendTournamentClosedNotification } from '../../services/notifications';
 import { incrementCounter, checkAndAwardBadges } from '../../services/gamification';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import {
   TournamentScore, MOVEMENT_BADGE_LEVELS,

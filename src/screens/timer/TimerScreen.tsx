@@ -11,14 +11,14 @@ import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Timer'>;
 
-const TABS: { key: TimerType; label: string }[] = [
-  { key: 'for-time',  label: 'FOR TIME' },
-  { key: 'amrap',     label: 'AMRAP' },
-  { key: 'emom',      label: 'EMOM' },
-  { key: 'tabata',    label: 'TABATA' },
-  { key: 'ywyr',      label: 'YWYR' },
-  { key: 'splits',    label: 'SPLITS' },
-  { key: 'libre',     label: 'PERSONNALISÉ' },
+const TABS: { key: TimerType; label: string; emoji: string; desc: string }[] = [
+  { key: 'for-time',  label: 'FOR TIME',     emoji: '⏱',  desc: 'Chrono montant avec cap optionnel' },
+  { key: 'amrap',     label: 'AMRAP',        emoji: '🔄',  desc: 'As Many Rounds As Possible' },
+  { key: 'emom',      label: 'EMOM',         emoji: '📡',  desc: 'Every Minute On the Minute' },
+  { key: 'tabata',    label: 'TABATA',       emoji: '⚡',  desc: 'Intervalles travail / repos' },
+  { key: 'ywyr',      label: 'YWYR',         emoji: '💪',  desc: 'Your Work Your Rest' },
+  { key: 'splits',    label: 'SPLITS',       emoji: '✂️',  desc: 'Rounds chronométrés séparément' },
+  { key: 'libre',     label: 'PERSONNALISÉ', emoji: '🔧',  desc: 'Séquence de blocs sur mesure' },
 ];
 
 const BLOCK_TYPES: { key: BlockType; label: string }[] = [
@@ -369,7 +369,7 @@ export default function TimerScreen() {
           activeOpacity={0.8}
         >
           <Text style={S.typeSelectorText}>
-            {TABS.find(t => t.key === activeTab)?.label || 'FOR TIME'}
+            {TABS.find(t => t.key === activeTab)?.emoji} {TABS.find(t => t.key === activeTab)?.label || 'FOR TIME'}
           </Text>
           <ChevronLeft color={theme.accent} size={20} style={{ transform: [{ rotate: '-90deg' }] }} />
         </TouchableOpacity>
@@ -385,7 +385,7 @@ export default function TimerScreen() {
           <View style={S.pickerSheet}>
             <View style={S.pickerHandle} />
             <Text style={S.pickerTitle}>Choisir un format</Text>
-            {TABS.map(({ key, label }) => (
+            {TABS.map(({ key, label, emoji, desc }) => (
               <TouchableOpacity
                 key={key}
                 style={[S.pickerItem, activeTab === key && S.pickerItemActive]}
@@ -395,9 +395,17 @@ export default function TimerScreen() {
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={[S.pickerItemText, activeTab === key && S.pickerItemTextActive]}>
-                  {label}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                  <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[S.pickerItemText, activeTab === key && S.pickerItemTextActive]}>
+                      {label}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: activeTab === key ? theme.accent + 'BB' : theme.textMuted, marginTop: 1 }}>
+                      {desc}
+                    </Text>
+                  </View>
+                </View>
                 {activeTab === key && (
                   <View style={S.pickerCheck}>
                     <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text>

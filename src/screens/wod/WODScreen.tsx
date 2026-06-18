@@ -6,7 +6,7 @@ import { Zap, Clock, ChevronRight, Filter, Sparkles } from 'lucide-react-native'
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel, WOD } from '../../types';
 import { WODStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';

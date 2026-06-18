@@ -2,7 +2,7 @@
   "expo": {
     "name": "AthleX",
     "slug": "TheHub",
-    "version": "1.0.40",
+    "version": "1.0.41",
     "orientation": "portrait",
     "icon": "./assets/athex-logo.png",
     "userInterfaceStyle": "light",
@@ -47,7 +47,7 @@
         "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ],
       "package": "com.athlex.app",
-      "versionCode": 40,
+      "versionCode": 41,
       "intentFilters": [
         {
           "action": "VIEW",

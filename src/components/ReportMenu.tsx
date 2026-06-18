@@ -135,7 +135,7 @@ export default function ReportMenu({
       {/* Report reason modal */}
       <Modal visible={reportModal} transparent animationType="slide" onRequestClose={() => setReportModal(false)}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
           <View style={S.reportBackdrop}>

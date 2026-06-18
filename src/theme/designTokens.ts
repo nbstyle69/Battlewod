@@ -138,6 +138,16 @@ export const zIndex = {
   toast: 500,
 } as const;
 
+// Athlete level colors — single source of truth
+export const LevelColors: Record<string, string> = {
+  scaled:      '#6B7280',
+  inter:       '#3B82F6',
+  rx:          '#16A34A',
+  'rx+':       '#D97706',
+  elite:       '#7C3AED',
+  pro:         '#DC2626',
+};
+
 // Animation timings
 export const timing = {
   fast: 150,

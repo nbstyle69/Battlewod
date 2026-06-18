@@ -187,7 +187,7 @@ export default function ArticlesScreen() {
   // ── Detail view ──
   if (selectedArticle) {
     return (
-      <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <GlassBackground />
         <View style={S.header}>
           <TouchableOpacity onPress={() => { setSelectedArticle(null); setComments([]); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>

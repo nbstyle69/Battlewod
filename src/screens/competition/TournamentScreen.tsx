@@ -17,7 +17,7 @@ import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { scheduleTournamentReminder } from '../../services/notifications';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel } from '../../types';
 import { CompetitionStackParamList } from '../../navigation';
 import {

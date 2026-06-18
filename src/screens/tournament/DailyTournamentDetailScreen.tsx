@@ -13,7 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { hapticSuccess } from '../../lib/haptics';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { cancelTodayScoreReminder } from '../../services/notifications';

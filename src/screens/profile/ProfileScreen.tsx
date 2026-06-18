@@ -14,7 +14,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { Colors, LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
@@ -102,16 +102,17 @@ const BADGE_CATEGORY_MAP: Record<string, string> = {
   tournament: 'Compétition',
   social: 'Communauté',
   wod: 'Entraînement',
-  elo: 'Classement',
+  elo: 'Classement ELO',
+  Classement: 'Classement',
 };
-const CATEGORY_ORDER = ['activity', 'tournament', 'wod', 'elo', 'social'];
+const CATEGORY_ORDER = ['activity', 'tournament', 'wod', 'elo', 'Classement', 'social'];
 
 export default function ProfileScreen() {
   const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser, myBoxes, switchBox } = useAuth();
   const { theme, mode, toggleTheme } = useTheme();
   const navigation = useNavigation<Nav>();
   const S = createStyles(theme);
-  const [activeTab, setActiveTab]   = useState(3);
+  const [activeTab, setActiveTab]   = useState(0);
   const [expandedPR, setExpandedPR] = useState<string | null>('Haltérophilie');
 
   // ── Referral code
@@ -127,6 +128,7 @@ export default function ProfileScreen() {
   // ── PR editing
   const [editingPR, setEditingPR] = useState<string | null>(null);
   const [prValues, setPrValues] = useState<Record<string, string>>({});
+  const [featuredBadges, setFeaturedBadges] = useState<string[]>([]);
 
   // ── Box join modal
   const [joinModal, setJoinModal]   = useState(false);
@@ -245,8 +247,10 @@ export default function ProfileScreen() {
     if (!profileData) return;
     setWodCount(profileData.wodCount);
     if (profileData.prValues && typeof profileData.prValues === 'object') {
-      const prs = profileData.prValues as Record<string, string>;
-      setPrValues(prev => ({ ...prev, ...prs }));
+      const prs = profileData.prValues as Record<string, string | string[]>;
+      const { _featured_badges, ...rest } = prs as any;
+      setPrValues(prev => ({ ...prev, ...(rest as Record<string, string>) }));
+      if (Array.isArray(_featured_badges)) setFeaturedBadges(_featured_badges);
     }
     setBadgesCatalog(profileData.badgesCatalog);
     setEarnedBadges(profileData.earnedBadges);
@@ -280,7 +284,20 @@ export default function ProfileScreen() {
 
   async function savePRs(updated: Record<string, string>) {
     if (!user) return;
-    await supabase.from('profiles').update({ personal_records: updated }).eq('id', user.id);
+    await supabase.from('profiles').update({ personal_records: { ...updated, _featured_badges: featuredBadges } }).eq('id', user.id);
+  }
+
+  async function toggleFeaturedBadge(badgeKey: string) {
+    if (!user) return;
+    let next: string[];
+    if (featuredBadges.includes(badgeKey)) {
+      next = featuredBadges.filter(k => k !== badgeKey);
+    } else {
+      if (featuredBadges.length >= 3) return;
+      next = [...featuredBadges, badgeKey];
+    }
+    setFeaturedBadges(next);
+    await supabase.from('profiles').update({ personal_records: { ...prValues, _featured_badges: next } }).eq('id', user.id);
   }
 
   async function loadWodCount() {
@@ -561,12 +578,17 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
   const earnedCount = earnedBadges.length;
   const totalBadges = badgesCatalog.length;
 
-  // Group badges by category
-  const badgesByCategory = CATEGORY_ORDER.map(cat => ({
-    key: cat,
-    label: BADGE_CATEGORY_MAP[cat] ?? cat,
-    badges: badgesCatalog.filter(b => b.category === cat),
-  })).filter(c => c.badges.length > 0);
+  // Group badges by category — show ALL categories from DB (CATEGORY_ORDER first, unknowns appended)
+  const badgesByCategory = (() => {
+    const allCats = [...new Set(badgesCatalog.map(b => b.category))];
+    const ordered = CATEGORY_ORDER.filter(c => allCats.includes(c));
+    const extras  = allCats.filter(c => !CATEGORY_ORDER.includes(c));
+    return [...ordered, ...extras].map(cat => ({
+      key: cat,
+      label: BADGE_CATEGORY_MAP[cat] ?? cat,
+      badges: badgesCatalog.filter(b => b.category === cat),
+    }));
+  })();
 
   return (
     <View style={S.container}>
@@ -747,6 +769,9 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                 {' '}badges obtenus sur{' '}
                 <Text style={{ fontWeight: '900' }}>{totalBadges}</Text>
               </Text>
+              <Text style={{ fontSize: 11, color: theme.accent, fontWeight: '700' }}>
+                ⭐ {featuredBadges.length}/3 épinglés
+              </Text>
             </View>
             {/* Streak widget */}
             <View style={S.streakWidget}>
@@ -760,21 +785,35 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               </View>
             </View>
 
+            <Text style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, marginTop: -4 }}>
+              Appuie sur un badge débloqué pour l’épingler sur ton profil public
+            </Text>
+
             {badgesByCategory.map((cat) => (
               <View key={cat.key} style={S.badgeCategoryBlock}>
                 <Text style={S.badgeCategoryTitle}>{cat.label}</Text>
                 <View style={S.badgesGrid}>
                   {cat.badges.map((badge) => {
                     const earned = earnedKeys.has(badge.badge_key);
+                    const isFeatured = featuredBadges.includes(badge.badge_key);
+                    const canFeature = earned && (isFeatured || featuredBadges.length < 3);
                     return (
-                      <View key={badge.badge_key} style={[S.badgeCard, !earned && S.badgeCardLocked]}>
+                      <TouchableOpacity
+                        key={badge.badge_key}
+                        style={[S.badgeCard, !earned && S.badgeCardLocked, isFeatured && { borderColor: '#f59e0b', borderWidth: 2 }]}
+                        onPress={() => canFeature && toggleFeaturedBadge(badge.badge_key)}
+                        activeOpacity={earned ? 0.75 : 1}
+                      >
+                        {isFeatured && (
+                          <Text style={{ position: 'absolute', top: 4, right: 4, fontSize: 12 }}>⭐</Text>
+                        )}
                         <Text style={S.badgeIcon}>{earned ? badge.icon : '🔒'}</Text>
                         <Text style={[S.badgeName, !earned && { color: theme.textMuted }]}>
                           {badge.title}
                         </Text>
                         <Text style={S.badgeDesc}>{badge.description}</Text>
                         {earned && <View style={S.earnedBar} />}
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>

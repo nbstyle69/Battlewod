@@ -484,7 +484,7 @@ export default function WhiteboardScreen() {
 
   // Fetch personal WODs (box_id IS NULL, created_by = user) when no current box
   const loadPersonalWODs = useCallback(async () => {
-    if (!user || currentBox) { setPersonalWODs([]); return; }
+    if (!user) { setPersonalWODs([]); return; }
     const { data } = await supabase
       .from('box_wods')
       .select('*')
@@ -493,7 +493,7 @@ export default function WhiteboardScreen() {
       .eq('scheduled_date', selectedDate)
       .order('sort_order');
     setPersonalWODs((data ?? []) as BoxWOD[]);
-  }, [user, currentBox, selectedDate]);
+  }, [user, selectedDate]);
 
   useFocusEffect(useCallback(() => { loadPersonalWODs(); }, [loadPersonalWODs]));
 
@@ -931,6 +931,52 @@ export default function WhiteboardScreen() {
             <View style={S.noWodCard}>
               <Text style={S.noWodEmoji}>📋</Text>
               <Text style={S.noWodText}>Pas de WOD publié ce jour</Text>
+            </View>
+          )}
+
+          {/* ── Mes WODs perso (générateur) ─────────────────── */}
+          {personalWODs.length > 0 && (
+            <View style={{ marginTop: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Sparkles color={theme.accent} size={16} />
+                <Text style={[S.sectionTitle, { marginBottom: 0 }]}>Mes séances perso</Text>
+              </View>
+              <View style={S.dayGroup}>
+                {personalWODs.map(wod => (
+                  <TouchableOpacity
+                    key={wod.id}
+                    style={[S.wodCard, { borderLeftWidth: 3, borderLeftColor: `${theme.accent}80` }]}
+                    onPress={() => navigation.navigate('PersonalWODForm', { wodId: wod.id, date: selectedDate })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={S.wodCardTop}>
+                      <WodTypeBadge type={wod.wod_type} />
+                      {wod.time_cap_seconds != null && (
+                        <View style={S.timeCap}>
+                          <Clock color={theme.textMuted} size={12} />
+                          <Text style={S.timeCapText}>Cap {Math.floor(wod.time_cap_seconds / 60)} min</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={S.wodTitle}>{wod.title}</Text>
+                    {wod.description ? <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text> : null}
+                    <View style={S.wodCardFooter}>
+                      <View style={S.wodCardAction}>
+                        <Text style={S.wodCardActionText}>Modifier</Text>
+                        <ChevronRight color={theme.accent} size={14} />
+                      </View>
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation(); openTimerModal(wod); }}
+                        style={S.timerBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        activeOpacity={0.8}
+                      >
+                        <TimerIcon color={theme.accent} size={16} />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
 

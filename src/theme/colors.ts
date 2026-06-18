@@ -1,15 +1,15 @@
 export const Colors = {
-  background: '#F8F8FA',
+  background: '#ffffff',
   card: '#FFFFFF',
   cardBorder: '#E2E2EA',
   surface: '#F1F1F5',
   surfaceAlt: '#E8E8EE',
   primary: '#1A1A2E',
   primaryLight: '#3A3A50',
-  accent: '#059669',
+  accent: '#10b981',
   accentDark: '#047857',
   accentLight: '#34d399',
-  accentShadow: 'rgba(5,150,105,0.30)',
+  accentShadow: 'rgba(16,185,129,0.30)',
   secondary: '#6B6B80',
   gold: '#FFD700',
   silver: '#C0C0C0',
@@ -26,16 +26,9 @@ export const Colors = {
   border: '#E2E2EA',
   tabBar: '#FFFFFF',
   tabBarBorder: '#E8E8EE',
-  tabBarActive: '#059669',
+  tabBarActive: '#10b981',
   tabBarInactive: '#9E9EB0',
   shadow: 'rgba(0,0,0,0.06)',
 };
 
-export const LevelColors: Record<string, string> = {
-  scaled:  '#6B7280',
-  inter:   '#3B82F6',
-  rx:      '#16A34A',
-  'rx+':   '#D97706',
-  elite:   '#7C3AED',
-  pro:     '#DC2626',
-};
+export { LevelColors } from './designTokens';

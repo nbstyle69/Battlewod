@@ -8,7 +8,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { CompetitionStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';

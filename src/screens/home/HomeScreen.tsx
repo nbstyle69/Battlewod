@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Modal, Pressable,
-  RefreshControl, LayoutAnimation, UIManager, Platform,
+  RefreshControl, LayoutAnimation, UIManager, Platform, Animated,
 } from 'react-native';
 import {
   Trophy, Timer, BarChart2, Sparkles, Target, User, Users, Bell, ChevronDown,
@@ -17,13 +17,13 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { LevelColors } from '../../theme/colors';
+import { LevelColors } from '../../theme/designTokens';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { formatScoreValue } from '../../utils/scoreFormat';
-import { getStreak, StreakInfo } from '../../services/gamification';
+import { getStreak, StreakInfo, readBadgeQueue, clearBadgeQueue, BadgeQueueItem } from '../../services/gamification';
 import AutoScrollCarousel from '../../components/AutoScrollCarousel';
 import GlassBackground from '../../components/glass/GlassBackground';
 import GlassCard from '../../components/glass/GlassCard';
@@ -73,6 +73,38 @@ export default function HomeScreen() {
   const [favCount,        setFavCount]        = useState(0);
   const [bestScores,      setBestScores]      = useState<{name:string; value:string; type:string}[]>([]);
   const [physComps,       setPhysComps]       = useState<{id:string; name:string; logo_url:string|null; mode:string}[]>([]);
+
+  // ── Badge unlock popup
+  const [badgePopup, setBadgePopup] = useState<BadgeQueueItem | null>(null);
+  const badgeQueueRef = useRef<BadgeQueueItem[]>([]);
+  const popupAnim    = useRef(new Animated.Value(120)).current;
+  const popupOpacity = useRef(new Animated.Value(0)).current;
+  const popupProgress = useRef(new Animated.Value(0)).current;
+  const popupTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showNextBadge() {
+    if (badgeQueueRef.current.length === 0) { setBadgePopup(null); return; }
+    const item = badgeQueueRef.current.shift()!;
+    setBadgePopup(item);
+    popupAnim.setValue(120);
+    popupOpacity.setValue(0);
+    popupProgress.setValue(0);
+    Animated.parallel([
+      Animated.spring(popupAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }),
+      Animated.timing(popupOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+    ]).start();
+    Animated.timing(popupProgress, { toValue: 1, duration: 3000, useNativeDriver: false }).start();
+    if (popupTimer.current) clearTimeout(popupTimer.current);
+    popupTimer.current = setTimeout(() => dismissBadgePopup(), 3200);
+  }
+
+  function dismissBadgePopup() {
+    if (popupTimer.current) clearTimeout(popupTimer.current);
+    Animated.parallel([
+      Animated.timing(popupAnim, { toValue: 120, duration: 220, useNativeDriver: true }),
+      Animated.timing(popupOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => showNextBadge());
+  }
 
   const { data: homeData, isLoading: homeDataLoading, refetch: refetchHome } = useFocusQuery(
     ['home', user?.id, currentBox?.id],
@@ -299,6 +331,20 @@ export default function HomeScreen() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      // Check badge queue
+      readBadgeQueue(user.id).then(async (q) => {
+        if (q.length > 0) {
+          await clearBadgeQueue(user.id);
+          badgeQueueRef.current = q;
+          showNextBadge();
+        }
+      });
+    }, [user?.id])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -563,6 +609,33 @@ export default function HomeScreen() {
           </Pressable>
         </Modal>
 
+      {/* ── Badge unlock popup ──────────────────────────────────────── */}
+      {badgePopup && (
+        <Animated.View
+          style={[S.badgePopupWrap, {
+            transform: [{ translateY: popupAnim }],
+            opacity: popupOpacity,
+          }]}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity onPress={dismissBadgePopup} activeOpacity={0.9} style={S.badgePopupCard}>
+            <View style={S.badgePopupIconRow}>
+              <Text style={S.badgePopupIcon}>{badgePopup.icon}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={S.badgePopupHeader}>🏅 Badge débloqué !</Text>
+                <Text style={S.badgePopupTitle}>{badgePopup.title}</Text>
+                <Text style={S.badgePopupDesc} numberOfLines={2}>{badgePopup.description}</Text>
+              </View>
+            </View>
+            <View style={S.badgeProgressTrack}>
+              <Animated.View style={[S.badgeProgressFill, {
+                width: popupProgress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+              }]} />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
         {/* ── Compétitions physiques ─────────────────────────────────── */}
         {physComps.length > 0 && (
           <>
@@ -788,6 +861,25 @@ function createStyles(t: AppTheme) {
     resultDate: { ...typography.caption, color: textSecondary, marginTop: spacing.xxs },
     resultStatus: { ...typography.overline },
     resultScore: { ...typography.caption, color: textSecondary, marginTop: spacing.xxs },
+
+    // Badge unlock popup
+    badgePopupWrap: {
+      position: 'absolute', bottom: 100, left: 16, right: 16, zIndex: 99,
+    },
+    badgePopupCard: {
+      backgroundColor: isDark ? 'rgba(10,20,15,0.97)' : 'rgba(240,255,248,0.97)',
+      borderRadius: 20, padding: 16,
+      borderWidth: 1.5, borderColor: '#10b981',
+      shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12,
+      elevation: 10,
+    },
+    badgePopupIconRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 },
+    badgePopupIcon: { fontSize: 44 },
+    badgePopupHeader: { fontSize: 10, fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 },
+    badgePopupTitle: { fontSize: 16, fontWeight: '900', color: t.text, marginBottom: 2 },
+    badgePopupDesc: { fontSize: 12, color: t.textSecondary, lineHeight: 16 },
+    badgeProgressTrack: { height: 3, backgroundColor: t.surface, borderRadius: 2, overflow: 'hidden' },
+    badgeProgressFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 2 },
 
     // Box picker modal
     boxPickerOverlay: { flex: 1, backgroundColor: t.modalBackdrop, justifyContent: 'flex-end', paddingBottom: spacing.xl },

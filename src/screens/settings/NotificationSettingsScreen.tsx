@@ -5,7 +5,6 @@ import {
 import { ArrowLeft, Bell, Clock, Users, Trophy, Zap, MessageCircle, Heart } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
-import { Colors } from '../../theme/colors';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import {
   NotificationPrefs,

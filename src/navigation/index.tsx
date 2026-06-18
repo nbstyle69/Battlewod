@@ -25,7 +25,6 @@ import KettlebellIcon from '../components/KettlebellIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useAuth } from '../context/AuthContext';
-import { Colors } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import GlassTabBarBackground from '../components/glass/GlassTabBarBackground';
 
