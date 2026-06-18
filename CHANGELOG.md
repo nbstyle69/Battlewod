@@ -1,5 +1,87 @@
 # Changelog
 
+## v1.0.42 — 18 juin 2026
+
+### Tests & CI/CD
+
+- **Jest (mobile)** — Suite complète de tests unitaires : `wodToTimer.test.ts` (44 tests), `gamification.test.ts` (21 tests), `elo.test.ts`, `eloLevels.test.ts`, `movementParser.test.ts`, `computeMaxScore.test.ts`, `tournamentUtils.test.ts`, `notificationRouter.test.ts`, `scoreFormat.test.ts`, `useFocusQuery.test.ts` → **193 tests au total**
+- **Jest (Test-admin)** — Nouveau setup Jest avec `ts-jest` + mocks `next/server`, `next/headers` ; 3 suites API : `admin-boxes.test.ts`, `daily-tournaments.test.ts`, `invite-code.test.ts` → **24 tests**
+- **GitHub Actions** — `ci.yml` (tests + lint sur chaque push) + `integration.yml` (tests d'intégration)
+- **`scripts/test-rls.mjs`** — Script de sécurité RLS : vérifie l'isolation des profils, scores, boxes et tables admin via des users de test temporaires
+
+---
+
+### Système ELO — Refactoring (calcul différé)
+
+- **K_PAIRWISE** : 32 → 64 (max ±32 ELO par WOD/mini-tournoi)
+- Calcul ELO **différé (lazy)** pour les 3 modes : Whiteboard, Mini-Tournoi, Tournoi BO
+- `WODDetailScreen.tsx` — ELO calculé au chargement si WOD expiré et pas d'historique
+- `DailyTournamentDetailScreen.tsx` — ELO calculé après clôture du tournoi, deltas masqués avant
+- `BOTournamentScreen.tsx` — `performTournamentClose()` réutilisable + auto-close si `end_date` dépassé
+- Guard anti-double-calcul via `tournament_elo_history` / `elo_history`
+
+---
+
+### Gamification — Système de badges & streaks (#14)
+
+- **18 badges** dans 5 catégories : Régularité (5), Compétition (4), Entraînement (3), Classement (3), Communauté (2)
+- **Streaks** : basé sur semaines actives (3+ sessions = semaine validée), reset si semaine manquée
+- **`src/services/gamification.ts`** — `incrementCounter`, `recordActivity`, `checkAndAwardBadges`, `awardBadge` (notification locale), `getBadgesCatalog`, `getEarnedBadges`, `getStreak`
+- Tracking intégré sur 10 écrans (ProfileScreen, HomeScreen, TimerRunScreen, BOTournamentScreen, etc.)
+- Notification locale immédiate au déblocage d'un badge (`expo-notifications`)
+- **Migration SQL** : `20260321_gamification.sql` — tables `badges_catalog`, `athlete_streaks`, colonnes compteurs dans `profiles`
+
+---
+
+### Deep Linking — athlex:// (#50)
+
+- Scheme `athlex://` + Universal Links `https://athlex.app`
+- Routes : `wod/{id}`, `tournament/{id}`, `daily/{id}`, `profile/{id}`, `user/{id}`, `inter/{id}`
+- `src/navigation/linking.ts` + `app.json` (associatedDomains iOS, intentFilters Android)
+
+---
+
+### Générateur WOD — Refactoring Hyrox Zone5
+
+- **Nouveau type `HyroxIntent`** : `race_prep | complete | interval | engine | aerobic | run_interval | strength`
+- 7 branches de génération (Named WOD, Race Sim, Complete, Interval, Engine, Aerobic, Run Interval, Strength)
+- Champ `rpe`, `sessionLabel`, `coachingNotes` ajoutés à `HyroxWOD`
+- Picker UI horizontal avec emoji + label + RPE
+- `WODGeneratorScreen.tsx` + `WodGeneratorCard.tsx` mis à jour
+
+---
+
+### Programmes payants — Marketplace Stripe Connect
+
+- **Tables** : `programs`, `program_wods`, `program_members`, `program_scores` + colonnes `stripe_account_id` sur `boxes`
+- **`BOProgramsScreen.tsx`** — Création/édition de programmes (fixed 6/8/12 sem ou ongoing)
+- **`BOProgramEditorScreen.tsx`** — Éditeur semaine/jour des WODs du programme
+- `WhiteboardScreen.tsx` — Affichage des WODs programme sous les WODs box (groupé par programme)
+- `ProfileScreen.tsx` — Section "Mes Programmes" + modal rejoindre avec invite_code
+- Commission plateforme : 4% via `application_fee` Stripe Connect
+
+---
+
+### Back-Office Web (Test-admin)
+
+- Nouvelles pages : membres, WODs tournoi, utilisateurs admin
+- API routes : `admin/boxes`, `admin/boxes/[id]`, `admin/daily-tournaments`, `box/invite-code`, `upload-box-logo`, `ai-analysis`
+- Composant `TournamentWODManager.tsx`
+
+---
+
+### Build & Déploiement
+
+- **Version** : `1.0.42`
+- **Android** : `versionCode 42`
+- **iOS** : `buildNumber 20`
+
+---
+
+**~217 tests · 193 (mobile) + 24 (BO web)**
+
+---
+
 ## v1.0.27 — 5 avril 2026
 
 ### Android — Réécriture complète du module vidéo (Camera2 API)
