@@ -1,0 +1,99 @@
+name: Integration Tests (Supabase)
+
+on:
+  # Déclenchement manuel depuis GitHub Actions → "Run workflow"
+  workflow_dispatch:
+    inputs:
+      keep_data:
+        description: 'Garder les données de test en DB (--keep-data)'
+        required: false
+        default: false
+        type: boolean
+      suite:
+        description: 'Suite à exécuter'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - agents
+          - formats
+          - league
+          - bo-owner
+          - athlete
+
+  # Déclenchement automatique uniquement sur push vers main (pas sur PR)
+  push:
+    branches: [main, master]
+    paths:
+      - 'scripts/test-*.mjs'
+      - 'supabase/migrations/**'
+
+jobs:
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Set keep-data flag
+        id: flags
+        run: |
+          if [ "${{ github.event.inputs.keep_data }}" = "true" ]; then
+            echo "extra_flag=--keep-data" >> $GITHUB_OUTPUT
+          else
+            echo "extra_flag=" >> $GITHUB_OUTPUT
+          fi
+
+      # ── Run selected suite or all ──────────────────────────────────────────
+      - name: Suite — Multi-Agent Tournaments
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'agents' || github.event_name == 'push' }}
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: node scripts/test-agents.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      - name: Suite — Tournament Formats (bracket/swiss/league)
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'formats' || github.event_name == 'push' }}
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: node scripts/test-formats.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      - name: Suite — League Detailed (32 agents, 5 saisons)
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'league' || github.event_name == 'push' }}
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: node scripts/test-league-detailed.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      - name: Suite — BO Owner (full lifecycle)
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'bo-owner' || github.event_name == 'push' }}
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: node scripts/test-bo-owner.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      - name: Suite — Athlete (app mobile flows)
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'athlete' || github.event_name == 'push' }}
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: node scripts/test-athlete.mjs ${{ steps.flags.outputs.extra_flag }}
