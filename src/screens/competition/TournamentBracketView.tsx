@@ -18,6 +18,7 @@ type Match = {
 };
 
 type Profile = { id: string; username: string; level?: string };
+type WodLite = { id: string; title: string; bracket_stage: number | null };
 
 interface Props {
   tournamentId: string;
@@ -31,6 +32,7 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
   const [loading, setLoading] = useState(true);
   const [matches, setMatches] = useState<Match[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [wods, setWods] = useState<WodLite[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +48,12 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
       if (cancelled) return;
       const list = (m ?? []) as Match[];
       setMatches(list);
+
+      const { data: w } = await (supabase as any)
+        .from('tournament_wods')
+        .select('id, title, bracket_stage')
+        .eq('tournament_id', tournamentId);
+      if (!cancelled) setWods((w ?? []) as WodLite[]);
 
       const ids = Array.from(new Set(
         list.flatMap(x => [x.participant1_id, x.participant2_id, x.winner_id, x.loser_id])
@@ -97,6 +105,13 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
   const wbRounds = Object.keys(grouped.wb).map(Number).sort((a, b) => a - b);
   const lbRounds = Object.keys(grouped.lb).map(Number).sort((a, b) => a - b);
 
+  // Map each WB round to its assigned WOD via bracket_stage (distance to final).
+  const maxWBRound = wbRounds.length ? wbRounds[wbRounds.length - 1] : 0;
+  function wodNameForRound(r: number): string | null {
+    const stage = maxWBRound - r;
+    return wods.find(w => w.bracket_stage === stage)?.title ?? null;
+  }
+
   function name(id: string | null) {
     if (!id) return '—';
     return profiles[id]?.username ?? id.slice(0, 6);
@@ -120,12 +135,18 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
       <Text style={S.sectionTitle}><Crown color="#F5C518" size={14} />  {format === 'swiss' ? 'Winner Bracket' : 'Bracket'}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          {wbRounds.map(r => (
-            <View key={`wb-${r}`} style={S.column}>
-              <Text style={S.colTitle}>Round {r}</Text>
-              {grouped.wb[r].map(m => <MatchBox key={m.id} m={m} />)}
-            </View>
-          ))}
+          {wbRounds.map(r => {
+            const wodName = wodNameForRound(r);
+            return (
+              <View key={`wb-${r}`} style={S.column}>
+                <Text style={S.colTitle}>Round {r}</Text>
+                {wodName ? (
+                  <View style={S.wodPill}><Text style={S.wodPillText} numberOfLines={1}>🏋️ {wodName}</Text></View>
+                ) : null}
+                {grouped.wb[r].map(m => <MatchBox key={m.id} m={m} />)}
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -174,6 +195,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   sectionTitle: { color: theme.textPrimary, fontSize: 12, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center' },
   column: { width: 200, gap: 10 },
   colTitle: { color: theme.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 },
+  wodPill: { alignSelf: 'flex-start', backgroundColor: 'rgba(168,85,247,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 8 },
+  wodPillText: { color: '#C4A0F5', fontSize: 10, fontWeight: '800' },
   match: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   matchMine: { borderColor: theme.accent + '60' },
   matchWon: { backgroundColor: 'rgba(34,197,94,0.08)' },

@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl, Share,
@@ -40,6 +39,10 @@ function wodStatusLabel(status: string) {
   if (status === 'active')  return 'En cours';
   if (status === 'closed')  return 'Terminé';
   return 'À venir';
+}
+const BRACKET_STAGE_LABELS = ['Finale', 'Demi-finale', 'Quart de finale', '8e de finale', '16e de finale', '32e de finale'];
+function bracketStageLabel(stage: number) {
+  return BRACKET_STAGE_LABELS[stage] ?? `Étape ${stage}`;
 }
 
 export default function TournamentScreen() {
@@ -95,14 +98,9 @@ export default function TournamentScreen() {
       : allWods;
     setWods(filteredWods as TournamentWOD[]);
 
-    // Merge server result with local cache (handles RLS SELECT blocks)
-    const cacheKey = `@athlex:registered:${user?.id}:${tournamentId}`;
-    const cached   = await AsyncStorage.getItem(cacheKey);
-    const registered = !!myReg || cached === 'true';
+    // Server is the single source of truth (self SELECT policy guarantees read)
+    const registered = !!myReg;
     setIsRegistered(registered);
-    // Keep cache in sync with server
-    if (myReg)   await AsyncStorage.setItem(cacheKey, 'true');
-    else if (!myReg && !registered) await AsyncStorage.removeItem(cacheKey);
 
     // ── Separate profile fetch to bypass FK ambiguity ──────────────────────
     const participantList = tp ?? [];
@@ -184,8 +182,6 @@ export default function TournamentScreen() {
         Alert.alert('Erreur inscription', error.message);
         return;
       }
-      // Persist registration locally so cold-restart survives RLS
-      await AsyncStorage.setItem(`@athlex:registered:${user.id}:${tournamentId}`, 'true');
       setIsRegistered(true);
       if (tournament?.start_date) {
         scheduleTournamentReminder(tournamentId, tournament.name, tournament.start_date).catch(e => captureError(e, { action: 'scheduleTournamentReminder' }));
@@ -288,7 +284,6 @@ export default function TournamentScreen() {
             .eq('tournament_id', tournamentId)
             .eq('athlete_id', user.id);
           if (error) { Alert.alert('Erreur', error.message); return; }
-          await AsyncStorage.removeItem(`@athlex:registered:${user.id}:${tournamentId}`);
           setIsRegistered(false);
           load();
         }},
@@ -366,6 +361,28 @@ export default function TournamentScreen() {
             )}
             {tournament.prize ? <Text style={S.prize}>{tournament.prize}</Text> : null}
           </View>
+
+          {/* ── Personal registration status (persistent, all tabs) ── */}
+          {user && (
+            isRegistered ? (
+              <View style={[S.myStatusPill, { backgroundColor: `${theme.success}22`, borderColor: `${theme.success}55` }]}>
+                <CheckCircle color={theme.success} size={15} />
+                <Text style={[S.myStatusText, { color: theme.success }]}>
+                  {myScores.length > 0 ? 'Inscrit · score soumis' : 'Tu es inscrit'}
+                </Text>
+              </View>
+            ) : isFull ? (
+              <View style={[S.myStatusPill, { backgroundColor: `${theme.error}22`, borderColor: `${theme.error}55` }]}>
+                <Lock color={theme.error} size={15} />
+                <Text style={[S.myStatusText, { color: theme.error }]}>Tournoi complet</Text>
+              </View>
+            ) : tournament.status === 'open' ? (
+              <View style={[S.myStatusPill, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.2)' }]}>
+                <Zap color="rgba(255,255,255,0.85)" size={15} />
+                <Text style={[S.myStatusText, { color: 'rgba(255,255,255,0.85)' }]}>Tu n'es pas encore inscrit</Text>
+              </View>
+            ) : null
+          )}
         </View>
       </LinearGradient>
 
@@ -408,6 +425,63 @@ export default function TournamentScreen() {
         {/* ══ INFOS ══ */}
         {activeTab === 'infos' && (
           <>
+            {/* ── "Comment ça marche" — stepper adapté au format ── */}
+            {(() => {
+              const fmt = tournament.format ?? 'simple';
+              const isBracket = fmt === 'bracket' || fmt === 'swiss';
+              const isLeague  = fmt === 'league_div';
+              const steps = [
+                { key: 'register', emoji: '📝', label: 'Inscription' },
+                { key: 'wod',      emoji: isBracket ? '⚔️' : '🏋️', label: isBracket ? 'Affronte' : 'WODs' },
+                { key: 'score',    emoji: '⏱️', label: 'Score' },
+                { key: 'rank',     emoji: isLeague ? '🔱' : '🏆', label: isLeague ? 'Divisions' : 'Classement' },
+              ];
+              // Current step: 0 = à inscrire, 1 = faire les WODs, 2 = score soumis (suivre le classement)
+              const currentIndex = !isRegistered ? 0 : (myScores.length === 0 ? 1 : 2);
+              const hint = !isRegistered
+                ? (tournament.status === 'open' ? 'Inscris-toi pour participer.' : 'Les inscriptions sont fermées.')
+                : myScores.length === 0
+                  ? (isBracket ? 'Tu es inscrit. Va dans l\'onglet Bracket pour voir ton adversaire, puis soumets ton score.'
+                    : 'Tu es inscrit. Lance les WODs actifs et soumets ton score.')
+                  : (isLeague ? 'Score soumis ! Suis ta position dans ta division.'
+                    : 'Score soumis ! Suis ta progression dans le classement.');
+              return (
+                <View style={S.card}>
+                  <Text style={S.cardLabel}>COMMENT ÇA MARCHE</Text>
+                  <View style={S.stepperRow}>
+                    {steps.map((st, i) => {
+                      const done   = i < currentIndex;
+                      const active = i === currentIndex;
+                      const color  = done ? theme.success : active ? theme.accent : theme.textMuted;
+                      return (
+                        <React.Fragment key={st.key}>
+                          <View style={S.stepItem}>
+                            <View style={[S.stepCircle, {
+                              borderColor: color,
+                              backgroundColor: done ? `${theme.success}20` : active ? `${theme.accent}20` : 'transparent',
+                            }]}>
+                              {done
+                                ? <CheckCircle color={theme.success} size={18} />
+                                : <Text style={S.stepEmoji}>{st.emoji}</Text>}
+                            </View>
+                            <Text style={[S.stepLabel, { color, fontWeight: active ? '900' : '700' }]} numberOfLines={1}>
+                              {st.label}
+                            </Text>
+                          </View>
+                          {i < steps.length - 1 && (
+                            <View style={[S.stepConnector, { backgroundColor: i < currentIndex ? theme.success : theme.border }]} />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </View>
+                  <View style={S.stepHintBox}>
+                    <Text style={S.stepHintText}>{hint}</Text>
+                  </View>
+                </View>
+              );
+            })()}
+
             {tournament.description ? (
               <View style={S.card}>
                 <Text style={S.cardLabel}>À PROPOS</Text>
@@ -495,6 +569,21 @@ export default function TournamentScreen() {
                   <View style={S.wodCardHeader}>
                     <View style={S.wodIndexBadge}><Text style={S.wodIndexText}>WOD {i + 1}</Text></View>
                     <View style={S.wodTypeBadge}><Text style={S.wodTypeText}>{wod.type}</Text></View>
+                    {(tournament.format === 'bracket' || tournament.format === 'swiss') && (wod as any).bracket_stage != null && (
+                      <View style={S.wodStageBadge}>
+                        <Text style={S.wodStageText}>{bracketStageLabel((wod as any).bracket_stage)}</Text>
+                      </View>
+                    )}
+                    {tournament.format === 'league_div' && (() => {
+                      const d = (wod as any).division_id ? divisions.find((x: any) => x.id === (wod as any).division_id) : null;
+                      return (
+                        <View style={d ? S.wodDivBadge : S.wodGenBadge}>
+                          <Text style={d ? S.wodDivText : S.wodGenText}>
+                            {d ? `🔱 D${d.level} · ${d.name}` : '🌐 Général'}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                     <View style={S.wodDurationRow}>
                       <Clock color={theme.textMuted} size={12} />
                       <Text style={S.wodDurationText}>{wod.duration_minutes} min</Text>
@@ -945,6 +1034,8 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   statusBadge:     { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
   statusBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
   headerStats: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
+  myStatusPill:  { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginTop: 12, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
+  myStatusText:  { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
   metaItem:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText:    { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
   prize:       { fontSize: 13, color: theme.gold, fontWeight: '700' },
@@ -957,6 +1048,14 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   content: { padding: 16, paddingTop: 14 },
   card:      { backgroundColor: theme.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.cardBorder, gap: 8, marginBottom: 14 },
   cardLabel: { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 1.5 },
+  stepperRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  stepItem:      { alignItems: 'center', width: 64 },
+  stepCircle:    { width: 42, height: 42, borderRadius: 21, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
+  stepEmoji:     { fontSize: 18 },
+  stepLabel:     { fontSize: 11, textAlign: 'center' },
+  stepConnector: { flex: 1, height: 2, marginHorizontal: 2, marginBottom: 22, borderRadius: 1 },
+  stepHintBox:   { marginTop: 12, backgroundColor: theme.surface, borderRadius: 10, padding: 12 },
+  stepHintText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 19, fontWeight: '600' },
   descText:  { fontSize: 14, color: theme.textSecondary, lineHeight: 22 },
   ruleText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 22 },
   registerBtn:      { marginBottom: 12 },
@@ -983,6 +1082,12 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   wodDurationText:{ fontSize: 11, color: theme.textMuted },
   wodStatusPill:  { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   wodStatusText:  { fontSize: 10, fontWeight: '700' },
+  wodStageBadge:  { backgroundColor: 'rgba(168,85,247,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  wodStageText:   { fontSize: 10, fontWeight: '800', color: '#C4A0F5' },
+  wodDivBadge:    { backgroundColor: 'rgba(168,85,247,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  wodDivText:     { fontSize: 10, fontWeight: '800', color: '#C4A0F5' },
+  wodGenBadge:    { backgroundColor: 'rgba(59,130,246,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  wodGenText:     { fontSize: 10, fontWeight: '800', color: '#7FB0F5' },
   wodTitle:      { fontSize: 17, fontWeight: '900', color: theme.text },
   wodDesc:       { fontSize: 13, color: theme.textSecondary, lineHeight: 20 },
   movementsBox:  { backgroundColor: theme.surface, borderRadius: 10, padding: 12, gap: 3 },
