@@ -12,6 +12,8 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { calculatePairwiseDeltas, clampElo, assignRanks, RankedPlayer } from '../../utils/elo';
+import { syncLevelAndBadges } from '../../utils/eloLevels';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface InterCompetition {
@@ -212,10 +214,90 @@ export default function BOInterCompetitionScreen() {
   // ── Change status ─────────────────────────────────────────────────────────
   async function handleChangeStatus(newStatus: string) {
     if (!selectedId) return;
+    if (newStatus === 'closed') {
+      await handleCloseCompetition();
+      return;
+    }
     const { error } = await (supabase as any).from('inter_competitions')
       .update({ status: newStatus }).eq('id', selectedId);
     if (error) { Alert.alert('Erreur', error.message); return; }
     setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: newStatus as any } : c));
+  }
+
+  // ── Close competition + distribute ELO (pairwise) ─────────────────────────
+  async function handleCloseCompetition() {
+    if (!selectedId) return;
+    Alert.alert(
+      'Cloturer la competition ?',
+      'Les ELO seront calcules et distribues a tous les participants.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Cloturer', style: 'destructive', onPress: async () => {
+          try {
+            // Get validated scores aggregated by athlete (sum across all WODs)
+            const { data: validatedScores } = await (supabase as any).from('inter_scores')
+              .select('athlete_id, score_value').eq('competition_id', selectedId).eq('status', 'validated');
+            if (!validatedScores || validatedScores.length === 0) {
+              await (supabase as any).from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
+              setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' as any } : c));
+              Alert.alert('Competition cloturee (aucun score valide).');
+              return;
+            }
+
+            // Aggregate total score per athlete
+            const totals: Record<string, number> = {};
+            validatedScores.forEach((s: any) => {
+              totals[s.athlete_id] = (totals[s.athlete_id] ?? 0) + (parseFloat(s.score_value) || 0);
+            });
+
+            // Get profiles with ELO
+            const athleteIds = Object.keys(totals);
+            const { data: profs } = await supabase.from('profiles').select('id, elo').in('id', athleteIds);
+            const profMap: Record<string, number> = {};
+            (profs ?? []).forEach((p: any) => { profMap[p.id] = p.elo ?? 1000; });
+
+            // Sort athletes by total score (DESC for now; already aggregated)
+            const sorted = Object.entries(totals)
+              .map(([id, score]) => ({ id, score }))
+              .sort((a, b) => b.score - a.score);
+            const ranked = assignRanks(sorted);
+
+            // Build RankedPlayer array for pairwise ELO
+            const players: RankedPlayer[] = ranked.map(r => ({
+              id: r.id,
+              elo: profMap[r.id] ?? 1000,
+              rank: r.rank,
+            }));
+
+            // Calculate pairwise deltas
+            const results = calculatePairwiseDeltas(players);
+
+            // Apply ELO changes
+            for (const r of results) {
+              const newElo = clampElo(r.elo + r.delta);
+              await supabase.rpc('update_user_elo', {
+                p_user_id: r.id,
+                p_new_elo: newElo,
+                p_increment_matches: 1,
+                p_increment_wins: r.rank === 1 ? 1 : 0,
+              });
+              await syncLevelAndBadges(r.id, newElo);
+            }
+
+            // Update competition status
+            await (supabase as any).from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
+            setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' as any } : c));
+
+            const winner = results.find(r => r.rank === 1);
+            const topDelta = winner ? `+${winner.delta}` : '';
+            Alert.alert('Competition cloturee !', `ELO distribue a ${results.length} athletes. 1er: ${topDelta} ELO`);
+          } catch (e: any) {
+            captureError(e, { screen: 'BOInterCompetition', action: 'close' });
+            Alert.alert('Erreur', e?.message ?? 'Erreur lors de la cloture');
+          }
+        }},
+      ]
+    );
   }
 
   // ── Add WOD ───────────────────────────────────────────────────────────────
