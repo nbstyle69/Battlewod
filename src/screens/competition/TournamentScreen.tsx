@@ -22,6 +22,7 @@ import { CompetitionStackParamList } from '../../navigation';
 import {
   TournamentWOD, TournamentScore,
   MOVEMENT_BADGE_LEVELS, formatDate,
+  rankWodScores, cfPoints,
 } from '../../utils/tournamentUtils';
 import GlassBackground from '../../components/glass/GlassBackground';
 import TournamentBracketView from './TournamentBracketView';
@@ -212,10 +213,9 @@ export default function TournamentScreen() {
     const pointsMap: Record<string, number> = {};
     tournamentWods.forEach(wod => {
       const wodScores = validatedScores.filter(s => s.tournament_wod_id === wod.id);
-      const sorted = [...wodScores].sort((a, b) => parseFloat(String(b.score_value)) - parseFloat(String(a.score_value)));
-      sorted.forEach((s, i) => {
-        const pts = Math.max(1, 100 - i * 3);
-        pointsMap[s.athlete_id] = (pointsMap[s.athlete_id] ?? 0) + pts;
+      const ranked = rankWodScores(wodScores, wod.type);
+      ranked.forEach(rs => {
+        pointsMap[rs.athlete_id] = (pointsMap[rs.athlete_id] ?? 0) + rs.cfPoints;
       });
     });
     for (const [athleteId, pts] of Object.entries(pointsMap)) {
