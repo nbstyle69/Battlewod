@@ -73,6 +73,7 @@ import BONotificationsScreen from '../screens/backoffice/BONotificationsScreen';
 import BOGamificationScreen from '../screens/backoffice/BOGamificationScreen';
 import BOArticlesScreen from '../screens/backoffice/BOArticlesScreen';
 import BOSettingsScreen from '../screens/backoffice/BOSettingsScreen';
+import BOInterCompetitionScreen from '../screens/backoffice/BOInterCompetitionScreen';
 import BOProgramsScreen from '../screens/backoffice/BOProgramsScreen';
 import BOProgramEditorScreen from '../screens/backoffice/BOProgramEditorScreen';
 import ArticlesScreen from '../screens/whiteboard/ArticlesScreen';
@@ -155,6 +156,7 @@ export type BODashboardStackParamList = {
   WODs: undefined;
   Members: undefined;
   BOTournament: undefined;
+  BOInterCompetition: undefined;
   BOStats: undefined;
   BOReport: undefined;
   BONotifications: undefined;
@@ -543,6 +545,7 @@ function BODashboardNavigator() {
       <BODashStack.Screen name="WODs"          component={BOWODsScreen} />
       <BODashStack.Screen name="Members"       component={BOMembersScreen} />
       <BODashStack.Screen name="BOTournament"  component={BOTournamentScreen} />
+      <BODashStack.Screen name="BOInterCompetition" component={BOInterCompetitionScreen} />
       <BODashStack.Screen name="BOStats"        component={BOStatsScreen} />
       <BODashStack.Screen name="BOReport"       component={BOReportScreen} />
       <BODashStack.Screen name="BONotifications" component={BONotificationsScreen} />
