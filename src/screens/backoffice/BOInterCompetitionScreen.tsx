@@ -73,6 +73,28 @@ interface BracketMatch {
   p2_score?: InterScore | null;
 }
 
+interface LeagueRound {
+  id: string;
+  competition_id: string;
+  round_number: number;
+  title: string | null;
+  wod_id: string | null;
+  status: 'pending' | 'active' | 'completed';
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+interface LeagueStanding {
+  id: string;
+  competition_id: string;
+  athlete_id: string;
+  total_points: number;
+  rounds_played: number;
+  wins: number;
+  podiums: number;
+  username?: string;
+}
+
 const FORMAT_LABELS: Record<string, string> = {
   league: 'Ligue', bracket: 'Elimination', pool: 'Poules', swiss: 'Suisse',
 };
@@ -92,12 +114,14 @@ export default function BOInterCompetitionScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState<'wods' | 'scores' | 'bracket'>('wods');
+  const [tab, setTab] = useState<'wods' | 'scores' | 'bracket' | 'league'>('wods');
 
   // Selected competition data
   const [wods, setWods] = useState<InterWod[]>([]);
   const [scores, setScores] = useState<InterScore[]>([]);
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[]>([]);
+  const [leagueRounds, setLeagueRounds] = useState<LeagueRound[]>([]);
+  const [leagueStandings, setLeagueStandings] = useState<LeagueStanding[]>([]);
   const [registrationCount, setRegistrationCount] = useState(0);
 
   // Create modal
@@ -184,6 +208,28 @@ export default function BOInterCompetitionScreen() {
       } else {
         setBracketMatches([]);
       }
+    }
+
+    // Load league data if format is league/pool
+    if (comp?.format === 'league' || comp?.format === 'pool') {
+      const [{ data: rounds }, { data: standings }] = await Promise.all([
+        (supabase as any).from('inter_league_rounds')
+          .select('*').eq('competition_id', selectedId).order('round_number'),
+        (supabase as any).from('inter_league_standings')
+          .select('*').eq('competition_id', selectedId).order('total_points', { ascending: false }),
+      ]);
+      setLeagueRounds((rounds ?? []) as LeagueRound[]);
+
+      // Enrich standings with usernames
+      const standingsList = (standings ?? []) as LeagueStanding[];
+      const sIds = standingsList.map(s => s.athlete_id).filter(Boolean);
+      if (sIds.length > 0) {
+        const { data: sprofs } = await supabase.from('profiles').select('id, username').in('id', sIds);
+        const sprofMap: Record<string, string> = {};
+        (sprofs ?? []).forEach((p: any) => { sprofMap[p.id] = p.username; });
+        standingsList.forEach(s => { s.username = sprofMap[s.athlete_id] ?? '—'; });
+      }
+      setLeagueStandings(standingsList);
     }
   }, [selectedId, competitions]);
 
@@ -404,6 +450,36 @@ export default function BOInterCompetitionScreen() {
     Alert.alert('Round suivant genere !');
   }
 
+  // ── League: create round (journee) ────────────────────────────────────────
+  async function handleCreateLeagueRound() {
+    if (!selectedId) return;
+    const nextNumber = leagueRounds.length + 1;
+    // Use first unrevealed WOD or null
+    const availableWod = wods.find(w => !leagueRounds.some(r => r.wod_id === w.id));
+    const { error } = await (supabase as any).from('inter_league_rounds').insert({
+      competition_id: selectedId,
+      round_number: nextNumber,
+      title: `Journee ${nextNumber}`,
+      wod_id: availableWod?.id ?? null,
+      status: 'pending',
+    });
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    loadData();
+    Alert.alert(`Journee ${nextNumber} creee !`);
+  }
+
+  // ── League: compute round points ─────────────────────────────────────────
+  async function handleComputeLeagueRound(roundNumber: number) {
+    if (!selectedId) return;
+    const { data, error } = await (supabase as any).rpc('compute_inter_league_round', {
+      p_competition_id: selectedId,
+      p_round_number: roundNumber,
+    });
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    loadData();
+    Alert.alert(`Points calcules pour ${data} athletes !`);
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return <View style={S.center}><ActivityIndicator color={theme.accent} /></View>;
@@ -478,10 +554,13 @@ export default function BOInterCompetitionScreen() {
 
           {/* Tabs */}
           <View style={S.tabs}>
-            {(['wods', 'scores', ...(selected.format === 'bracket' || selected.format === 'swiss' ? ['bracket'] : [])] as const).map(t => (
+            {(['wods', 'scores',
+              ...(selected.format === 'bracket' || selected.format === 'swiss' ? ['bracket'] : []),
+              ...(selected.format === 'league' || selected.format === 'pool' ? ['league'] : []),
+            ] as const).map(t => (
               <TouchableOpacity key={t} style={[S.tabItem, tab === t && S.tabActive]} onPress={() => setTab(t as any)}>
                 <Text style={[S.tabText, tab === t && S.tabTextActive]}>
-                  {t === 'wods' ? 'WODs' : t === 'scores' ? `Scores (${scores.length})` : 'Bracket'}
+                  {t === 'wods' ? 'WODs' : t === 'scores' ? `Scores (${scores.length})` : t === 'bracket' ? 'Bracket' : 'Ligue'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -652,6 +731,66 @@ export default function BOInterCompetitionScreen() {
                     </View>
                   ))}
                 </>
+              )}
+            </View>
+          )}
+
+          {/* TAB: League */}
+          {tab === 'league' && (
+            <View style={S.section}>
+              {/* Standings */}
+              <Text style={S.roundTitle}>Classement general</Text>
+              {leagueStandings.length === 0 ? (
+                <Text style={S.emptyText}>Aucun classement — calculez les points d'une journee</Text>
+              ) : (
+                leagueStandings.map((s, i) => (
+                  <View key={s.id} style={[S.matchCard, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={[S.matchPlayer, { width: 24 }]}>{i + 1}.</Text>
+                      <Text style={S.matchPlayer}>{s.username ?? s.athlete_id.slice(0, 8)}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                      <Text style={[S.matchPlayer, { color: theme.accent }]}>{s.total_points} pts</Text>
+                      <Text style={{ fontSize: 11, color: theme.textMuted }}>{s.wins}W {s.podiums}P | {s.rounds_played}j</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+
+              {/* Rounds (journees) */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+                <Text style={S.roundTitle}>Journees</Text>
+                <TouchableOpacity style={S.generateBtn} onPress={handleCreateLeagueRound}>
+                  <Plus color="#fff" size={12} />
+                  <Text style={S.generateBtnText}>Ajouter journee</Text>
+                </TouchableOpacity>
+              </View>
+
+              {leagueRounds.length === 0 ? (
+                <Text style={S.emptyText}>Aucune journee creee</Text>
+              ) : (
+                leagueRounds.map(r => (
+                  <View key={r.id} style={S.matchCard}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={S.matchPlayer}>{r.title ?? `Journee ${r.round_number}`}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: r.status === 'completed' ? theme.success : theme.textMuted }}>
+                        {r.status === 'completed' ? 'Termine' : r.status === 'active' ? 'En cours' : 'A venir'}
+                      </Text>
+                    </View>
+                    {r.wod_id && (
+                      <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>WOD: {wods.find(w => w.id === r.wod_id)?.title ?? '—'}</Text>
+                    )}
+                    {r.status !== 'completed' && (
+                      <TouchableOpacity
+                        style={[S.advanceBtn, { marginTop: 8 }]}
+                        onPress={() => handleComputeLeagueRound(r.round_number)}
+                      >
+                        <Play color="#fff" size={12} />
+                        <Text style={S.advanceBtnText}>Calculer les points</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))
               )}
             </View>
           )}
