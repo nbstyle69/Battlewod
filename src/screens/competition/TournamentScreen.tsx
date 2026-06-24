@@ -227,6 +227,17 @@ export default function TournamentScreen() {
   }
 
   async function handleValidateScore(scoreId: string) {
+    if (tournament?.require_video_proof) {
+      const score = allScores.find(s => s.id === scoreId);
+      const videoUrl = String((score as any)?.video_url ?? '').trim();
+      if (!videoUrl) {
+        Alert.alert(
+          'Preuve vidéo requise',
+          "Ce tournoi exige une preuve vidéo. Impossible de valider un score sans lien vidéo — demande à l'athlète de soumettre sa vidéo, ou rejette le score.",
+        );
+        return;
+      }
+    }
     setProcessing(scoreId);
     const { error } = await supabase.from('tournament_scores')
       .update({ status: 'validated', validated_at: new Date().toISOString() })
@@ -1045,7 +1056,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   tabActive:     { borderBottomColor: theme.accent },
   tabText:       { fontSize: 13, fontWeight: '600', color: theme.textMuted },
   tabTextActive: { color: theme.accent, fontWeight: '700' },
-  content: { padding: 16, paddingTop: 14 },
+  content: { padding: 16, paddingTop: 14, paddingBottom: 120 },
   card:      { backgroundColor: theme.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.cardBorder, gap: 8, marginBottom: 14 },
   cardLabel: { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 1.5 },
   stepperRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
