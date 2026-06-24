@@ -129,7 +129,7 @@ export default function PartnersScreen() {
           renderSectionHeader={({ section }) => (
             <Text style={s.sectionHeader}>{section.title}</Text>
           )}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
           stickySectionHeadersEnabled={false}
         />

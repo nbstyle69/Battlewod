@@ -312,7 +312,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '900', color: theme.text },
-  content: { padding: 16, gap: 14 },
+  content: { padding: 16, gap: 14, paddingBottom: 120 },
   heroCard: {
     backgroundColor: theme.card, borderRadius: 18,
     borderWidth: 1, borderColor: theme.border,

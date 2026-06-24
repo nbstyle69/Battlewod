@@ -189,7 +189,7 @@ function createStyles(theme: AppTheme) {
       flex: 1, fontSize: 15, color: theme.text,
       paddingVertical: 6,
     },
-    list: { padding: 12, gap: 8, paddingBottom: 40 },
+    list: { padding: 12, gap: 8, paddingBottom: 140 },
     row: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       backgroundColor: theme.card, borderRadius: 14, padding: 14,

@@ -74,7 +74,7 @@ export default function BOSettingsScreen({ navigation }: any) {
         <Text style={S.headerTitle}>Paramètres publication</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 20 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 140 }}>
         {/* Daily publish hour */}
         <View style={S.card}>
           <Text style={S.cardTitle}>WOD du jour</Text>

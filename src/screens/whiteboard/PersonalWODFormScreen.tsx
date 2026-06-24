@@ -326,7 +326,7 @@ function createStyles(theme: AppTheme) {
     },
     back: { padding: 2, width: 26 },
     headerTitle: { fontSize: 18, fontWeight: '900', color: theme.text },
-    body: { padding: 20, gap: 10, paddingBottom: 60 },
+    body: { padding: 20, gap: 10, paddingBottom: 140 },
     label: { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 1 },
     input: {
       backgroundColor: theme.card, borderRadius: 10,

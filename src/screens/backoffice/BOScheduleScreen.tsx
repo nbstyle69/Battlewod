@@ -381,7 +381,7 @@ export default function BOScheduleScreen({ navigation }: any) {
         ? <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.accent} />
         : (
           <ScrollView
-            contentContainerStyle={{ paddingBottom: 40 }}
+            contentContainerStyle={{ paddingBottom: 140 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           >
             {weekDates.map((d, i) => {

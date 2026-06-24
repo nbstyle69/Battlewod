@@ -270,7 +270,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   tabActive: { borderBottomWidth: 2, borderBottomColor: theme.accent },
   tabText: { fontSize: 13, fontWeight: '700', color: theme.textMuted },
   tabTextActive: { color: theme.accent },
-  content: { padding: 16, gap: 14 },
+  content: { padding: 16, gap: 14, paddingBottom: 140 },
   heroCard: {
     backgroundColor: theme.card, borderRadius: 18,
     borderWidth: 1, borderColor: theme.border,

@@ -268,7 +268,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   headerTitle: { fontSize: 18, fontWeight: '900', color: t.text },
-  content: { padding: 20, gap: 20, paddingBottom: 40 },
+  content: { padding: 20, gap: 20, paddingBottom: 140 },
   card: {
     backgroundColor: t.card, borderRadius: 14, padding: 16,
     borderWidth: 1, borderColor: t.border, gap: 12,

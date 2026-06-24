@@ -116,7 +116,7 @@ export default function ChangelogScreen() {
           data={entries}
           keyExtractor={e => e.id}
           renderItem={renderEntry}
-          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 140 }}
           showsVerticalScrollIndicator={false}
         />
       )}

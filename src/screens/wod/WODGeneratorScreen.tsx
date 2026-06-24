@@ -18,6 +18,8 @@ import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel, WODType } from '../../types';
 import GlassBackground from '../../components/glass/GlassBackground';
 import GlassCard from '../../components/glass/GlassCard';
+import { generateFunctionalDisplay, generateHyroxDisplay, CF_LEVEL_MAP, CF_INTENT_MAP } from '../../utils/wod/adapter';
+import { HyroxTimerPlan, buildHyroxTimerRunParams } from '../../utils/wod/hyroxTimer';
 
 const LEVELS: AthleteLevel[] = ['scaled', 'inter', 'rx', 'rx+', 'elite', 'pro'];
 const DURATIONS = [5, 10, 15, 20];
@@ -26,7 +28,7 @@ const UI_WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Rep
 
 const EQUIPMENT_OPTIONS = [
   'Barre + Disques', 'Haltères', 'Kettlebell', 'Box', 'Corde à sauter',
-  'Barre de traction', 'Anneaux', 'Erg', 'Worm', 'Benchmark', 'Aucun matériel',
+  'Barre de traction', 'Anneaux', 'Erg', 'Worm', 'Aucun matériel',
 ];
 
 const TEAM_SIZES = [1, 2, 3, 4, 6];
@@ -84,6 +86,20 @@ const HYROX_FATIGUE_LABEL: Record<HyroxFatigue, string> = {
 };
 
 
+// ── 5 filières HYROX officielles (SessionType moteur) + gilet lesté ──
+type HySession = 'Interval' | 'Engine' | 'Aerobic' | 'Run Split' | 'Force';
+const HYROX_SESSION_OPTS: { key: HySession; label: string; emoji: string; rpe: string }[] = [
+  { key: 'Interval',  label: 'Interval',  emoji: '⚡', rpe: '8-9' },
+  { key: 'Engine',    label: 'Engine',    emoji: '🔧', rpe: '7' },
+  { key: 'Aerobic',   label: 'Aerobic',   emoji: '🏃', rpe: '5-6' },
+  { key: 'Run Split', label: 'Run Split', emoji: '🎽', rpe: '8-9' },
+  { key: 'Force',     label: 'Force',     emoji: '💪', rpe: '6-7' },
+];
+type HyVest = 'off' | 'on' | 'optional';
+const HYROX_VEST_OPTS: { key: HyVest; label: string }[] = [
+  { key: 'off', label: 'Sans gilet' }, { key: 'on', label: 'Avec gilet' }, { key: 'optional', label: 'Optionnel' },
+];
+
 interface HyroxWOD {
   title: string;
   type: string;
@@ -93,11 +109,12 @@ interface HyroxWOD {
   stations: string[];
   scoring: string;
   tip: string;
-  intent: HyroxIntent;
+  intent?: HyroxIntent;
   tags: string[];
   rpe: string;
   sessionLabel: string;
   coachingNotes: string[];
+  timerPlan?: HyroxTimerPlan;
 }
 
 const HYROX_SCR_NAMES: Record<string, string[]> = {
@@ -205,6 +222,32 @@ function spick<T>(arr: T[], n: number): T[] {
 }
 
 function generateHyroxWOD(
+  level: string, format: string, type: string,
+  duration: number, equipment: string[],
+  session: HySession = 'Engine', vest: HyVest = 'off'
+): HyroxWOD {
+  const eng = equipment.map(e => (e === 'Sandbag Lunges' ? 'Sandbag Lunge' : e));
+  const base = generateHyroxDisplay({
+    category: level,
+    duration_min: duration,
+    session_type: session,
+    format,
+    training_type: type,
+    equipment: eng,
+    vest,
+  });
+  return {
+    title: base.name, type: base.type, level: base.level, format: base.format,
+    duration: base.duration, stations: base.stations, scoring: base.scoring,
+    tip: base.coach, tags: base.tags, rpe: base.rpe,
+    sessionLabel: base.sessionLabel, coachingNotes: base.coachingNotes,
+    timerPlan: base.timerPlan,
+  };
+}
+
+// Legacy generator (remplacé par le moteur déterministe utils/wod) — conservé inutilisé
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _legacyGenerateHyroxWOD(
   level: string, format: string, type: string,
   duration: number, equipment: string[],
   intent: HyroxIntent = 'race_prep'
@@ -1188,7 +1231,31 @@ function fmtMvtLabel(m: Mvt, li: number): string {
   return m.name;
 }
 
-function generateWOD(level: AthleteLevel, duration: number, type: WODType, equipment: string[], teamSize: number = 1, intent: Intent = 'mixed'): GeneratedWOD {
+function generateWOD(level: AthleteLevel, duration: number, type: WODType, equipment: string[], teamSize: number = 1, intent: Intent = 'mixed', benchmark = false): GeneratedWOD {
+  const eqMap: Record<string, string> = {
+    'Barre + Disques': 'Barbell', 'Corde à sauter': 'Corde',
+    'Barre de traction': 'Barre traction', 'Aucun matériel': 'Sans matériel',
+  };
+  const eng = equipment.filter(e => e !== 'Benchmark').map(e => eqMap[e] ?? e);
+  const base = generateFunctionalDisplay({
+    level: CF_LEVEL_MAP[level] ?? 'RX',
+    duration_min: duration,
+    intent: CF_INTENT_MAP[intent] ?? 'Mixed',
+    method: type,
+    format: teamSize > 1 ? `Équipe ${teamSize}` : 'Solo',
+    equipment: eng,
+    benchmark,
+  });
+  return {
+    title: base.name, type, duration, level,
+    movements: base.movements.split('\n'), scoring: base.scoring,
+    tip: base.coach, intent, tags: base.tags,
+  };
+}
+
+// Legacy generator (remplacé par le moteur déterministe utils/wod) — conservé inutilisé
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _legacyGenerateWOD(level: AthleteLevel, duration: number, type: WODType, equipment: string[], teamSize: number = 1, intent: Intent = 'mixed'): GeneratedWOD {
   // ── Benchmark mode ──
   if (equipment.includes('Benchmark')) {
     const bm = srand(BENCHMARKS);
@@ -1505,20 +1572,35 @@ export default function WODGeneratorScreen() {
   const [intent,       setIntent]       = useState<Intent>('mixed');
   const [equipment,    setEquipment]    = useState<string[]>(['Barre + Disques', 'Corde à sauter']);
   const [teamSize,     setTeamSize]     = useState(1);
+  const [benchmark,    setBenchmark]    = useState(false);
   const [generatedWOD, setGeneratedWOD] = useState<GeneratedWOD | null>(null);
   const [hyroxLevel,   setHyroxLevel]   = useState('Men');
   const [hyroxFormat,  setHyroxFormat]  = useState('Solo');
   const [hyroxType,    setHyroxType]    = useState('Race Simulation');
   const [hyroxDur,     setHyroxDur]     = useState(45);
   const [hyroxEquip,   setHyroxEquip]   = useState<string[]>([]);
-  const [hyroxIntent,    setHyroxIntent]    = useState<HyroxIntent>('race_prep');
+  const [hyroxSession,   setHyroxSession]   = useState<HySession>('Engine');
+  const [hyroxVest,      setHyroxVest]      = useState<HyVest>('off');
   const [generatedHyrox, setGeneratedHyrox] = useState<HyroxWOD | null>(null);
   const [loading,      setLoading]      = useState(false);
   const [showWBModal,  setShowWBModal]  = useState(false);
   const [wbDate,       setWbDate]       = useState('');
   const [wbSaving,     setWbSaving]     = useState(false);
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [timerCountdown, setTimerCountdown] = useState(10);
 
   const accentColor = sport === 'hybrid' ? HYROX_ORANGE : theme.accent;
+
+  function launchHyroxTimer() {
+    const plan = generatedHyrox?.timerPlan;
+    if (!plan) return;
+    const params = buildHyroxTimerRunParams(plan, {
+      countdown: timerCountdown,
+      title: generatedHyrox?.title,
+    });
+    setShowTimerModal(false);
+    (navigation as any).navigate('TimerRun', params);
+  }
 
   function toISO(d: Date) {
     const y = d.getFullYear();
@@ -1594,11 +1676,11 @@ export default function WODGeneratorScreen() {
     setLoading(true);
     await new Promise(r => setTimeout(r, 800));
     if (sport === 'hybrid') {
-      const wod = generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip, hyroxIntent);
+      const wod = generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip, hyroxSession, hyroxVest);
       setGeneratedHyrox(wod);
       setGeneratedWOD(null);
     } else {
-      const wod = generateWOD(level, duration, wodType, equipment, teamSize, intent);
+      const wod = generateWOD(level, duration, wodType, equipment, teamSize, intent, benchmark);
       setGeneratedWOD(wod);
       setGeneratedHyrox(null);
     }
@@ -1720,18 +1802,31 @@ export default function WODGeneratorScreen() {
 
         <View style={S.section}>
           <Text style={S.sectionTitle}>Intention</Text>
-          <View style={[S.chipRow, { flexWrap: 'nowrap' }]}>
+          <View style={[S.chipRow, { flexWrap: 'wrap' }]}>
             {INTENT_OPTIONS.map(o => (
               <TouchableOpacity
                 key={o.key}
-                onPress={() => setIntent(o.key)}
-                style={[S.chip, intent === o.key && S.chipSelected, { flex: 1, justifyContent: 'center' }]}
+                onPress={() => { setIntent(o.key); setBenchmark(false); }}
+                style={[S.chip, intent === o.key && !benchmark && S.chipSelected, { flex: 1, justifyContent: 'center' }]}
               >
                 <Text style={{ fontSize: 14 }}>{o.emoji}</Text>
-                <Text style={[S.chipText, intent === o.key && { color: theme.accent }]}>{o.label}</Text>
+                <Text style={[S.chipText, intent === o.key && !benchmark && { color: theme.accent }]}>{o.label}</Text>
               </TouchableOpacity>
             ))}
+            <TouchableOpacity
+              key="benchmark"
+              onPress={() => { setBenchmark(true); setTeamSize(1); }}
+              style={[S.chip, benchmark && S.chipSelected, { flex: 1, justifyContent: 'center' }]}
+            >
+              <Text style={{ fontSize: 14 }}>📋</Text>
+              <Text style={[S.chipText, benchmark && { color: theme.accent }]}>Benchmark</Text>
+            </TouchableOpacity>
           </View>
+          {benchmark && (
+            <Text style={[S.chipText, { marginTop: 6, opacity: 0.7 }]}>
+              WOD officiel (Girls + Open) — tirage aléatoire, Solo uniquement, charges RX.
+            </Text>
+          )}
         </View>
 
         <View style={S.section}>
@@ -1769,17 +1864,21 @@ export default function WODGeneratorScreen() {
         <View style={S.section}>
           <Text style={S.sectionTitle}>Format</Text>
           <View style={S.chipRow}>
-            {TEAM_SIZES.map(s => (
+            {TEAM_SIZES.map(s => {
+              const disabled = benchmark && s !== 1;
+              return (
               <TouchableOpacity
                 key={s}
+                disabled={disabled}
                 onPress={() => setTeamSize(s)}
-                style={[S.chip, teamSize === s && S.chipSelected]}
+                style={[S.chip, teamSize === s && S.chipSelected, disabled && { opacity: 0.35 }]}
               >
                 <Text style={[S.chipText, teamSize === s && { color: theme.accent }]}>
                   {s === 1 ? 'Solo' : `Équipe ${s}`}
                 </Text>
               </TouchableOpacity>
-            ))}
+              );
+            })}
           </View>
         </View>
 
@@ -1869,24 +1968,40 @@ export default function WODGeneratorScreen() {
               </View>
             </View>
 
-            {/* Hyrox intent */}
+            {/* Hyrox session type (5 filières) */}
             <View style={S.section}>
               <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Type de session</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
                 <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4, paddingBottom: 4 }}>
-                  {HYROX_INTENT_OPTIONS.map(o => (
+                  {HYROX_SESSION_OPTS.map(o => (
                     <TouchableOpacity
                       key={o.key}
-                      onPress={() => setHyroxIntent(o.key)}
-                      style={[S.chip, hyroxIntent === o.key && { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE }, { justifyContent: 'center', minWidth: 80 }]}
+                      onPress={() => setHyroxSession(o.key)}
+                      style={[S.chip, hyroxSession === o.key && { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE }, { justifyContent: 'center', minWidth: 80 }]}
                     >
                       <Text style={{ fontSize: 14, textAlign: 'center' }}>{o.emoji}</Text>
-                      <Text style={[S.chipText, hyroxIntent === o.key && { color: HYROX_ORANGE }, { textAlign: 'center' }]}>{o.label}</Text>
-                      <Text style={{ fontSize: 10, color: hyroxIntent === o.key ? `${HYROX_ORANGE}BB` : theme.textMuted, textAlign: 'center', fontWeight: '600' }}>RPE {o.rpe}</Text>
+                      <Text style={[S.chipText, hyroxSession === o.key && { color: HYROX_ORANGE }, { textAlign: 'center' }]}>{o.label}</Text>
+                      <Text style={{ fontSize: 10, color: hyroxSession === o.key ? `${HYROX_ORANGE}BB` : theme.textMuted, textAlign: 'center', fontWeight: '600' }}>RPE {o.rpe}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </ScrollView>
+            </View>
+
+            {/* Hyrox gilet lesté */}
+            <View style={S.section}>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Gilet lesté</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {HYROX_VEST_OPTS.map(o => (
+                  <TouchableOpacity
+                    key={o.key}
+                    onPress={() => setHyroxVest(o.key)}
+                    style={[S.chip, hyroxVest === o.key && { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE }, { flex: 1, justifyContent: 'center' }]}
+                  >
+                    <Text style={[S.chipText, hyroxVest === o.key && { color: HYROX_ORANGE }, { textAlign: 'center' }]}>{o.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </>
         )}
@@ -2008,7 +2123,11 @@ export default function WODGeneratorScreen() {
               <Text style={S.tipText}>{generatedHyrox.tip}</Text>
             </View>
 
-            <TouchableOpacity activeOpacity={0.8} style={[S.startButton, { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE, borderWidth: 2 }]}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => { setTimerCountdown(10); setShowTimerModal(true); }}
+              style={[S.startButton, { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE, borderWidth: 2 }]}
+            >
               <Zap color={HYROX_ORANGE} size={18} />
               <Text style={[S.startButtonText, { color: HYROX_ORANGE }]}>LANCER CET ENTRAÎNEMENT</Text>
             </TouchableOpacity>
@@ -2165,6 +2284,97 @@ export default function WODGeneratorScreen() {
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15 }}>Ajouter ✓</Text>
                 }
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ height: 16 }} />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal Timer Hybrid ───────────────────────────────── */}
+      <Modal
+        visible={showTimerModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTimerModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.82)' }}>
+          <View style={{ backgroundColor: theme.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16, borderTopWidth: 1, borderColor: `${HYROX_ORANGE}30` }}>
+
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 4 }} />
+
+            <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }}>⏱️ Lancer le chrono</Text>
+            {generatedHyrox?.timerPlan && (
+              <Text style={{ fontSize: 13, color: HYROX_ORANGE, fontWeight: '700' }}>{generatedHyrox.timerPlan.summary}</Text>
+            )}
+
+            {/* Aperçu de la séquence de blocs */}
+            {generatedHyrox?.timerPlan && (
+              <View style={{ backgroundColor: `${HYROX_ORANGE}12`, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: `${HYROX_ORANGE}30`, gap: 8 }}>
+                {generatedHyrox.timerPlan.sequence.map((b, i) => {
+                  const label = b.type === 'amrap' ? `AMRAP · ${b.durationMin} min`
+                    : b.type === 'emom' ? `EMOM · ${b.emomRounds} rounds`
+                    : b.type === 'tabata' ? `Tabata · ${b.tabRounds}×${b.workSec}/${b.restSec}s`
+                    : b.durationMin > 0 ? `For Time · cap ${b.durationMin} min` : 'Chrono libre';
+                  const restLabel = b.pauseSec > 0
+                    ? (b.pauseSec % 60 === 0 ? `${b.pauseSec / 60} min` : `${Math.floor(b.pauseSec / 60)}:${String(b.pauseSec % 60).padStart(2, '0')}`)
+                    : null;
+                  return (
+                    <View key={b.id}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: HYROX_ORANGE }} />
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>
+                          {generatedHyrox!.timerPlan!.sequence.length > 1 ? `Bloc ${i + 1} — ` : ''}{label}
+                        </Text>
+                      </View>
+                      {restLabel && (
+                        <Text style={{ fontSize: 12, color: theme.textMuted, marginLeft: 14, marginTop: 2 }}>→ Récup : {restLabel}</Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Compte à rebours avant départ */}
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.textSecondary, marginBottom: 8 }}>Compte à rebours</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[3, 5, 10].map((c) => {
+                  const sel = timerCountdown === c;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      onPress={() => setTimerCountdown(c)}
+                      style={{ flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 2, alignItems: 'center',
+                        backgroundColor: sel ? `${HYROX_ORANGE}25` : theme.surface,
+                        borderColor: sel ? HYROX_ORANGE : theme.border }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 15, fontWeight: '900', color: sel ? HYROX_ORANGE : theme.textMuted }}>{c}s</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+              <TouchableOpacity
+                onPress={() => setShowTimerModal(false)}
+                style={{ flex: 1, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: theme.border, alignItems: 'center' }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: theme.textSecondary, fontWeight: '700' }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={launchHyroxTimer}
+                style={{ flex: 2, padding: 16, borderRadius: 14, backgroundColor: HYROX_ORANGE, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
+                activeOpacity={0.85}
+              >
+                <Zap color="#fff" size={18} />
+                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15 }}>Démarrer</Text>
               </TouchableOpacity>
             </View>
 

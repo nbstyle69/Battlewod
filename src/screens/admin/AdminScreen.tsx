@@ -610,7 +610,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 1, minWidth: 18, alignItems: 'center',
   },
   badgeText: { fontSize: 10, color: '#fff', fontWeight: '900' },
-  content: { padding: 16 },
+  content: { padding: 16, paddingBottom: 140 },
   emptyState: { alignItems: 'center', paddingVertical: 48, gap: 12 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: theme.text },
   emptySub: { fontSize: 13, color: theme.textMuted },

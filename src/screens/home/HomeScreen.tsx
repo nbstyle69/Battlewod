@@ -8,6 +8,7 @@ import {
   Building2, Check, Flame,
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusQuery } from '../../hooks/useFocusQuery';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const { user, currentBox, myBoxes, switchBox } = useAuth();
   const [boxPickerVisible, setBoxPickerVisible] = useState(false);
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const level = user?.level ?? 'scaled';
   const S = createStyles(theme);
@@ -371,7 +373,7 @@ export default function HomeScreen() {
       <ScrollView
         style={S.container}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 16, paddingTop: 56 }}
+        contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 16, paddingTop: insets.top + 16 }}
         refreshControl={
           <RefreshControl
             refreshing={homeDataLoading}
@@ -402,15 +404,19 @@ export default function HomeScreen() {
               <Image source={{ uri: currentBox.logo_url }} style={S.boxLogo} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => navigation.navigate('Changelog' as never)} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => { setUnreadChangelog(0); navigation.navigate('Changelog' as never); }}
+            activeOpacity={0.7}
+            style={{ position: 'relative' }}
+          >
             <GlassIconBox size={44} radius={14}>
               <Bell size={20} color={isDark ? '#f9fafb' : '#111827'} />
-              {unreadChangelog > 0 && (
-                <View style={S.bellBadge}>
-                  <Text style={S.bellBadgeText}>{unreadChangelog > 9 ? '9+' : unreadChangelog}</Text>
-                </View>
-              )}
             </GlassIconBox>
+            {unreadChangelog > 0 && (
+              <View style={S.bellBadge} pointerEvents="none">
+                <Text style={S.bellBadgeText}>{unreadChangelog > 9 ? '9+' : unreadChangelog}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 

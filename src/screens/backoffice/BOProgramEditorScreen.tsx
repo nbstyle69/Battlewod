@@ -191,7 +191,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.accent} />
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
           {weekDays.map((dayNum, i) => {
             const dayWods = wodsForDay(dayNum);
             const isRest = i >= dpw;

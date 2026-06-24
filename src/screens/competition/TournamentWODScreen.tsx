@@ -9,6 +9,7 @@ import {
   AlertTriangle, Play, FileText, Info,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -19,7 +20,7 @@ import GlassBackground from '../../components/glass/GlassBackground';
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'TournamentWOD'>;
 type Route = RouteProp<CompetitionStackParamList, 'TournamentWOD'>;
 
-const YOUTUBE_REGEX = /(youtube\.com\/watch\?v=|youtu\.be\/)/;
+const YOUTUBE_REGEX = /(youtube\.com\/(watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/)/;
 
 function formatCountdown(ms: number, theme: AppTheme): { text: string; color: string } {
   if (ms <= 0) return { text: 'DÉLAI EXPIRÉ', color: theme.error };
@@ -38,7 +39,9 @@ export default function TournamentWODScreen() {
   const { tournamentId, tournamentName, wod, existingScore } = route.params;
   const { user } = useAuth();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const S = createStyles(theme);
+  const scrollPadBottom = insets.bottom + 90;
 
   const [phase,         setPhase]         = useState<'detail' | 'submit' | 'success'>('detail');
   const [scoreValue,    setScoreValue]    = useState(existingScore?.score_value ?? '');
@@ -203,7 +206,7 @@ export default function TournamentWODScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[S.content, { paddingBottom: scrollPadBottom }]}>
         {wod.description ? (
           <View style={S.card}>
             <Text style={S.cardLabel}>DESCRIPTION</Text>
@@ -288,7 +291,7 @@ export default function TournamentWODScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[S.content, { paddingBottom: scrollPadBottom }]}
         keyboardShouldPersistTaps="handled">
 
         <View style={S.card}>
@@ -338,7 +341,7 @@ export default function TournamentWODScreen() {
             />
           </View>
           {youtubeUrl.length > 0 && !urlValid && (
-            <Text style={S.urlError}>Lien YouTube invalide. Format attendu : youtube.com/watch?v= ou youtu.be/</Text>
+            <Text style={S.urlError}>Lien YouTube invalide. Formats acceptés : youtube.com/watch?v=, youtube.com/shorts/ ou youtu.be/</Text>
           )}
           <TouchableOpacity onPress={() => setShowYtHelp(true)} style={S.ytHelpLink}>
             <Info color={theme.accent} size={13} />

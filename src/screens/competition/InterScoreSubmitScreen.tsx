@@ -244,7 +244,7 @@ function createStyles(theme: AppTheme) {
     backBtn:      { padding: 4 },
     headerTitle:  { fontSize: 18, fontWeight: '800', color: theme.text },
     headerSub:    { fontSize: 12, color: theme.textMuted, marginTop: 1 },
-    content:      { padding: 16 },
+    content:      { padding: 16, paddingBottom: 140 },
     wodCard: {
       backgroundColor: theme.card, borderRadius: 16,
       borderWidth: 1, borderColor: theme.border,

@@ -889,7 +889,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   tabTxt:     { fontSize: 13, fontWeight: '700', color: t.textMuted },
   tabTxtActive:{ color: '#fff' },
 
-  content: { padding: 12, paddingTop: 8 },
+  content: { padding: 12, paddingTop: 8, paddingBottom: 140 },
 
   rankFilterRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   rankFilterLabel: { fontSize: 12, color: t.textMuted, fontWeight: '600' },

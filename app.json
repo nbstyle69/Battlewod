@@ -22,9 +22,10 @@
       "infoPlist": {
         "NSCameraUsageDescription": "AthleX utilise la caméra pour enregistrer tes performances.",
         "NSMicrophoneUsageDescription": "AthleX utilise le micro pour les vidéos de performance.",
-        "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos."
+        "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos.",
+        "NSPhotoLibraryAddUsageDescription": "AthleX enregistre tes vidéos de performance dans ta galerie."
       },
-      "buildNumber": "20"
+      "buildNumber": "26"
     },
     "android": {
       "adaptiveIcon": {
@@ -47,7 +48,7 @@
         "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ],
       "package": "com.athlex.app",
-      "versionCode": 42,
+      "versionCode": 45,
       "intentFilters": [
         {
           "action": "VIEW",

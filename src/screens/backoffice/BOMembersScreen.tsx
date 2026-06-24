@@ -157,7 +157,7 @@ export default function BOMembersScreen({ navigation }: any) {
         data={members}
         keyExtractor={m => m.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
-        contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 140 }}
         renderItem={({ item: m }) => (
           <TouchableOpacity
             style={[S.row, m.status === 'banned' && S.rowBanned]}

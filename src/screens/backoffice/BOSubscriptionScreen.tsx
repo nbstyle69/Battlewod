@@ -211,7 +211,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   headerTitle: { fontSize: 18, fontWeight: '900', color: t.text },
-  content: { padding: 20, gap: 20, paddingBottom: 40 },
+  content: { padding: 20, gap: 20, paddingBottom: 140 },
   statusCard: {
     backgroundColor: t.card, borderRadius: 18, padding: 24,
     borderWidth: 1.5, alignItems: 'center', gap: 10,

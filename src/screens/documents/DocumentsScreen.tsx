@@ -184,7 +184,7 @@ export default function DocumentsScreen() {
         <FlatList
           data={docs}
           keyExtractor={d => d.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 140 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           renderItem={({ item: doc }) => {
             const isMe = doc.uploaded_by === user?.id;

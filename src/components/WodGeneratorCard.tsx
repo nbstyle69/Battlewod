@@ -16,6 +16,7 @@ import { captureError } from '../lib/sentry';
 import { hapticSuccess } from '../lib/haptics';
 import { useToast } from './Toast';
 import GlassBackground from './glass/GlassBackground';
+import { generateFunctionalDisplay, generateHyroxDisplay, CF_LEVEL_MAP, CF_INTENT_MAP } from '../utils/wod/adapter';
 
 const HYROX_ORANGE = '#F97316';
 type Sport = 'functional' | 'hybrid';
@@ -51,6 +52,20 @@ const HYROX_CARD_ITAG: Record<HyroxIntent, string> = {
 };
 const HYROX_CARD_FTAG: Record<HyroxFatigue, string> = { upper: '💀 Haut du corps', lower: '🦵 Jambes', full: '💀 Corps entier', grip: '✊ Grip / Dos' };
 
+// ── 5 filières HYROX officielles (SessionType moteur) + gilet lesté ──
+type HySession = 'Interval' | 'Engine' | 'Aerobic' | 'Run Split' | 'Force';
+const HYROX_SESSION_OPTIONS: { key: HySession; label: string; emoji: string; rpe: string }[] = [
+  { key: 'Interval',  label: 'Interval',  emoji: '⚡', rpe: '8-9' },
+  { key: 'Engine',    label: 'Engine',    emoji: '🔧', rpe: '7' },
+  { key: 'Aerobic',   label: 'Aerobic',   emoji: '🏃', rpe: '5-6' },
+  { key: 'Run Split', label: 'Run Split', emoji: '🎽', rpe: '8-9' },
+  { key: 'Force',     label: 'Force',     emoji: '💪', rpe: '6-7' },
+];
+type HyVest = 'off' | 'on' | 'optional';
+const HYROX_VEST_OPTIONS: { key: HyVest; label: string }[] = [
+  { key: 'off', label: 'Sans gilet' }, { key: 'on', label: 'Avec gilet' }, { key: 'optional', label: 'Optionnel' },
+];
+
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
 type WODType = 'For Time' | 'AMRAP' | 'EMOM' | 'Tabata' | 'Max Reps' | 'Chipper' | 'Ladder' | 'Couplet' | 'Death By';
 const UI_WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Reps'];
@@ -81,7 +96,7 @@ const HYROX_EQ_LIST = [
 interface HyroxWOD {
   name: string; level: string; format: string; type: string; duration: number;
   stations: string[]; scoring: string; coach: string;
-  intent: HyroxIntent; tags: string[];
+  intent?: HyroxIntent; tags: string[];
   rpe: string; sessionLabel: string; coachingNotes: string[];
 }
 
@@ -114,7 +129,22 @@ const HYROX_COACHES: Record<string, string[]> = {
   ],
 };
 
-function generateHyroxWOD(level: string, format: string, type: string, duration: number, eqKeys: string[], intent: HyroxIntent = 'race_prep'): HyroxWOD {
+function generateHyroxWOD(level: string, format: string, type: string, duration: number, eqKeys: string[], session: HySession = 'Engine', vest: HyVest = 'off'): HyroxWOD {
+  const equipment = HYROX_EQ_LIST.filter(e => eqKeys.includes(e.key)).map(e => e.label);
+  return generateHyroxDisplay({
+    category: level,
+    duration_min: duration,
+    session_type: session,
+    format,
+    training_type: type,
+    equipment,
+    vest,
+  });
+}
+
+// Legacy generator (remplacé par le moteur déterministe utils/wod) — conservé inutilisé
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _legacyGenerateHyroxWOD(level: string, format: string, type: string, duration: number, eqKeys: string[], intent: HyroxIntent = 'race_prep'): HyroxWOD {
   // ── Index 4 divisions officielles : Women=0, Women Pro=1, Men=2, Men Pro=3 ──
   const li = ({ Women: 0, 'Women Pro': 1, Men: 2, 'Men Pro': 3 } as Record<string, number>)[level] ?? 2;
   const ski  = eqKeys.includes('ski');
@@ -286,22 +316,15 @@ function generateHyroxWOD(level: string, format: string, type: string, duration:
       const fill = allSt2.filter(s => s.str !== pickedDefs2[pickedDefs2.length - 1]?.str);
       pickedDefs2.push(rand(fill.length > 0 ? fill : allSt2));
     }
-    if (hasAnyCo2) {
+    {
       const result: string[] = [];
-      let lastCardio = '';
       for (let i = 0; i < blocCount; i++) {
-        const cardioOpts = cardioPool2.filter(c => c !== lastCardio);
-        const cardio = rand(cardioOpts.length > 0 ? cardioOpts : cardioPool2);
-        lastCardio = cardio;
-        result.push(cardio);
+        result.push(trdLabel);
         if (pickedDefs2[i]) result.push(pickedDefs2[i].str);
       }
       stations = result;
       const rLabel = runM >= 1000 ? `${runM / 1000}km` : `${runM}m`;
-      scoring = `For Time — ${blocCount} blocs ${rLabel} Run + Station — objectif ${isPro ? '< ' + duration : '< ' + (duration + 5)} min`;
-    } else {
-      stations = pickedDefs2.map(s => s.str);
-      scoring = `For Time — ${blocCount} stations — cap ${duration} min`;
+      scoring = `For Time — ${blocCount} blocs : ${rLabel} Course → Station — objectif < ${isPro ? duration : duration + 5} min`;
     }
     coachingNotes = ['Gère ton allure — ne sprint jamais le 1er km','Attaque chaque station à 85% max',`Run cible : ${isPro ? '4:00-4:30' : '5:00-5:30'}/km`];
   }
@@ -503,7 +526,7 @@ const EQ_LIST = [
   { key: 'jr', label: 'Corde' }, { key: 'pb', label: 'Barre traction' },
   { key: 'ri', label: 'Anneaux' }, { key: 'erg', label: 'Erg' },
   { key: 'mb', label: 'Med Ball' }, { key: 'wm', label: 'Worm' },
-  { key: 'bm', label: 'Benchmark' }, { key: 'bw', label: 'Sans matériel' },
+  { key: 'bw', label: 'Sans matériel' },
 ];
 
 interface GeneratedWOD {
@@ -1029,7 +1052,24 @@ function fmt(mv: { mv: string; scale: string[] }, reps: number, li: number): str
   return `${reps} ${mvName} (${s} kg)`;
 }
 
-function generateWOD(level: LK, format: string, duration: number, type: WODType, eqKeys: string[], intent: Intent = 'mixed'): GeneratedWOD {
+function generateWOD(level: LK, format: string, duration: number, type: WODType, eqKeys: string[], intent: Intent = 'mixed', benchmark = false): GeneratedWOD {
+  const equipment = EQ_LIST.filter(e => eqKeys.includes(e.key) && e.key !== 'bm' && e.key !== 'bw').map(e => e.label);
+  if (eqKeys.includes('bw')) equipment.push('Sans matériel');
+  const base = generateFunctionalDisplay({
+    level: CF_LEVEL_MAP[level] ?? 'RX',
+    duration_min: duration,
+    intent: CF_INTENT_MAP[intent] ?? 'Mixed',
+    method: type,
+    format,
+    equipment,
+    benchmark,
+  });
+  return { name: base.name, type, duration, level, movements: base.movements, scoring: base.scoring, coach: base.coach, teamNote: base.teamNote, intent, tags: base.tags };
+}
+
+// Legacy generator (remplacé par le moteur déterministe utils/wod) — conservé inutilisé
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _legacyGenerateWOD(level: LK, format: string, duration: number, type: WODType, eqKeys: string[], intent: Intent = 'mixed'): GeneratedWOD {
   const li = LI[level];
   const isTeam = format !== 'Solo';
   const teamN = isTeam ? parseInt(format.replace(/\D/g, '')) || 2 : 1;
@@ -1342,6 +1382,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const [duration,    setDuration]    = useState(10);
   const [wodType,     setWodType]     = useState<WODType>('AMRAP');
   const [intent,      setIntent]      = useState<Intent>('mixed');
+  const [benchmark,   setBenchmark]   = useState(false);
   const [equipment,   setEquipment]   = useState<string[]>([]);
   const [wod,         setWod]         = useState<GeneratedWOD | null>(null);
   // Hybrid / Hyrox
@@ -1350,13 +1391,15 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const [hyroxType,   setHyroxType]   = useState('Race Simulation');
   const [hyroxDur,    setHyroxDur]    = useState(45);
   const [hyroxEquip,  setHyroxEquip]  = useState<string[]>([]);
-  const [hyroxIntent, setHyroxIntent] = useState<HyroxIntent>('race_prep');
+  const [hyroxSession, setHyroxSession] = useState<HySession>('Engine');
+  const [hyroxVest,    setHyroxVest]    = useState<HyVest>('off');
   const [hyroxWod,    setHyroxWod]    = useState<HyroxWOD | null>(null);
 
   const [loading,    setLoading]    = useState(false);
   const [showWBModal, setShowWBModal] = useState(false);
   const [wbDate,      setWbDate]      = useState('');
   const [wbSaving,    setWbSaving]    = useState(false);
+  const [wbIsHyrox,   setWbIsHyrox]   = useState(false);
   const { user, currentBox } = useAuth();
 
   function toISO(d: Date) {
@@ -1371,7 +1414,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     return (m[t] ?? 'custom') as BoxWODType;
   }
 
-  function openWBModal() { setWbDate(toISO(new Date())); setShowWBModal(true); }
+  function openWBModal(isHyrox = false) { setWbIsHyrox(isHyrox); setWbDate(toISO(new Date())); setShowWBModal(true); }
 
   function launchTimer(currentWod: GeneratedWOD) {
     const dur = currentWod.duration * 60;
@@ -1390,14 +1433,22 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   }
 
   async function saveToWhiteboard() {
-    if (!user || !wod || !wbDate) return;
+    if (!user || !wbDate) return;
+    if (wbIsHyrox && !hyroxWod) return;
+    if (!wbIsHyrox && !wod) return;
     setWbSaving(true);
     try {
+      const title       = wbIsHyrox ? hyroxWod!.name    : wod!.name;
+      const description = wbIsHyrox
+        ? hyroxWod!.stations.join('\n') + '\n\n📊 ' + hyroxWod!.scoring
+        : wod!.movements + '\n\n📊 ' + wod!.scoring;
+      const wodType     = wbIsHyrox ? 'custom' as BoxWODType : mapWodTypeToBox(wod!.type);
+      const duration    = wbIsHyrox ? hyroxWod!.duration : wod!.duration;
+      const notes       = wbIsHyrox ? hyroxWod!.coach   : wod!.coach;
       const { error } = await supabase.from('box_wods').insert({
-        box_id: null, created_by: user.id, title: wod.name,
-        description: wod.movements + '\n\n📊 ' + wod.scoring,
-        wod_type: mapWodTypeToBox(wod.type), scheduled_date: wbDate,
-        time_cap_seconds: wod.duration * 60, notes: wod.coach,
+        box_id: null, created_by: user.id, title,
+        description, wod_type: wodType, scheduled_date: wbDate,
+        time_cap_seconds: duration * 60, notes,
         is_published: true, leaderboard_enabled: false, sort_order: 0,
       });
       if (error) throw error;
@@ -1531,10 +1582,10 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     setIsFavorite(false);
     await new Promise(r => setTimeout(r, 600));
     if (sport === 'hybrid') {
-      setHyroxWod(generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip, hyroxIntent));
+      setHyroxWod(generateHyroxWOD(hyroxLevel, hyroxFormat, hyroxType, hyroxDur, hyroxEquip, hyroxSession, hyroxVest));
       setWod(null);
     } else {
-      setWod(generateWOD(level, format, duration, wodType, equipment, intent));
+      setWod(generateWOD(level, format, duration, wodType, equipment, intent, benchmark));
       setHyroxWod(null);
     }
     setLoading(false);
@@ -1626,13 +1677,23 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       <Text style={s.optLabel}>INTENTION</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
         {INTENT_OPTIONS.map(o => (
-          <TouchableOpacity key={o.key} onPress={() => setIntent(o.key)} activeOpacity={0.7}
-            style={[s.chip, intent === o.key && s.chipSel, { flexDirection: 'row', gap: 6 }]}>
+          <TouchableOpacity key={o.key} onPress={() => { setIntent(o.key); setBenchmark(false); }} activeOpacity={0.7}
+            style={[s.chip, intent === o.key && !benchmark && s.chipSel, { flexDirection: 'row', gap: 6 }]}>
             <Text style={{ fontSize: 14 }}>{o.emoji}</Text>
-            <Text style={[s.chipTxt, intent === o.key && s.chipTxtSel]}>{o.label}</Text>
+            <Text style={[s.chipTxt, intent === o.key && !benchmark && s.chipTxtSel]}>{o.label}</Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity key="benchmark" onPress={() => { setBenchmark(true); setFormat('Solo'); }} activeOpacity={0.7}
+          style={[s.chip, benchmark && s.chipSel, { flexDirection: 'row', gap: 6 }]}>
+          <Text style={{ fontSize: 14 }}>📋</Text>
+          <Text style={[s.chipTxt, benchmark && s.chipTxtSel]}>Benchmark</Text>
+        </TouchableOpacity>
       </ScrollView>
+      {benchmark && (
+        <Text style={[s.chipTxt, { marginTop: 6, opacity: 0.7, paddingHorizontal: 4 }]}>
+          WOD officiel (Girls + Open) — tirage aléatoire, Solo uniquement, charges RX.
+        </Text>
+      )}
 
       {/* Options avancées toggle */}
       <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} activeOpacity={0.7}
@@ -1658,13 +1719,16 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         {/* Format */}
         <Text style={s.optLabel}>FORMAT</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
-          {FORMATS.map(f => (
-            <TouchableOpacity key={f} onPress={() => setFormat(f)} activeOpacity={0.7}
-              style={[s.chip, format === f && s.chipSel]}>
+          {FORMATS.map(f => {
+            const disabled = benchmark && f !== 'Solo';
+            return (
+            <TouchableOpacity key={f} disabled={disabled} onPress={() => setFormat(f)} activeOpacity={0.7}
+              style={[s.chip, format === f && s.chipSel, disabled && { opacity: 0.35 }]}>
               {f === 'Solo' ? <User color={format === f ? theme.accent : 'rgba(255,255,255,0.8)'} size={13} /> : <Users color={format === f ? theme.accent : 'rgba(255,255,255,0.8)'} size={13} />}
               <Text style={[s.chipTxt, format === f && s.chipTxtSel]}>{f}</Text>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </ScrollView>
 
         {/* Type */}
@@ -1715,18 +1779,29 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         ))}
       </ScrollView>
 
-      {/* Hyrox intent */}
+      {/* Hyrox session type (5 filières) */}
       <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>TYPE DE SESSION</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={s.chipScrollContent}>
-        {HYROX_CARD_INTENT_OPTIONS.map(o => (
-          <TouchableOpacity key={o.key} onPress={() => setHyroxIntent(o.key)} activeOpacity={0.7}
-            style={[s.chip, hyroxIntent === o.key && s.chipHybrid, { flexDirection: 'column', alignItems: 'center', minWidth: 72, paddingVertical: 8 }]}>
+        {HYROX_SESSION_OPTIONS.map(o => (
+          <TouchableOpacity key={o.key} onPress={() => setHyroxSession(o.key)} activeOpacity={0.7}
+            style={[s.chip, hyroxSession === o.key && s.chipHybrid, { flexDirection: 'column', alignItems: 'center', minWidth: 72, paddingVertical: 8 }]}>
             <Text style={{ fontSize: 15 }}>{o.emoji}</Text>
-            <Text style={[s.chipTxt, hyroxIntent === o.key && { color: HYROX_ORANGE, fontWeight: '900' }]}>{o.label}</Text>
-            <Text style={{ fontSize: 10, color: hyroxIntent === o.key ? `${HYROX_ORANGE}BB` : theme.textMuted, fontWeight: '600' }}>RPE {o.rpe}</Text>
+            <Text style={[s.chipTxt, hyroxSession === o.key && { color: HYROX_ORANGE, fontWeight: '900' }]}>{o.label}</Text>
+            <Text style={{ fontSize: 10, color: hyroxSession === o.key ? `${HYROX_ORANGE}BB` : theme.textMuted, fontWeight: '600' }}>RPE {o.rpe}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Hyrox gilet lesté */}
+      <Text style={[s.optLabel, { color: HYROX_ORANGE }]}>GILET LESTÉ</Text>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {HYROX_VEST_OPTIONS.map(o => (
+          <TouchableOpacity key={o.key} onPress={() => setHyroxVest(o.key)} activeOpacity={0.7}
+            style={[s.chip, hyroxVest === o.key && s.chipHybrid, { flex: 1, alignItems: 'center' }]}>
+            <Text style={[s.chipTxt, hyroxVest === o.key && { color: HYROX_ORANGE, fontWeight: '900' }]}>{o.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {/* Options avancées toggle */}
       <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} activeOpacity={0.7}
@@ -1848,22 +1923,23 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           <View style={[s.badge, { backgroundColor: `${HYROX_ORANGE}15`, alignSelf: 'flex-start' }]}>
             <Text style={[s.badgeTxt, { color: HYROX_ORANGE }]}>{hyroxWod.format} · {hyroxWod.type}</Text>
           </View>
+          <View style={[s.scoringRow, { marginBottom: 6 }]}>
+            <Zap color={HYROX_ORANGE} size={14} />
+            <Text style={[s.scoringTxt, { color: HYROX_ORANGE }]}>{hyroxWod.scoring}</Text>
+          </View>
           <View style={s.movBox}>
             {hyroxWod.stations.map((st, i) => {
               const isHdr = st.startsWith('──') || st.startsWith('AMRAP') || st.startsWith('EMOM')
                 || st.startsWith('LADDER') || st.startsWith('COUNTDOWN') || /^\d+ RFT/.test(st)
                 || /^\d+×/.test(st) || st.startsWith('E2MOM');
+              const isRun = !isHdr && (st.includes('Tapis') || st.includes('Run') || st.includes('km ') || st.endsWith('m Run'));
               return (
                 <View key={i} style={[s.stationRow, isHdr && { marginTop: 6 }]}>
-                  {!isHdr && <View style={[s.stationDot, { backgroundColor: HYROX_ORANGE }]} />}
-                  <Text style={[s.movLine, isHdr && { fontWeight: '800', color: HYROX_ORANGE, fontSize: 12 }]}>{st}</Text>
+                  {!isHdr && <View style={[s.stationDot, { backgroundColor: isRun ? theme.accent : HYROX_ORANGE }]} />}
+                  <Text style={[s.movLine, isHdr && { fontWeight: '800', color: HYROX_ORANGE, fontSize: 12 }, isRun && { color: theme.textSecondary, fontStyle: 'italic' }]}>{st}</Text>
                 </View>
               );
             })}
-          </View>
-          <View style={s.scoringRow}>
-            <Zap color={HYROX_ORANGE} size={14} />
-            <Text style={[s.scoringTxt, { color: HYROX_ORANGE }]}>{hyroxWod.scoring}</Text>
           </View>
           {/* Coaching Notes */}
           {hyroxWod.coachingNotes && hyroxWod.coachingNotes.length > 0 && (
@@ -1909,6 +1985,12 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             onPress={() => navigation.navigate('TimerRun', { timerType: 'for-time' as TimerType, countdown: 5, totalSeconds: 0, maxTime: hyroxWod.duration * 60, interval: 0, rounds: 0, workTime: 0, restTime: 0, withCamera: false, sequence: '[]', videoTitle: hyroxWod.name, withTimestamp: false })}>
             <Zap color="#fff" size={16} />
             <Text style={s.startBtnTxt}>LANCER CET ENTRAÎNEMENT</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.8} onPress={() => openWBModal(true)}
+            style={[s.startBtn, { marginTop: 10, backgroundColor: `${HYROX_ORANGE}15`, borderWidth: 2, borderColor: HYROX_ORANGE }]}>
+            <BookOpen color={HYROX_ORANGE} size={16} />
+            <Text style={[s.startBtnTxt, { color: HYROX_ORANGE }]}>AJOUTER AU WHITEBOARD</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1999,7 +2081,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             <Text style={s.startBtnTxt}>LANCER CE WOD</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity activeOpacity={0.8} onPress={openWBModal}
+          <TouchableOpacity activeOpacity={0.8} onPress={() => openWBModal(false)}
             style={[s.startBtn, { marginTop: 10, backgroundColor: `${theme.accent}15`, borderWidth: 2, borderColor: theme.accent }]}>
             <BookOpen color={theme.accent} size={16} />
             <Text style={[s.startBtnTxt, { color: theme.accent }]}>AJOUTER AU WHITEBOARD</Text>
@@ -2086,10 +2168,16 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           <View style={{ backgroundColor: theme.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 14, borderTopWidth: 1, borderColor: `${theme.accent}30` }}>
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center' }} />
             <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }}>📋 Ajouter au Whiteboard</Text>
-            {wod && (
-              <View style={{ backgroundColor: `${theme.accent}14`, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: `${theme.accent}30` }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: theme.accent, marginBottom: 2 }}>{wod.name}</Text>
-                <Text style={{ fontSize: 12, color: theme.textSecondary }}>{wod.type} · {wod.duration} min · {wod.level.toUpperCase()}</Text>
+            {(wbIsHyrox ? hyroxWod : wod) && (
+              <View style={{ backgroundColor: wbIsHyrox ? `${HYROX_ORANGE}14` : `${theme.accent}14`, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: wbIsHyrox ? `${HYROX_ORANGE}30` : `${theme.accent}30` }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: wbIsHyrox ? HYROX_ORANGE : theme.accent, marginBottom: 2 }}>
+                  {wbIsHyrox ? hyroxWod!.name : wod!.name}
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                  {wbIsHyrox
+                    ? `Hybrid · ${hyroxWod!.type} · ${hyroxWod!.duration} min · ${hyroxWod!.level.toUpperCase()}`
+                    : `${wod!.type} · ${wod!.duration} min · ${wod!.level.toUpperCase()}`}
+                </Text>
               </View>
             )}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>

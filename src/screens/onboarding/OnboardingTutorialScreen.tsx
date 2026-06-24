@@ -43,7 +43,7 @@ const SLIDES: Slide[] = [
   },
   {
     id: '4',
-    title: 'Ta Box, ta communaut\u00E9',
+    title: 'Ta Box, Ta communaut\u00E9',
     description: 'Rejoins ta box, consulte le whiteboard, r\u00E9serve tes cr\u00E9neaux.',
     icon: 'box',
     color: '#8B5CF6',

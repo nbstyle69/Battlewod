@@ -7,13 +7,28 @@ import { captureError } from '../lib/sentry';
 
 // ── Config par défaut ────────────────────────────────────────────────
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    // Beeps du minuteur : en PREMIER PLAN, les bips in-app (expo-av) gèrent le son.
+    // On rend la notif silencieuse + sans bannière pour éviter le double-bip et le
+    // spam de bannières pendant le chrono. En ARRIÈRE-PLAN, ce handler n'est pas
+    // consulté : le système joue le son de la notif (fallback quand le JS est gelé).
+    if (notification.request?.content?.data?.timerBeep === true) {
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      };
+    }
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    };
+  },
 });
 
 // ── Canal Android ────────────────────────────────────────────────────

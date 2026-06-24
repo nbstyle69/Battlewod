@@ -155,7 +155,7 @@ export default function BOProgramsScreen({ navigation }: any) {
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.accent} />
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
+          contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 16 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
         >
           {programs.length === 0 ? (

@@ -28,14 +28,18 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import GlassTabBarBackground from '../components/glass/GlassTabBarBackground';
 
-function useAndroidNavBar(bgColor: string, mode: 'light' | 'dark') {
+// Edge-to-edge is enabled by default on Expo SDK 54 (Android 15 / targetSdk 35).
+// `NavigationBar.setBackgroundColorAsync` is unsupported in that mode: it is a
+// no-op that logs a warning and is flagged by Google Play. We must keep the
+// system navigation bar transparent (edge-to-edge) and only adjust the button
+// (icon) contrast so the gesture/3-button bar stays readable on every page.
+function useAndroidNavBar(_bgColor: string, mode: 'light' | 'dark') {
   React.useEffect(() => {
     if (Platform.OS !== 'android') return;
     try {
-      NavigationBar.setBackgroundColorAsync(bgColor);
       NavigationBar.setButtonStyleAsync(mode === 'dark' ? 'light' : 'dark');
     } catch (_) {}
-  }, [bgColor, mode]);
+  }, [mode]);
 }
 
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -267,6 +271,7 @@ export type HomeStackParamList = {
     videoTitle: string;   // optional title overlay ('' = none)
     withTimestamp: boolean;
     competitionLogoUrl?: string; // physical competition logo overlay (top-left)
+    nextExercise?: string;       // optional "next" card shown in no-camera mode
   };
 };
 
@@ -274,6 +279,31 @@ export type WODStackParamList = {
   WODList: undefined;
   WODGenerator: undefined;
   WodHistory: undefined;
+  TimerRun: {
+    timerType: TimerType;
+    countdown: number;
+    totalSeconds: number;
+    maxTime: number;
+    interval: number;
+    rounds: number;
+    workTime: number;
+    restTime: number;
+    withCamera: boolean;
+    sequence: string;
+    videoTitle: string;
+    withTimestamp: boolean;
+    competitionLogoUrl?: string;
+    nextExercise?: string;
+  };
+  VideoPlayback: {
+    videoURL: string;
+    title?: string;
+    recordedAt?: string;
+    timerStartOffset?: number;
+    timerStopOffset?: number;
+    countdownDuration?: number;
+    overlaysBurned?: boolean;
+  };
 };
 
 export type CompetitionStackParamList = {
@@ -295,6 +325,7 @@ export type CompetitionStackParamList = {
     videoTitle: string;
     withTimestamp: boolean;
     competitionLogoUrl?: string; // physical competition logo overlay (top-left)
+    nextExercise?: string;
   };
   Tournament: { tournamentId: string };
   InterCompetitionList: undefined;
@@ -374,6 +405,7 @@ export type WhiteboardStackParamList = {
     competitionLogoUrl?: string;
     countdownDuration?: number;
     overlaysBurned?: boolean;
+    nextExercise?: string;
   };
   VideoPlayback: {
     videoUri: string;
@@ -466,6 +498,8 @@ function WODNavigator() {
       <WODStack.Screen name="WODList" component={WODScreen} />
       <WODStack.Screen name="WODGenerator" component={WODGeneratorScreen} />
       <WODStack.Screen name="WodHistory"   component={WodHistoryScreen} />
+      <WODStack.Screen name="TimerRun"     component={TimerRunScreen} />
+      <WODStack.Screen name="VideoPlayback" component={VideoPlaybackScreen} />
     </WODStack.Navigator>
   );
 }
@@ -731,7 +765,11 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { session, user, currentBox, boxRole, loading, boxSkipped, isBoxActive, boxSubscription } = useAuth();
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  // Set the Android system navigation bar style ONCE, globally, so every page
+  // (Auth, Onboarding, Main tabs, Timer, modals…) keeps the exact same transparent
+  // edge-to-edge bar with readable buttons — no more per-page variance.
+  useAndroidNavBar('', mode);
   const [splashDone, setSplashDone] = React.useState(false);
   const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
 

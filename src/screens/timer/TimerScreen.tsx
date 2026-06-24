@@ -140,6 +140,19 @@ export default function TimerScreen() {
       });
       return;
     }
+    if (activeTab === 'ywyr') {
+      // YWYR autonome : chrono montant → FIN DU TRAVAIL → décompte → boucle infinie, fin manuelle
+      navigation.navigate('TimerRun', {
+        timerType: 'ywyr',
+        countdown,
+        totalSeconds: 0, maxTime: 0, interval: 0, rounds: 0, workTime: 0, restTime: 0,
+        withCamera,
+        sequence: '[]',
+        videoTitle: videoTitle.trim(),
+        withTimestamp,
+      });
+      return;
+    }
     navigation.navigate('TimerRun', {
       timerType: 'libre',
       countdown,
@@ -419,7 +432,6 @@ export default function TimerScreen() {
       )}
 
       <ScrollView contentContainerStyle={S.content} showsVerticalScrollIndicator={false}>
-        {activeTab === 'splits' ? renderSplitsConfig() : renderBlocks()}
         {activeTab !== 'splits' && (
           <CountdownPicker value={countdown} onChange={setCountdown} />
         )}
@@ -469,10 +481,12 @@ export default function TimerScreen() {
           )}
         </View>
 
+        {activeTab === 'splits' ? renderSplitsConfig() : renderBlocks()}
+
         <View style={{ height: 16 }} />
         <TouchableOpacity style={S.btnPrimary} onPress={launch} activeOpacity={0.85}>
           {withCamera ? <Video color="#fff" size={20} /> : <Timer color="#fff" size={20} />}
-          <Text style={S.btnPrimaryText}>Démarrer</Text>
+          <Text style={S.btnPrimaryText}>DÉMARRER</Text>
         </TouchableOpacity>
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -489,7 +503,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   back: {},
   headerTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
-  content: { padding: 16, paddingTop: 20, gap: 14 },
+  content: { padding: 16, paddingTop: 20, paddingBottom: 140, gap: 14 },
   card: {
     backgroundColor: theme.card, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: theme.border, gap: 10,
@@ -575,9 +589,11 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   addBlockBtnText: { fontSize: 14, fontWeight: '800', color: theme.accent },
   btnPrimary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.accent, borderRadius: 16, padding: 18, gap: 10,
+    backgroundColor: `${theme.accent}28`,
+    borderRadius: 16, paddingVertical: 18, paddingHorizontal: 28, gap: 10,
+    borderWidth: 2, borderColor: `${theme.accent}CC`,
   },
-  btnPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  btnPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
   btnSecondary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: theme.background, borderRadius: 16, padding: 18, gap: 10,

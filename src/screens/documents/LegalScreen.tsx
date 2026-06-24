@@ -252,7 +252,7 @@ function createStyles(t: AppTheme, isDark: boolean) {
     tabText: { fontSize: 13, fontWeight: '700', color: t.textMuted },
     tabTextActive: { color: '#fff' },
     scroll: { flex: 1 },
-    content: { padding: 20, paddingBottom: 60 },
+    content: { padding: 20, paddingBottom: 120 },
     h1: { fontSize: 22, fontWeight: '900', color: t.text, marginBottom: 4 },
     subtitle: { fontSize: 12, color: t.textMuted, marginBottom: 24 },
     h2: { fontSize: 16, fontWeight: '700', color: t.accent, marginTop: 20, marginBottom: 8 },

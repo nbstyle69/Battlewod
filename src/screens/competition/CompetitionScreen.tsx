@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, RefreshControl, Alert, LayoutAnimation,
 } from 'react-native';
-import { Trophy, Users, Clock, Zap, ChevronRight, ChevronLeft, Plus, MapPin, Flame, Globe2, Info } from 'lucide-react-native';
+import { Trophy, Users, Clock, Zap, ChevronRight, ChevronLeft, Plus, MapPin, Flame, Globe2, Info, CheckCircle } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -57,6 +57,7 @@ export default function CompetitionScreen() {
   const [tLoading,     setTLoading]     = useState(false);
   const [tRefreshing,  setTRefreshing]  = useState(false);
   const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
+  const [myRegistered, setMyRegistered] = useState<Record<string, boolean>>({});
   const [miniTournaments, setMiniTournaments] = useState<MiniTournament[]>([]);
   const [miniLoading, setMiniLoading] = useState(false);
   const { user } = useAuth();
@@ -88,11 +89,26 @@ export default function CompetitionScreen() {
         counts[t.id] = count ?? 0;
       }));
       setParticipantCounts(counts);
+
+      // Fetch my registration status across all listed tournaments (all formats)
+      if (user) {
+        const ids = list.map(t => t.id);
+        const { data: myRows } = await supabase
+          .from('tournament_participants')
+          .select('tournament_id')
+          .eq('athlete_id', user.id)
+          .in('tournament_id', ids);
+        const reg: Record<string, boolean> = {};
+        (myRows ?? []).forEach((r: any) => { reg[r.tournament_id] = true; });
+        setMyRegistered(reg);
+      } else {
+        setMyRegistered({});
+      }
     }
     } catch (e) { captureError(e, { screen: 'Competition', action: 'loadTournaments' }); }
     setTLoading(false);
     setTRefreshing(false);
-  }, [currentBox]);
+  }, [currentBox, user]);
 
   const loadMiniTournaments = useCallback(async () => {
     if (!user) return;
@@ -213,6 +229,12 @@ export default function CompetitionScreen() {
                         </Text>
                       </View>
                     </View>
+                    {myRegistered[t.id] && (
+                      <View style={S.regBadge}>
+                        <CheckCircle color={theme.success} size={13} />
+                        <Text style={S.regBadgeText}>Inscrit</Text>
+                      </View>
+                    )}
                     <View style={S.tInfo}>
                       <View style={S.tInfoItem}>
                         <Users color={theme.textMuted} size={14} />
@@ -441,6 +463,13 @@ function createStyles(theme: AppTheme) {
   tName: { fontSize: 15, fontWeight: '700', color: theme.text, flex: 1 },
   tStatus: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   tStatusText: { fontSize: 11, fontWeight: '700' },
+  regBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    backgroundColor: `${theme.success}15`, borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 4, marginBottom: 10,
+    borderWidth: 1, borderColor: `${theme.success}30`,
+  },
+  regBadgeText: { fontSize: 11, fontWeight: '800', color: theme.success },
   tInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   tInfoItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   tInfoText: { fontSize: 12, color: theme.textMuted },

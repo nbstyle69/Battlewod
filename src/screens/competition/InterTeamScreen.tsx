@@ -487,7 +487,7 @@ function createStyles(theme: AppTheme) {
     headerIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: `${theme.accent}20`, justifyContent: 'center', alignItems: 'center' },
     headerTitle:{ fontSize: 18, fontWeight: '800', color: theme.text },
     headerSub:  { fontSize: 11, color: theme.textMuted, marginTop: 1 },
-    content:    { padding: 16, gap: 16 },
+    content:    { padding: 16, gap: 16, paddingBottom: 140 },
     sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     sectionLabel:{ fontSize: 13, fontWeight: '800', color: theme.text, marginBottom: 4 },
     sectionHint: { fontSize: 11, color: theme.textMuted, marginBottom: 10 },

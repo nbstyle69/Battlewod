@@ -279,7 +279,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   headerTitle: { fontSize: 18, fontWeight: '900', color: t.text },
-  content: { padding: 20, gap: 20, paddingBottom: 40 },
+  content: { padding: 20, gap: 20, paddingBottom: 120 },
   heroSection: { alignItems: 'center', gap: 12 },
   logo: { width: 100, height: 100, borderRadius: 24, backgroundColor: t.surface },
   logoPlaceholder: { justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: t.border, borderStyle: 'dashed' },
