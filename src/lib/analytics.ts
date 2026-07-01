@@ -77,3 +77,87 @@ export function trackMessageSend(isGroup: boolean) {
 export function trackFriendAdd() {
   trackEvent('Friend Add');
 }
+
+// ── Inter-box competition events ─────────────────────────
+
+export function trackInterCompCreate(format: string, type: string) {
+  trackEvent('Inter Comp Create', { format, type });
+}
+
+export function trackInterCompRegister(competitionId: string, format: string) {
+  trackEvent('Inter Comp Register', { competition_id: competitionId, format });
+}
+
+export function trackInterCompScoreSubmit(competitionId: string, format: string, withVideo: boolean) {
+  trackEvent('Inter Comp Score Submit', { competition_id: competitionId, format, with_video: withVideo });
+}
+
+export function trackInterCompClose(competitionId: string, format: string, participantCount: number) {
+  trackEvent('Inter Comp Close', { competition_id: competitionId, format, participant_count: participantCount });
+}
+
+export function trackBracketGenerate(competitionId: string, participantCount: number) {
+  trackEvent('Bracket Generate', { competition_id: competitionId, participant_count: participantCount });
+}
+
+export function trackBracketResolve(competitionId: string, round: number) {
+  trackEvent('Bracket Resolve', { competition_id: competitionId, round });
+}
+
+export function trackLeagueRoundCreate(competitionId: string, roundNumber: number) {
+  trackEvent('League Round Create', { competition_id: competitionId, round: roundNumber });
+}
+
+export function trackPoolGenerate(competitionId: string, groupCount: number) {
+  trackEvent('Pool Generate', { competition_id: competitionId, group_count: groupCount });
+}
+
+export function trackPoolMatchResolve(competitionId: string) {
+  trackEvent('Pool Match Resolve', { competition_id: competitionId });
+}
+
+export function trackSwissRoundGenerate(competitionId: string, roundNumber: number) {
+  trackEvent('Swiss Round Generate', { competition_id: competitionId, round: roundNumber });
+}
+
+export function trackSwissPairingResolve(competitionId: string) {
+  trackEvent('Swiss Pairing Resolve', { competition_id: competitionId });
+}
+
+// ── Daily tournament events ──────────────────────────────
+
+export function trackDailyTournamentJoin(tournamentId: string) {
+  trackEvent('Daily Tournament Join', { tournament_id: tournamentId });
+}
+
+export function trackDailyTournamentScoreSubmit(tournamentId: string, scoreMode: string) {
+  trackEvent('Daily Tournament Score Submit', { tournament_id: tournamentId, score_mode: scoreMode });
+}
+
+export function trackDailyTournamentCreate() {
+  trackEvent('Daily Tournament Create');
+}
+
+// ── Program events ───────────────────────────────────────
+
+export function trackProgramJoin(programId: string) {
+  trackEvent('Program Join', { program_id: programId });
+}
+
+// ── Onboarding events ────────────────────────────────────
+
+export function trackOnboardingStep(step: number, slideTitle: string) {
+  trackEvent('Onboarding Step', { step, slide: slideTitle });
+}
+
+export function trackOnboardingComplete() {
+  trackEvent('Onboarding Complete');
+}
+
+export function trackOnboardingBoxJoin() {
+  trackEvent('Onboarding Box Join');
+}
+
+export function trackOnboardingSkipBox() {
+  trackEvent('Onboarding Skip Box');
+}
