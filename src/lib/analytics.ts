@@ -143,3 +143,21 @@ export function trackDailyTournamentCreate() {
 export function trackProgramJoin(programId: string) {
   trackEvent('Program Join', { program_id: programId });
 }
+
+// ── Onboarding events ────────────────────────────────────
+
+export function trackOnboardingStep(step: number, slideTitle: string) {
+  trackEvent('Onboarding Step', { step, slide: slideTitle });
+}
+
+export function trackOnboardingComplete() {
+  trackEvent('Onboarding Complete');
+}
+
+export function trackOnboardingBoxJoin() {
+  trackEvent('Onboarding Box Join');
+}
+
+export function trackOnboardingSkipBox() {
+  trackEvent('Onboarding Skip Box');
+}

@@ -30,6 +30,7 @@ import GlassBackground from '../../components/glass/GlassBackground';
 import GlassCard from '../../components/glass/GlassCard';
 import GlassButton from '../../components/glass/GlassButton';
 import GlassIconBox from '../../components/glass/GlassIconBox';
+import InteractiveTour from '../../components/InteractiveTour';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
 
@@ -755,6 +756,9 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Interactive tour overlay — shown once after onboarding */}
+      <InteractiveTour />
     </View>
   );
 }
