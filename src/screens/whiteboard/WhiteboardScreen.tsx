@@ -258,7 +258,7 @@ export default function WhiteboardScreen() {
     // Fetch user's active program memberships for this box
     let myProgramIds = new Set<string>();
     if (user) {
-      const { data: progMem } = await (supabase as any)
+      const { data: progMem } = await supabase
         .from('program_members')
         .select('program_id')
         .eq('user_id', user.id)
@@ -291,7 +291,7 @@ export default function WhiteboardScreen() {
         accessMap[r.wod_id].push(r.group_id);
       }
       // Fetch program access
-      const { data: progAccessRows } = await (supabase as any)
+      const { data: progAccessRows } = await supabase
         .from('wod_program_access')
         .select('wod_id, program_id')
         .in('wod_id', allWodIds);
@@ -344,7 +344,7 @@ export default function WhiteboardScreen() {
     if (!user) { setProgramWods([]); return; }
     (async () => {
       try {
-        const { data: memberships } = await (supabase as any)
+        const { data: memberships } = await supabase
           .from('program_members')
           .select('program_id, start_date, programs:program_id(id, title, type, duration_weeks, days_per_week)')
           .eq('user_id', user.id)
@@ -369,7 +369,7 @@ export default function WhiteboardScreen() {
             const weekNum = Math.ceil(dayNumber / 7);
             const dayInWeek = ((dayNumber - 1) % 7);
 
-            const { data: wods } = await (supabase as any)
+            const { data: wods } = await supabase
               .from('program_wods')
               .select('id, title, description, wod_type, time_cap_seconds')
               .eq('program_id', prog.id)
@@ -380,7 +380,7 @@ export default function WhiteboardScreen() {
             }
           } else {
             // ongoing: match by scheduled_date
-            const { data: wods } = await (supabase as any)
+            const { data: wods } = await supabase
               .from('program_wods')
               .select('id, title, description, wod_type, time_cap_seconds, week_number')
               .eq('program_id', prog.id)
@@ -412,7 +412,7 @@ export default function WhiteboardScreen() {
     (async () => {
       try {
         const [{ data: comps }, { data: scores }] = await Promise.all([
-          (supabase as any).from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
+          supabase.from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
           supabase.from('wod_scores').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
         ]);
         setCompletedIds(new Set((comps ?? []).map((c: any) => c.wod_id)));
@@ -434,10 +434,10 @@ export default function WhiteboardScreen() {
     });
     try {
       if (isDone) {
-        await (supabase as any).from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
+        await supabase.from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
       } else {
         hapticSuccess();
-        const { error } = await (supabase as any).from('wod_completions').insert({
+        const { error } = await supabase.from('wod_completions').insert({
           wod_id: wodId, member_id: user.id, box_id: currentBox.id,
         });
         if (error && error.code !== '23505') throw error;

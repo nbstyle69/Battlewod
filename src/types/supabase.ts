@@ -4055,6 +4055,7 @@ export type Database = {
       }
       tournament_wods: {
         Row: {
+          bracket_stage: number | null
           closes_at: string | null
           created_at: string
           deadline_hours: number
@@ -4078,6 +4079,7 @@ export type Database = {
           work_seconds: number | null
         }
         Insert: {
+          bracket_stage?: number | null
           closes_at?: string | null
           created_at?: string
           deadline_hours?: number
@@ -4101,6 +4103,7 @@ export type Database = {
           work_seconds?: number | null
         }
         Update: {
+          bracket_stage?: number | null
           closes_at?: string | null
           created_at?: string
           deadline_hours?: number

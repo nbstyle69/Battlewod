@@ -139,7 +139,7 @@ export default function TournamentScreen() {
 
     // ── Divisions (league_div only) ─────────────────────────────────────
     if ((t as any)?.format === 'league_div') {
-      const { data: divs } = await (supabase as any)
+      const { data: divs } = await supabase
         .from('tournament_divisions')
         .select('*')
         .eq('tournament_id', tournamentId)
@@ -148,7 +148,7 @@ export default function TournamentScreen() {
       setDivisions(divList);
       const divIds = divList.map((d: any) => d.id);
       if (divIds.length > 0) {
-        const { data: mems } = await (supabase as any)
+        const { data: mems } = await supabase
           .from('tournament_division_members')
           .select('*')
           .in('division_id', divIds);
