@@ -17,6 +17,12 @@ import {
   sendInterBracketResultNotification,
   sendInterCompetitionClosedNotification,
 } from '../../services/notifications';
+import {
+  trackInterCompCreate, trackInterCompClose,
+  trackBracketGenerate, trackBracketResolve,
+  trackLeagueRoundCreate, trackPoolGenerate,
+  trackPoolMatchResolve, trackSwissRoundGenerate, trackSwissPairingResolve,
+} from '../../lib/analytics';
 import { BracketTab, LeagueTab, PoolTab, SwissTab } from './inter-competition';
 import {
   InterCompetition, InterWod, InterScore, BracketMatch,
@@ -243,6 +249,7 @@ export default function BOInterCompetitionScreen() {
     }).select().single();
     setCreating(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
+    trackInterCompCreate(newFormat, newType);
     setCreateModal(false);
     setNewTitle('');
     setSelectedId(data.id);
@@ -317,9 +324,9 @@ export default function BOInterCompetitionScreen() {
 
             const winner = results.find(r => r.rank === 1);
             const topDelta = winner ? `+${winner.delta}` : '';
-            Alert.alert('Competition cloturee !', `ELO distribue a ${results.length} athletes. 1er: ${topDelta} ELO`);
-
             const comp = competitions.find(c => c.id === selectedId);
+            trackInterCompClose(selectedId!, comp?.format ?? 'unknown', results.length);
+            Alert.alert('Competition cloturee !', `ELO distribue a ${results.length} athletes. 1er: ${topDelta} ELO`);
             if (comp && selectedId) {
               const eloChanges = results.map(r => ({ athleteId: r.id, delta: r.delta }));
               sendInterCompetitionClosedNotification(selectedId, comp.title, eloChanges).catch(() => {});
@@ -396,6 +403,7 @@ export default function BOInterCompetitionScreen() {
             p_competition_id: selectedId,
           });
           if (error) { Alert.alert('Erreur', error.message); return; }
+          trackBracketGenerate(selectedId!, registrationCount);
           loadData();
           Alert.alert('Bracket genere !');
         }},
@@ -415,6 +423,7 @@ export default function BOInterCompetitionScreen() {
             .update({ winner_id: winnerId, loser_id: loserId, status: 'completed', completed_at: new Date().toISOString() })
             .eq('id', match.id);
           if (error) { Alert.alert('Erreur', error.message); return; }
+          trackBracketResolve(selectedId!, match.round);
           loadData();
           const comp = competitions.find(c => c.id === selectedId);
           if (comp) {
@@ -456,6 +465,7 @@ export default function BOInterCompetitionScreen() {
       status: 'pending',
     });
     if (error) { Alert.alert('Erreur', error.message); return; }
+    trackLeagueRoundCreate(selectedId!, nextNumber);
     loadData();
     Alert.alert(`Journee ${nextNumber} creee !`);
   }
@@ -488,6 +498,7 @@ export default function BOInterCompetitionScreen() {
             p_advance_count: 2,
           });
           if (error) { Alert.alert('Erreur', error.message); return; }
+          trackPoolGenerate(selectedId!, groupsCount);
           loadData();
           Alert.alert(`${groupsCount} poules generees !`);
         }},
@@ -504,6 +515,7 @@ export default function BOInterCompetitionScreen() {
       p_scoring_type: scoringType,
     });
     if (error) { Alert.alert('Erreur', error.message); return; }
+    trackPoolMatchResolve(selectedId!);
     loadData();
   }
 
@@ -515,6 +527,7 @@ export default function BOInterCompetitionScreen() {
       p_competition_id: selectedId,
     });
     if (error) { Alert.alert('Erreur', error.message); return; }
+    trackSwissRoundGenerate(selectedId!, swissRounds.length + 1);
     Alert.alert('Round suisse genere', `${data} appariements crees`);
     loadData();
   }
@@ -528,6 +541,7 @@ export default function BOInterCompetitionScreen() {
       p_scoring_type: scoringType,
     });
     if (error) { Alert.alert('Erreur', error.message); return; }
+    trackSwissPairingResolve(selectedId!);
     loadData();
   }
 

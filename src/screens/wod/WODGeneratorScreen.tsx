@@ -14,6 +14,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { incrementCounter } from '../../services/gamification';
 import { captureError } from '../../lib/sentry';
+import { trackWodGenerate } from '../../lib/analytics';
 import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel, WODType } from '../../types';
 import GlassBackground from '../../components/glass/GlassBackground';
@@ -1685,6 +1686,7 @@ export default function WODGeneratorScreen() {
       setGeneratedHyrox(null);
     }
     setLoading(false);
+    trackWodGenerate(sport === 'hybrid' ? hyroxFormat : wodType, sport === 'hybrid' ? hyroxDur : duration, sport === 'hybrid' ? hyroxLevel : level);
     if (user) incrementCounter(user.id, 'total_wods_generated', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementWodsGenerated' }));
   }
 

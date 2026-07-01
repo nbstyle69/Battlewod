@@ -15,6 +15,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
+import { trackInterCompRegister, trackInterCompScoreSubmit } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
@@ -209,6 +210,7 @@ export default function InterCompetitionDetailScreen() {
     if (error) {
       Alert.alert('Erreur', error.code === '23505' ? 'Tu es déjà inscrit.' : error.message);
     } else {
+      trackInterCompRegister(competitionId, comp?.format ?? 'unknown');
       await load();
     }
     setRegistering(false);

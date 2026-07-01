@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
+import { trackInterCompScoreSubmit } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterScoreSubmit'>;
@@ -75,6 +76,7 @@ export default function InterScoreSubmitScreen() {
       else Alert.alert('Erreur', error.message);
       return;
     }
+    trackInterCompScoreSubmit(competitionId, scoringType, !!trimmedVideo);
     Alert.alert(
       'Score soumis ! ✓',
       'Ton score est en attente de validation par le Super Admin.',

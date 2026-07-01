@@ -26,6 +26,7 @@ import { formatScoreValue, DNF_BASE } from '../../utils/scoreFormat';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
+import { trackScoreSubmit } from '../../lib/analytics';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
 import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
@@ -268,6 +269,7 @@ export default function WODDetailScreen() {
     }, { onConflict: 'wod_id,member_id' });
 
     if (error) { setSubmitting(false); Alert.alert('Erreur', error.message); return; }
+    trackScoreSubmit(wod.id, scoreType);
 
     // Dedup: if user already marked this WOD as "réalisé", the activity was already counted.
     // Remove the completion row (score is authoritative) and skip double-counting the streak.
