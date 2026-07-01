@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { GenderTarget } from '../../types';
+import { trackDailyTournamentJoin, trackDailyTournamentCreate } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<any>;
@@ -124,6 +125,7 @@ export default function DailyTournamentsScreen() {
       user_id: user.id,
     }, { onConflict: 'tournament_id,user_id', ignoreDuplicates: true });
     if (error) { Alert.alert('Erreur', error.message); return; }
+    trackDailyTournamentJoin(tournamentId);
     load();
   }
 
@@ -155,6 +157,7 @@ export default function DailyTournamentsScreen() {
       }, { onConflict: 'tournament_id,user_id', ignoreDuplicates: true });
     }
 
+    trackDailyTournamentCreate();
     setCreateModal(false);
     resetForm();
     load();

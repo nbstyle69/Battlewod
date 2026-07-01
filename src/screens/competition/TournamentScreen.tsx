@@ -24,6 +24,7 @@ import {
   MOVEMENT_BADGE_LEVELS, formatDate,
   rankWodScores, cfPoints,
 } from '../../utils/tournamentUtils';
+import { trackTournamentJoin } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
 import TournamentBracketView from './TournamentBracketView';
 import TournamentDivisionsView from './TournamentDivisionsView';
@@ -184,6 +185,7 @@ export default function TournamentScreen() {
         return;
       }
       setIsRegistered(true);
+      trackTournamentJoin(tournamentId, tournament?.type ?? 'unknown');
       if (tournament?.start_date) {
         scheduleTournamentReminder(tournamentId, tournament.name, tournament.start_date).catch(e => captureError(e, { action: 'scheduleTournamentReminder' }));
       }

@@ -23,6 +23,7 @@ import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import { calculatePairwiseDeltas, SCALED_MULTIPLIER } from '../../utils/elo';
 
+import { trackDailyTournamentJoin, trackDailyTournamentScoreSubmit } from '../../lib/analytics';
 import { HomeStackParamList, TimerType } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 
@@ -246,6 +247,7 @@ export default function DailyTournamentDetailScreen() {
     }, { onConflict: 'tournament_id,user_id', ignoreDuplicates: true });
     setJoining(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
+    trackDailyTournamentJoin(tournamentId);
     load();
   }
 
@@ -315,6 +317,7 @@ export default function DailyTournamentDetailScreen() {
       logMovementReps(user.id, completed, 'daily', tournamentId).catch(e => captureError(e, { action: 'logMovementReps' }));
     }
 
+    trackDailyTournamentScoreSubmit(tournamentId, tournament?.score_mode ?? 'reps');
     hapticSuccess();
     setScoreModal(false);
     setScoreInput('');
