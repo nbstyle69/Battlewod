@@ -552,3 +552,129 @@ export async function cancelTodayScoreReminder() {
   // Re-schedule for tomorrow (it's daily, so re-scheduling restarts the cycle)
   await scheduleScoreReminder();
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// INTER-BOX COMPETITION NOTIFICATIONS
+// ══════════════════════════════════════════════════════════════════════
+
+// ── #9 Nouveau WOD révélé dans une competition inter-box ─────────────
+export async function sendInterWodRevealedNotification(
+  competitionId: string,
+  competitionTitle: string,
+  wodTitle: string,
+) {
+  const { data: registrations } = await (supabase as any)
+    .from('inter_registrations')
+    .select('athlete_id')
+    .eq('competition_id', competitionId)
+    .eq('status', 'active');
+  if (!registrations || registrations.length === 0) return;
+
+  const athleteIds = registrations.map((r: any) => r.athlete_id).filter(Boolean);
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token, user_id')
+    .in('user_id', athleteIds);
+  if (!tokens || tokens.length === 0) return;
+
+  await sendPush(
+    tokens,
+    `🏆 ${competitionTitle}`,
+    `Nouveau WOD revele : ${wodTitle}`,
+    { type: 'inter_wod_revealed', competitionId },
+  );
+}
+
+// ── #10 Match de bracket assigné (ton prochain adversaire) ───────────
+export async function sendInterBracketMatchNotification(
+  athleteId: string,
+  competitionTitle: string,
+  opponentName: string,
+  round: number,
+) {
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('user_id', athleteId);
+  if (!tokens || tokens.length === 0) return;
+
+  await sendPush(
+    tokens,
+    `⚔️ ${competitionTitle}`,
+    `Round ${round} : tu affrontes ${opponentName} !`,
+    { type: 'inter_bracket_match', competitionTitle, round },
+  );
+}
+
+// ── #11 Résultat de match bracket (tu as gagné/perdu) ────────────────
+export async function sendInterBracketResultNotification(
+  athleteId: string,
+  competitionTitle: string,
+  won: boolean,
+  round: number,
+) {
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('user_id', athleteId);
+  if (!tokens || tokens.length === 0) return;
+
+  await sendPush(
+    tokens,
+    won ? `🎉 Victoire !` : `😤 Defaite`,
+    won
+      ? `Tu avances au round ${round + 1} de ${competitionTitle} !`
+      : `Tu es elimine au round ${round} de ${competitionTitle}.`,
+    { type: 'inter_bracket_result', competitionTitle, won, round },
+  );
+}
+
+// ── #12 Competition inter-box clôturée (ELO distribué) ───────────────
+export async function sendInterCompetitionClosedNotification(
+  competitionId: string,
+  competitionTitle: string,
+  eloChanges: { athleteId: string; delta: number }[],
+) {
+  if (eloChanges.length === 0) return;
+
+  const athleteIds = eloChanges.map(e => e.athleteId);
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token, user_id')
+    .in('user_id', athleteIds);
+  if (!tokens || tokens.length === 0) return;
+
+  for (const change of eloChanges) {
+    const userTokens = tokens.filter(t => t.user_id === change.athleteId);
+    if (userTokens.length === 0) continue;
+
+    const sign = change.delta >= 0 ? '+' : '';
+    await sendPush(
+      userTokens,
+      `🏆 ${competitionTitle} terminee`,
+      `Ton ELO : ${sign}${change.delta} points`,
+      { type: 'inter_competition_closed', competitionId, delta: change.delta },
+    );
+  }
+}
+
+// ── #13 Pool match assigné ───────────────────────────────────────────
+export async function sendInterPoolMatchNotification(
+  athleteId: string,
+  competitionTitle: string,
+  opponentName: string,
+  groupName: string,
+) {
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('user_id', athleteId);
+  if (!tokens || tokens.length === 0) return;
+
+  await sendPush(
+    tokens,
+    `⚔️ ${competitionTitle}`,
+    `${groupName} : tu affrontes ${opponentName}`,
+    { type: 'inter_pool_match', competitionTitle, groupName },
+  );
+}

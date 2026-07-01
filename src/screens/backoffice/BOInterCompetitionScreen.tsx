@@ -14,6 +14,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { calculatePairwiseDeltas, clampElo, assignRanks, RankedPlayer } from '../../utils/elo';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
+import {
+  sendInterWodRevealedNotification,
+  sendInterBracketResultNotification,
+  sendInterCompetitionClosedNotification,
+} from '../../services/notifications';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface InterCompetition {
@@ -73,6 +78,41 @@ interface BracketMatch {
   p2_score?: InterScore | null;
 }
 
+interface PoolGroup {
+  id: string;
+  competition_id: string;
+  group_name: string;
+  group_index: number;
+  advance_count: number;
+}
+
+interface PoolMember {
+  id: string;
+  group_id: string;
+  athlete_id: string;
+  points: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  score_for: number;
+  score_against: number;
+  username?: string;
+}
+
+interface PoolMatch {
+  id: string;
+  group_id: string;
+  competition_id: string;
+  athlete1_id: string;
+  athlete2_id: string;
+  score1: number | null;
+  score2: number | null;
+  winner_id: string | null;
+  status: 'pending' | 'active' | 'completed';
+  a1_username?: string;
+  a2_username?: string;
+}
+
 interface LeagueRound {
   id: string;
   competition_id: string;
@@ -114,7 +154,7 @@ export default function BOInterCompetitionScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState<'wods' | 'scores' | 'bracket' | 'league'>('wods');
+  const [tab, setTab] = useState<'wods' | 'scores' | 'bracket' | 'league' | 'pool'>('wods');
 
   // Selected competition data
   const [wods, setWods] = useState<InterWod[]>([]);
@@ -122,6 +162,9 @@ export default function BOInterCompetitionScreen() {
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[]>([]);
   const [leagueRounds, setLeagueRounds] = useState<LeagueRound[]>([]);
   const [leagueStandings, setLeagueStandings] = useState<LeagueStanding[]>([]);
+  const [poolGroups, setPoolGroups] = useState<PoolGroup[]>([]);
+  const [poolMembers, setPoolMembers] = useState<PoolMember[]>([]);
+  const [poolMatches, setPoolMatches] = useState<PoolMatch[]>([]);
   const [registrationCount, setRegistrationCount] = useState(0);
 
   // Create modal
@@ -210,8 +253,8 @@ export default function BOInterCompetitionScreen() {
       }
     }
 
-    // Load league data if format is league/pool
-    if (comp?.format === 'league' || comp?.format === 'pool') {
+    // Load league data if format is league
+    if (comp?.format === 'league') {
       const [{ data: rounds }, { data: standings }] = await Promise.all([
         (supabase as any).from('inter_league_rounds')
           .select('*').eq('competition_id', selectedId).order('round_number'),
@@ -230,6 +273,43 @@ export default function BOInterCompetitionScreen() {
         standingsList.forEach(s => { s.username = sprofMap[s.athlete_id] ?? '—'; });
       }
       setLeagueStandings(standingsList);
+    }
+
+    // Load pool data if format is pool
+    if (comp?.format === 'pool') {
+      const [{ data: groups }, { data: members }, { data: matches }] = await Promise.all([
+        (supabase as any).from('inter_pool_groups')
+          .select('*').eq('competition_id', selectedId).order('group_index'),
+        (supabase as any).from('inter_pool_members')
+          .select('*'),
+        (supabase as any).from('inter_pool_matches')
+          .select('*').eq('competition_id', selectedId).order('group_id'),
+      ]);
+      setPoolGroups((groups ?? []) as PoolGroup[]);
+
+      // Filter members to only current comp groups
+      const groupIds = (groups ?? []).map((g: any) => g.id);
+      const compMembers = ((members ?? []) as PoolMember[]).filter(m => groupIds.includes(m.group_id));
+
+      // Enrich with usernames
+      const pmIds = [...new Set([
+        ...compMembers.map(m => m.athlete_id),
+        ...(matches ?? []).flatMap((m: any) => [m.athlete1_id, m.athlete2_id]),
+      ])].filter(Boolean);
+      const pmProfMap: Record<string, string> = {};
+      if (pmIds.length > 0) {
+        const { data: profs } = await supabase.from('profiles').select('id, username').in('id', pmIds);
+        (profs ?? []).forEach((p: any) => { pmProfMap[p.id] = p.username; });
+      }
+      compMembers.forEach(m => { m.username = pmProfMap[m.athlete_id] ?? '—'; });
+      setPoolMembers(compMembers);
+
+      const enrichedMatches: PoolMatch[] = ((matches ?? []) as PoolMatch[]).map(m => ({
+        ...m,
+        a1_username: pmProfMap[m.athlete1_id] ?? '—',
+        a2_username: pmProfMap[m.athlete2_id] ?? '—',
+      }));
+      setPoolMatches(enrichedMatches);
     }
   }, [selectedId, competitions]);
 
@@ -337,6 +417,13 @@ export default function BOInterCompetitionScreen() {
             const winner = results.find(r => r.rank === 1);
             const topDelta = winner ? `+${winner.delta}` : '';
             Alert.alert('Competition cloturee !', `ELO distribue a ${results.length} athletes. 1er: ${topDelta} ELO`);
+
+            // Notify all athletes of their ELO change
+            const comp = competitions.find(c => c.id === selectedId);
+            if (comp && selectedId) {
+              const eloChanges = results.map(r => ({ athleteId: r.id, delta: r.delta }));
+              sendInterCompetitionClosedNotification(selectedId, comp.title, eloChanges).catch(() => {});
+            }
           } catch (e: any) {
             captureError(e, { screen: 'BOInterCompetition', action: 'close' });
             Alert.alert('Erreur', e?.message ?? 'Erreur lors de la cloture');
@@ -369,6 +456,12 @@ export default function BOInterCompetitionScreen() {
       .update({ revealed_at: new Date().toISOString() }).eq('id', wodId);
     if (error) { Alert.alert('Erreur', error.message); return; }
     loadData();
+    // Notify participants
+    const comp = competitions.find(c => c.id === selectedId);
+    const wod = wods.find(w => w.id === wodId);
+    if (comp && wod && selectedId) {
+      sendInterWodRevealedNotification(selectedId, comp.title, wod.title).catch(() => {});
+    }
   }
 
   // ── Validate / reject score ───────────────────────────────────────────────
@@ -427,6 +520,16 @@ export default function BOInterCompetitionScreen() {
             .eq('id', match.id);
           if (error) { Alert.alert('Erreur', error.message); return; }
           loadData();
+          // Notify winner and loser
+          const comp = competitions.find(c => c.id === selectedId);
+          if (comp) {
+            if (winnerId) {
+              sendInterBracketResultNotification(winnerId, comp.title, true, match.round).catch(() => {});
+            }
+            if (loserId) {
+              sendInterBracketResultNotification(loserId, comp.title, false, match.round).catch(() => {});
+            }
+          }
         }},
       ]
     );
@@ -478,6 +581,42 @@ export default function BOInterCompetitionScreen() {
     if (error) { Alert.alert('Erreur', error.message); return; }
     loadData();
     Alert.alert(`Points calcules pour ${data} athletes !`);
+  }
+
+  // ── Pool: generate groups ──────────────────────────────────────────────────
+  async function handleGeneratePool() {
+    if (!selectedId) return;
+    Alert.alert(
+      'Generer les poules ?',
+      `${registrationCount} inscrits seront repartis en poules (seeding par ELO).`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Generer', onPress: async () => {
+          const groupsCount = registrationCount <= 8 ? 2 : registrationCount <= 16 ? 4 : 8;
+          const { error } = await (supabase as any).rpc('generate_inter_pool_groups', {
+            p_competition_id: selectedId,
+            p_groups_count: groupsCount,
+            p_advance_count: 2,
+          });
+          if (error) { Alert.alert('Erreur', error.message); return; }
+          loadData();
+          Alert.alert(`${groupsCount} poules generees !`);
+        }},
+      ]
+    );
+  }
+
+  // ── Pool: resolve match ──────────────────────────────────────────────────
+  async function handleResolvePoolMatch(match: PoolMatch, s1: number, s2: number) {
+    const scoringType = wods[0]?.scoring_type ?? 'reps';
+    const { error } = await (supabase as any).rpc('resolve_inter_pool_match', {
+      p_match_id: match.id,
+      p_score1: s1,
+      p_score2: s2,
+      p_scoring_type: scoringType,
+    });
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    loadData();
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -556,11 +695,12 @@ export default function BOInterCompetitionScreen() {
           <View style={S.tabs}>
             {(['wods', 'scores',
               ...(selected.format === 'bracket' || selected.format === 'swiss' ? ['bracket'] : []),
-              ...(selected.format === 'league' || selected.format === 'pool' ? ['league'] : []),
+              ...(selected.format === 'league' ? ['league'] : []),
+              ...(selected.format === 'pool' ? ['pool'] : []),
             ] as const).map(t => (
               <TouchableOpacity key={t} style={[S.tabItem, tab === t && S.tabActive]} onPress={() => setTab(t as any)}>
                 <Text style={[S.tabText, tab === t && S.tabTextActive]}>
-                  {t === 'wods' ? 'WODs' : t === 'scores' ? `Scores (${scores.length})` : t === 'bracket' ? 'Bracket' : 'Ligue'}
+                  {t === 'wods' ? 'WODs' : t === 'scores' ? `Scores (${scores.length})` : t === 'bracket' ? 'Bracket' : t === 'league' ? 'Ligue' : 'Poules'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -791,6 +931,63 @@ export default function BOInterCompetitionScreen() {
                     )}
                   </View>
                 ))
+              )}
+            </View>
+          )}
+
+          {/* TAB: Pool */}
+          {tab === 'pool' && (
+            <View style={S.section}>
+              {poolGroups.length === 0 ? (
+                <View style={S.bracketEmpty}>
+                  <Text style={S.emptyText}>Poules non generees.</Text>
+                  <TouchableOpacity style={S.generateBtn} onPress={handleGeneratePool}>
+                    <Text style={S.generateBtnText}>Generer les poules ({registrationCount} inscrits)</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {poolGroups.map(group => {
+                    const members = poolMembers.filter(m => m.group_id === group.id).sort((a, b) => b.points - a.points);
+                    const matches = poolMatches.filter(m => m.group_id === group.id);
+                    return (
+                      <View key={group.id} style={{ marginBottom: 16 }}>
+                        <Text style={S.roundTitle}>{group.group_name}</Text>
+                        {/* Standings */}
+                        {members.map((m, i) => (
+                          <View key={m.id} style={[S.matchCard, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <Text style={[S.matchPlayer, { width: 20 }]}>{i + 1}.</Text>
+                              <Text style={S.matchPlayer}>{m.username}</Text>
+                            </View>
+                            <Text style={[S.matchPlayer, { color: theme.accent }]}>
+                              {m.points}pts ({m.wins}V {m.draws}N {m.losses}D)
+                            </Text>
+                          </View>
+                        ))}
+                        {/* Matches */}
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textMuted, marginTop: 8, marginBottom: 4 }}>
+                          Matchs ({matches.filter(m => m.status === 'completed').length}/{matches.length})
+                        </Text>
+                        {matches.map(match => (
+                          <View key={match.id} style={[S.matchCard, { paddingVertical: 6 }]}>
+                            <View style={S.matchRow}>
+                              <Text style={[S.matchPlayer, match.winner_id === match.athlete1_id && S.matchWinner]}>
+                                {match.a1_username}
+                              </Text>
+                              <Text style={{ fontSize: 11, color: theme.textMuted }}>
+                                {match.status === 'completed' ? `${match.score1} - ${match.score2}` : 'vs'}
+                              </Text>
+                              <Text style={[S.matchPlayer, match.winner_id === match.athlete2_id && S.matchWinner]}>
+                                {match.a2_username}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  })}
+                </>
               )}
             </View>
           )}
