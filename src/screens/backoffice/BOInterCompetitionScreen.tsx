@@ -4,10 +4,8 @@ import {
   ActivityIndicator, Alert, Modal, TextInput, RefreshControl,
 } from 'react-native';
 import {
-  Trophy, Plus, Globe2, ChevronDown, ChevronUp, CheckCircle, XCircle,
-  Users, Dumbbell, Clock, Play, Youtube, GitBranch, Shield,
+  Plus, Globe2, CheckCircle, XCircle, Play, Youtube,
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -19,275 +17,14 @@ import {
   sendInterBracketResultNotification,
   sendInterCompetitionClosedNotification,
 } from '../../services/notifications';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface InterCompetition {
-  id: string;
-  title: string;
-  description: string | null;
-  format: 'league' | 'bracket' | 'pool' | 'swiss';
-  type: 'individual' | 'team';
-  team_size: number;
-  status: 'draft' | 'open' | 'active' | 'closed';
-  starts_at: string | null;
-  ends_at: string | null;
-  max_participants: number | null;
-  rules: string | null;
-  created_at: string;
-}
-
-interface InterWod {
-  id: string;
-  competition_id: string;
-  title: string;
-  description: string | null;
-  order_index: number;
-  time_cap: number | null;
-  scoring_type: 'reps' | 'time' | 'weight' | 'rounds_reps';
-  revealed_at: string | null;
-}
-
-interface InterScore {
-  id: string;
-  competition_id: string;
-  wod_id: string;
-  athlete_id: string | null;
-  team_id: string | null;
-  score_value: number | null;
-  score_display: string | null;
-  video_url: string | null;
-  status: 'pending' | 'validated' | 'rejected';
-  submitted_at: string;
-  username?: string;
-  team_name?: string;
-}
-
-interface BracketMatch {
-  id: string;
-  competition_id: string;
-  round: number;
-  match_number: number;
-  participant1_id: string | null;
-  participant2_id: string | null;
-  winner_id: string | null;
-  status: 'pending' | 'active' | 'completed' | 'bye';
-  wod_id: string | null;
-  p1_username?: string;
-  p2_username?: string;
-  p1_score?: InterScore | null;
-  p2_score?: InterScore | null;
-}
-
-interface PoolGroup {
-  id: string;
-  competition_id: string;
-  group_name: string;
-  group_index: number;
-  advance_count: number;
-}
-
-interface PoolMember {
-  id: string;
-  group_id: string;
-  athlete_id: string;
-  points: number;
-  wins: number;
-  draws: number;
-  losses: number;
-  score_for: number;
-  score_against: number;
-  username?: string;
-}
-
-interface PoolMatch {
-  id: string;
-  group_id: string;
-  competition_id: string;
-  athlete1_id: string;
-  athlete2_id: string;
-  score1: number | null;
-  score2: number | null;
-  winner_id: string | null;
-  status: 'pending' | 'active' | 'completed';
-  a1_username?: string;
-  a2_username?: string;
-}
-
-interface LeagueRound {
-  id: string;
-  competition_id: string;
-  round_number: number;
-  title: string | null;
-  wod_id: string | null;
-  status: 'pending' | 'active' | 'completed';
-  started_at: string | null;
-  completed_at: string | null;
-}
-
-interface LeagueStanding {
-  id: string;
-  competition_id: string;
-  athlete_id: string;
-  total_points: number;
-  rounds_played: number;
-  wins: number;
-  podiums: number;
-  username?: string;
-}
-
-interface SwissRound {
-  id: string;
-  competition_id: string;
-  round_number: number;
-  status: 'pending' | 'active' | 'completed';
-  completed_at: string | null;
-}
-
-interface SwissPairing {
-  id: string;
-  round_id: string;
-  competition_id: string;
-  athlete1_id: string;
-  athlete2_id: string | null;
-  score1: number | null;
-  score2: number | null;
-  winner_id: string | null;
-  status: 'pending' | 'active' | 'completed' | 'bye';
-  a1_username?: string;
-  a2_username?: string;
-}
-
-interface SwissStanding {
-  id: string;
-  competition_id: string;
-  athlete_id: string;
-  points: number;
-  buchholz: number;
-  wins: number;
-  draws: number;
-  losses: number;
-  rounds_played: number;
-  username?: string;
-}
-
-const FORMAT_LABELS: Record<string, string> = {
-  league: 'Ligue', bracket: 'Elimination', pool: 'Poules', swiss: 'Suisse',
-};
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Brouillon', open: 'Ouvert', active: 'En cours', closed: 'Termine',
-};
-const SCORING_LABELS: Record<string, string> = {
-  reps: 'Reps', time: 'Temps', weight: 'Poids', rounds_reps: 'Rounds+Reps',
-};
-
-function PoolMatchCard({ match, theme, S, onResolve }: {
-  match: PoolMatch; theme: AppTheme; S: any;
-  onResolve: (match: PoolMatch, s1: number, s2: number) => void;
-}) {
-  const [s1, setS1] = useState('');
-  const [s2, setS2] = useState('');
-  if (match.status === 'completed') {
-    return (
-      <View style={[S.matchCard, { paddingVertical: 6 }]}>
-        <View style={S.matchRow}>
-          <Text style={[S.matchPlayer, match.winner_id === match.athlete1_id && S.matchWinner]}>{match.a1_username}</Text>
-          <Text style={{ fontSize: 11, color: theme.textMuted }}>{match.score1} - {match.score2}</Text>
-          <Text style={[S.matchPlayer, match.winner_id === match.athlete2_id && S.matchWinner]}>{match.a2_username}</Text>
-        </View>
-      </View>
-    );
-  }
-  return (
-    <View style={[S.matchCard, { paddingVertical: 8 }]}>
-      <View style={S.matchRow}>
-        <Text style={S.matchPlayer}>{match.a1_username}</Text>
-        <Text style={{ fontSize: 11, color: theme.textMuted }}>vs</Text>
-        <Text style={S.matchPlayer}>{match.a2_username}</Text>
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' }}>
-        <TextInput
-          style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
-          value={s1} onChangeText={setS1} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
-        />
-        <Text style={{ fontSize: 11, color: theme.textMuted }}>-</Text>
-        <TextInput
-          style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
-          value={s2} onChangeText={setS2} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
-        />
-        <TouchableOpacity
-          style={{ backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
-          onPress={() => {
-            const n1 = parseFloat(s1); const n2 = parseFloat(s2);
-            if (isNaN(n1) || isNaN(n2)) { Alert.alert('Erreur', 'Entrez les deux scores'); return; }
-            onResolve(match, n1, n2);
-          }}
-        >
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>OK</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function SwissPairingCard({ pairing, theme, S, onResolve }: {
-  pairing: SwissPairing; theme: AppTheme; S: any;
-  onResolve: (pairing: SwissPairing, s1: number, s2: number) => void;
-}) {
-  const [s1, setS1] = useState('');
-  const [s2, setS2] = useState('');
-  if (pairing.status === 'bye') {
-    return (
-      <View style={[S.matchCard, { paddingVertical: 6 }]}>
-        <View style={S.matchRow}>
-          <Text style={[S.matchPlayer, S.matchWinner]}>{pairing.a1_username}</Text>
-          <Text style={{ fontSize: 11, color: theme.textMuted }}>BYE</Text>
-          <Text style={S.matchPlayer}>—</Text>
-        </View>
-      </View>
-    );
-  }
-  if (pairing.status === 'completed') {
-    return (
-      <View style={[S.matchCard, { paddingVertical: 6 }]}>
-        <View style={S.matchRow}>
-          <Text style={[S.matchPlayer, pairing.winner_id === pairing.athlete1_id && S.matchWinner]}>{pairing.a1_username}</Text>
-          <Text style={{ fontSize: 11, color: theme.textMuted }}>{pairing.score1} - {pairing.score2}</Text>
-          <Text style={[S.matchPlayer, pairing.winner_id === pairing.athlete2_id && S.matchWinner]}>{pairing.a2_username}</Text>
-        </View>
-      </View>
-    );
-  }
-  return (
-    <View style={[S.matchCard, { paddingVertical: 8 }]}>
-      <View style={S.matchRow}>
-        <Text style={S.matchPlayer}>{pairing.a1_username}</Text>
-        <Text style={{ fontSize: 11, color: theme.textMuted }}>vs</Text>
-        <Text style={S.matchPlayer}>{pairing.a2_username}</Text>
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' }}>
-        <TextInput
-          style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
-          value={s1} onChangeText={setS1} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
-        />
-        <Text style={{ fontSize: 11, color: theme.textMuted }}>-</Text>
-        <TextInput
-          style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
-          value={s2} onChangeText={setS2} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
-        />
-        <TouchableOpacity
-          style={{ backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
-          onPress={() => {
-            const n1 = parseFloat(s1); const n2 = parseFloat(s2);
-            if (isNaN(n1) || isNaN(n2)) { Alert.alert('Erreur', 'Entrez les deux scores'); return; }
-            onResolve(pairing, n1, n2);
-          }}
-        >
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>OK</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
+import { BracketTab, LeagueTab, PoolTab, SwissTab } from './inter-competition';
+import {
+  InterCompetition, InterWod, InterScore, BracketMatch,
+  PoolGroup, PoolMember, PoolMatch,
+  LeagueRound, LeagueStanding,
+  SwissRound, SwissPairing, SwissStanding,
+  FORMAT_LABELS, STATUS_LABELS, SCORING_LABELS,
+} from './inter-competition';
 
 export default function BOInterCompetitionScreen() {
   const { theme } = useTheme();
@@ -365,13 +102,14 @@ export default function BOInterCompetitionScreen() {
     if (athleteIds.length > 0) {
       const { data: profs } = await supabase.from('profiles').select('id, username').in('id', athleteIds);
       const profMap: Record<string, string> = {};
-      (profs ?? []).forEach((p: any) => { profMap[p.id] = p.username; });
+      (profs ?? []).forEach((p: { id: string; username: string }) => { profMap[p.id] = p.username; });
       scoreList.forEach(s => { if (s.athlete_id) s.username = profMap[s.athlete_id] ?? '—'; });
     }
     setScores(scoreList);
 
-    // Load bracket matches if format is bracket
     const comp = competitions.find(c => c.id === selectedId);
+
+    // Load bracket matches
     if (comp?.format === 'bracket' || comp?.format === 'swiss') {
       const { data: matches } = await supabase
         .from('inter_bracket_matches')
@@ -381,13 +119,13 @@ export default function BOInterCompetitionScreen() {
         .order('match_number');
       if (matches && matches.length > 0) {
         const ids: string[] = Array.from(new Set(
-          matches.flatMap((m: any) => [m.participant1_id, m.participant2_id]).filter(Boolean)
-        ));
+          matches.flatMap((m: { participant1_id: string | null; participant2_id: string | null }) => [m.participant1_id, m.participant2_id]).filter(Boolean)
+        )) as string[];
         const { data: profs } = await supabase.from('profiles').select('id, username').in('id', ids);
         const profMap: Record<string, string> = {};
-        (profs ?? []).forEach((p: any) => { profMap[p.id] = p.username; });
+        (profs ?? []).forEach((p: { id: string; username: string }) => { profMap[p.id] = p.username; });
 
-        const enriched: BracketMatch[] = (matches as any[]).map(m => ({
+        const enriched: BracketMatch[] = (matches as BracketMatch[]).map(m => ({
           ...m,
           p1_username: m.participant1_id ? profMap[m.participant1_id] ?? '—' : 'BYE',
           p2_username: m.participant2_id ? profMap[m.participant2_id] ?? '—' : 'BYE',
@@ -400,7 +138,7 @@ export default function BOInterCompetitionScreen() {
       }
     }
 
-    // Load league data if format is league
+    // Load league data
     if (comp?.format === 'league') {
       const [{ data: rounds }, { data: standings }] = await Promise.all([
         supabase.from('inter_league_rounds')
@@ -409,22 +147,20 @@ export default function BOInterCompetitionScreen() {
           .select('*').eq('competition_id', selectedId).order('total_points', { ascending: false }),
       ]);
       setLeagueRounds((rounds ?? []) as LeagueRound[]);
-
-      // Enrich standings with usernames
       const standingsList = (standings ?? []) as LeagueStanding[];
       const sIds = standingsList.map(s => s.athlete_id).filter(Boolean);
       if (sIds.length > 0) {
         const { data: sprofs } = await supabase.from('profiles').select('id, username').in('id', sIds);
         const sprofMap: Record<string, string> = {};
-        (sprofs ?? []).forEach((p: any) => { sprofMap[p.id] = p.username; });
+        (sprofs ?? []).forEach((p: { id: string; username: string }) => { sprofMap[p.id] = p.username; });
         standingsList.forEach(s => { s.username = sprofMap[s.athlete_id] ?? '—'; });
       }
       setLeagueStandings(standingsList);
     }
 
-    // Load pool data if format is pool
+    // Load pool data
     if (comp?.format === 'pool') {
-      const [{ data: groups }, { data: members }, { data: matches }] = await Promise.all([
+      const [{ data: groups }, { data: members }, { data: pMatches }] = await Promise.all([
         supabase.from('inter_pool_groups')
           .select('*').eq('competition_id', selectedId).order('group_index'),
         supabase.from('inter_pool_members')
@@ -433,25 +169,20 @@ export default function BOInterCompetitionScreen() {
           .select('*').eq('competition_id', selectedId).order('group_id'),
       ]);
       setPoolGroups((groups ?? []) as PoolGroup[]);
-
-      // Filter members to only current comp groups
-      const groupIds = (groups ?? []).map((g: any) => g.id);
+      const groupIds = (groups ?? []).map((g: { id: string }) => g.id);
       const compMembers = ((members ?? []) as PoolMember[]).filter(m => groupIds.includes(m.group_id));
-
-      // Enrich with usernames
       const pmIds = [...new Set([
         ...compMembers.map(m => m.athlete_id),
-        ...(matches ?? []).flatMap((m: any) => [m.athlete1_id, m.athlete2_id]),
+        ...(pMatches ?? []).flatMap((m: { athlete1_id: string; athlete2_id: string }) => [m.athlete1_id, m.athlete2_id]),
       ])].filter(Boolean);
       const pmProfMap: Record<string, string> = {};
       if (pmIds.length > 0) {
         const { data: profs } = await supabase.from('profiles').select('id, username').in('id', pmIds);
-        (profs ?? []).forEach((p: any) => { pmProfMap[p.id] = p.username; });
+        (profs ?? []).forEach((p: { id: string; username: string }) => { pmProfMap[p.id] = p.username; });
       }
       compMembers.forEach(m => { m.username = pmProfMap[m.athlete_id] ?? '—'; });
       setPoolMembers(compMembers);
-
-      const enrichedMatches: PoolMatch[] = ((matches ?? []) as PoolMatch[]).map(m => ({
+      const enrichedMatches: PoolMatch[] = ((pMatches ?? []) as PoolMatch[]).map(m => ({
         ...m,
         a1_username: pmProfMap[m.athlete1_id] ?? '—',
         a2_username: pmProfMap[m.athlete2_id] ?? '—',
@@ -459,7 +190,7 @@ export default function BOInterCompetitionScreen() {
       setPoolMatches(enrichedMatches);
     }
 
-    // Load swiss data if format is swiss
+    // Load swiss data
     if (comp?.format === 'swiss') {
       const [{ data: rounds }, { data: pairings }, { data: standings }] = await Promise.all([
         supabase.from('inter_swiss_rounds')
@@ -470,25 +201,21 @@ export default function BOInterCompetitionScreen() {
           .select('*').eq('competition_id', selectedId).order('points', { ascending: false }),
       ]);
       setSwissRounds((rounds ?? []) as SwissRound[]);
-
-      // Enrich pairings and standings with usernames
       const swIds = [...new Set([
-        ...(pairings ?? []).flatMap((p: any) => [p.athlete1_id, p.athlete2_id]),
-        ...(standings ?? []).map((s: any) => s.athlete_id),
-      ])].filter(Boolean);
+        ...(pairings ?? []).flatMap((p: { athlete1_id: string; athlete2_id: string | null }) => [p.athlete1_id, p.athlete2_id]),
+        ...(standings ?? []).map((s: { athlete_id: string }) => s.athlete_id),
+      ])].filter(Boolean) as string[];
       const swProfMap: Record<string, string> = {};
       if (swIds.length > 0) {
         const { data: profs } = await supabase.from('profiles').select('id, username').in('id', swIds);
-        (profs ?? []).forEach((p: any) => { swProfMap[p.id] = p.username; });
+        (profs ?? []).forEach((p: { id: string; username: string }) => { swProfMap[p.id] = p.username; });
       }
-
       const enrichedPairings: SwissPairing[] = ((pairings ?? []) as SwissPairing[]).map(p => ({
         ...p,
         a1_username: swProfMap[p.athlete1_id] ?? '—',
         a2_username: p.athlete2_id ? swProfMap[p.athlete2_id] ?? '—' : 'BYE',
       }));
       setSwissPairings(enrichedPairings);
-
       const enrichedStandings: SwissStanding[] = ((standings ?? []) as SwissStanding[]).map(s => ({
         ...s,
         username: swProfMap[s.athlete_id] ?? '—',
@@ -501,7 +228,8 @@ export default function BOInterCompetitionScreen() {
 
   const selected = competitions.find(c => c.id === selectedId);
 
-  // ── Create competition ────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   async function handleCreate() {
     if (!newTitle.trim()) { Alert.alert('Erreur', 'Titre requis'); return; }
     setCreating(true);
@@ -521,20 +249,15 @@ export default function BOInterCompetitionScreen() {
     loadCompetitions();
   }
 
-  // ── Change status ─────────────────────────────────────────────────────────
   async function handleChangeStatus(newStatus: string) {
     if (!selectedId) return;
-    if (newStatus === 'closed') {
-      await handleCloseCompetition();
-      return;
-    }
+    if (newStatus === 'closed') { await handleCloseCompetition(); return; }
     const { error } = await supabase.from('inter_competitions')
       .update({ status: newStatus }).eq('id', selectedId);
     if (error) { Alert.alert('Erreur', error.message); return; }
     setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: newStatus as InterCompetition['status'] } : c));
   }
 
-  // ── Close competition + distribute ELO (pairwise) ─────────────────────────
   async function handleCloseCompetition() {
     if (!selectedId) return;
     Alert.alert(
@@ -544,7 +267,6 @@ export default function BOInterCompetitionScreen() {
         { text: 'Annuler', style: 'cancel' },
         { text: 'Cloturer', style: 'destructive', onPress: async () => {
           try {
-            // Get validated scores aggregated by athlete (sum across all WODs)
             const { data: validatedScores } = await supabase.from('inter_scores')
               .select('athlete_id, score_value').eq('competition_id', selectedId).eq('status', 'validated');
             if (!validatedScores || validatedScores.length === 0) {
@@ -554,35 +276,31 @@ export default function BOInterCompetitionScreen() {
               return;
             }
 
-            // Aggregate total score per athlete
             const totals: Record<string, number> = {};
-            validatedScores.forEach((s: any) => {
-              totals[s.athlete_id] = (totals[s.athlete_id] ?? 0) + (parseFloat(s.score_value) || 0);
+            validatedScores.forEach(s => {
+              if (s.athlete_id) {
+                totals[s.athlete_id] = (totals[s.athlete_id] ?? 0) + (parseFloat(String(s.score_value)) || 0);
+              }
             });
 
-            // Get profiles with ELO
             const athleteIds = Object.keys(totals);
             const { data: profs } = await supabase.from('profiles').select('id, elo').in('id', athleteIds);
             const profMap: Record<string, number> = {};
-            (profs ?? []).forEach((p: any) => { profMap[p.id] = p.elo ?? 1000; });
+            (profs ?? []).forEach((p: { id: string; elo: number | null }) => { profMap[p.id] = p.elo ?? 1000; });
 
-            // Sort athletes by total score (DESC for now; already aggregated)
             const sorted = Object.entries(totals)
               .map(([id, score]) => ({ id, score }))
               .sort((a, b) => b.score - a.score);
             const ranked = assignRanks(sorted);
 
-            // Build RankedPlayer array for pairwise ELO
             const players: RankedPlayer[] = ranked.map(r => ({
               id: r.id,
               elo: profMap[r.id] ?? 1000,
               rank: r.rank,
             }));
 
-            // Calculate pairwise deltas
             const results = calculatePairwiseDeltas(players);
 
-            // Apply ELO changes
             for (const r of results) {
               const newElo = clampElo(r.elo + r.delta);
               await supabase.rpc('update_user_elo', {
@@ -594,7 +312,6 @@ export default function BOInterCompetitionScreen() {
               await syncLevelAndBadges(r.id, newElo);
             }
 
-            // Update competition status
             await supabase.from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
             setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' } : c));
 
@@ -602,22 +319,20 @@ export default function BOInterCompetitionScreen() {
             const topDelta = winner ? `+${winner.delta}` : '';
             Alert.alert('Competition cloturee !', `ELO distribue a ${results.length} athletes. 1er: ${topDelta} ELO`);
 
-            // Notify all athletes of their ELO change
             const comp = competitions.find(c => c.id === selectedId);
             if (comp && selectedId) {
               const eloChanges = results.map(r => ({ athleteId: r.id, delta: r.delta }));
               sendInterCompetitionClosedNotification(selectedId, comp.title, eloChanges).catch(() => {});
             }
-          } catch (e: any) {
+          } catch (e: unknown) {
             captureError(e, { screen: 'BOInterCompetition', action: 'close' });
-            Alert.alert('Erreur', e?.message ?? 'Erreur lors de la cloture');
+            Alert.alert('Erreur', (e as Error)?.message ?? 'Erreur lors de la cloture');
           }
         }},
       ]
     );
   }
 
-  // ── Add WOD ───────────────────────────────────────────────────────────────
   async function handleAddWod() {
     if (!wodTitle.trim() || !selectedId) { Alert.alert('Erreur', 'Titre requis'); return; }
     const { error } = await supabase.from('inter_competition_wods').insert({
@@ -634,13 +349,11 @@ export default function BOInterCompetitionScreen() {
     loadData();
   }
 
-  // ── Reveal WOD ────────────────────────────────────────────────────────────
   async function handleRevealWod(wodId: string) {
     const { error } = await supabase.from('inter_competition_wods')
       .update({ revealed_at: new Date().toISOString() }).eq('id', wodId);
     if (error) { Alert.alert('Erreur', error.message); return; }
     loadData();
-    // Notify participants
     const comp = competitions.find(c => c.id === selectedId);
     const wod = wods.find(w => w.id === wodId);
     if (comp && wod && selectedId) {
@@ -648,7 +361,6 @@ export default function BOInterCompetitionScreen() {
     }
   }
 
-  // ── Validate / reject score ───────────────────────────────────────────────
   async function handleValidateScore(scoreId: string) {
     const { error } = await supabase.from('inter_scores')
       .update({ status: 'validated', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
@@ -670,7 +382,8 @@ export default function BOInterCompetitionScreen() {
     ]);
   }
 
-  // ── Bracket: generate round 1 ─────────────────────────────────────────────
+  // ── Bracket handlers ──────────────────────────────────────────────────────
+
   async function handleGenerateBracket() {
     if (!selectedId) return;
     Alert.alert(
@@ -690,7 +403,6 @@ export default function BOInterCompetitionScreen() {
     );
   }
 
-  // ── Bracket: admin resolve match (declare winner) ─────────────────────────
   async function handleResolveMatch(match: BracketMatch, winnerId: string) {
     const loserId = winnerId === match.participant1_id ? match.participant2_id : match.participant1_id;
     Alert.alert(
@@ -704,22 +416,16 @@ export default function BOInterCompetitionScreen() {
             .eq('id', match.id);
           if (error) { Alert.alert('Erreur', error.message); return; }
           loadData();
-          // Notify winner and loser
           const comp = competitions.find(c => c.id === selectedId);
           if (comp) {
-            if (winnerId) {
-              sendInterBracketResultNotification(winnerId, comp.title, true, match.round).catch(() => {});
-            }
-            if (loserId) {
-              sendInterBracketResultNotification(loserId, comp.title, false, match.round).catch(() => {});
-            }
+            if (winnerId) sendInterBracketResultNotification(winnerId, comp.title, true, match.round).catch(() => {});
+            if (loserId) sendInterBracketResultNotification(loserId, comp.title, false, match.round).catch(() => {});
           }
         }},
       ]
     );
   }
 
-  // ── Bracket: advance round ────────────────────────────────────────────────
   async function handleAdvanceRound() {
     if (!selectedId) return;
     const completedRounds = [...new Set(
@@ -727,7 +433,6 @@ export default function BOInterCompetitionScreen() {
     )].sort((a, b) => b - a);
     const lastCompleted = completedRounds[0];
     if (!lastCompleted) { Alert.alert('Aucun round termine'); return; }
-
     const { error } = await supabase.rpc('advance_inter_bracket_round', {
       p_competition_id: selectedId,
       p_completed_round: lastCompleted,
@@ -737,11 +442,11 @@ export default function BOInterCompetitionScreen() {
     Alert.alert('Round suivant genere !');
   }
 
-  // ── League: create round (journee) ────────────────────────────────────────
+  // ── League handlers ───────────────────────────────────────────────────────
+
   async function handleCreateLeagueRound() {
     if (!selectedId) return;
     const nextNumber = leagueRounds.length + 1;
-    // Use first unrevealed WOD or null
     const availableWod = wods.find(w => !leagueRounds.some(r => r.wod_id === w.id));
     const { error } = await supabase.from('inter_league_rounds').insert({
       competition_id: selectedId,
@@ -755,7 +460,6 @@ export default function BOInterCompetitionScreen() {
     Alert.alert(`Journee ${nextNumber} creee !`);
   }
 
-  // ── League: compute round points ─────────────────────────────────────────
   async function handleComputeLeagueRound(roundNumber: number) {
     if (!selectedId) return;
     const { data, error } = await supabase.rpc('compute_inter_league_round', {
@@ -767,7 +471,8 @@ export default function BOInterCompetitionScreen() {
     Alert.alert(`Points calcules pour ${data} athletes !`);
   }
 
-  // ── Pool: generate groups ──────────────────────────────────────────────────
+  // ── Pool handlers ─────────────────────────────────────────────────────────
+
   async function handleGeneratePool() {
     if (!selectedId) return;
     Alert.alert(
@@ -790,7 +495,6 @@ export default function BOInterCompetitionScreen() {
     );
   }
 
-  // ── Pool: resolve match ──────────────────────────────────────────────────
   async function handleResolvePoolMatch(match: PoolMatch, s1: number, s2: number) {
     const scoringType = wods[0]?.scoring_type ?? 'reps';
     const { error } = await supabase.rpc('resolve_inter_pool_match', {
@@ -804,13 +508,14 @@ export default function BOInterCompetitionScreen() {
   }
 
   // ── Swiss handlers ────────────────────────────────────────────────────────
+
   async function handleGenerateSwissRound() {
     if (!selectedId) return;
     const { data, error } = await supabase.rpc('generate_inter_swiss_round', {
       p_competition_id: selectedId,
     });
     if (error) { Alert.alert('Erreur', error.message); return; }
-    Alert.alert('Round suisse generé', `${data} appariements créés`);
+    Alert.alert('Round suisse genere', `${data} appariements crees`);
     loadData();
   }
 
@@ -827,6 +532,7 @@ export default function BOInterCompetitionScreen() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+
   if (loading) {
     return <View style={S.center}><ActivityIndicator color={theme.accent} /></View>;
   }
@@ -997,266 +703,56 @@ export default function BOInterCompetitionScreen() {
 
           {/* TAB: Bracket */}
           {tab === 'bracket' && (
-            <View style={S.section}>
-              {bracketMatches.length === 0 ? (
-                <View style={S.bracketEmpty}>
-                  <GitBranch color={theme.textMuted} size={32} />
-                  <Text style={S.emptyText}>Bracket non genere.</Text>
-                  <TouchableOpacity style={S.generateBtn} onPress={handleGenerateBracket}>
-                    <Text style={S.generateBtnText}>Generer le bracket ({registrationCount} inscrits)</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  <TouchableOpacity style={S.advanceBtn} onPress={handleAdvanceRound}>
-                    <Play color="#fff" size={12} />
-                    <Text style={S.advanceBtnText}>Avancer au round suivant</Text>
-                  </TouchableOpacity>
-
-                  {Object.entries(
-                    bracketMatches.reduce((acc, m) => {
-                      (acc[m.round] ??= []).push(m);
-                      return acc;
-                    }, {} as Record<number, BracketMatch[]>)
-                  ).sort(([a], [b]) => Number(a) - Number(b)).map(([round, matches]) => (
-                    <View key={round} style={S.roundSection}>
-                      <Text style={S.roundTitle}>Round {round}</Text>
-                      {matches.map(match => (
-                        <View key={match.id} style={S.matchCard}>
-                          <View style={S.matchRow}>
-                            <Text style={[S.matchPlayer, match.winner_id === match.participant1_id && S.matchWinner]}>
-                              {match.p1_username ?? 'BYE'}
-                            </Text>
-                            <Text style={S.matchVs}>vs</Text>
-                            <Text style={[S.matchPlayer, match.winner_id === match.participant2_id && S.matchWinner]}>
-                              {match.p2_username ?? 'BYE'}
-                            </Text>
-                          </View>
-
-                          {/* Show scores if both submitted */}
-                          {(match.p1_score || match.p2_score) && (
-                            <View style={S.matchScores}>
-                              <Text style={S.matchScoreText}>
-                                {match.p1_score?.score_display ?? match.p1_score?.score_value ?? '—'}
-                              </Text>
-                              <Text style={S.matchScoreSep}>-</Text>
-                              <Text style={S.matchScoreText}>
-                                {match.p2_score?.score_display ?? match.p2_score?.score_value ?? '—'}
-                              </Text>
-                            </View>
-                          )}
-
-                          {/* Admin resolve buttons */}
-                          {match.status !== 'completed' && match.status !== 'bye' && match.participant1_id && match.participant2_id && (
-                            <View style={S.resolveRow}>
-                              <TouchableOpacity
-                                style={S.resolveBtn}
-                                onPress={() => handleResolveMatch(match, match.participant1_id!)}
-                              >
-                                <Trophy color="#fff" size={10} />
-                                <Text style={S.resolveBtnText}>{match.p1_username}</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                style={[S.resolveBtn, { backgroundColor: theme.error }]}
-                                onPress={() => handleResolveMatch(match, match.participant2_id!)}
-                              >
-                                <Trophy color="#fff" size={10} />
-                                <Text style={S.resolveBtnText}>{match.p2_username}</Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-
-                          {match.status === 'completed' && (
-                            <Text style={S.matchResolved}>
-                              Gagnant : {match.winner_id === match.participant1_id ? match.p1_username : match.p2_username}
-                            </Text>
-                          )}
-                          {match.status === 'bye' && (
-                            <Text style={S.matchBye}>BYE — avance automatiquement</Text>
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  ))}
-                </>
-              )}
-            </View>
+            <BracketTab
+              bracketMatches={bracketMatches}
+              registrationCount={registrationCount}
+              theme={theme}
+              S={S}
+              onGenerateBracket={handleGenerateBracket}
+              onResolveMatch={handleResolveMatch}
+              onAdvanceRound={handleAdvanceRound}
+            />
           )}
 
           {/* TAB: League */}
           {tab === 'league' && (
-            <View style={S.section}>
-              {/* Standings */}
-              <Text style={S.roundTitle}>Classement general</Text>
-              {leagueStandings.length === 0 ? (
-                <Text style={S.emptyText}>Aucun classement — calculez les points d'une journee</Text>
-              ) : (
-                leagueStandings.map((s, i) => (
-                  <View key={s.id} style={[S.matchCard, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={[S.matchPlayer, { width: 24 }]}>{i + 1}.</Text>
-                      <Text style={S.matchPlayer}>{s.username ?? s.athlete_id.slice(0, 8)}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                      <Text style={[S.matchPlayer, { color: theme.accent }]}>{s.total_points} pts</Text>
-                      <Text style={{ fontSize: 11, color: theme.textMuted }}>{s.wins}W {s.podiums}P | {s.rounds_played}j</Text>
-                    </View>
-                  </View>
-                ))
-              )}
-
-              {/* Rounds (journees) */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-                <Text style={S.roundTitle}>Journees</Text>
-                <TouchableOpacity style={S.generateBtn} onPress={handleCreateLeagueRound}>
-                  <Plus color="#fff" size={12} />
-                  <Text style={S.generateBtnText}>Ajouter journee</Text>
-                </TouchableOpacity>
-              </View>
-
-              {leagueRounds.length === 0 ? (
-                <Text style={S.emptyText}>Aucune journee creee</Text>
-              ) : (
-                leagueRounds.map(r => (
-                  <View key={r.id} style={S.matchCard}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={S.matchPlayer}>{r.title ?? `Journee ${r.round_number}`}</Text>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: r.status === 'completed' ? theme.success : theme.textMuted }}>
-                        {r.status === 'completed' ? 'Termine' : r.status === 'active' ? 'En cours' : 'A venir'}
-                      </Text>
-                    </View>
-                    {r.wod_id && (
-                      <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>WOD: {wods.find(w => w.id === r.wod_id)?.title ?? '—'}</Text>
-                    )}
-                    {r.status !== 'completed' && (
-                      <TouchableOpacity
-                        style={[S.advanceBtn, { marginTop: 8 }]}
-                        onPress={() => handleComputeLeagueRound(r.round_number)}
-                      >
-                        <Play color="#fff" size={12} />
-                        <Text style={S.advanceBtnText}>Calculer les points</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))
-              )}
-            </View>
+            <LeagueTab
+              leagueRounds={leagueRounds}
+              leagueStandings={leagueStandings}
+              wods={wods}
+              theme={theme}
+              S={S}
+              onCreateRound={handleCreateLeagueRound}
+              onComputeRound={handleComputeLeagueRound}
+            />
           )}
 
           {/* TAB: Pool */}
           {tab === 'pool' && (
-            <View style={S.section}>
-              {poolGroups.length === 0 ? (
-                <View style={S.bracketEmpty}>
-                  <Text style={S.emptyText}>Poules non generees.</Text>
-                  <TouchableOpacity style={S.generateBtn} onPress={handleGeneratePool}>
-                    <Text style={S.generateBtnText}>Generer les poules ({registrationCount} inscrits)</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  {poolGroups.map(group => {
-                    const members = poolMembers.filter(m => m.group_id === group.id).sort((a, b) => b.points - a.points);
-                    const matches = poolMatches.filter(m => m.group_id === group.id);
-                    return (
-                      <View key={group.id} style={{ marginBottom: 16 }}>
-                        <Text style={S.roundTitle}>{group.group_name}</Text>
-                        {/* Standings */}
-                        {members.map((m, i) => (
-                          <View key={m.id} style={[S.matchCard, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 }]}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                              <Text style={[S.matchPlayer, { width: 20 }]}>{i + 1}.</Text>
-                              <Text style={S.matchPlayer}>{m.username}</Text>
-                            </View>
-                            <Text style={[S.matchPlayer, { color: theme.accent }]}>
-                              {m.points}pts ({m.wins}V {m.draws}N {m.losses}D)
-                            </Text>
-                          </View>
-                        ))}
-                        {/* Matches */}
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textMuted, marginTop: 8, marginBottom: 4 }}>
-                          Matchs ({matches.filter(m => m.status === 'completed').length}/{matches.length})
-                        </Text>
-                        {matches.map(match => (
-                          <PoolMatchCard
-                            key={match.id}
-                            match={match}
-                            theme={theme}
-                            S={S}
-                            onResolve={handleResolvePoolMatch}
-                          />
-                        ))}
-                      </View>
-                    );
-                  })}
-                </>
-              )}
-            </View>
+            <PoolTab
+              poolGroups={poolGroups}
+              poolMembers={poolMembers}
+              poolMatches={poolMatches}
+              registrationCount={registrationCount}
+              theme={theme}
+              S={S}
+              onGeneratePool={handleGeneratePool}
+              onResolveMatch={handleResolvePoolMatch}
+            />
           )}
 
           {/* TAB: Swiss */}
           {tab === 'swiss' && (
-            <View style={S.section}>
-              {/* Standings */}
-              {swissStandings.length > 0 && (
-                <View style={{ marginBottom: 16 }}>
-                  <Text style={S.roundTitle}>Classement</Text>
-                  {swissStandings.map((st, i) => (
-                    <View key={st.id} style={[S.matchCard, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={[S.matchPlayer, { width: 20 }]}>{i + 1}.</Text>
-                        <Text style={S.matchPlayer}>{st.username}</Text>
-                      </View>
-                      <Text style={[S.matchPlayer, { color: theme.accent }]}>
-                        {st.points}pts ({st.wins}V {st.draws}N {st.losses}D) B:{st.buchholz}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Rounds */}
-              {swissRounds.length === 0 ? (
-                <View style={S.bracketEmpty}>
-                  <Text style={S.emptyText}>Aucun round suisse.</Text>
-                  <TouchableOpacity style={S.generateBtn} onPress={handleGenerateSwissRound}>
-                    <Text style={S.generateBtnText}>Generer Round 1 ({registrationCount} inscrits)</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  {swissRounds.map(round => {
-                    const roundPairings = swissPairings.filter(p => p.round_id === round.id);
-                    const completedCount = roundPairings.filter(p => p.status === 'completed' || p.status === 'bye').length;
-                    return (
-                      <View key={round.id} style={{ marginBottom: 16 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                          <Text style={S.roundTitle}>Round {round.round_number}</Text>
-                          <Text style={{ fontSize: 11, color: round.status === 'completed' ? theme.success : theme.textMuted }}>
-                            {round.status === 'completed' ? '✓ Terminé' : `${completedCount}/${roundPairings.length}`}
-                          </Text>
-                        </View>
-                        {roundPairings.map(pairing => (
-                          <SwissPairingCard
-                            key={pairing.id}
-                            pairing={pairing}
-                            theme={theme}
-                            S={S}
-                            onResolve={handleResolveSwissPairing}
-                          />
-                        ))}
-                      </View>
-                    );
-                  })}
-                  {/* Generate next round button */}
-                  {swissRounds.every(r => r.status === 'completed') && (
-                    <TouchableOpacity style={S.generateBtn} onPress={handleGenerateSwissRound}>
-                      <Text style={S.generateBtnText}>Generer Round {swissRounds.length + 1}</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              )}
-            </View>
+            <SwissTab
+              swissRounds={swissRounds}
+              swissPairings={swissPairings}
+              swissStandings={swissStandings}
+              registrationCount={registrationCount}
+              theme={theme}
+              S={S}
+              onGenerateRound={handleGenerateSwissRound}
+              onResolvePairing={handleResolveSwissPairing}
+            />
           )}
         </ScrollView>
       )}
@@ -1390,7 +886,6 @@ function createStyles(theme: AppTheme) {
     tabTextActive: { color: theme.accent },
     section: { gap: 10 },
     emptyText: { fontSize: 13, color: theme.textMuted, textAlign: 'center', marginTop: 20 },
-    // WODs
     addWodBtn: { flexDirection: 'row', gap: 6, alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: theme.border, borderStyle: 'dashed' },
     addWodBtnText: { fontSize: 13, fontWeight: '700' },
     wodCard: { backgroundColor: theme.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border },
@@ -1401,7 +896,6 @@ function createStyles(theme: AppTheme) {
     wodDesc: { fontSize: 12, color: theme.textMuted, marginTop: 6 },
     revealBtn: { backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
     revealBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-    // Scores
     scoreCard: { backgroundColor: theme.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border },
     scoreHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     scoreName: { fontSize: 14, fontWeight: '700', color: theme.text },
@@ -1415,7 +909,6 @@ function createStyles(theme: AppTheme) {
     validateBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
     rejectBtn: { flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: theme.error, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
     rejectBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-    // Bracket
     bracketEmpty: { alignItems: 'center', gap: 12, paddingTop: 32 },
     generateBtn: { backgroundColor: theme.accent, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
     generateBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
@@ -1436,7 +929,6 @@ function createStyles(theme: AppTheme) {
     resolveBtnText: { fontSize: 10, fontWeight: '700', color: '#fff' },
     matchResolved: { fontSize: 11, fontWeight: '700', color: theme.success, textAlign: 'center', marginTop: 6 },
     matchBye: { fontSize: 11, color: theme.textMuted, textAlign: 'center', marginTop: 4, fontStyle: 'italic' },
-    // Modals
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: theme.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 },
     modalTitle: { fontSize: 18, fontWeight: '900', color: theme.text, marginBottom: 16 },
