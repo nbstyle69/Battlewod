@@ -135,6 +135,40 @@ describe('elo utilities', () => {
 
       expect(Math.abs(resultK64[0].delta)).toBeGreaterThan(Math.abs(resultK32[0].delta));
     });
+
+    test('handles large tournament (16 players)', () => {
+      const players: RankedPlayer[] = Array.from({ length: 16 }, (_, i) => ({
+        id: `p${i}`,
+        elo: 1000 + (i % 5) * 50,
+        rank: i + 1,
+      }));
+      const result = calculatePairwiseDeltas(players);
+      expect(result).toHaveLength(16);
+      const totalDelta = result.reduce((sum, r) => sum + r.delta, 0);
+      expect(Math.abs(totalDelta)).toBeLessThanOrEqual(2); // rounding tolerance
+      expect(result[0].delta).toBeGreaterThan(0); // winner gains
+      expect(result[15].delta).toBeLessThan(0); // last place loses
+    });
+
+    test('all players tied produce zero deltas', () => {
+      const players: RankedPlayer[] = [
+        { id: 'a', elo: 1000, rank: 1 },
+        { id: 'b', elo: 1000, rank: 1 },
+        { id: 'c', elo: 1000, rank: 1 },
+      ];
+      const result = calculatePairwiseDeltas(players);
+      result.forEach(r => expect(r.delta).toBe(0));
+    });
+
+    test('ELO floor prevents negative ELO', () => {
+      const players: RankedPlayer[] = [
+        { id: 'winner', elo: 200, rank: 1 },
+        { id: 'loser', elo: 110, rank: 2 },
+      ];
+      const result = calculatePairwiseDeltas(players);
+      const loser = result.find(r => r.id === 'loser')!;
+      expect(clampElo(loser.elo + loser.delta)).toBeGreaterThanOrEqual(ELO_FLOOR);
+    });
   });
 
   // ── calcAvgOpponentDelta ─────────────────────────────────────────────────

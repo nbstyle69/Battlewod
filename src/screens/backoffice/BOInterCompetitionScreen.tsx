@@ -145,6 +145,55 @@ const SCORING_LABELS: Record<string, string> = {
   reps: 'Reps', time: 'Temps', weight: 'Poids', rounds_reps: 'Rounds+Reps',
 };
 
+function PoolMatchCard({ match, theme, S, onResolve }: {
+  match: PoolMatch; theme: AppTheme; S: any;
+  onResolve: (match: PoolMatch, s1: number, s2: number) => void;
+}) {
+  const [s1, setS1] = useState('');
+  const [s2, setS2] = useState('');
+  if (match.status === 'completed') {
+    return (
+      <View style={[S.matchCard, { paddingVertical: 6 }]}>
+        <View style={S.matchRow}>
+          <Text style={[S.matchPlayer, match.winner_id === match.athlete1_id && S.matchWinner]}>{match.a1_username}</Text>
+          <Text style={{ fontSize: 11, color: theme.textMuted }}>{match.score1} - {match.score2}</Text>
+          <Text style={[S.matchPlayer, match.winner_id === match.athlete2_id && S.matchWinner]}>{match.a2_username}</Text>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={[S.matchCard, { paddingVertical: 8 }]}>
+      <View style={S.matchRow}>
+        <Text style={S.matchPlayer}>{match.a1_username}</Text>
+        <Text style={{ fontSize: 11, color: theme.textMuted }}>vs</Text>
+        <Text style={S.matchPlayer}>{match.a2_username}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' }}>
+        <TextInput
+          style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
+          value={s1} onChangeText={setS1} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
+        />
+        <Text style={{ fontSize: 11, color: theme.textMuted }}>-</Text>
+        <TextInput
+          style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
+          value={s2} onChangeText={setS2} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
+        />
+        <TouchableOpacity
+          style={{ backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+          onPress={() => {
+            const n1 = parseFloat(s1); const n2 = parseFloat(s2);
+            if (isNaN(n1) || isNaN(n2)) { Alert.alert('Erreur', 'Entrez les deux scores'); return; }
+            onResolve(match, n1, n2);
+          }}
+        >
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>OK</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export default function BOInterCompetitionScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
@@ -970,19 +1019,13 @@ export default function BOInterCompetitionScreen() {
                           Matchs ({matches.filter(m => m.status === 'completed').length}/{matches.length})
                         </Text>
                         {matches.map(match => (
-                          <View key={match.id} style={[S.matchCard, { paddingVertical: 6 }]}>
-                            <View style={S.matchRow}>
-                              <Text style={[S.matchPlayer, match.winner_id === match.athlete1_id && S.matchWinner]}>
-                                {match.a1_username}
-                              </Text>
-                              <Text style={{ fontSize: 11, color: theme.textMuted }}>
-                                {match.status === 'completed' ? `${match.score1} - ${match.score2}` : 'vs'}
-                              </Text>
-                              <Text style={[S.matchPlayer, match.winner_id === match.athlete2_id && S.matchWinner]}>
-                                {match.a2_username}
-                              </Text>
-                            </View>
-                          </View>
+                          <PoolMatchCard
+                            key={match.id}
+                            match={match}
+                            theme={theme}
+                            S={S}
+                            onResolve={handleResolvePoolMatch}
+                          />
                         ))}
                       </View>
                     );

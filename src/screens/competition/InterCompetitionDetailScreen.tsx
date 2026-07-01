@@ -6,6 +6,7 @@ import {
 import {
   ChevronRight, Globe2, Users, Calendar, Trophy,
   Dumbbell, Lock, Clock, CheckCircle2, XCircle, UserPlus,
+  GitBranch, Shield, Swords,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,8 +20,7 @@ import GlassBackground from '../../components/glass/GlassBackground';
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
 type Route = RouteProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
 
-const TABS = ['Infos', 'WODs', 'Inscription', 'Classement'] as const;
-type Tab = typeof TABS[number];
+type Tab = 'Infos' | 'WODs' | 'Inscription' | 'Classement' | 'Bracket' | 'Ligue' | 'Poules';
 
 const FORMAT_LABEL: Record<string, string> = {
   league: 'Ligue', bracket: 'Élimination', pool: 'Poules', swiss: 'Suisse',
@@ -41,6 +41,12 @@ export default function InterCompetitionDetailScreen() {
   const [myTeam, setMyTeam]           = useState<any>(null);
   const [standings, setStandings]     = useState<any[]>([]);
   const [myScores, setMyScores]       = useState<any[]>([]);
+  const [bracketMatches, setBracketMatches] = useState<any[]>([]);
+  const [leagueRounds, setLeagueRounds]     = useState<any[]>([]);
+  const [leagueStandings, setLeagueStandings] = useState<any[]>([]);
+  const [poolGroups, setPoolGroups]   = useState<any[]>([]);
+  const [poolMembers, setPoolMembers] = useState<any[]>([]);
+  const [poolMatches, setPoolMatches] = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [registering, setRegistering] = useState(false);
   const [refreshing, setRefreshing]   = useState(false);
@@ -56,6 +62,76 @@ export default function InterCompetitionDetailScreen() {
     setComp(c);
     setWods(w ?? []);
     setStandings(s ?? []);
+
+    // Load format-specific data
+    if (c) {
+      const format = c.format;
+      if (format === 'bracket' || format === 'swiss') {
+        const { data: matches } = await (supabase as any)
+          .from('inter_bracket_matches').select('*')
+          .eq('competition_id', competitionId)
+          .order('round').order('match_number');
+        if (matches && matches.length > 0) {
+          const ids: string[] = Array.from(new Set(
+            matches.flatMap((m: any) => [m.participant1_id, m.participant2_id]).filter(Boolean)
+          ));
+          const { data: profs } = await supabase.from('profiles').select('id, username').in('id', ids);
+          const profMap: Record<string, string> = {};
+          (profs ?? []).forEach((p: any) => { profMap[p.id] = p.username; });
+          setBracketMatches(matches.map((m: any) => ({
+            ...m,
+            p1_username: m.participant1_id ? profMap[m.participant1_id] ?? '—' : 'BYE',
+            p2_username: m.participant2_id ? profMap[m.participant2_id] ?? '—' : 'BYE',
+          })));
+        } else { setBracketMatches([]); }
+      }
+      if (format === 'league') {
+        const [{ data: rounds }, { data: lstands }] = await Promise.all([
+          (supabase as any).from('inter_league_rounds').select('*')
+            .eq('competition_id', competitionId).order('round_number'),
+          (supabase as any).from('inter_league_standings').select('*')
+            .eq('competition_id', competitionId).order('total_points', { ascending: false }),
+        ]);
+        setLeagueRounds(rounds ?? []);
+        const standList = (lstands ?? []) as any[];
+        if (standList.length > 0) {
+          const sIds = standList.map((x: any) => x.athlete_id).filter(Boolean);
+          const { data: sprofs } = await supabase.from('profiles').select('id, username').in('id', sIds);
+          const spMap: Record<string, string> = {};
+          (sprofs ?? []).forEach((p: any) => { spMap[p.id] = p.username; });
+          standList.forEach((x: any) => { x.username = spMap[x.athlete_id] ?? '—'; });
+        }
+        setLeagueStandings(standList);
+      }
+      if (format === 'pool') {
+        const [{ data: groups }, { data: members }, { data: pmatches }] = await Promise.all([
+          (supabase as any).from('inter_pool_groups').select('*')
+            .eq('competition_id', competitionId).order('group_index'),
+          (supabase as any).from('inter_pool_members').select('*'),
+          (supabase as any).from('inter_pool_matches').select('*')
+            .eq('competition_id', competitionId).order('group_id'),
+        ]);
+        setPoolGroups(groups ?? []);
+        const groupIds = (groups ?? []).map((g: any) => g.id);
+        const compMembers = ((members ?? []) as any[]).filter((m: any) => groupIds.includes(m.group_id));
+        const pmIds = [...new Set([
+          ...compMembers.map((m: any) => m.athlete_id),
+          ...(pmatches ?? []).flatMap((m: any) => [m.athlete1_id, m.athlete2_id]),
+        ])].filter(Boolean) as string[];
+        const pmProfMap: Record<string, string> = {};
+        if (pmIds.length > 0) {
+          const { data: profs } = await supabase.from('profiles').select('id, username').in('id', pmIds);
+          (profs ?? []).forEach((p: any) => { pmProfMap[p.id] = p.username; });
+        }
+        compMembers.forEach((m: any) => { m.username = pmProfMap[m.athlete_id] ?? '—'; });
+        setPoolMembers(compMembers);
+        setPoolMatches(((pmatches ?? []) as any[]).map((m: any) => ({
+          ...m,
+          a1_username: pmProfMap[m.athlete1_id] ?? '—',
+          a2_username: pmProfMap[m.athlete2_id] ?? '—',
+        })));
+      }
+    }
 
     if (user) {
       const [{ data: reg }, { data: sc }, { data: tm }] = await Promise.all([
@@ -160,11 +236,18 @@ export default function InterCompetitionDetailScreen() {
 
       {/* Tab bar */}
       <View style={S.tabBar}>
-        {TABS.map(t => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 0 }}>
+        {(['Infos', 'WODs', 'Inscription',
+          ...(comp?.format === 'bracket' || comp?.format === 'swiss' ? ['Bracket' as Tab] : []),
+          ...(comp?.format === 'league' ? ['Ligue' as Tab] : []),
+          ...(comp?.format === 'pool' ? ['Poules' as Tab] : []),
+          'Classement',
+        ] as Tab[]).map(t => (
           <TouchableOpacity key={t} style={[S.tabItem, tab === t && S.tabActive]} onPress={() => setTab(t)}>
             <Text style={[S.tabText, tab === t && S.tabTextActive]}>{t}</Text>
           </TouchableOpacity>
         ))}
+        </ScrollView>
       </View>
 
       <ScrollView
@@ -382,6 +465,231 @@ export default function InterCompetitionDetailScreen() {
           </View>
         )}
 
+        {/* ── BRACKET ── */}
+        {tab === 'Bracket' && (comp?.format === 'bracket' || comp?.format === 'swiss') && (
+          <View style={{ gap: 12 }}>
+            {bracketMatches.length === 0 ? (
+              <View style={S.empty}>
+                <GitBranch size={40} color={theme.textMuted} />
+                <Text style={S.emptyText}>Le bracket n'a pas encore été généré.</Text>
+              </View>
+            ) : (
+              Object.entries(
+                bracketMatches.reduce((acc: Record<number, any[]>, m: any) => {
+                  (acc[m.round] ??= []).push(m);
+                  return acc;
+                }, {})
+              ).sort(([a], [b]) => Number(a) - Number(b)).map(([round, matches]) => (
+                <View key={round} style={S.infoCard}>
+                  <Text style={S.infoLabel}>Round {round}</Text>
+                  {(matches as any[]).map((match: any) => {
+                    const isMyMatch = user && (match.participant1_id === user.id || match.participant2_id === user.id);
+                    const iWon = match.winner_id === user?.id;
+                    const iLost = match.winner_id && match.winner_id !== user?.id && isMyMatch;
+                    return (
+                      <View key={match.id} style={[S.bracketMatchCard, isMyMatch && { borderColor: theme.accent, borderWidth: 1.5 }]}>
+                        <View style={S.bracketMatchRow}>
+                          <View style={{ flex: 1, alignItems: 'center' }}>
+                            <Text style={[
+                              S.bracketPlayer,
+                              match.winner_id === match.participant1_id && { color: theme.success },
+                              match.participant1_id === user?.id && { color: theme.accent },
+                            ]}>
+                              {match.p1_username ?? 'BYE'}
+                            </Text>
+                          </View>
+                          <View style={S.bracketVsBadge}>
+                            <Text style={S.bracketVsText}>{match.status === 'completed' ? '✓' : match.status === 'bye' ? 'BYE' : 'VS'}</Text>
+                          </View>
+                          <View style={{ flex: 1, alignItems: 'center' }}>
+                            <Text style={[
+                              S.bracketPlayer,
+                              match.winner_id === match.participant2_id && { color: theme.success },
+                              match.participant2_id === user?.id && { color: theme.accent },
+                            ]}>
+                              {match.p2_username ?? 'BYE'}
+                            </Text>
+                          </View>
+                        </View>
+                        {match.status === 'completed' && (
+                          <Text style={{ fontSize: 11, color: theme.success, textAlign: 'center', marginTop: 6, fontWeight: '700' }}>
+                            Gagnant : {match.winner_id === match.participant1_id ? match.p1_username : match.p2_username}
+                          </Text>
+                        )}
+                        {match.status === 'bye' && (
+                          <Text style={{ fontSize: 11, color: theme.textMuted, textAlign: 'center', marginTop: 4, fontStyle: 'italic' }}>
+                            BYE — avance automatiquement
+                          </Text>
+                        )}
+                        {isMyMatch && match.status === 'pending' && comp.status !== 'closed' && (
+                          <TouchableOpacity
+                            style={[S.submitBtn, { marginTop: 8 }]}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              const matchWod = wods.find(w => w.id === match.wod_id) ?? wods[0];
+                              if (!matchWod) { Alert.alert('Aucun WOD', 'Aucun WOD assigné à ce match.'); return; }
+                              navigation.navigate('InterScoreSubmit', {
+                                competitionId,
+                                wodId: matchWod.id,
+                                wodTitle: matchWod.title,
+                                wodDescription: matchWod.description ?? '',
+                                timeCap: matchWod.time_cap,
+                                scoringType: matchWod.scoring_type,
+                                existingScore: null,
+                              });
+                            }}
+                          >
+                            <Trophy size={15} color="#fff" />
+                            <Text style={S.submitBtnText}>Soumettre mon score</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* ── LIGUE ── */}
+        {tab === 'Ligue' && comp?.format === 'league' && (
+          <View style={{ gap: 16 }}>
+            {/* League standings */}
+            <View style={S.infoCard}>
+              <Text style={S.infoLabel}>Classement Ligue</Text>
+              {leagueStandings.length === 0 ? (
+                <Text style={S.infoText}>Aucun classement disponible — les points seront calculés après chaque journée.</Text>
+              ) : (
+                leagueStandings.map((s: any, i: number) => (
+                  <View key={s.id} style={[S.rankRow, s.athlete_id === user?.id && { backgroundColor: `${theme.accent}10` }]}>
+                    <Text style={[S.rankNum, {
+                      color: i === 0 ? '#C9A227' : i === 1 ? '#9CA3AF' : i === 2 ? '#B45309' : theme.textMuted,
+                    }]}>
+                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[S.rankName, s.athlete_id === user?.id && { color: theme.accent }]}>
+                        {s.username ?? '—'}{s.athlete_id === user?.id ? ' (moi)' : ''}
+                      </Text>
+                      <Text style={S.rankBox}>{s.wins}V · {s.podiums}P · {s.rounds_played} journées</Text>
+                    </View>
+                    <Text style={S.rankScore}>{s.total_points} pts</Text>
+                  </View>
+                ))
+              )}
+            </View>
+
+            {/* League rounds */}
+            <View style={S.infoCard}>
+              <Text style={S.infoLabel}>Journées ({leagueRounds.length})</Text>
+              {leagueRounds.length === 0 ? (
+                <Text style={S.infoText}>Aucune journée programmée.</Text>
+              ) : (
+                leagueRounds.map((r: any) => {
+                  const roundWod = wods.find(w => w.id === r.wod_id);
+                  return (
+                    <View key={r.id} style={[S.leagueRoundCard]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                          {r.title ?? `Journée ${r.round_number}`}
+                        </Text>
+                        <View style={[S.leagueStatusBadge, {
+                          backgroundColor: r.status === 'completed' ? `${theme.success}20` : `${theme.accent}20`,
+                        }]}>
+                          <Text style={[S.leagueStatusText, {
+                            color: r.status === 'completed' ? theme.success : theme.accent,
+                          }]}>
+                            {r.status === 'completed' ? 'Terminé' : r.status === 'active' ? 'En cours' : 'À venir'}
+                          </Text>
+                        </View>
+                      </View>
+                      {roundWod && (
+                        <Text style={{ fontSize: 12, color: theme.textMuted, marginTop: 4 }}>
+                          WOD : {roundWod.title}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ── POULES ── */}
+        {tab === 'Poules' && comp?.format === 'pool' && (
+          <View style={{ gap: 16 }}>
+            {poolGroups.length === 0 ? (
+              <View style={S.empty}>
+                <Users size={40} color={theme.textMuted} />
+                <Text style={S.emptyText}>Les poules n'ont pas encore été générées.</Text>
+              </View>
+            ) : (
+              poolGroups.map((group: any) => {
+                const members = poolMembers.filter((m: any) => m.group_id === group.id).sort((a: any, b: any) => b.points - a.points);
+                const matches = poolMatches.filter((m: any) => m.group_id === group.id);
+                const myGroup = members.some((m: any) => m.athlete_id === user?.id);
+                return (
+                  <View key={group.id} style={[S.infoCard, myGroup && { borderColor: theme.accent, borderWidth: 1.5 }]}>
+                    <Text style={S.infoLabel}>
+                      {group.group_name}{myGroup ? ' (ma poule)' : ''}
+                    </Text>
+                    {/* Group standings */}
+                    {members.map((m: any, i: number) => (
+                      <View key={m.id} style={[S.rankRow, m.athlete_id === user?.id && { backgroundColor: `${theme.accent}10` }]}>
+                        <Text style={[S.rankNum, {
+                          color: i === 0 ? '#C9A227' : i === 1 ? '#9CA3AF' : theme.textMuted,
+                        }]}>
+                          {i + 1}.
+                        </Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[S.rankName, m.athlete_id === user?.id && { color: theme.accent }]}>
+                            {m.username ?? '—'}{m.athlete_id === user?.id ? ' (moi)' : ''}
+                          </Text>
+                          <Text style={S.rankBox}>{m.wins}V {m.draws}N {m.losses}D · Diff: {m.score_for - m.score_against > 0 ? '+' : ''}{m.score_for - m.score_against}</Text>
+                        </View>
+                        <Text style={S.rankScore}>{m.points} pts</Text>
+                      </View>
+                    ))}
+
+                    {/* Group matches */}
+                    <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 10 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: theme.textMuted, marginBottom: 6 }}>
+                        MATCHS ({matches.filter((m: any) => m.status === 'completed').length}/{matches.length})
+                      </Text>
+                      {matches.map((match: any) => {
+                        const isMyMatch = user && (match.athlete1_id === user.id || match.athlete2_id === user.id);
+                        return (
+                          <View key={match.id} style={[S.poolMatchRow, isMyMatch && { backgroundColor: `${theme.accent}08` }]}>
+                            <Text style={[
+                              S.poolMatchPlayer,
+                              match.winner_id === match.athlete1_id && { color: theme.success, fontWeight: '800' as any },
+                              match.athlete1_id === user?.id && { color: theme.accent },
+                            ]}>
+                              {match.a1_username}
+                            </Text>
+                            <Text style={S.poolMatchScore}>
+                              {match.status === 'completed' ? `${match.score1} - ${match.score2}` : 'vs'}
+                            </Text>
+                            <Text style={[
+                              S.poolMatchPlayer,
+                              match.winner_id === match.athlete2_id && { color: theme.success, fontWeight: '800' as any },
+                              match.athlete2_id === user?.id && { color: theme.accent },
+                            ]}>
+                              {match.a2_username}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
         {/* ── CLASSEMENT ── */}
         {tab === 'Classement' && (
           <View style={{ gap: 16 }}>
@@ -530,5 +838,22 @@ function createStyles(theme: AppTheme) {
     noScores:   { fontSize: 13, color: theme.textMuted, padding: 14 },
     empty:      { alignItems: 'center', paddingTop: 60, gap: 12 },
     emptyText:  { fontSize: 14, color: theme.textMuted, textAlign: 'center' },
+    // Bracket styles
+    bracketMatchCard: {
+      backgroundColor: theme.surface, borderRadius: 12,
+      padding: 12, marginBottom: 8, borderWidth: 1, borderColor: theme.border,
+    },
+    bracketMatchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    bracketPlayer:   { fontSize: 13, fontWeight: '700', color: theme.text },
+    bracketVsBadge:  { width: 36, height: 36, borderRadius: 18, backgroundColor: `${theme.accent}15`, justifyContent: 'center', alignItems: 'center' },
+    bracketVsText:   { fontSize: 11, fontWeight: '900', color: theme.accent },
+    // League styles
+    leagueRoundCard: { backgroundColor: theme.surface, borderRadius: 10, padding: 12, marginTop: 8 },
+    leagueStatusBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+    leagueStatusText:  { fontSize: 10, fontWeight: '800' },
+    // Pool styles
+    poolMatchRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, paddingHorizontal: 4, borderRadius: 6, marginBottom: 2 },
+    poolMatchPlayer: { fontSize: 12, fontWeight: '600', color: theme.text, flex: 1, textAlign: 'center' },
+    poolMatchScore:  { fontSize: 12, fontWeight: '700', color: theme.textMuted, marginHorizontal: 8 },
   });
 }
