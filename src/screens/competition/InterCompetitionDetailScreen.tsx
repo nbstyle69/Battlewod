@@ -67,7 +67,7 @@ export default function InterCompetitionDetailScreen() {
     if (c) {
       const format = c.format;
       if (format === 'bracket' || format === 'swiss') {
-        const { data: matches } = await (supabase as any)
+        const { data: matches } = await supabase
           .from('inter_bracket_matches').select('*')
           .eq('competition_id', competitionId)
           .order('round').order('match_number');
@@ -87,9 +87,9 @@ export default function InterCompetitionDetailScreen() {
       }
       if (format === 'league') {
         const [{ data: rounds }, { data: lstands }] = await Promise.all([
-          (supabase as any).from('inter_league_rounds').select('*')
+          supabase.from('inter_league_rounds').select('*')
             .eq('competition_id', competitionId).order('round_number'),
-          (supabase as any).from('inter_league_standings').select('*')
+          supabase.from('inter_league_standings').select('*')
             .eq('competition_id', competitionId).order('total_points', { ascending: false }),
         ]);
         setLeagueRounds(rounds ?? []);
@@ -105,10 +105,10 @@ export default function InterCompetitionDetailScreen() {
       }
       if (format === 'pool') {
         const [{ data: groups }, { data: members }, { data: pmatches }] = await Promise.all([
-          (supabase as any).from('inter_pool_groups').select('*')
+          supabase.from('inter_pool_groups').select('*')
             .eq('competition_id', competitionId).order('group_index'),
-          (supabase as any).from('inter_pool_members').select('*'),
-          (supabase as any).from('inter_pool_matches').select('*')
+          supabase.from('inter_pool_members').select('*'),
+          supabase.from('inter_pool_matches').select('*')
             .eq('competition_id', competitionId).order('group_id'),
         ]);
         setPoolGroups(groups ?? []);

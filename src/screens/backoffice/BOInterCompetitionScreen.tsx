@@ -234,7 +234,7 @@ export default function BOInterCompetitionScreen() {
   // ── Load competitions ─────────────────────────────────────────────────────
   const loadCompetitions = useCallback(async () => {
     try {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('inter_competitions')
         .select('*')
         .order('created_at', { ascending: false });
@@ -251,11 +251,11 @@ export default function BOInterCompetitionScreen() {
   const loadData = useCallback(async () => {
     if (!selectedId) return;
     const [{ data: w }, { data: sc }, regResult] = await Promise.all([
-      (supabase as any).from('inter_competition_wods')
+      supabase.from('inter_competition_wods')
         .select('*').eq('competition_id', selectedId).order('order_index'),
-      (supabase as any).from('inter_scores')
+      supabase.from('inter_scores')
         .select('*').eq('competition_id', selectedId).order('submitted_at', { ascending: false }),
-      (supabase as any).from('inter_registrations')
+      supabase.from('inter_registrations')
         .select('id', { count: 'exact', head: true }).eq('competition_id', selectedId),
     ]);
     setWods((w ?? []) as InterWod[]);
@@ -275,7 +275,7 @@ export default function BOInterCompetitionScreen() {
     // Load bracket matches if format is bracket
     const comp = competitions.find(c => c.id === selectedId);
     if (comp?.format === 'bracket' || comp?.format === 'swiss') {
-      const { data: matches } = await (supabase as any)
+      const { data: matches } = await supabase
         .from('inter_bracket_matches')
         .select('*')
         .eq('competition_id', selectedId)
@@ -305,9 +305,9 @@ export default function BOInterCompetitionScreen() {
     // Load league data if format is league
     if (comp?.format === 'league') {
       const [{ data: rounds }, { data: standings }] = await Promise.all([
-        (supabase as any).from('inter_league_rounds')
+        supabase.from('inter_league_rounds')
           .select('*').eq('competition_id', selectedId).order('round_number'),
-        (supabase as any).from('inter_league_standings')
+        supabase.from('inter_league_standings')
           .select('*').eq('competition_id', selectedId).order('total_points', { ascending: false }),
       ]);
       setLeagueRounds((rounds ?? []) as LeagueRound[]);
@@ -327,11 +327,11 @@ export default function BOInterCompetitionScreen() {
     // Load pool data if format is pool
     if (comp?.format === 'pool') {
       const [{ data: groups }, { data: members }, { data: matches }] = await Promise.all([
-        (supabase as any).from('inter_pool_groups')
+        supabase.from('inter_pool_groups')
           .select('*').eq('competition_id', selectedId).order('group_index'),
-        (supabase as any).from('inter_pool_members')
+        supabase.from('inter_pool_members')
           .select('*'),
-        (supabase as any).from('inter_pool_matches')
+        supabase.from('inter_pool_matches')
           .select('*').eq('competition_id', selectedId).order('group_id'),
       ]);
       setPoolGroups((groups ?? []) as PoolGroup[]);
@@ -370,7 +370,7 @@ export default function BOInterCompetitionScreen() {
   async function handleCreate() {
     if (!newTitle.trim()) { Alert.alert('Erreur', 'Titre requis'); return; }
     setCreating(true);
-    const { data, error } = await (supabase as any).from('inter_competitions').insert({
+    const { data, error } = await supabase.from('inter_competitions').insert({
       title: newTitle.trim(),
       format: newFormat,
       type: newType,
@@ -393,10 +393,10 @@ export default function BOInterCompetitionScreen() {
       await handleCloseCompetition();
       return;
     }
-    const { error } = await (supabase as any).from('inter_competitions')
+    const { error } = await supabase.from('inter_competitions')
       .update({ status: newStatus }).eq('id', selectedId);
     if (error) { Alert.alert('Erreur', error.message); return; }
-    setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: newStatus as any } : c));
+    setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: newStatus as InterCompetition['status'] } : c));
   }
 
   // ── Close competition + distribute ELO (pairwise) ─────────────────────────
@@ -410,11 +410,11 @@ export default function BOInterCompetitionScreen() {
         { text: 'Cloturer', style: 'destructive', onPress: async () => {
           try {
             // Get validated scores aggregated by athlete (sum across all WODs)
-            const { data: validatedScores } = await (supabase as any).from('inter_scores')
+            const { data: validatedScores } = await supabase.from('inter_scores')
               .select('athlete_id, score_value').eq('competition_id', selectedId).eq('status', 'validated');
             if (!validatedScores || validatedScores.length === 0) {
-              await (supabase as any).from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
-              setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' as any } : c));
+              await supabase.from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
+              setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' } : c));
               Alert.alert('Competition cloturee (aucun score valide).');
               return;
             }
@@ -460,8 +460,8 @@ export default function BOInterCompetitionScreen() {
             }
 
             // Update competition status
-            await (supabase as any).from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
-            setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' as any } : c));
+            await supabase.from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
+            setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' } : c));
 
             const winner = results.find(r => r.rank === 1);
             const topDelta = winner ? `+${winner.delta}` : '';
@@ -485,7 +485,7 @@ export default function BOInterCompetitionScreen() {
   // ── Add WOD ───────────────────────────────────────────────────────────────
   async function handleAddWod() {
     if (!wodTitle.trim() || !selectedId) { Alert.alert('Erreur', 'Titre requis'); return; }
-    const { error } = await (supabase as any).from('inter_competition_wods').insert({
+    const { error } = await supabase.from('inter_competition_wods').insert({
       competition_id: selectedId,
       title: wodTitle.trim(),
       description: wodDesc.trim() || null,
@@ -501,7 +501,7 @@ export default function BOInterCompetitionScreen() {
 
   // ── Reveal WOD ────────────────────────────────────────────────────────────
   async function handleRevealWod(wodId: string) {
-    const { error } = await (supabase as any).from('inter_competition_wods')
+    const { error } = await supabase.from('inter_competition_wods')
       .update({ revealed_at: new Date().toISOString() }).eq('id', wodId);
     if (error) { Alert.alert('Erreur', error.message); return; }
     loadData();
@@ -515,7 +515,7 @@ export default function BOInterCompetitionScreen() {
 
   // ── Validate / reject score ───────────────────────────────────────────────
   async function handleValidateScore(scoreId: string) {
-    const { error } = await (supabase as any).from('inter_scores')
+    const { error } = await supabase.from('inter_scores')
       .update({ status: 'validated', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
       .eq('id', scoreId);
     if (error) { Alert.alert('Erreur', error.message); return; }
@@ -526,7 +526,7 @@ export default function BOInterCompetitionScreen() {
     Alert.alert('Rejeter ce score ?', 'Le participant devra re-soumettre.', [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Rejeter', style: 'destructive', onPress: async () => {
-        const { error } = await (supabase as any).from('inter_scores')
+        const { error } = await supabase.from('inter_scores')
           .update({ status: 'rejected', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
           .eq('id', scoreId);
         if (error) { Alert.alert('Erreur', error.message); return; }
@@ -544,7 +544,7 @@ export default function BOInterCompetitionScreen() {
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Generer', onPress: async () => {
-          const { error } = await (supabase as any).rpc('generate_inter_bracket_round_1', {
+          const { error } = await supabase.rpc('generate_inter_bracket_round_1', {
             p_competition_id: selectedId,
           });
           if (error) { Alert.alert('Erreur', error.message); return; }
@@ -564,7 +564,7 @@ export default function BOInterCompetitionScreen() {
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Confirmer', onPress: async () => {
-          const { error } = await (supabase as any).from('inter_bracket_matches')
+          const { error } = await supabase.from('inter_bracket_matches')
             .update({ winner_id: winnerId, loser_id: loserId, status: 'completed', completed_at: new Date().toISOString() })
             .eq('id', match.id);
           if (error) { Alert.alert('Erreur', error.message); return; }
@@ -593,7 +593,7 @@ export default function BOInterCompetitionScreen() {
     const lastCompleted = completedRounds[0];
     if (!lastCompleted) { Alert.alert('Aucun round termine'); return; }
 
-    const { error } = await (supabase as any).rpc('advance_inter_bracket_round', {
+    const { error } = await supabase.rpc('advance_inter_bracket_round', {
       p_competition_id: selectedId,
       p_completed_round: lastCompleted,
     });
@@ -608,7 +608,7 @@ export default function BOInterCompetitionScreen() {
     const nextNumber = leagueRounds.length + 1;
     // Use first unrevealed WOD or null
     const availableWod = wods.find(w => !leagueRounds.some(r => r.wod_id === w.id));
-    const { error } = await (supabase as any).from('inter_league_rounds').insert({
+    const { error } = await supabase.from('inter_league_rounds').insert({
       competition_id: selectedId,
       round_number: nextNumber,
       title: `Journee ${nextNumber}`,
@@ -623,7 +623,7 @@ export default function BOInterCompetitionScreen() {
   // ── League: compute round points ─────────────────────────────────────────
   async function handleComputeLeagueRound(roundNumber: number) {
     if (!selectedId) return;
-    const { data, error } = await (supabase as any).rpc('compute_inter_league_round', {
+    const { data, error } = await supabase.rpc('compute_inter_league_round', {
       p_competition_id: selectedId,
       p_round_number: roundNumber,
     });
@@ -642,7 +642,7 @@ export default function BOInterCompetitionScreen() {
         { text: 'Annuler', style: 'cancel' },
         { text: 'Generer', onPress: async () => {
           const groupsCount = registrationCount <= 8 ? 2 : registrationCount <= 16 ? 4 : 8;
-          const { error } = await (supabase as any).rpc('generate_inter_pool_groups', {
+          const { error } = await supabase.rpc('generate_inter_pool_groups', {
             p_competition_id: selectedId,
             p_groups_count: groupsCount,
             p_advance_count: 2,
@@ -658,7 +658,7 @@ export default function BOInterCompetitionScreen() {
   // ── Pool: resolve match ──────────────────────────────────────────────────
   async function handleResolvePoolMatch(match: PoolMatch, s1: number, s2: number) {
     const scoringType = wods[0]?.scoring_type ?? 'reps';
-    const { error } = await (supabase as any).rpc('resolve_inter_pool_match', {
+    const { error } = await supabase.rpc('resolve_inter_pool_match', {
       p_match_id: match.id,
       p_score1: s1,
       p_score2: s2,
@@ -747,7 +747,7 @@ export default function BOInterCompetitionScreen() {
               ...(selected.format === 'league' ? ['league'] : []),
               ...(selected.format === 'pool' ? ['pool'] : []),
             ] as const).map(t => (
-              <TouchableOpacity key={t} style={[S.tabItem, tab === t && S.tabActive]} onPress={() => setTab(t as any)}>
+              <TouchableOpacity key={t} style={[S.tabItem, tab === t && S.tabActive]} onPress={() => setTab(t as typeof tab)}>
                 <Text style={[S.tabText, tab === t && S.tabTextActive]}>
                   {t === 'wods' ? 'WODs' : t === 'scores' ? `Scores (${scores.length})` : t === 'bracket' ? 'Bracket' : t === 'league' ? 'Ligue' : 'Poules'}
                 </Text>
