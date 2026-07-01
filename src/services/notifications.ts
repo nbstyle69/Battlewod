@@ -563,7 +563,7 @@ export async function sendInterWodRevealedNotification(
   competitionTitle: string,
   wodTitle: string,
 ) {
-  const { data: registrations } = await (supabase as any)
+  const { data: registrations } = await supabase
     .from('inter_registrations')
     .select('athlete_id')
     .eq('competition_id', competitionId)

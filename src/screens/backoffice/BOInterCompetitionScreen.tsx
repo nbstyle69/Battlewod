@@ -135,6 +135,41 @@ interface LeagueStanding {
   username?: string;
 }
 
+interface SwissRound {
+  id: string;
+  competition_id: string;
+  round_number: number;
+  status: 'pending' | 'active' | 'completed';
+  completed_at: string | null;
+}
+
+interface SwissPairing {
+  id: string;
+  round_id: string;
+  competition_id: string;
+  athlete1_id: string;
+  athlete2_id: string | null;
+  score1: number | null;
+  score2: number | null;
+  winner_id: string | null;
+  status: 'pending' | 'active' | 'completed' | 'bye';
+  a1_username?: string;
+  a2_username?: string;
+}
+
+interface SwissStanding {
+  id: string;
+  competition_id: string;
+  athlete_id: string;
+  points: number;
+  buchholz: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  rounds_played: number;
+  username?: string;
+}
+
 const FORMAT_LABELS: Record<string, string> = {
   league: 'Ligue', bracket: 'Elimination', pool: 'Poules', swiss: 'Suisse',
 };
@@ -194,6 +229,66 @@ function PoolMatchCard({ match, theme, S, onResolve }: {
   );
 }
 
+function SwissPairingCard({ pairing, theme, S, onResolve }: {
+  pairing: SwissPairing; theme: AppTheme; S: any;
+  onResolve: (pairing: SwissPairing, s1: number, s2: number) => void;
+}) {
+  const [s1, setS1] = useState('');
+  const [s2, setS2] = useState('');
+  if (pairing.status === 'bye') {
+    return (
+      <View style={[S.matchCard, { paddingVertical: 6 }]}>
+        <View style={S.matchRow}>
+          <Text style={[S.matchPlayer, S.matchWinner]}>{pairing.a1_username}</Text>
+          <Text style={{ fontSize: 11, color: theme.textMuted }}>BYE</Text>
+          <Text style={S.matchPlayer}>—</Text>
+        </View>
+      </View>
+    );
+  }
+  if (pairing.status === 'completed') {
+    return (
+      <View style={[S.matchCard, { paddingVertical: 6 }]}>
+        <View style={S.matchRow}>
+          <Text style={[S.matchPlayer, pairing.winner_id === pairing.athlete1_id && S.matchWinner]}>{pairing.a1_username}</Text>
+          <Text style={{ fontSize: 11, color: theme.textMuted }}>{pairing.score1} - {pairing.score2}</Text>
+          <Text style={[S.matchPlayer, pairing.winner_id === pairing.athlete2_id && S.matchWinner]}>{pairing.a2_username}</Text>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={[S.matchCard, { paddingVertical: 8 }]}>
+      <View style={S.matchRow}>
+        <Text style={S.matchPlayer}>{pairing.a1_username}</Text>
+        <Text style={{ fontSize: 11, color: theme.textMuted }}>vs</Text>
+        <Text style={S.matchPlayer}>{pairing.a2_username}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' }}>
+        <TextInput
+          style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
+          value={s1} onChangeText={setS1} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
+        />
+        <Text style={{ fontSize: 11, color: theme.textMuted }}>-</Text>
+        <TextInput
+          style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
+          value={s2} onChangeText={setS2} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
+        />
+        <TouchableOpacity
+          style={{ backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+          onPress={() => {
+            const n1 = parseFloat(s1); const n2 = parseFloat(s2);
+            if (isNaN(n1) || isNaN(n2)) { Alert.alert('Erreur', 'Entrez les deux scores'); return; }
+            onResolve(pairing, n1, n2);
+          }}
+        >
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>OK</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export default function BOInterCompetitionScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
@@ -203,7 +298,7 @@ export default function BOInterCompetitionScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState<'wods' | 'scores' | 'bracket' | 'league' | 'pool'>('wods');
+  const [tab, setTab] = useState<'wods' | 'scores' | 'bracket' | 'league' | 'pool' | 'swiss'>('wods');
 
   // Selected competition data
   const [wods, setWods] = useState<InterWod[]>([]);
@@ -214,6 +309,9 @@ export default function BOInterCompetitionScreen() {
   const [poolGroups, setPoolGroups] = useState<PoolGroup[]>([]);
   const [poolMembers, setPoolMembers] = useState<PoolMember[]>([]);
   const [poolMatches, setPoolMatches] = useState<PoolMatch[]>([]);
+  const [swissRounds, setSwissRounds] = useState<SwissRound[]>([]);
+  const [swissPairings, setSwissPairings] = useState<SwissPairing[]>([]);
+  const [swissStandings, setSwissStandings] = useState<SwissStanding[]>([]);
   const [registrationCount, setRegistrationCount] = useState(0);
 
   // Create modal
@@ -359,6 +457,43 @@ export default function BOInterCompetitionScreen() {
         a2_username: pmProfMap[m.athlete2_id] ?? '—',
       }));
       setPoolMatches(enrichedMatches);
+    }
+
+    // Load swiss data if format is swiss
+    if (comp?.format === 'swiss') {
+      const [{ data: rounds }, { data: pairings }, { data: standings }] = await Promise.all([
+        supabase.from('inter_swiss_rounds')
+          .select('*').eq('competition_id', selectedId).order('round_number'),
+        supabase.from('inter_swiss_pairings')
+          .select('*').eq('competition_id', selectedId),
+        supabase.from('inter_swiss_standings')
+          .select('*').eq('competition_id', selectedId).order('points', { ascending: false }),
+      ]);
+      setSwissRounds((rounds ?? []) as SwissRound[]);
+
+      // Enrich pairings and standings with usernames
+      const swIds = [...new Set([
+        ...(pairings ?? []).flatMap((p: any) => [p.athlete1_id, p.athlete2_id]),
+        ...(standings ?? []).map((s: any) => s.athlete_id),
+      ])].filter(Boolean);
+      const swProfMap: Record<string, string> = {};
+      if (swIds.length > 0) {
+        const { data: profs } = await supabase.from('profiles').select('id, username').in('id', swIds);
+        (profs ?? []).forEach((p: any) => { swProfMap[p.id] = p.username; });
+      }
+
+      const enrichedPairings: SwissPairing[] = ((pairings ?? []) as SwissPairing[]).map(p => ({
+        ...p,
+        a1_username: swProfMap[p.athlete1_id] ?? '—',
+        a2_username: p.athlete2_id ? swProfMap[p.athlete2_id] ?? '—' : 'BYE',
+      }));
+      setSwissPairings(enrichedPairings);
+
+      const enrichedStandings: SwissStanding[] = ((standings ?? []) as SwissStanding[]).map(s => ({
+        ...s,
+        username: swProfMap[s.athlete_id] ?? '—',
+      }));
+      setSwissStandings(enrichedStandings);
     }
   }, [selectedId, competitions]);
 
@@ -668,6 +803,29 @@ export default function BOInterCompetitionScreen() {
     loadData();
   }
 
+  // ── Swiss handlers ────────────────────────────────────────────────────────
+  async function handleGenerateSwissRound() {
+    if (!selectedId) return;
+    const { data, error } = await supabase.rpc('generate_inter_swiss_round', {
+      p_competition_id: selectedId,
+    });
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    Alert.alert('Round suisse generé', `${data} appariements créés`);
+    loadData();
+  }
+
+  async function handleResolveSwissPairing(pairing: SwissPairing, s1: number, s2: number) {
+    const scoringType = wods[0]?.scoring_type ?? 'reps';
+    const { error } = await supabase.rpc('resolve_inter_swiss_pairing', {
+      p_pairing_id: pairing.id,
+      p_score1: s1,
+      p_score2: s2,
+      p_scoring_type: scoringType,
+    });
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    loadData();
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return <View style={S.center}><ActivityIndicator color={theme.accent} /></View>;
@@ -743,13 +901,14 @@ export default function BOInterCompetitionScreen() {
           {/* Tabs */}
           <View style={S.tabs}>
             {(['wods', 'scores',
-              ...(selected.format === 'bracket' || selected.format === 'swiss' ? ['bracket'] : []),
+              ...(selected.format === 'bracket' ? ['bracket'] : []),
+              ...(selected.format === 'swiss' ? ['swiss'] : []),
               ...(selected.format === 'league' ? ['league'] : []),
               ...(selected.format === 'pool' ? ['pool'] : []),
             ] as const).map(t => (
               <TouchableOpacity key={t} style={[S.tabItem, tab === t && S.tabActive]} onPress={() => setTab(t as typeof tab)}>
                 <Text style={[S.tabText, tab === t && S.tabTextActive]}>
-                  {t === 'wods' ? 'WODs' : t === 'scores' ? `Scores (${scores.length})` : t === 'bracket' ? 'Bracket' : t === 'league' ? 'Ligue' : 'Poules'}
+                  {t === 'wods' ? 'WODs' : t === 'scores' ? `Scores (${scores.length})` : t === 'bracket' ? 'Bracket' : t === 'swiss' ? 'Suisse' : t === 'league' ? 'Ligue' : 'Poules'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -1030,6 +1189,71 @@ export default function BOInterCompetitionScreen() {
                       </View>
                     );
                   })}
+                </>
+              )}
+            </View>
+          )}
+
+          {/* TAB: Swiss */}
+          {tab === 'swiss' && (
+            <View style={S.section}>
+              {/* Standings */}
+              {swissStandings.length > 0 && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={S.roundTitle}>Classement</Text>
+                  {swissStandings.map((st, i) => (
+                    <View key={st.id} style={[S.matchCard, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={[S.matchPlayer, { width: 20 }]}>{i + 1}.</Text>
+                        <Text style={S.matchPlayer}>{st.username}</Text>
+                      </View>
+                      <Text style={[S.matchPlayer, { color: theme.accent }]}>
+                        {st.points}pts ({st.wins}V {st.draws}N {st.losses}D) B:{st.buchholz}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Rounds */}
+              {swissRounds.length === 0 ? (
+                <View style={S.bracketEmpty}>
+                  <Text style={S.emptyText}>Aucun round suisse.</Text>
+                  <TouchableOpacity style={S.generateBtn} onPress={handleGenerateSwissRound}>
+                    <Text style={S.generateBtnText}>Generer Round 1 ({registrationCount} inscrits)</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {swissRounds.map(round => {
+                    const roundPairings = swissPairings.filter(p => p.round_id === round.id);
+                    const completedCount = roundPairings.filter(p => p.status === 'completed' || p.status === 'bye').length;
+                    return (
+                      <View key={round.id} style={{ marginBottom: 16 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <Text style={S.roundTitle}>Round {round.round_number}</Text>
+                          <Text style={{ fontSize: 11, color: round.status === 'completed' ? theme.success : theme.textMuted }}>
+                            {round.status === 'completed' ? '✓ Terminé' : `${completedCount}/${roundPairings.length}`}
+                          </Text>
+                        </View>
+                        {roundPairings.map(pairing => (
+                          <SwissPairingCard
+                            key={pairing.id}
+                            pairing={pairing}
+                            theme={theme}
+                            S={S}
+                            onResolve={handleResolveSwissPairing}
+                          />
+                        ))}
+                      </View>
+                    );
+                  })}
+                  {/* Generate next round button */}
+                  {swissRounds.every(r => r.status === 'completed') && (
+                    <TouchableOpacity style={S.generateBtn} onPress={handleGenerateSwissRound}>
+                      <Text style={S.generateBtnText}>Generer Round {swissRounds.length + 1}</Text>
+                    </TouchableOpacity>
+                  )}
                 </>
               )}
             </View>

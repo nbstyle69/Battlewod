@@ -19,6 +19,14 @@ interface Stats {
   recentScores: { username: string; score_value: number; score_type: string; rx: boolean; wod_title: string }[];
 }
 
+interface InterBoxStats {
+  totalCompetitions: number;
+  activeCompetitions: number;
+  totalParticipants: number;
+  formatBreakdown: Record<string, number>;
+  recentCompetitions: { id: string; title: string; format: string; status: string; participantCount: number }[];
+}
+
 export default function BODashboardScreen({ navigation }: any) {
   const { user, currentBox, signOut, boxSubscription, isBoxActive, daysLeftTrial } = useAuth();
   const { theme } = useTheme();
@@ -27,6 +35,10 @@ export default function BODashboardScreen({ navigation }: any) {
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [interBoxStats, setInterBoxStats] = useState<InterBoxStats>({
+    totalCompetitions: 0, activeCompetitions: 0, totalParticipants: 0,
+    formatBreakdown: {}, recentCompetitions: [],
+  });
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -55,6 +67,43 @@ export default function BODashboardScreen({ navigation }: any) {
         wod_title: s.box_wods?.title ?? '',
       })),
     });
+    // Load inter-box competition stats
+    const { data: comps } = await supabase
+      .from('inter_competitions')
+      .select('id, title, format, status')
+      .order('created_at', { ascending: false });
+    if (comps && comps.length > 0) {
+      const formatBreakdown: Record<string, number> = {};
+      let activeCount = 0;
+      comps.forEach((c: any) => {
+        formatBreakdown[c.format] = (formatBreakdown[c.format] ?? 0) + 1;
+        if (c.status === 'active' || c.status === 'open') activeCount++;
+      });
+      const compIds = comps.map((c: any) => c.id);
+      const { count: totalParticipants } = await supabase
+        .from('inter_registrations')
+        .select('id', { count: 'exact', head: true })
+        .in('competition_id', compIds)
+        .eq('status', 'active');
+      // Get participant counts per competition
+      const recent = comps.slice(0, 5);
+      const recentWithCounts = await Promise.all(
+        recent.map(async (c: any) => {
+          const { count } = await supabase.from('inter_registrations')
+            .select('id', { count: 'exact', head: true })
+            .eq('competition_id', c.id).eq('status', 'active');
+          return { ...c, participantCount: count ?? 0 };
+        })
+      );
+      setInterBoxStats({
+        totalCompetitions: comps.length,
+        activeCompetitions: activeCount,
+        totalParticipants: totalParticipants ?? 0,
+        formatBreakdown,
+        recentCompetitions: recentWithCounts,
+      });
+    }
+
     } catch (e) { captureError(e, { screen: 'BODashboard', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
@@ -210,6 +259,78 @@ export default function BODashboardScreen({ navigation }: any) {
             ))}
           </View>
         </View>
+
+        {/* Inter-box stats */}
+        {interBoxStats.totalCompetitions > 0 && (
+          <View style={S.section}>
+            <View style={S.sectionHeader}>
+              <Text style={S.sectionTitle}>Inter-box</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('BOInterCompetition')} activeOpacity={0.7}>
+                <Text style={S.seeAll}>Gérer</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={S.statsRow}>
+              <View style={S.statCard}>
+                <Globe2 color={theme.accent} size={20} />
+                <Text style={S.statValue}>{interBoxStats.totalCompetitions}</Text>
+                <Text style={S.statLabel}>Compétitions</Text>
+              </View>
+              <View style={S.statCard}>
+                <Trophy color={theme.gold} size={20} />
+                <Text style={S.statValue}>{interBoxStats.activeCompetitions}</Text>
+                <Text style={S.statLabel}>En cours</Text>
+              </View>
+              <View style={S.statCard}>
+                <Users color={theme.accent} size={20} />
+                <Text style={S.statValue}>{interBoxStats.totalParticipants}</Text>
+                <Text style={S.statLabel}>Participants</Text>
+              </View>
+            </View>
+            {/* Format breakdown */}
+            {Object.keys(interBoxStats.formatBreakdown).length > 0 && (
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                {Object.entries(interBoxStats.formatBreakdown).map(([fmt, cnt]) => (
+                  <View key={fmt} style={{ backgroundColor: `${theme.accent}15`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 11, color: theme.accent, fontWeight: '600' }}>
+                      {fmt === 'bracket' ? 'Elimination' : fmt === 'league' ? 'Ligue' : fmt === 'pool' ? 'Poules' : fmt === 'swiss' ? 'Suisse' : fmt} ({cnt})
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {/* Recent competitions */}
+            {interBoxStats.recentCompetitions.length > 0 && (
+              <View style={{ marginTop: 12 }}>
+                {interBoxStats.recentCompetitions.map(c => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.border }}
+                    onPress={() => navigation.navigate('BOInterCompetition')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text }}>{c.title}</Text>
+                      <Text style={{ fontSize: 11, color: theme.textMuted }}>
+                        {c.format === 'bracket' ? 'Elimination' : c.format === 'league' ? 'Ligue' : c.format === 'pool' ? 'Poules' : c.format === 'swiss' ? 'Suisse' : c.format} · {c.participantCount} participant{c.participantCount > 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                    <View style={{
+                      backgroundColor: c.status === 'active' ? `${theme.success}20` : c.status === 'open' ? `${theme.accent}20` : `${theme.textMuted}20`,
+                      borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2,
+                    }}>
+                      <Text style={{
+                        fontSize: 10, fontWeight: '700',
+                        color: c.status === 'active' ? theme.success : c.status === 'open' ? theme.accent : theme.textMuted,
+                      }}>
+                        {c.status === 'draft' ? 'Brouillon' : c.status === 'open' ? 'Ouvert' : c.status === 'active' ? 'En cours' : 'Terminé'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Analytics & Tools */}
         <View style={S.section}>

@@ -156,7 +156,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('program_members')
         .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
         .eq('user_id', user.id)
@@ -170,7 +170,7 @@ export default function ProfileScreen() {
     if (!progCode.trim() || !user) return;
     setJoiningProg(true);
     try {
-      const { data: prog } = await (supabase as any)
+      const { data: prog } = await supabase
         .from('programs')
         .select('*')
         .eq('invite_code', progCode.trim().toUpperCase())
@@ -187,7 +187,7 @@ export default function ProfileScreen() {
         return;
       }
       // Check not already member
-      const { data: existing } = await (supabase as any)
+      const { data: existing } = await supabase
         .from('program_members')
         .select('id')
         .eq('program_id', prog.id)
@@ -196,7 +196,7 @@ export default function ProfileScreen() {
       if (existing) { Alert.alert('Déjà inscrit', 'Tu fais déjà partie de ce programme.'); setJoiningProg(false); return; }
       // For now: free join (Stripe integration later)
       const today = new Date().toISOString().split('T')[0];
-      const { error } = await (supabase as any).from('program_members').insert({
+      const { error } = await supabase.from('program_members').insert({
         program_id: prog.id,
         user_id: user.id,
         start_date: today,
@@ -207,7 +207,7 @@ export default function ProfileScreen() {
       Alert.alert('Bienvenue !', `Tu as rejoint le programme « ${prog.title} ».`);
       setProgModal(false); setProgCode('');
       // Refresh programs
-      const { data: refreshed } = await (supabase as any)
+      const { data: refreshed } = await supabase
         .from('program_members')
         .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
         .eq('user_id', user.id)

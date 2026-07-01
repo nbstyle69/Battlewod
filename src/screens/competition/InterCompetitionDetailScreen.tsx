@@ -20,7 +20,7 @@ import GlassBackground from '../../components/glass/GlassBackground';
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
 type Route = RouteProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
 
-type Tab = 'Infos' | 'WODs' | 'Inscription' | 'Classement' | 'Bracket' | 'Ligue' | 'Poules';
+type Tab = 'Infos' | 'WODs' | 'Inscription' | 'Classement' | 'Bracket' | 'Ligue' | 'Poules' | 'Suisse';
 
 const FORMAT_LABEL: Record<string, string> = {
   league: 'Ligue', bracket: 'Élimination', pool: 'Poules', swiss: 'Suisse',
@@ -47,6 +47,9 @@ export default function InterCompetitionDetailScreen() {
   const [poolGroups, setPoolGroups]   = useState<any[]>([]);
   const [poolMembers, setPoolMembers] = useState<any[]>([]);
   const [poolMatches, setPoolMatches] = useState<any[]>([]);
+  const [swissRounds, setSwissRounds]       = useState<any[]>([]);
+  const [swissPairings, setSwissPairings]   = useState<any[]>([]);
+  const [swissStandings, setSwissStandings] = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [registering, setRegistering] = useState(false);
   const [refreshing, setRefreshing]   = useState(false);
@@ -129,6 +132,35 @@ export default function InterCompetitionDetailScreen() {
           ...m,
           a1_username: pmProfMap[m.athlete1_id] ?? '—',
           a2_username: pmProfMap[m.athlete2_id] ?? '—',
+        })));
+      }
+      if (format === 'swiss') {
+        const [{ data: rounds }, { data: pairings }, { data: stds }] = await Promise.all([
+          supabase.from('inter_swiss_rounds').select('*')
+            .eq('competition_id', competitionId).order('round_number'),
+          supabase.from('inter_swiss_pairings').select('*')
+            .eq('competition_id', competitionId),
+          supabase.from('inter_swiss_standings').select('*')
+            .eq('competition_id', competitionId).order('points', { ascending: false }),
+        ]);
+        setSwissRounds(rounds ?? []);
+        const swIds = [...new Set([
+          ...(pairings ?? []).flatMap((p: any) => [p.athlete1_id, p.athlete2_id]),
+          ...(stds ?? []).map((s: any) => s.athlete_id),
+        ])].filter(Boolean) as string[];
+        const swProfMap: Record<string, string> = {};
+        if (swIds.length > 0) {
+          const { data: profs } = await supabase.from('profiles').select('id, username').in('id', swIds);
+          (profs ?? []).forEach((p: any) => { swProfMap[p.id] = p.username; });
+        }
+        setSwissPairings(((pairings ?? []) as any[]).map((p: any) => ({
+          ...p,
+          a1_username: swProfMap[p.athlete1_id] ?? '—',
+          a2_username: p.athlete2_id ? swProfMap[p.athlete2_id] ?? '—' : 'BYE',
+        })));
+        setSwissStandings(((stds ?? []) as any[]).map((s: any) => ({
+          ...s,
+          username: swProfMap[s.athlete_id] ?? '—',
         })));
       }
     }
@@ -238,7 +270,8 @@ export default function InterCompetitionDetailScreen() {
       <View style={S.tabBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 0 }}>
         {(['Infos', 'WODs', 'Inscription',
-          ...(comp?.format === 'bracket' || comp?.format === 'swiss' ? ['Bracket' as Tab] : []),
+          ...(comp?.format === 'bracket' ? ['Bracket' as Tab] : []),
+          ...(comp?.format === 'swiss' ? ['Suisse' as Tab] : []),
           ...(comp?.format === 'league' ? ['Ligue' as Tab] : []),
           ...(comp?.format === 'pool' ? ['Poules' as Tab] : []),
           'Classement',
@@ -466,7 +499,7 @@ export default function InterCompetitionDetailScreen() {
         )}
 
         {/* ── BRACKET ── */}
-        {tab === 'Bracket' && (comp?.format === 'bracket' || comp?.format === 'swiss') && (
+        {tab === 'Bracket' && comp?.format === 'bracket' && (
           <View style={{ gap: 12 }}>
             {bracketMatches.length === 0 ? (
               <View style={S.empty}>
@@ -686,6 +719,86 @@ export default function InterCompetitionDetailScreen() {
                   </View>
                 );
               })
+            )}
+          </View>
+        )}
+
+        {/* ── SUISSE ── */}
+        {tab === 'Suisse' && comp?.format === 'swiss' && (
+          <View style={{ gap: 16 }}>
+            {swissStandings.length === 0 && swissRounds.length === 0 ? (
+              <View style={S.empty}>
+                <Swords size={40} color={theme.textMuted} />
+                <Text style={S.emptyText}>Le système suisse n'a pas encore démarré.</Text>
+              </View>
+            ) : (
+              <>
+                {/* Standings */}
+                {swissStandings.length > 0 && (
+                  <View style={S.infoCard}>
+                    <Text style={S.infoLabel}>Classement</Text>
+                    {swissStandings.map((st: any, i: number) => (
+                      <View key={st.id} style={[S.rankRow, st.athlete_id === user?.id && { backgroundColor: `${theme.accent}10` }]}>
+                        <Text style={[S.rankNum, {
+                          color: i === 0 ? '#C9A227' : i === 1 ? '#9CA3AF' : i === 2 ? '#B45309' : theme.textMuted,
+                        }]}>
+                          {i + 1}.
+                        </Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[S.rankName, st.athlete_id === user?.id && { color: theme.accent }]}>
+                            {st.username}{st.athlete_id === user?.id ? ' (moi)' : ''}
+                          </Text>
+                          <Text style={S.rankBox}>{st.wins}V {st.draws}N {st.losses}D · Buchholz: {st.buchholz}</Text>
+                        </View>
+                        <Text style={S.rankScore}>{st.points} pts</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Rounds */}
+                {swissRounds.map((round: any) => {
+                  const roundPairings = swissPairings.filter((p: any) => p.round_id === round.id);
+                  const myPairing = roundPairings.find((p: any) =>
+                    p.athlete1_id === user?.id || p.athlete2_id === user?.id
+                  );
+                  return (
+                    <View key={round.id} style={[S.infoCard, myPairing && { borderColor: theme.accent, borderWidth: 1.5 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={S.infoLabel}>Round {round.round_number}</Text>
+                        <Text style={{ fontSize: 11, color: round.status === 'completed' ? theme.success : theme.textMuted }}>
+                          {round.status === 'completed' ? 'Terminé' : 'En cours'}
+                        </Text>
+                      </View>
+                      {roundPairings.map((pairing: any) => {
+                        const isMyPairing = user && (pairing.athlete1_id === user.id || pairing.athlete2_id === user.id);
+                        return (
+                          <View key={pairing.id} style={[S.poolMatchRow, isMyPairing && { backgroundColor: `${theme.accent}08` }]}>
+                            <Text style={[
+                              S.poolMatchPlayer,
+                              pairing.winner_id === pairing.athlete1_id && { color: theme.success, fontWeight: '800' as any },
+                              pairing.athlete1_id === user?.id && { color: theme.accent },
+                            ]}>
+                              {pairing.a1_username}
+                            </Text>
+                            <Text style={S.poolMatchScore}>
+                              {pairing.status === 'bye' ? 'BYE' :
+                               pairing.status === 'completed' ? `${pairing.score1} - ${pairing.score2}` : 'vs'}
+                            </Text>
+                            <Text style={[
+                              S.poolMatchPlayer,
+                              pairing.winner_id === pairing.athlete2_id && { color: theme.success, fontWeight: '800' as any },
+                              pairing.athlete2_id === user?.id && { color: theme.accent },
+                            ]}>
+                              {pairing.a2_username}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </>
             )}
           </View>
         )}
