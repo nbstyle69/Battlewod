@@ -16,9 +16,11 @@ import { navigationRef } from './navigationRef';
 import { linking } from './linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Image, ActivityIndicator, Platform } from 'react-native';
+import { View, Image, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import OnboardingTutorialScreen, { ONBOARDING_KEY } from '../screens/onboarding/OnboardingTutorialScreen';
+import InteractiveTour from '../components/InteractiveTour';
+import { BO_TOUR_STEPS } from '../components/InteractiveTour';
 import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock, Compass } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
 
@@ -732,6 +734,7 @@ export default function AppNavigator() {
   const { theme } = useTheme();
   const [splashDone, setSplashDone] = React.useState(false);
   const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
+  const [showTour, setShowTour] = React.useState(false);
 
   React.useEffect(() => {
     const t = setTimeout(() => setSplashDone(true), 1500);
@@ -759,7 +762,7 @@ export default function AppNavigator() {
 
   // Show tutorial AFTER login (user must be authenticated first)
   if (isAuthenticated && !onboardingDone) {
-    return <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />;
+    return <OnboardingTutorialScreen onDone={() => { setOnboardingDone(true); setShowTour(true); }} />;
   }
   const isSuperAdmin    = user?.role === 'super_admin' || user?.role === 'admin';
   const isBoxOwner      = user?.role === 'box_owner' || boxRole === 'owner';
@@ -769,29 +772,43 @@ export default function AppNavigator() {
   // boxSkipped = user explicitly chose to continue without a box
   const needsOnboarding = isAuthenticated && isB2BUser && !currentBox && !boxSkipped;
 
+  const tourSteps = isBoxOwner ? BO_TOUR_STEPS : undefined;
+
   return (
-    <NavigationContainer ref={navigationRef} linking={linking} theme={NAV_DARK_THEME}>
-      <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
-        {!isAuthenticated ? (
-          // ── Not logged in ──────────────────────────────
-          <RootStack.Screen name="Auth" component={AuthNavigator} />
-        ) : needsOnboarding ? (
-          // ── Logged in but no box yet ───────────────────
-          <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
-        ) : isBoxOwner && !isBoxActive ? (
-          // ── Box owner with expired subscription ────────
-          <RootStack.Screen name="BoxOwner" component={BOPaywallScreen} />
-        ) : isBoxOwner ? (
-          // ── Box owner with their box ───────────────────
-          <RootStack.Screen name="BoxOwner" component={BoxOwnerTabs} />
-        ) : isCoach && currentBox ? (
-          // ── Coach with their box ────────────────────────
-          <RootStack.Screen name="Coach" component={CoachTabs} />
-        ) : (
-          // ── Member / athlete / super_admin ─────────────
-          <RootStack.Screen name="Main" component={MainTabs} />
-        )}
-      </RootStack.Navigator>
-    </NavigationContainer>
+    <View style={styles.rootContainer}>
+      <NavigationContainer ref={navigationRef} linking={linking} theme={NAV_DARK_THEME}>
+        <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+          {!isAuthenticated ? (
+            // ── Not logged in ──────────────────────────────
+            <RootStack.Screen name="Auth" component={AuthNavigator} />
+          ) : needsOnboarding ? (
+            // ── Logged in but no box yet ───────────────────
+            <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
+          ) : isBoxOwner && !isBoxActive ? (
+            // ── Box owner with expired subscription ────────
+            <RootStack.Screen name="BoxOwner" component={BOPaywallScreen} />
+          ) : isBoxOwner ? (
+            // ── Box owner with their box ───────────────────
+            <RootStack.Screen name="BoxOwner" component={BoxOwnerTabs} />
+          ) : isCoach && currentBox ? (
+            // ── Coach with their box ────────────────────────
+            <RootStack.Screen name="Coach" component={CoachTabs} />
+          ) : (
+            // ── Member / athlete / super_admin ─────────────
+            <RootStack.Screen name="Main" component={MainTabs} />
+          )}
+        </RootStack.Navigator>
+      </NavigationContainer>
+      {showTour && (
+        <InteractiveTour
+          steps={tourSteps}
+          onComplete={() => setShowTour(false)}
+        />
+      )}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  rootContainer: { flex: 1 },
+});
