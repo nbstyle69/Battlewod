@@ -58,27 +58,22 @@ interface Props {
 export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: Props) {
   const { theme } = useTheme();
   const S = createStyles(theme);
-  const [visible, setVisible] = useState(false);
+  // null = still checking, 'show' = render tour, 'hide' = already done
+  const [state, setState] = useState<'loading' | 'show' | 'hide'>('loading');
   const [stepIndex, setStepIndex] = useState(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      AsyncStorage.getItem(TOUR_KEY)
-        .then(v => {
-          if (v !== 'true') {
-            setVisible(true);
-            startPulse();
-          }
-        })
-        .catch(e => {
-          captureError(e, { action: 'InteractiveTour.checkTourDone' });
-          setVisible(true);
-          startPulse();
-        });
-    }, 800);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    AsyncStorage.getItem(TOUR_KEY)
+      .then(v => { if (!cancelled) setState(v === 'true' ? 'hide' : 'show'); })
+      .catch(() => { if (!cancelled) setState('show'); });
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (state === 'show') startPulse();
+  }, [state]);
 
   function startPulse() {
     pulseAnim.setValue(1);
@@ -99,12 +94,13 @@ export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: P
   }
 
   async function handleDismiss() {
-    setVisible(false);
+    setState('hide');
     await AsyncStorage.setItem(TOUR_KEY, 'true');
     onComplete?.();
   }
 
-  if (steps.length === 0) return null;
+  // Don't render anything until AsyncStorage check completes, or if already done
+  if (state !== 'show' || steps.length === 0) return null;
 
   const step = steps[stepIndex];
   const isLast = stepIndex === steps.length - 1;
@@ -112,9 +108,10 @@ export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: P
   const tooltipTop = step.y - 130;
   const tooltipLeft = Math.max(16, Math.min(step.x + step.w / 2 - 140, W - 296));
 
+  // Modal visible is always true here — the component itself is conditionally rendered
   return (
     <Modal
-      visible={visible}
+      visible
       transparent
       animationType="fade"
       statusBarTranslucent
