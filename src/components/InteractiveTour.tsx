@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Platform,
+  InteractionManager,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme, AppTheme } from '../context/ThemeContext';
+import { captureError } from '../lib/sentry';
 
 const { width: W, height: H } = Dimensions.get('window');
 
@@ -21,38 +23,43 @@ export interface TourStep {
   h: number;
 }
 
+// Tab order: Compete(0) | Explorer(1) | Home/Accueil(2) | Ma Box(3) | Résa(4)
+const TAB_W = W / 5;
+const TAB_Y = H - 85;
+const TAB_H = 65;
+
 const DEFAULT_STEPS: TourStep[] = [
   {
-    label: 'WOD',
-    description: 'Génère ton premier WOD ici',
-    x: 0,
-    y: H - 85,
-    w: W / 5,
-    h: 65,
+    label: 'Accueil & WOD',
+    description: 'Génère ton premier WOD ici, lance le timer et suis ta progression',
+    x: TAB_W * 2,
+    y: TAB_Y,
+    w: TAB_W,
+    h: TAB_H,
   },
   {
     label: 'Compétitions',
     description: "Inscris-toi à des tournois et grimpe dans le classement ELO",
-    x: W / 5,
-    y: H - 85,
-    w: W / 5,
-    h: 65,
+    x: 0,
+    y: TAB_Y,
+    w: TAB_W,
+    h: TAB_H,
   },
   {
-    label: 'Whiteboard',
+    label: 'Ma Box',
     description: "Consulte les WODs du jour de ta box, ou crée tes propres entraînements",
-    x: (W / 5) * 2,
-    y: H - 85,
-    w: W / 5,
-    h: 65,
+    x: TAB_W * 3,
+    y: TAB_Y,
+    w: TAB_W,
+    h: TAB_H,
   },
   {
-    label: 'Profil',
-    description: "Tes stats, ton ELO, tes badges et tes infos personnelles",
-    x: (W / 5) * 4,
-    y: H - 85,
-    w: W / 5,
-    h: 65,
+    label: 'Explorer',
+    description: "Découvre des box, des programmes et des partenaires",
+    x: TAB_W,
+    y: TAB_Y,
+    w: TAB_W,
+    h: TAB_H,
   },
 ];
 
@@ -70,13 +77,27 @@ export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: P
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    AsyncStorage.getItem(TOUR_KEY).then(v => {
-      if (v !== 'true') {
-        setVisible(true);
-        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-        startPulse();
-      }
+    // Wait for navigation transitions to finish before showing the tour
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setTimeout(() => {
+        AsyncStorage.getItem(TOUR_KEY)
+          .then(v => {
+            if (v !== 'true') {
+              setVisible(true);
+              Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+              startPulse();
+            }
+          })
+          .catch(e => {
+            captureError(e, { action: 'InteractiveTour.checkTourDone' });
+            // Show tour anyway on error (better to show twice than never)
+            setVisible(true);
+            Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+            startPulse();
+          });
+      }, 600);
     });
+    return () => handle.cancel();
   }, []);
 
   function startPulse() {
@@ -115,7 +136,7 @@ export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: P
   const tooltipLeft = Math.max(16, Math.min(step.x + step.w / 2 - 140, W - 296));
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim, zIndex: 9999 }]} pointerEvents="box-none">
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim, zIndex: 9999, ...(Platform.OS === 'android' ? { elevation: 9999 } : {}) }]} pointerEvents="box-none">
       {/* Semi-transparent overlay */}
       <TouchableOpacity
         style={S.overlay}
