@@ -58,21 +58,21 @@ interface Props {
 export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: Props) {
   const { theme } = useTheme();
   const S = createStyles(theme);
-  // null = still checking, 'show' = render tour, 'hide' = already done
-  const [state, setState] = useState<'loading' | 'show' | 'hide'>('loading');
+  // Start showing immediately — hide only if AsyncStorage confirms already seen
+  const [state, setState] = useState<'show' | 'hide'>('show');
   const [stepIndex, setStepIndex] = useState(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    let cancelled = false;
+    // Check if tour was already completed — if so, hide immediately
     AsyncStorage.getItem(TOUR_KEY)
-      .then(v => { if (!cancelled) setState(v === 'true' ? 'hide' : 'show'); })
-      .catch(() => { if (!cancelled) setState('show'); });
-    return () => { cancelled = true; };
+      .then(v => { if (v === 'true') setState('hide'); })
+      .catch(() => { /* show by default on error */ });
   }, []);
 
   useEffect(() => {
     if (state === 'show') startPulse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   function startPulse() {
