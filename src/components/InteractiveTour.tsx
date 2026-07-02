@@ -20,44 +20,34 @@ export interface TourStep {
   h: number;
 }
 
-// Tab order: Compete(0) | Explorer(1) | Home/Accueil(2) | Ma Box(3) | Résa(4)
-const TAB_W = W / 5;
 const TAB_Y = H - 85;
 const TAB_H = 65;
 
+// ── Athlete / Member tabs: Compete | Explorer | Accueil | Ma Box | Résa (5 tabs)
+const ATH_W = W / 5;
 const DEFAULT_STEPS: TourStep[] = [
-  {
-    label: 'Accueil & WOD',
-    description: 'Génère ton premier WOD ici, lance le timer et suis ta progression',
-    x: TAB_W * 2,
-    y: TAB_Y,
-    w: TAB_W,
-    h: TAB_H,
-  },
-  {
-    label: 'Compétitions',
-    description: "Inscris-toi à des tournois et grimpe dans le classement ELO",
-    x: 0,
-    y: TAB_Y,
-    w: TAB_W,
-    h: TAB_H,
-  },
-  {
-    label: 'Ma Box',
-    description: "Consulte les WODs du jour de ta box, ou crée tes propres entraînements",
-    x: TAB_W * 3,
-    y: TAB_Y,
-    w: TAB_W,
-    h: TAB_H,
-  },
-  {
-    label: 'Explorer',
-    description: "Découvre des box, des programmes et des partenaires",
-    x: TAB_W,
-    y: TAB_Y,
-    w: TAB_W,
-    h: TAB_H,
-  },
+  { label: 'Accueil & WOD', description: 'Génère ton premier WOD ici, lance le timer et suis ta progression', x: ATH_W * 2, y: TAB_Y, w: ATH_W, h: TAB_H },
+  { label: 'Compétitions', description: "Inscris-toi à des tournois et grimpe dans le classement ELO", x: 0, y: TAB_Y, w: ATH_W, h: TAB_H },
+  { label: 'Ma Box', description: "Consulte les WODs du jour de ta box, ou crée tes propres entraînements", x: ATH_W * 3, y: TAB_Y, w: ATH_W, h: TAB_H },
+  { label: 'Explorer', description: "Découvre des box, des programmes et des partenaires", x: ATH_W, y: TAB_Y, w: ATH_W, h: TAB_H },
+];
+
+// ── Box Owner tabs: Dashboard | WODs | Horaires | Membres | Messages | Profil (6 tabs)
+const BO_W = W / 6;
+export const BO_TOUR_STEPS: TourStep[] = [
+  { label: 'Dashboard', description: 'Vue d\'ensemble de votre box — stats, membres, compétitions', x: 0, y: TAB_Y, w: BO_W, h: TAB_H },
+  { label: 'WODs', description: 'Programmez et publiez les WODs quotidiens pour vos athlètes', x: BO_W, y: TAB_Y, w: BO_W, h: TAB_H },
+  { label: 'Membres', description: 'Gérez les athlètes inscrits à votre box', x: BO_W * 3, y: TAB_Y, w: BO_W, h: TAB_H },
+  { label: 'Profil', description: 'Vos infos personnelles, paramètres et abonnement', x: BO_W * 5, y: TAB_Y, w: BO_W, h: TAB_H },
+];
+
+// ── Coach tabs: WODs | Horaires | Whiteboard | Messages | Profil (5 tabs)
+const CO_W = W / 5;
+export const COACH_TOUR_STEPS: TourStep[] = [
+  { label: 'WODs', description: 'Consultez et programmez les WODs de la box', x: 0, y: TAB_Y, w: CO_W, h: TAB_H },
+  { label: 'Whiteboard', description: 'Le tableau blanc — WODs du jour et résultats des athlètes', x: CO_W * 2, y: TAB_Y, w: CO_W, h: TAB_H },
+  { label: 'Messages', description: 'Communiquez avec les membres de la box', x: CO_W * 3, y: TAB_Y, w: CO_W, h: TAB_H },
+  { label: 'Profil', description: 'Vos infos et paramètres', x: CO_W * 4, y: TAB_Y, w: CO_W, h: TAB_H },
 ];
 
 interface Props {

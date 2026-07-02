@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import UserAvatar from '../../components/UserAvatar';
+import InteractiveTour, { BO_TOUR_STEPS } from '../../components/InteractiveTour';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 
 interface Stats {
@@ -352,6 +353,7 @@ export default function BODashboardScreen({ navigation }: any) {
           </View>
         </View>
       </ScrollView>
+      <InteractiveTour steps={BO_TOUR_STEPS} />
     </View>
   );
 }
