@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Platform,
-  InteractionManager,
+  Modal, InteractionManager, StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme, AppTheme } from '../context/ThemeContext';
@@ -12,11 +12,8 @@ const { width: W, height: H } = Dimensions.get('window');
 const TOUR_KEY = '@athlex:tourDone';
 
 export interface TourStep {
-  /** Tab name shown to user */
   label: string;
-  /** Description text */
   description: string;
-  /** Approximate position of the highlight zone (relative to screen) */
   x: number;
   y: number;
   w: number;
@@ -73,26 +70,21 @@ export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: P
   const S = createStyles(theme);
   const [visible, setVisible] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Wait for navigation transitions to finish before showing the tour
     const handle = InteractionManager.runAfterInteractions(() => {
       setTimeout(() => {
         AsyncStorage.getItem(TOUR_KEY)
           .then(v => {
             if (v !== 'true') {
               setVisible(true);
-              Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
               startPulse();
             }
           })
           .catch(e => {
             captureError(e, { action: 'InteractiveTour.checkTourDone' });
-            // Show tour anyway on error (better to show twice than never)
             setVisible(true);
-            Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
             startPulse();
           });
       }, 600);
@@ -119,31 +111,34 @@ export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: P
   }
 
   async function handleDismiss() {
-    Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(async () => {
-      setVisible(false);
-      await AsyncStorage.setItem(TOUR_KEY, 'true');
-      onComplete?.();
-    });
+    setVisible(false);
+    await AsyncStorage.setItem(TOUR_KEY, 'true');
+    onComplete?.();
   }
 
-  if (!visible || steps.length === 0) return null;
+  if (steps.length === 0) return null;
 
   const step = steps[stepIndex];
   const isLast = stepIndex === steps.length - 1;
 
-  // Tooltip position: above the highlighted area
-  const tooltipTop = step.y - 120;
+  const tooltipTop = step.y - 130;
   const tooltipLeft = Math.max(16, Math.min(step.x + step.w / 2 - 140, W - 296));
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim, zIndex: 9999, ...(Platform.OS === 'android' ? { elevation: 9999 } : {}) }]} pointerEvents="box-none">
-      {/* Semi-transparent overlay */}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={handleDismiss}
+    >
+      <StatusBar backgroundColor="rgba(0,0,0,0.65)" barStyle="light-content" />
       <TouchableOpacity
         style={S.overlay}
         activeOpacity={1}
         onPress={handleNext}
       >
-        {/* Cut-out highlight */}
+        {/* Highlight zone */}
         <View style={[S.highlight, {
           left: step.x - 4,
           top: step.y - 4,
@@ -178,13 +173,13 @@ export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: P
           </View>
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </Modal>
   );
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',
   },
   highlight: {
