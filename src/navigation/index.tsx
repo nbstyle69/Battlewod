@@ -795,12 +795,12 @@ export default function AppNavigator() {
     );
   }
 
-  // Show tutorial on first launch (before anything else)
-  if (!onboardingDone) {
+  const isAuthenticated = !!session && !!user;
+
+  // Show tutorial AFTER login (user must be authenticated first)
+  if (isAuthenticated && !onboardingDone) {
     return <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />;
   }
-
-  const isAuthenticated = !!session && !!user;
   const isSuperAdmin    = user?.role === 'super_admin' || user?.role === 'admin';
   const isBoxOwner      = user?.role === 'box_owner' || boxRole === 'owner';
   const isCoach         = boxRole === 'coach';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Platform,
-  Modal, InteractionManager, StatusBar,
+  Modal, StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme, AppTheme } from '../context/ThemeContext';
@@ -63,23 +63,21 @@ export default function InteractiveTour({ steps = DEFAULT_STEPS, onComplete }: P
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => {
-      setTimeout(() => {
-        AsyncStorage.getItem(TOUR_KEY)
-          .then(v => {
-            if (v !== 'true') {
-              setVisible(true);
-              startPulse();
-            }
-          })
-          .catch(e => {
-            captureError(e, { action: 'InteractiveTour.checkTourDone' });
+    const timer = setTimeout(() => {
+      AsyncStorage.getItem(TOUR_KEY)
+        .then(v => {
+          if (v !== 'true') {
             setVisible(true);
             startPulse();
-          });
-      }, 600);
-    });
-    return () => handle.cancel();
+          }
+        })
+        .catch(e => {
+          captureError(e, { action: 'InteractiveTour.checkTourDone' });
+          setVisible(true);
+          startPulse();
+        });
+    }, 800);
+    return () => clearTimeout(timer);
   }, []);
 
   function startPulse() {
