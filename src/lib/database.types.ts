@@ -4408,6 +4408,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      compute_wod_elo: {
+        Args: { p_wod_id: string }
+        Returns: {
+          member_id: string
+          elo_before: number
+          elo_after: number
+          elo_delta: number
+          rank: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

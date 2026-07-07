@@ -24,7 +24,6 @@ import {
   rankWodScores, cfPoints,
   normalizeMovement, formatDateTime,
 } from '../../utils/tournamentUtils';
-import { calcAvgOpponentDelta, clampElo } from '../../utils/elo';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function StatusPill({ status, theme: t }: { status: string; theme: AppTheme }) {
@@ -254,42 +253,14 @@ export default function BOTournamentScreen() {
   async function runAI(score: TournamentScore) {
     setAiLoading(score.id);
     try {
-      const prompt = `Tu es un coach CrossFit expert qui évalue la crédibilité des scores de compétition.
-
-IMPORTANT : Tu n'as pas accès à la vidéo. Tu évalues uniquement la vraisemblance du score déclaré sur la base des données textuelles.
-
-Données du score :
-🏆 Tournoi : ${selectedTourn?.name ?? ''}
-🏋️ WOD : ${score.tw?.title ?? ''} (${score.tw?.type ?? ''})
-🔢 Score déclaré : ${score.score_value}${score.tiebreak_value != null ? `\n🔗 Tie-break : ${score.tiebreak_value} reps` : ''}
-👤 Athlète : ${score.profile?.username ?? ''} (Niveau ${score.profile?.level ?? ''}, ELO ${score.profile?.elo ?? ''})
-📝 Notes : ${score.notes ?? 'Aucune'}
-
-Évalue ce score en 4 points :
-1. **Vraisemblance** : cohérence avec le niveau, ELO et type de WOD.
-2. **Points d'attention** : éléments à vérifier sur la vidéo (range of motion, no-reps, standards).
-3. **Verdict** : VRAISEMBLABLE / À VÉRIFIER / SUSPECT — avec justification courte.
-4. **Priorité de révision** : HAUTE / NORMALE / BASSE.
-
-Rappelle en fin de réponse que la validation finale requiert la révision manuelle de la vidéo.
-Réponds en français, sois concis et factuel.`;
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.EXPO_PUBLIC_ANTHROPIC_KEY ?? '',
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+      // The Anthropic call runs server-side (Edge Function) so the API key
+      // never ships in the client bundle. The function fetches the score
+      // details itself and persists the analysis.
+      const { data, error } = await supabase.functions.invoke('analyze-tournament-score', {
+        body: { score_id: score.id },
       });
-      const data = await res.json();
-      const analysis = data.content?.map((c: any) => c.text ?? '').join('\n') ?? 'Analyse indisponible.';
-      await supabase.from('tournament_scores').update({ ai_analysis: analysis }).eq('id', score.id);
+      if (error) throw error;
+      const analysis: string = data?.analysis ?? 'Analyse indisponible.';
       setAiLoading(null);
       setAiModal({ score: { ...score, ai_analysis: analysis }, analysis });
       loadData();
@@ -319,60 +290,42 @@ Réponds en français, sois concis et factuel.`;
     }
 
     const tpIds = tp.map((p: any) => p.athlete_id);
-    const { data: tpProfs } = await supabase.from('profiles').select('id, username, elo').in('id', tpIds);
-    const tpProfileMap: Record<string, any> = {};
-    (tpProfs ?? []).forEach((p: any) => { tpProfileMap[p.id] = p; });
+    const { data: tpProfs } = await supabase.from('profiles').select('id, username').in('id', tpIds);
+    const nameMap: Record<string, string> = {};
+    (tpProfs ?? []).forEach((p: any) => { nameMap[p.id] = p.username ?? '?'; });
 
-    const avgElo = Math.round(tp.reduce((sum: number, p: any) => sum + (tpProfileMap[p.athlete_id]?.elo ?? 1000), 0) / tp.length);
-    const eloChanges: { name: string; rank: number; change: number }[] = [];
+    // ELO is computed and persisted entirely server-side (idempotent RPC).
+    // The client never supplies ELO values; it only triggers the close.
+    const { data: eloRows, error: eloErr } = await supabase.rpc('compute_tournament_elo', { p_tournament_id: tournId });
+    if (eloErr) { captureError(eloErr, { screen: 'BOTournament', action: 'computeElo' }); }
 
-    for (let i = 0; i < tp.length; i++) {
-      const p = tp[i];
-      const prof = tpProfileMap[p.athlete_id];
-      const athleteElo = prof?.elo ?? 1000;
-      const rank = i + 1;
-      const change = calcAvgOpponentDelta(athleteElo, rank, tp.length, avgElo);
-      const newElo = clampElo(athleteElo + change);
-      await supabase.rpc('update_user_elo', {
-        p_user_id: p.athlete_id,
-        p_new_elo: newElo,
-        p_increment_matches: 1,
-        p_increment_wins: rank === 1 ? 1 : 0,
-      });
-      await syncLevelAndBadges(p.athlete_id, newElo);
-      await supabase.from('tournament_elo_history').upsert({
-        tournament_id: tournId, athlete_id: p.athlete_id,
-        final_rank: rank, participants_count: tp.length,
-        avg_opponent_elo: avgElo, elo_before: athleteElo,
-        elo_after: newElo, elo_change: change,
-      }, { onConflict: 'tournament_id,athlete_id' });
-      eloChanges.push({ name: prof?.username ?? '?', rank, change });
+    const eloChanges: { name: string; rank: number; change: number }[] = (eloRows ?? [])
+      .sort((a, b) => a.final_rank - b.final_rank)
+      .map(r => ({ name: nameMap[r.athlete_id] ?? '?', rank: r.final_rank, change: r.elo_change }));
+
+    for (const r of (eloRows ?? [])) {
+      await syncLevelAndBadges(r.athlete_id, r.elo_after);
     }
-
-    await supabase.from('tournaments').update({ status: 'completed' }).eq('id', tournId);
 
     // Send push notifications to all participants
     const tournName = tournaments.find(t => t.id === tournId)?.name ?? 'Tournoi';
     sendTournamentClosedNotification(
       tournId,
       tournName,
-      tp.map((p: any, i: number) => ({ athleteId: p.athlete_id, change: eloChanges[i].change })),
+      (eloRows ?? []).map(r => ({ athleteId: r.athlete_id, change: r.elo_change })),
     ).catch(e => captureError(e, { action: 'syncLevelAndBadges' }));
 
     // Gamification: increment counters + award badges
-    for (let i = 0; i < tp.length; i++) {
-      const p = tp[i];
-      const rank = i + 1;
-      const newElo = (tpProfileMap[p.athlete_id]?.elo ?? 1000) + eloChanges[i].change;
-      incrementCounter(p.athlete_id, 'total_tournaments', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementTournaments' }));
-      if (rank === 1) incrementCounter(p.athlete_id, 'total_tournament_wins', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementTournamentWins' }));
-      if (rank <= 3) {
+    for (const r of (eloRows ?? [])) {
+      incrementCounter(r.athlete_id, 'total_tournaments', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementTournaments' }));
+      if (r.final_rank === 1) incrementCounter(r.athlete_id, 'total_tournament_wins', 1, currentBox?.id).catch(e => captureError(e, { action: 'incrementTournamentWins' }));
+      if (r.final_rank <= 3) {
         supabase.from('athlete_badges').upsert(
-          { athlete_id: p.athlete_id, badge_key: 'podium' },
+          { athlete_id: r.athlete_id, badge_key: 'podium' },
           { onConflict: 'athlete_id,badge_key' },
         ).then(() => {});
       }
-      checkAndAwardBadges(p.athlete_id, { elo: newElo }).catch(e => captureError(e, { action: 'checkBadges' }));
+      checkAndAwardBadges(r.athlete_id, { elo: r.elo_after }).catch(e => captureError(e, { action: 'checkBadges' }));
     }
 
     return eloChanges;
