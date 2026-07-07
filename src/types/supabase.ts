@@ -14,6 +14,348 @@ export type Database = {
   }
   public: {
     Tables: {
+      box_subscriptions: {
+        Row: {
+          box_id: string
+          created_at: string | null
+          current_period_end: string | null
+          id: string
+          is_early_adopter: boolean | null
+          plan_tier: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          trial_ends_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          box_id: string
+          created_at?: string | null
+          current_period_end?: string | null
+          id?: string
+          is_early_adopter?: boolean | null
+          plan_tier?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          box_id?: string
+          created_at?: string | null
+          current_period_end?: string | null
+          id?: string
+          is_early_adopter?: boolean | null
+          plan_tier?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_subscriptions_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: true
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partners: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          instagram_url: string | null
+          is_active: boolean | null
+          logo_url: string | null
+          name: string
+          offer_code: string | null
+          offer_description: string | null
+          offer_title: string | null
+          sort_order: number | null
+          website_url: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          instagram_url?: string | null
+          is_active?: boolean | null
+          logo_url?: string | null
+          name: string
+          offer_code?: string | null
+          offer_description?: string | null
+          offer_title?: string | null
+          sort_order?: number | null
+          website_url?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          instagram_url?: string | null
+          is_active?: boolean | null
+          logo_url?: string | null
+          name?: string
+          offer_code?: string | null
+          offer_description?: string | null
+          offer_title?: string | null
+          sort_order?: number | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      program_members: {
+        Row: {
+          amount_cents: number | null
+          id: string
+          platform_fee_cents: number | null
+          program_id: string
+          purchased_at: string | null
+          start_date: string
+          status: string | null
+          stripe_payment_intent: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_cents?: number | null
+          id?: string
+          platform_fee_cents?: number | null
+          program_id: string
+          purchased_at?: string | null
+          start_date: string
+          status?: string | null
+          stripe_payment_intent?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number | null
+          id?: string
+          platform_fee_cents?: number | null
+          program_id?: string
+          purchased_at?: string | null
+          start_date?: string
+          status?: string | null
+          stripe_payment_intent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_members_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_wods: {
+        Row: {
+          created_at: string | null
+          day_number: number | null
+          description: string
+          id: string
+          notes: string | null
+          program_id: string
+          scheduled_date: string | null
+          scoring_type: string | null
+          sort_order: number | null
+          time_cap_seconds: number | null
+          title: string
+          week_number: number | null
+          wod_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_number?: number | null
+          description: string
+          id?: string
+          notes?: string | null
+          program_id: string
+          scheduled_date?: string | null
+          scoring_type?: string | null
+          sort_order?: number | null
+          time_cap_seconds?: number | null
+          title: string
+          week_number?: number | null
+          wod_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_number?: number | null
+          description?: string
+          id?: string
+          notes?: string | null
+          program_id?: string
+          scheduled_date?: string | null
+          scoring_type?: string | null
+          sort_order?: number | null
+          time_cap_seconds?: number | null
+          title?: string
+          week_number?: number | null
+          wod_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_wods_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programs: {
+        Row: {
+          box_id: string
+          created_at: string | null
+          currency: string
+          days_per_week: number | null
+          description: string | null
+          duration_weeks: number | null
+          id: string
+          image_url: string | null
+          invite_code: string
+          is_active: boolean | null
+          owner_id: string
+          price_cents: number
+          stripe_price_id: string | null
+          title: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          box_id: string
+          created_at?: string | null
+          currency?: string
+          days_per_week?: number | null
+          description?: string | null
+          duration_weeks?: number | null
+          id?: string
+          image_url?: string | null
+          invite_code: string
+          is_active?: boolean | null
+          owner_id: string
+          price_cents: number
+          stripe_price_id?: string | null
+          title: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          box_id?: string
+          created_at?: string | null
+          currency?: string
+          days_per_week?: number | null
+          description?: string | null
+          duration_weeks?: number | null
+          id?: string
+          image_url?: string | null
+          invite_code?: string
+          is_active?: boolean | null
+          owner_id?: string
+          price_cents?: number
+          stripe_price_id?: string | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programs_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wod_completions: {
+        Row: {
+          box_id: string
+          completed_at: string
+          id: string
+          member_id: string
+          wod_id: string
+        }
+        Insert: {
+          box_id: string
+          completed_at?: string
+          id?: string
+          member_id: string
+          wod_id: string
+        }
+        Update: {
+          box_id?: string
+          completed_at?: string
+          id?: string
+          member_id?: string
+          wod_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wod_completions_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wod_completions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wod_completions_wod_id_fkey"
+            columns: ["wod_id"]
+            isOneToOne: false
+            referencedRelation: "box_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_changelog: {
         Row: {
           body: string

@@ -279,7 +279,7 @@ export default function WODDetailScreen() {
       .maybeSingle();
     const alreadyCounted = !!existingCompletion;
     if (alreadyCounted) {
-      await (supabase as any).from('wod_completions').delete().eq('wod_id', wod.id).eq('member_id', user.id);
+      await supabase.from('wod_completions').delete().eq('wod_id', wod.id).eq('member_id', user.id);
     }
 
     incrementCounter(user.id, 'total_scores_submitted', 1, currentBox?.id, { skipStreak: alreadyCounted })

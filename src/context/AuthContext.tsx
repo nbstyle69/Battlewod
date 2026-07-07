@@ -190,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function fetchSubscription(boxId: string) {
     try {
-      const { data } = await (supabase.from as any)('box_subscriptions')
+      const { data } = await supabase.from('box_subscriptions')
         .select('*')
         .eq('box_id', boxId)
         .maybeSingle();
@@ -384,7 +384,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString();
 
     // Create trial subscription
-    const { data: subData } = await (supabase.from as any)('box_subscriptions').insert({
+    const { data: subData } = await supabase.from('box_subscriptions').insert({
       box_id: box.id,
       plan_tier: 'trial',
       status: 'trialing',
