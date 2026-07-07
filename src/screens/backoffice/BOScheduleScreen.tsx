@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import DateField from '../../components/DateField';
 
 interface ClassSchedule {
   id: string;
@@ -514,14 +515,12 @@ export default function BOScheduleScreen({ navigation }: any) {
                 </Text>
               )}
 
-              <Text style={S.fieldLabel}>Date (YYYY-MM-DD)</Text>
-              <TextInput
+              <Text style={S.fieldLabel}>Date (AAAA-MM-JJ)</Text>
+              <DateField
                 style={S.input}
                 value={date}
                 onChangeText={setDate}
-                placeholder="2026-03-15"
-                placeholderTextColor={theme.textMuted}
-                keyboardType="numeric"
+                theme={theme}
               />
 
               <View style={S.row}>

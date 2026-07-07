@@ -15,6 +15,7 @@ import { BoxWODType } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
+import DateField from '../../components/DateField';
 
 type Nav = NativeStackNavigationProp<WhiteboardStackParamList, 'PersonalWODForm'>;
 type Rt = RouteProp<WhiteboardStackParamList, 'PersonalWODForm'>;
@@ -181,12 +182,11 @@ export default function PersonalWODFormScreen() {
         <View style={S.row}>
           <View style={{ flex: 1 }}>
             <Text style={S.label}>DATE *</Text>
-            <TextInput
+            <DateField
               style={S.input}
               value={date}
               onChangeText={setDate}
-              placeholder="2026-04-27"
-              placeholderTextColor={theme.textMuted}
+              theme={theme}
             />
           </View>
         </View>
