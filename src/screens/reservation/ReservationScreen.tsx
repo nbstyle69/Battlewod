@@ -263,34 +263,35 @@ export default function ReservationScreen() {
         }
       } catch (e) { captureError(e, { screen: 'Reservation', action: 'checkDailyLimit' }); }
 
-      const status = item.available_spots > 0 ? 'confirmed' : 'waiting';
-      if (status === 'waiting') {
+      // Capacity is enforced server-side (trigger). We only *hint* the desired
+      // status; the DB downgrades to 'waiting' if the class is actually full,
+      // so we read back the row to know the real outcome.
+      const wantsWaiting = item.available_spots <= 0;
+      const insertReservation = async () => {
+        const { data, error } = await supabase.from('class_reservations').insert({
+          schedule_id: item.id, member_id: user.id, box_id: currentBox.id,
+          status: wantsWaiting ? 'waiting' : 'confirmed',
+        }).select('status').single();
+        if (error) { Alert.alert('Erreur', error.message); }
+        else if (data?.status === 'waiting') {
+          Alert.alert('Liste d\'attente', 'Le créneau était complet — tu es sur liste d\'attente. Tu seras inscrit(e) automatiquement si une place se libère.');
+        }
+        setBooking(null);
+        load();
+      };
+
+      if (wantsWaiting) {
         Alert.alert(
           'Créneau complet',
           `Tu vas être ajouté(e) en liste d'attente (#${item.waiting_count + 1}). Tu seras inscrit(e) automatiquement si une place se libère.`,
           [
             { text: 'Annuler', style: 'cancel', onPress: () => setBooking(null) },
-            {
-              text: 'Rejoindre la liste',
-              onPress: async () => {
-                const { error } = await supabase.from('class_reservations').insert({
-                  schedule_id: item.id, member_id: user.id, box_id: currentBox.id, status,
-                });
-                if (error) Alert.alert('Erreur', error.message);
-                setBooking(null);
-                load();
-              },
-            },
+            { text: 'Rejoindre la liste', onPress: insertReservation },
           ]
         );
         return;
       }
-      const { error } = await supabase.from('class_reservations').insert({
-        schedule_id: item.id, member_id: user.id, box_id: currentBox.id, status,
-      });
-      if (error) Alert.alert('Erreur', error.message);
-      setBooking(null);
-      load();
+      await insertReservation();
     }
   }
 
