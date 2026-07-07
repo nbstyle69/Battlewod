@@ -258,7 +258,7 @@ export default function WhiteboardScreen() {
     // Fetch user's active program memberships for this box
     let myProgramIds = new Set<string>();
     if (user) {
-      const { data: progMem } = await (supabase as any)
+      const { data: progMem } = await supabase
         .from('program_members')
         .select('program_id')
         .eq('user_id', user.id)
@@ -344,7 +344,7 @@ export default function WhiteboardScreen() {
     if (!user) { setProgramWods([]); return; }
     (async () => {
       try {
-        const { data: memberships } = await (supabase as any)
+        const { data: memberships } = await supabase
           .from('program_members')
           .select('program_id, start_date, programs:program_id(id, title, type, duration_weeks, days_per_week)')
           .eq('user_id', user.id)
@@ -369,7 +369,7 @@ export default function WhiteboardScreen() {
             const weekNum = Math.ceil(dayNumber / 7);
             const dayInWeek = ((dayNumber - 1) % 7);
 
-            const { data: wods } = await (supabase as any)
+            const { data: wods } = await supabase
               .from('program_wods')
               .select('id, title, description, wod_type, time_cap_seconds')
               .eq('program_id', prog.id)
@@ -380,7 +380,7 @@ export default function WhiteboardScreen() {
             }
           } else {
             // ongoing: match by scheduled_date
-            const { data: wods } = await (supabase as any)
+            const { data: wods } = await supabase
               .from('program_wods')
               .select('id, title, description, wod_type, time_cap_seconds, week_number')
               .eq('program_id', prog.id)

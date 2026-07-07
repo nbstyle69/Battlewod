@@ -3,7 +3,7 @@ import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Image, Share, Switch,
+  Image, Share, Switch, Linking,
 } from 'react-native';
 import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -154,7 +154,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('program_members')
         .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
         .eq('user_id', user.id)
@@ -168,7 +168,7 @@ export default function ProfileScreen() {
     if (!progCode.trim() || !user) return;
     setJoiningProg(true);
     try {
-      const { data: prog } = await (supabase as any)
+      const { data: prog } = await supabase
         .from('programs')
         .select('*')
         .eq('invite_code', progCode.trim().toUpperCase())
@@ -180,12 +180,16 @@ export default function ProfileScreen() {
         Alert.alert(
           'Programme payant',
           'Les programmes payants sont disponibles uniquement via athlex.app depuis un navigateur. Une fois ton inscription confirmée, le programme apparaîtra automatiquement dans ton app.',
+          [
+            { text: 'Fermer', style: 'cancel' },
+            { text: 'Ouvrir athlex.app', onPress: () => Linking.openURL('https://athlex.app') },
+          ],
         );
         setJoiningProg(false);
         return;
       }
       // Check not already member
-      const { data: existing } = await (supabase as any)
+      const { data: existing } = await supabase
         .from('program_members')
         .select('id')
         .eq('program_id', prog.id)
@@ -205,7 +209,7 @@ export default function ProfileScreen() {
       Alert.alert('Bienvenue !', `Tu as rejoint le programme « ${prog.title} ».`);
       setProgModal(false); setProgCode('');
       // Refresh programs
-      const { data: refreshed } = await (supabase as any)
+      const { data: refreshed } = await supabase
         .from('program_members')
         .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
         .eq('user_id', user.id)
