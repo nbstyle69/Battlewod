@@ -194,7 +194,7 @@ export default function ProfileScreen() {
       if (existing) { Alert.alert('Déjà inscrit', 'Tu fais déjà partie de ce programme.'); setJoiningProg(false); return; }
       // For now: free join (Stripe integration later)
       const today = new Date().toISOString().split('T')[0];
-      const { error } = await (supabase as any).from('program_members').insert({
+      const { error } = await supabase.from('program_members').insert({
         program_id: prog.id,
         user_id: user.id,
         start_date: today,

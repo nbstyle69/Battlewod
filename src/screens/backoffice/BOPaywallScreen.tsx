@@ -49,7 +49,7 @@ export default function BOPaywallScreen() {
 
     // Poll DB every 2s for up to 60s to detect the new subscription status.
     pollUntilTrue(async () => {
-      const { data } = await (supabase.from as any)('box_subscriptions')
+      const { data } = await supabase.from('box_subscriptions')
         .select('status')
         .eq('box_id', currentBox.id)
         .maybeSingle();

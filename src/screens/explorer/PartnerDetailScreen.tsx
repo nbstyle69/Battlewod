@@ -38,7 +38,7 @@ export default function PartnerDetailScreen() {
     if (!partnerId) return;
     (async () => {
       try {
-        const { data, error } = await (supabase.from as any)('partners')
+        const { data, error } = await supabase.from('partners')
           .select('*')
           .eq('id', partnerId)
           .single();

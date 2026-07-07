@@ -412,7 +412,7 @@ export default function WhiteboardScreen() {
     (async () => {
       try {
         const [{ data: comps }, { data: scores }] = await Promise.all([
-          (supabase as any).from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
+          supabase.from('wod_completions').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
           supabase.from('wod_scores').select('wod_id').eq('member_id', user.id).in('wod_id', ids),
         ]);
         setCompletedIds(new Set((comps ?? []).map((c: any) => c.wod_id)));
@@ -434,10 +434,10 @@ export default function WhiteboardScreen() {
     });
     try {
       if (isDone) {
-        await (supabase as any).from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
+        await supabase.from('wod_completions').delete().eq('wod_id', wodId).eq('member_id', user.id);
       } else {
         hapticSuccess();
-        const { error } = await (supabase as any).from('wod_completions').insert({
+        const { error } = await supabase.from('wod_completions').insert({
           wod_id: wodId, member_id: user.id, box_id: currentBox.id,
         });
         if (error && error.code !== '23505') throw error;

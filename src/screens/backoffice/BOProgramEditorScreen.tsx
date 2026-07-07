@@ -103,12 +103,12 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
     };
     try {
       if (editWod) {
-        const { error } = await (supabase as any).from('program_wods').update(payload).eq('id', editWod.id);
+        const { error } = await supabase.from('program_wods').update(payload).eq('id', editWod.id);
         if (error) throw error;
       } else {
         const dayCount = wodsForDay(fDayNumber).length;
         payload.sort_order = dayCount;
-        const { error } = await (supabase as any).from('program_wods').insert(payload);
+        const { error } = await supabase.from('program_wods').insert(payload);
         if (error) throw error;
       }
       setModalOpen(false);
@@ -125,7 +125,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
       {
         text: 'Supprimer', style: 'destructive',
         onPress: async () => {
-          await (supabase as any).from('program_wods').delete().eq('id', w.id);
+          await supabase.from('program_wods').delete().eq('id', w.id);
           load();
         },
       },
@@ -147,7 +147,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
       notes: w.notes,
       sort_order: w.sort_order,
     }));
-    const { error } = await (supabase as any).from('program_wods').insert(inserts);
+    const { error } = await supabase.from('program_wods').insert(inserts);
     if (error) { Alert.alert('Erreur', error.message); return; }
     setWeekIdx(prev => prev + 1);
     load();
