@@ -59,24 +59,36 @@ export default function BONotificationsScreen() {
     if (!currentBox) return;
 
     setSending(true);
-    const { error } = await supabase.from('box_notifications').insert({
+    const { data: inserted, error } = await supabase.from('box_notifications').insert({
       box_id: currentBox.id,
       title: title.trim(),
       body: body.trim(),
       target: target === 'all' ? 'all' : target,
       created_by: (await supabase.auth.getUser()).data.user?.id,
-    });
+    }).select('id').single();
 
-    if (error) {
-      // Table might not exist yet — store locally for now
-      Alert.alert('Info', 'La table box_notifications n\'existe pas encore. La notification sera envoyée quand la migration sera appliquée.');
-    } else {
-      Alert.alert('Envoyé ✅', `Notification envoyée à ${target === 'all' ? 'tous les membres' : members.find(m => m.user_id === target)?.username ?? '?'}`);
-      setTitle('');
-      setBody('');
-      setTarget('all');
-      load();
+    if (error || !inserted) {
+      captureError(error, { screen: 'BONotifications', action: 'send' });
+      Alert.alert('Erreur', error?.message ?? 'Impossible d\'enregistrer la notification.');
+      setSending(false);
+      return;
     }
+
+    // Deliver as a real push (service-role Edge Function reads member tokens).
+    const { data: pushRes, error: pushErr } = await supabase.functions.invoke('send-box-notification', {
+      body: { notification_id: inserted.id },
+    });
+    if (pushErr) {
+      captureError(pushErr, { screen: 'BONotifications', action: 'push' });
+      Alert.alert('Enregistrée', 'La notification est enregistrée mais l\'envoi push a échoué. Réessaie plus tard.');
+    } else {
+      const recipients = pushRes?.sent ?? 0;
+      Alert.alert('Envoyé', `Notification poussée à ${recipients} appareil(s).`);
+    }
+    setTitle('');
+    setBody('');
+    setTarget('all');
+    load();
     setSending(false);
   }
 

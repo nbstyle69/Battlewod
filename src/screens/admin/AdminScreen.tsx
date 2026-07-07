@@ -4,7 +4,7 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Shield, CheckCircle, XCircle, Video, Clock, Users, Trophy, LogOut, Youtube, AlertTriangle, Zap, Plus, Trash2, Megaphone } from 'lucide-react-native';
+import { Shield, CheckCircle, XCircle, Video, Clock, Users, LogOut, Youtube, AlertTriangle, Zap, Plus, Trash2, Megaphone } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/colors';
@@ -13,7 +13,7 @@ import { captureError } from '../../lib/sentry';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import GlassBackground from '../../components/glass/GlassBackground';
 
-const TABS = ['Scores', 'Matchs', 'Tournois', 'Daily WOD', 'Changelog'];
+const TABS = ['Scores', 'Daily WOD', 'Changelog'];
 
 interface ChangelogItem {
   id: string;
@@ -36,6 +36,7 @@ interface PendingScore {
   value: string;
   level: string;
   hasVideo: boolean;
+  videoUrl: string | null;
   submitted: string;
 }
 
@@ -66,6 +67,8 @@ export default function AdminScreen() {
   // Changelog
   const [changelogItems, setChangelogItems] = useState<ChangelogItem[]>([]);
   const [loadingChangelog, setLoadingChangelog] = useState(true);
+  const [openTournaments, setOpenTournaments] = useState(0);
+  const [openDailies, setOpenDailies] = useState(0);
   const [clModal, setClModal]     = useState(false);
   const [clTitle, setClTitle]     = useState('');
   const [clBody, setClBody]       = useState('');
@@ -92,6 +95,7 @@ export default function AdminScreen() {
         value:     s.score_value,
         level:     profile?.level ?? 'rx',
         hasVideo:  !!s.video_url,
+        videoUrl:  s.video_url ?? null,
         submitted: mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)}h ago`,
       };
     });
@@ -146,7 +150,18 @@ export default function AdminScreen() {
     setLoadingChangelog(false);
   }, []);
 
-  useEffect(() => { loadScores(); loadDailies(); loadChangelog(); }, [loadScores, loadDailies, loadChangelog]);
+  const loadStats = useCallback(async () => {
+    try {
+      const [{ count: tournCount }, { count: dailyCount }] = await Promise.all([
+        supabase.from('tournaments').select('id', { count: 'exact', head: true }).in('status', ['open', 'active']),
+        supabase.from('daily_tournaments').select('id', { count: 'exact', head: true }).in('status', ['open', 'active']),
+      ]);
+      setOpenTournaments(tournCount ?? 0);
+      setOpenDailies(dailyCount ?? 0);
+    } catch (e) { captureError(e, { screen: 'Admin', action: 'loadStats' }); }
+  }, []);
+
+  useEffect(() => { loadScores(); loadDailies(); loadChangelog(); loadStats(); }, [loadScores, loadDailies, loadChangelog, loadStats]);
 
   async function handleValidate(id: string) {
     Alert.alert('Valider le score', 'Confirmer la validation de ce score ?', [
@@ -254,12 +269,12 @@ export default function AdminScreen() {
             <Text style={S.adminStatLabel}>En attente</Text>
           </View>
           <View style={S.adminStat}>
-            <Text style={S.adminStatValue}>2</Text>
-            <Text style={S.adminStatLabel}>Matchs actifs</Text>
+            <Text style={S.adminStatValue}>{openTournaments}</Text>
+            <Text style={S.adminStatLabel}>Tournois ouverts</Text>
           </View>
           <View style={S.adminStat}>
-            <Text style={S.adminStatValue}>3</Text>
-            <Text style={S.adminStatLabel}>Tournois ouverts</Text>
+            <Text style={S.adminStatValue}>{openDailies}</Text>
+            <Text style={S.adminStatLabel}>Daily WOD actifs</Text>
           </View>
         </View>
       </LinearGradient>
@@ -323,8 +338,8 @@ export default function AdminScreen() {
                   </View>
 
                   <View style={S.videoRow}>
-                    {score.hasVideo ? (
-                      <TouchableOpacity style={S.videoButton}>
+                    {score.hasVideo && score.videoUrl ? (
+                      <TouchableOpacity style={S.videoButton} onPress={() => Linking.openURL(score.videoUrl!)}>
                         <Video color={theme.accent} size={16} />
                         <Text style={S.videoButtonText}>Voir la vidéo</Text>
                       </TouchableOpacity>
@@ -361,42 +376,6 @@ export default function AdminScreen() {
         )}
 
         {activeTab === 1 && (
-          <>
-            {([] as any[]).map(match => (
-              <View key={match.id} style={S.matchCard}>
-                <Text style={S.matchTitle}>{match.wod}</Text>
-                <View style={S.matchAthletes}>
-                  <Text style={S.matchAthlete}>{match.a1}</Text>
-                  <View style={S.vsBox}>
-                    <Text style={S.vsText}>VS</Text>
-                  </View>
-                  <Text style={S.matchAthlete}>{match.a2}</Text>
-                </View>
-                <View style={[
-                  S.matchStatus,
-                  { backgroundColor: match.status === 'both_submitted' ? `${theme.success}20` : `${theme.warning}20` },
-                ]}>
-                  <Text style={[
-                    S.matchStatusText,
-                    { color: match.status === 'both_submitted' ? theme.success : theme.warning },
-                  ]}>
-                    {match.status === 'both_submitted' ? '✓ Les 2 scores soumis — À valider' : '⏳ En attente de scores'}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </>
-        )}
-
-        {activeTab === 2 && (
-          <View style={S.emptyState}>
-            <Trophy color={theme.gold} size={48} />
-            <Text style={S.emptyTitle}>Gestion tournois</Text>
-            <Text style={S.emptySub}>Fonctionnalité complète disponible prochainement.</Text>
-          </View>
-        )}
-
-        {activeTab === 3 && (
           <>
             {loadingDailies ? (
               <View style={S.emptyState}>
@@ -475,7 +454,7 @@ export default function AdminScreen() {
           </>
         )}
 
-        {activeTab === 4 && (
+        {activeTab === 2 && (
           <>
             <TouchableOpacity
               style={[S.validateButton, { marginBottom: 16, alignSelf: 'stretch' }]}
