@@ -3464,6 +3464,36 @@ export type Database = {
         }
         Returns: undefined
       }
+      compute_wod_elo: {
+        Args: { p_wod_id: string }
+        Returns: {
+          member_id: string
+          elo_before: number
+          elo_after: number
+          elo_delta: number
+          rank: number
+        }[]
+      }
+      compute_daily_tournament_elo: {
+        Args: { p_tournament_id: string }
+        Returns: {
+          user_id: string
+          elo_before: number
+          elo_after: number
+          elo_delta: number
+          final_rank: number
+        }[]
+      }
+      compute_tournament_elo: {
+        Args: { p_tournament_id: string }
+        Returns: {
+          athlete_id: string
+          final_rank: number
+          elo_before: number
+          elo_after: number
+          elo_change: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
