@@ -45,7 +45,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
 
   const load = useCallback(async () => {
     try {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('program_wods')
         .select('*')
         .eq('program_id', programId)

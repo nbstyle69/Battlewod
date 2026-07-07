@@ -42,7 +42,7 @@ export default function BOProgramsScreen({ navigation }: any) {
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
     try {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('programs')
         .select('*, program_members(count)')
         .eq('box_id', currentBox.id)

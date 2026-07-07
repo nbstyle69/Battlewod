@@ -271,7 +271,7 @@ export default function WODDetailScreen() {
 
     // Dedup: if user already marked this WOD as "réalisé", the activity was already counted.
     // Remove the completion row (score is authoritative) and skip double-counting the streak.
-    const { data: existingCompletion } = await (supabase as any)
+    const { data: existingCompletion } = await supabase
       .from('wod_completions')
       .select('id')
       .eq('wod_id', wod.id)
