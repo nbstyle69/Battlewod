@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
-  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
+  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Building2, Dumbbell, User as UserIcon, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
@@ -23,7 +23,6 @@ export default function RegisterScreen({ navigation }: Props) {
   const [username,    setUsername]    = useState('');
   const [password,    setPassword]    = useState('');
   const [gender,      setGender]      = useState<Gender>('male');
-  const [asBoxOwner,  setAsBoxOwner]  = useState(false);
   const [loading,     setLoading]     = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedCGU, setAcceptedCGU] = useState(false);
@@ -34,7 +33,7 @@ export default function RegisterScreen({ navigation }: Props) {
     if (!acceptedCGU) { Alert.alert('CGU requises', 'Tu dois accepter les Conditions Générales d\'Utilisation pour t\'inscrire.'); return; }
     setLoading(true);
     const requestedUsername = username.trim();
-    const { error, finalUsername } = await signUp(email.trim(), password, requestedUsername, 'inter', asBoxOwner, gender);
+    const { error, finalUsername } = await signUp(email.trim(), password, requestedUsername, 'inter', gender);
     setLoading(false);
 
     // Inform the user if their pseudo was auto-suffixed because the requested one was taken
@@ -157,29 +156,6 @@ export default function RegisterScreen({ navigation }: Props) {
               </View>
             </View>
 
-            <View style={S.inputContainer}>
-              <Text style={S.label}>Tu es…</Text>
-              <View style={S.roleRow}>
-                <TouchableOpacity
-                  style={[S.roleCard, !asBoxOwner && S.roleCardActive]}
-                  onPress={() => setAsBoxOwner(false)}
-                  activeOpacity={0.8}
-                >
-                  <Dumbbell color={!asBoxOwner ? theme.accent : theme.textMuted} size={20} />
-                  <Text style={[S.roleLabel, !asBoxOwner && S.roleLabelActive]}>Athlète</Text>
-                  <Text style={S.roleDesc}>Je veux m'entraîner et compétir</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[S.roleCard, asBoxOwner && S.roleCardActive]}
-                  onPress={() => setAsBoxOwner(true)}
-                  activeOpacity={0.8}
-                >
-                  <Building2 color={asBoxOwner ? theme.accent : theme.textMuted} size={20} />
-                  <Text style={[S.roleLabel, asBoxOwner && S.roleLabelActive]}>Gérant de box</Text>
-                  <Text style={S.roleDesc}>Je gère une box / salle</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
 
             <View style={S.cguRow}>
               <TouchableOpacity onPress={() => setAcceptedCGU(!acceptedCGU)} style={S.cguCheckbox} accessibilityLabel={acceptedCGU ? 'Décocher les CGU' : 'Accepter les CGU'} accessibilityRole="checkbox">
@@ -196,6 +172,19 @@ export default function RegisterScreen({ navigation }: Props) {
               {loading
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={S.buttonText}>REJOINDRE LA BATAILLE</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={S.ownerRow}
+              onPress={() => Linking.openURL('https://athlex.app/pricing/onboarding')}
+              activeOpacity={0.7}
+              accessibilityRole="link"
+              accessibilityLabel="Créer un compte gérant de box sur athlex.app"
+            >
+              <Text style={S.ownerText}>
+                Vous gérez une box ?{' '}
+                <Text style={S.ownerLink}>Créez votre compte sur athlex.app</Text>
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -273,10 +262,19 @@ function createStyles(theme: AppTheme) {
       textAlign: 'center',
     },
     roleLabelActive: { color: theme.accent },
-    roleDesc: { 
-      ...typography.caption, 
-      color: theme.textMuted, 
+    ownerRow: {
+      marginTop: spacing.md,
+      alignItems: 'center',
+    },
+    ownerText: {
+      ...typography.bodySmall,
+      color: theme.textMuted,
       textAlign: 'center',
+    },
+    ownerLink: {
+      color: theme.accent,
+      fontWeight: '700',
+      textDecorationLine: 'underline',
     },
     button: { 
       borderRadius: borderRadius.lg, 

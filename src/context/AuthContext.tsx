@@ -6,7 +6,7 @@ import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
 import { awardLevelBadge } from '../services/gamification';
 import { setUserContext, clearUserContext, captureError } from '../lib/sentry';
-import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackBoxCreate, trackDeleteAccount } from '../lib/analytics';
+import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackDeleteAccount } from '../lib/analytics';
 
 const BOX_SKIPPED_KEY = '@athlex:boxSkipped';
 const ACTIVE_BOX_KEY = '@athlex:activeBoxId';
@@ -28,7 +28,7 @@ interface AuthContextType {
   switchBox: (boxId: string) => Promise<void>;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, username: string, level: string, asBoxOwner?: boolean, gender?: string) => Promise<{ error: string | null; finalUsername?: string }>;
+  signUp: (email: string, password: string, username: string, level: string, gender?: string) => Promise<{ error: string | null; finalUsername?: string }>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -37,19 +37,11 @@ interface AuthContextType {
   skipBox: () => Promise<void>;
   leaveBox: () => Promise<{ error: string | null }>;
   joinBox: (inviteCode: string) => Promise<{ error: string | null }>;
-  createBox: (name: string, description?: string) => Promise<{ error: string | null; box?: Box }>;
   refreshBox: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function generateInviteCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession]       = useState<Session | null>(null);
@@ -214,7 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   }
 
-  async function signUp(email: string, password: string, username: string, level: string, asBoxOwner = false, gender?: string) {
+  async function signUp(email: string, password: string, username: string, level: string, gender?: string) {
     // 1) Resolve a free username BEFORE creating the auth user to avoid orphan auth.users rows.
     //    If the chosen pseudo is taken, we auto-append a random 3-4 digit suffix until one is free.
     const baseUsername = username.trim();
@@ -252,7 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.user) {
       // Reset onboarding tutorial flag — every new account sees the presentation
       await AsyncStorage.removeItem('@athlex:onboardingDone');
-      const role = asBoxOwner ? 'box_owner' : 'member';
+      const role = 'member';
       const referral_code = Math.random().toString(36).substring(2, 8).toUpperCase();
       const { error: profileError } = await supabase.from('profiles').insert({
         id: data.user.id,
@@ -352,57 +344,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(ACTIVE_BOX_KEY, boxId);
   }
 
-  async function createBox(name: string, description?: string): Promise<{ error: string | null; box?: Box }> {
-    if (!user) return { error: 'Non connecté' };
-    let inviteCode = generateInviteCode();
-    let attempts = 0;
-    while (attempts < 5) {
-      const { data } = await supabase.from('boxes').select('id').eq('invite_code', inviteCode).maybeSingle();
-      if (!data) break;
-      inviteCode = generateInviteCode();
-      attempts++;
-    }
-    const { data: box, error } = await supabase.from('boxes').insert({
-      owner_id: user.id,
-      name,
-      description,
-      invite_code: inviteCode,
-      is_active: true,
-    }).select().single();
-    if (error || !box) return { error: error?.message ?? 'Erreur création box' };
-    await supabase.from('profiles').update({ role: 'box_owner' }).eq('id', user.id);
-    updateUser({ role: 'box_owner' });
-
-    // Determine early adopter status (first 5 boxes)
-    let isEarlyAdopter = false;
-    try {
-      const { data: countData } = await (supabase.rpc as any)('get_total_box_count');
-      isEarlyAdopter = (Number(countData) || 0) <= 5;
-    } catch (_) { /* ignore */ }
-
-    const trialDays = isEarlyAdopter ? 60 : 30;
-    const trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString();
-
-    // Create trial subscription
-    const { data: subData } = await supabase.from('box_subscriptions').insert({
-      box_id: box.id,
-      plan_tier: 'trial',
-      status: 'trialing',
-      trial_ends_at: trialEndsAt,
-      is_early_adopter: isEarlyAdopter,
-    }).select().single();
-
-    setBoxSubscription(subData as BoxSubscription | null);
-
-    const newEntry: MyBoxEntry = { box: box as Box, role: 'owner' };
-    setMyBoxes(prev => [...prev, newEntry]);
-    setCurrentBox(box as Box);
-    setBoxRole('owner');
-    await AsyncStorage.setItem(ACTIVE_BOX_KEY, box.id);
-    trackBoxCreate();
-    return { error: null, box: box as Box };
-  }
-
   async function resetPassword(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     return { error: error?.message ?? null };
@@ -452,7 +393,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       switchBox, loading,
       signIn, signUp, signOut, deleteAccount, resetPassword, updateUser,
       boxSkipped, skipBox, leaveBox,
-      joinBox, createBox, refreshBox, refreshSubscription,
+      joinBox, refreshBox, refreshSubscription,
     }}>
       {children}
     </AuthContext.Provider>

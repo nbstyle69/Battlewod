@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { Hash, Building2, LogOut, ArrowRight } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -34,11 +34,11 @@ export default function WaitingScreen({ navigation }: any) {
 
           <TouchableOpacity
             style={S.secondaryBtn}
-            onPress={() => navigation.navigate('CreateBox')}
+            onPress={() => Linking.openURL('https://athlex.app/pricing/onboarding')}
             activeOpacity={0.85}
           >
             <Building2 color={theme.accent} size={18} />
-            <Text style={S.secondaryBtnText}>Je suis gérant · créer ma box</Text>
+            <Text style={S.secondaryBtnText}>Je suis gérant · s'abonner sur athlex.app</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
