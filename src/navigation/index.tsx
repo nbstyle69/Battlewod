@@ -46,7 +46,6 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import WaitingScreen from '../screens/onboarding/WaitingScreen';
 import JoinBoxScreen from '../screens/onboarding/JoinBoxScreen';
-import CreateBoxScreen from '../screens/onboarding/CreateBoxScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import TimerScreen from '../screens/timer/TimerScreen';
 import TimerRunScreen from '../screens/timer/TimerRunScreen';
@@ -123,7 +122,6 @@ export type RootStackParamList = {
 export type OnboardingStackParamList = {
   Waiting: undefined;
   JoinBox: undefined;
-  CreateBox: undefined;
 };
 
 export type BoxOwnerTabParamList = {
@@ -427,7 +425,6 @@ function OnboardingNavigator() {
     <OnbStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <OnbStack.Screen name="Waiting"   component={WaitingScreen} />
       <OnbStack.Screen name="JoinBox"   component={JoinBoxScreen} />
-      <OnbStack.Screen name="CreateBox" component={CreateBoxScreen} />
     </OnbStack.Navigator>
   );
 }
