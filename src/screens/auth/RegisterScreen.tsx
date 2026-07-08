@@ -12,6 +12,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { AuthStackParamList } from '../../navigation';
 import { Gender } from '../../types';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
+import { OWNER_ONBOARDING_URL } from '../../lib/urls';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'> };
 
@@ -176,7 +177,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
             <TouchableOpacity
               style={S.ownerRow}
-              onPress={() => Linking.openURL('https://athlex.app/pricing/onboarding')}
+              onPress={() => Linking.openURL(OWNER_ONBOARDING_URL)}
               activeOpacity={0.7}
               accessibilityRole="link"
               accessibilityLabel="Créer un compte gérant de box sur athlex.app"

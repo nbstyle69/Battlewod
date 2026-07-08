@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { WEB_URL } from '../../lib/urls';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { Colors, LevelColors } from '../../theme/colors';
@@ -182,7 +183,7 @@ export default function ProfileScreen() {
           'Les programmes payants sont disponibles uniquement via athlex.app depuis un navigateur. Une fois ton inscription confirmée, le programme apparaîtra automatiquement dans ton app.',
           [
             { text: 'Fermer', style: 'cancel' },
-            { text: 'Ouvrir athlex.app', onPress: () => Linking.openURL('https://athlex.app') },
+            { text: 'Ouvrir athlex.app', onPress: () => Linking.openURL(WEB_URL) },
           ],
         );
         setJoiningProg(false);

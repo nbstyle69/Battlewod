@@ -4,6 +4,7 @@ import { Hash, Building2, LogOut, ArrowRight } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { OWNER_ONBOARDING_URL } from '../../lib/urls';
 
 export default function WaitingScreen({ navigation }: any) {
   const { user, signOut, skipBox } = useAuth();
@@ -34,7 +35,7 @@ export default function WaitingScreen({ navigation }: any) {
 
           <TouchableOpacity
             style={S.secondaryBtn}
-            onPress={() => Linking.openURL('https://athlex.app/pricing/onboarding')}
+            onPress={() => Linking.openURL(OWNER_ONBOARDING_URL)}
             activeOpacity={0.85}
           >
             <Building2 color={theme.accent} size={18} />
