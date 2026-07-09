@@ -156,6 +156,47 @@ export type Database = {
           },
         ]
       }
+      program_scores: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes: string | null
+          program_wod_id: string
+          rx: boolean
+          score_type: string
+          score_value: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          program_wod_id: string
+          rx?: boolean
+          score_type: string
+          score_value: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          program_wod_id?: string
+          rx?: boolean
+          score_type?: string
+          score_value?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_scores_program_wod_id_fkey"
+            columns: ["program_wod_id"]
+            isOneToOne: false
+            referencedRelation: "program_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       program_wods: {
         Row: {
           created_at: string | null
