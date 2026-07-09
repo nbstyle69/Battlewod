@@ -176,16 +176,25 @@ export default function ProfileScreen() {
         .eq('is_active', true)
         .single();
       if (!prog) { Alert.alert('Erreur', 'Code programme invalide.'); setJoiningProg(false); return; }
-      // iOS: block paid programs (App Store IAP rules — must go through web)
-      if (Platform.OS === 'ios' && prog.price_cents > 0) {
-        Alert.alert(
-          'Programme payant',
-          'Les programmes payants sont disponibles uniquement via athlex.app depuis un navigateur. Une fois ton inscription confirmée, le programme apparaîtra automatiquement dans ton app.',
-          [
-            { text: 'Fermer', style: 'cancel' },
-            { text: 'Ouvrir athlex.app', onPress: () => Linking.openURL(WEB_URL) },
-          ],
-        );
+      // Programmes payants : l'achat se fait hors de l'app.
+      // iOS reste neutre (règles App Store) ; Android peut ouvrir la page box.
+      if (prog.price_cents > 0) {
+        if (Platform.OS === 'ios') {
+          Alert.alert(
+            'Programme',
+            'Une fois ton inscription confirmée, ce programme apparaît automatiquement ici, dans « Mes programmes ».',
+            [{ text: 'OK', style: 'cancel' }],
+          );
+        } else {
+          Alert.alert(
+            'Programme',
+            'Ce programme se rejoint depuis la page de la box. Une fois confirmé, il apparaît automatiquement ici.',
+            [
+              { text: 'Fermer', style: 'cancel' },
+              { text: 'Ouvrir la page box', onPress: () => Linking.openURL(WEB_URL) },
+            ],
+          );
+        }
         setJoiningProg(false);
         return;
       }
