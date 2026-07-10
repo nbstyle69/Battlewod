@@ -77,6 +77,7 @@ import BOArticlesScreen from '../screens/backoffice/BOArticlesScreen';
 import BOSettingsScreen from '../screens/backoffice/BOSettingsScreen';
 import BOProgramsScreen from '../screens/backoffice/BOProgramsScreen';
 import BOProgramEditorScreen from '../screens/backoffice/BOProgramEditorScreen';
+import ProgramDetailScreen from '../screens/programs/ProgramDetailScreen';
 import ArticlesScreen from '../screens/whiteboard/ArticlesScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import CommunityScreen from '../screens/community/CommunityScreen';
@@ -141,6 +142,15 @@ export type CoachTabParamList = {
   CoachProfile: undefined;
 };
 
+export type ProgramDetailParams = {
+  programId: string;
+  programTitle: string;
+  startDate?: string;
+  progType: string;
+  durationWeeks?: number;
+  daysPerWeek?: number;
+};
+
 export type BOProfileStackParamList = {
   ProfileMain: undefined;
   EloHistory: undefined;
@@ -149,6 +159,7 @@ export type BOProfileStackParamList = {
   Legal: undefined;
   PublicProfile: { userId: string };
   NotificationSettings: undefined;
+  ProgramDetail: ProgramDetailParams;
 };
 
 export type BODashboardStackParamList = {
@@ -240,6 +251,7 @@ export type HomeStackParamList = {
   EloHistory: undefined;
   WODDetail: { wodId: string; scrollToLeaderboard?: boolean };
   Legal: undefined;
+  ProgramDetail: ProgramDetailParams;
   Friends: undefined;
   CompetitionDetail: { competition: CompetitionSummary };
   PublicProfile: { userId: string };
@@ -454,6 +466,7 @@ function HomeNavigator() {
       <HomeStack.Screen name="EloHistory" component={EloHistoryScreen} />
       <HomeStack.Screen name="WODDetail" component={WODDetailScreen} />
       <HomeStack.Screen name="Legal" component={LegalScreen} />
+      <HomeStack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -615,6 +628,7 @@ function BOProfileNavigator() {
       <BOProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <BOProfileStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <BOProfileStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
+      <BOProfileStack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
     </BOProfileStack.Navigator>
   );
 }
