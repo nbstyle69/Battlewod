@@ -702,31 +702,49 @@ export type Database = {
       }
       box_members: {
         Row: {
+          amount_cents: number | null
           box_id: string | null
           id: string
           joined_at: string | null
           member_id: string | null
           plan_id: string | null
+          platform_fee_cents: number | null
           role: string
           status: string | null
+          stripe_checkout_session_id: string | null
+          stripe_subscription_id: string | null
+          subscription_current_period_end: string | null
+          subscription_status: string | null
         }
         Insert: {
+          amount_cents?: number | null
           box_id?: string | null
           id?: string
           joined_at?: string | null
           member_id?: string | null
           plan_id?: string | null
+          platform_fee_cents?: number | null
           role?: string
           status?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
         }
         Update: {
+          amount_cents?: number | null
           box_id?: string | null
           id?: string
           joined_at?: string | null
           member_id?: string | null
           plan_id?: string | null
+          platform_fee_cents?: number | null
           role?: string
           status?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
         }
         Relationships: [
           {
@@ -2340,25 +2358,46 @@ export type Database = {
           box_id: string
           color: string
           created_at: string | null
+          currency: string
+          description: string | null
           id: string
+          is_active: boolean
           max_sessions_per_week: number | null
           name: string
+          price_cents: number
+          sort_order: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
         }
         Insert: {
           box_id: string
           color?: string
           created_at?: string | null
+          currency?: string
+          description?: string | null
           id?: string
+          is_active?: boolean
           max_sessions_per_week?: number | null
           name: string
+          price_cents?: number
+          sort_order?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
         }
         Update: {
           box_id?: string
           color?: string
           created_at?: string | null
+          currency?: string
+          description?: string | null
           id?: string
+          is_active?: boolean
           max_sessions_per_week?: number | null
           name?: string
+          price_cents?: number
+          sort_order?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
         }
         Relationships: [
           {
