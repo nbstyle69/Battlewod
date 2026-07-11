@@ -44,7 +44,7 @@ export default function PartnersScreen() {
 
   async function loadPartners() {
     try {
-      const { data, error } = await (supabase.from as any)('partners')
+      const { data, error } = await supabase.from('partners')
         .select('*')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });

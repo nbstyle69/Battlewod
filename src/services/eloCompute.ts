@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabase';
 import { log } from '../lib/logger';
-import { calculatePairwiseDeltas, RankedPlayer, SCALED_MULTIPLIER } from '../utils/elo';
 import { syncLevelAndBadges } from '../utils/eloLevels';
 import { WODScore } from '../types';
 
@@ -12,66 +11,30 @@ export function sortScoresRxFirst(scores: WODScore[], isTimeBased: boolean): WOD
   });
 }
 
-export async function computeAndSaveElo(wodId: string, boxId: string, scores: WODScore[], isTimeBased: boolean) {
+interface WodEloRow {
+  member_id: string;
+  elo_before: number;
+  elo_after: number;
+  elo_delta: number;
+  rank: number;
+}
+
+// ELO is computed and persisted entirely server-side (compute_wod_elo RPC).
+// The client only triggers the computation; it never supplies ELO values.
+// The RPC is idempotent (no-op if elo_history already exists for the WOD).
+export async function computeAndSaveElo(wodId: string, _boxId: string, scores: WODScore[], _isTimeBased: boolean) {
   try {
     if (scores.length < 2) return;
 
-    const memberIds = scores.map(s => s.member_id);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, elo')
-      .in('id', memberIds);
+    const { data, error } = await supabase.rpc('compute_wod_elo', { p_wod_id: wodId });
+    if (error) { log.warn('[eloCompute] compute_wod_elo error:', error.message); return; }
 
-    if (!profiles || profiles.length === 0) { log.debug('[eloCompute] no profiles found'); return; }
-
-    const eloMap: Record<string, number> = {};
-    for (const p of profiles) eloMap[p.id] = p.elo ?? 1000;
-
-    const rxMap: Record<string, boolean> = {};
-    for (const s of scores) rxMap[s.member_id] = !!s.rx;
-
-    const sorted = sortScoresRxFirst(scores, isTimeBased);
-
-    const ranked: (RankedPlayer & { isScaled: boolean })[] = sorted.map((s, i) => {
-      let rank = i + 1;
-      if (i > 0 && sorted[i].score_value === sorted[i - 1].score_value && sorted[i].rx === sorted[i - 1].rx) {
-        rank = ranked[i - 1]?.rank ?? rank;
-      }
-      return { id: s.member_id, elo: eloMap[s.member_id] ?? 1000, rank, isScaled: !s.rx };
-    });
-
-    const rawDeltas = calculatePairwiseDeltas(ranked);
-
-    const deltas = rawDeltas.map(d => ({
-      ...d,
-      delta: Math.round(d.delta * (rxMap[d.id] ? 1 : SCALED_MULTIPLIER)),
-    }));
-
-    const historyRows = deltas.map(d => ({
-      box_id: boxId,
-      wod_id: wodId,
-      member_id: d.id,
-      elo_before: d.elo,
-      elo_after: d.elo + d.delta,
-      elo_delta: d.delta,
-      rank: d.rank,
-    }));
-
-    log.debug('[eloCompute] upserting', historyRows.length, 'rows for wod', wodId);
-    const { error: upsertErr } = await supabase.from('elo_history').upsert(historyRows, { onConflict: 'wod_id,member_id' });
-    if (upsertErr) { log.warn('[eloCompute] upsert error:', upsertErr.message); return; }
-
-    for (const d of deltas) {
-      const newElo = d.elo + d.delta;
-      await supabase.rpc('update_user_elo', {
-        p_user_id: d.id,
-        p_new_elo: newElo,
-        p_increment_matches: 1,
-        p_increment_wins: d.rank === 1 ? 1 : 0,
-      });
-      await syncLevelAndBadges(d.id, newElo);
+    const rows = (data ?? []) as WodEloRow[];
+    // Sync display level + badges from the authoritative server-computed ELO.
+    for (const r of rows) {
+      await syncLevelAndBadges(r.member_id, r.elo_after);
     }
-    log.debug('[eloCompute] done for wod', wodId);
+    log.debug('[eloCompute] done for wod', wodId, '—', rows.length, 'athletes');
   } catch (err: any) {
     log.error('[eloCompute] CRASH', err, { wodId });
   }

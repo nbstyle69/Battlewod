@@ -21,7 +21,6 @@ import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { formatScoreValue } from '../../utils/scoreFormat';
-import { calculatePairwiseDeltas, SCALED_MULTIPLIER } from '../../utils/elo';
 
 import { trackDailyTournamentJoin, trackDailyTournamentScoreSubmit } from '../../lib/analytics';
 import { HomeStackParamList, TimerType } from '../../navigation';
@@ -343,87 +342,13 @@ export default function DailyTournamentDetailScreen() {
     await supabase.from('daily_tournaments').update({ status: 'completed' }).eq('id', tournamentId);
   }
 
-  async function computeAndSaveEloForTournament(tId: string, t: any, parts: Participant[]) {
-    // Get all scores sorted — include rx field for RX-first ranking
-    const { data: allScoresRaw } = await supabase
-      .from('daily_tournament_scores')
-      .select('user_id, score_value, rx')
-      .eq('tournament_id', tId);
-
-    if (!allScoresRaw || allScoresRaw.length < 2) return;
-
-    // Sort: RX first, then by score_value
-    const isTimeBased = t.score_mode === 'time';
-    const allScores = [...allScoresRaw].sort((a, b) => {
-      const rxDiff = (a.rx ? 0 : 1) - (b.rx ? 0 : 1);
-      if (rxDiff !== 0) return rxDiff;
-      return isTimeBased ? a.score_value - b.score_value : b.score_value - a.score_value;
-    });
-
-    // Build rx lookup
-    const rxMap: Record<string, boolean> = {};
-    for (const s of allScores) rxMap[s.user_id] = !!s.rx;
-
-    // Get current ELO for all participants
-    const userIds = allScores.map(s => s.user_id);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, elo, wins, total_matches')
-      .in('id', userIds);
-
-    if (!profiles) return;
-
-    const profileMap: Record<string, { elo: number; wins: number; total_matches: number }> = {};
-    for (const p of profiles) {
-      profileMap[p.id] = { elo: p.elo ?? 1000, wins: p.wins ?? 0, total_matches: p.total_matches ?? 0 };
-    }
-
-    // Assign ranks (handle ties — same rx + same score = same rank)
-    const ranked = allScores.map((s, i) => {
-      let rank = i + 1;
-      if (i > 0 && allScores[i].score_value === allScores[i - 1].score_value && allScores[i].rx === allScores[i - 1].rx) {
-        rank = ranked[i - 1]?.rank ?? rank;
-      }
-      const elo = profileMap[s.user_id]?.elo ?? 1000;
-      return { id: s.user_id, elo, rank };
-    });
-
-    // Calculate ELO deltas via shared utility + apply SCALED_MULTIPLIER
-    const rawDeltas = calculatePairwiseDeltas(ranked);
-    const deltas = rawDeltas.map(d => ({
-      ...d,
-      delta: Math.round(d.delta * (rxMap[d.id] ? 1 : SCALED_MULTIPLIER)),
-    }));
-
-    // Update profiles via RPC (bypasses RLS) + write ELO history
-    const historyRows = [];
-    for (const d of deltas) {
-      const pm = profileMap[d.id];
-      if (!pm) continue;
-      const newElo = pm.elo + d.delta;
-      await supabase.rpc('update_user_elo', {
-        p_user_id: d.id,
-        p_new_elo: newElo,
-        p_increment_matches: 1,
-        p_increment_wins: d.rank === 1 ? 1 : 0,
-      });
-      await syncLevelAndBadges(d.id, newElo);
-
-      historyRows.push({
-        tournament_id: tId,
-        user_id: d.id,
-        elo_before: pm.elo,
-        elo_after: newElo,
-        elo_delta: d.delta,
-        final_rank: d.rank,
-      });
-    }
-
-    // Upsert ELO history for all participants
-    if (historyRows.length > 0) {
-      await supabase.from('daily_tournament_elo_history').upsert(historyRows, {
-        onConflict: 'tournament_id,user_id',
-      });
+  async function computeAndSaveEloForTournament(tId: string, _t: any, _parts: Participant[]) {
+    // ELO is computed and persisted entirely server-side (idempotent RPC).
+    // The client never supplies ELO values; it only triggers the computation.
+    const { data, error } = await supabase.rpc('compute_daily_tournament_elo', { p_tournament_id: tId });
+    if (error) { captureError(error, { screen: 'DailyTournamentDetail', action: 'computeElo' }); return; }
+    for (const r of (data ?? [])) {
+      await syncLevelAndBadges(r.user_id, r.elo_after);
     }
   }
 
