@@ -9,440 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      inter_bracket_matches: {
-        Row: {
-          id: string
-          competition_id: string
-          round: number
-          match_number: number
-          side: string
-          participant1_id: string | null
-          participant2_id: string | null
-          winner_id: string | null
-          loser_id: string | null
-          wod_id: string | null
-          status: string
-          scheduled_at: string | null
-          completed_at: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          competition_id: string
-          round?: number
-          match_number?: number
-          side?: string
-          participant1_id?: string | null
-          participant2_id?: string | null
-          winner_id?: string | null
-          loser_id?: string | null
-          wod_id?: string | null
-          status?: string
-          scheduled_at?: string | null
-          completed_at?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          competition_id?: string
-          round?: number
-          match_number?: number
-          side?: string
-          participant1_id?: string | null
-          participant2_id?: string | null
-          winner_id?: string | null
-          loser_id?: string | null
-          wod_id?: string | null
-          status?: string
-          scheduled_at?: string | null
-          completed_at?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_bracket_matches_competition_id_fkey"
-            columns: ["competition_id"]
-            isOneToOne: false
-            referencedRelation: "inter_competitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inter_league_rounds: {
-        Row: {
-          id: string
-          competition_id: string
-          round_number: number
-          title: string | null
-          wod_id: string | null
-          status: string
-          started_at: string | null
-          completed_at: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          competition_id: string
-          round_number?: number
-          title?: string | null
-          wod_id?: string | null
-          status?: string
-          started_at?: string | null
-          completed_at?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          competition_id?: string
-          round_number?: number
-          title?: string | null
-          wod_id?: string | null
-          status?: string
-          started_at?: string | null
-          completed_at?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_league_rounds_competition_id_fkey"
-            columns: ["competition_id"]
-            isOneToOne: false
-            referencedRelation: "inter_competitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inter_league_standings: {
-        Row: {
-          id: string
-          competition_id: string
-          athlete_id: string
-          team_id: string | null
-          total_points: number
-          rounds_played: number
-          wins: number
-          podiums: number
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          competition_id: string
-          athlete_id: string
-          team_id?: string | null
-          total_points?: number
-          rounds_played?: number
-          wins?: number
-          podiums?: number
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          competition_id?: string
-          athlete_id?: string
-          team_id?: string | null
-          total_points?: number
-          rounds_played?: number
-          wins?: number
-          podiums?: number
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_league_standings_competition_id_fkey"
-            columns: ["competition_id"]
-            isOneToOne: false
-            referencedRelation: "inter_competitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inter_pool_groups: {
-        Row: {
-          id: string
-          competition_id: string
-          group_name: string
-          group_index: number
-          advance_count: number
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          competition_id: string
-          group_name?: string
-          group_index?: number
-          advance_count?: number
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          competition_id?: string
-          group_name?: string
-          group_index?: number
-          advance_count?: number
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_pool_groups_competition_id_fkey"
-            columns: ["competition_id"]
-            isOneToOne: false
-            referencedRelation: "inter_competitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inter_pool_matches: {
-        Row: {
-          id: string
-          group_id: string
-          competition_id: string
-          athlete1_id: string
-          athlete2_id: string
-          wod_id: string | null
-          score1: number | null
-          score2: number | null
-          winner_id: string | null
-          status: string
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          group_id: string
-          competition_id: string
-          athlete1_id: string
-          athlete2_id: string
-          wod_id?: string | null
-          score1?: number | null
-          score2?: number | null
-          winner_id?: string | null
-          status?: string
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          group_id?: string
-          competition_id?: string
-          athlete1_id?: string
-          athlete2_id?: string
-          wod_id?: string | null
-          score1?: number | null
-          score2?: number | null
-          winner_id?: string | null
-          status?: string
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_pool_matches_competition_id_fkey"
-            columns: ["competition_id"]
-            isOneToOne: false
-            referencedRelation: "inter_competitions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inter_pool_matches_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "inter_pool_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inter_pool_members: {
-        Row: {
-          id: string
-          group_id: string
-          athlete_id: string
-          points: number
-          wins: number
-          draws: number
-          losses: number
-          score_for: number
-          score_against: number
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          group_id: string
-          athlete_id: string
-          points?: number
-          wins?: number
-          draws?: number
-          losses?: number
-          score_for?: number
-          score_against?: number
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          group_id?: string
-          athlete_id?: string
-          points?: number
-          wins?: number
-          draws?: number
-          losses?: number
-          score_for?: number
-          score_against?: number
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_pool_members_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "inter_pool_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inter_swiss_pairings: {
-        Row: {
-          id: string
-          round_id: string
-          competition_id: string
-          athlete1_id: string
-          athlete2_id: string | null
-          wod_id: string | null
-          score1: number | null
-          score2: number | null
-          winner_id: string | null
-          status: string
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          round_id: string
-          competition_id: string
-          athlete1_id: string
-          athlete2_id?: string | null
-          wod_id?: string | null
-          score1?: number | null
-          score2?: number | null
-          winner_id?: string | null
-          status?: string
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          round_id?: string
-          competition_id?: string
-          athlete1_id?: string
-          athlete2_id?: string | null
-          wod_id?: string | null
-          score1?: number | null
-          score2?: number | null
-          winner_id?: string | null
-          status?: string
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_swiss_pairings_competition_id_fkey"
-            columns: ["competition_id"]
-            isOneToOne: false
-            referencedRelation: "inter_competitions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inter_swiss_pairings_round_id_fkey"
-            columns: ["round_id"]
-            isOneToOne: false
-            referencedRelation: "inter_swiss_rounds"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inter_swiss_rounds: {
-        Row: {
-          id: string
-          competition_id: string
-          round_number: number
-          status: string
-          created_at: string | null
-          completed_at: string | null
-        }
-        Insert: {
-          id?: string
-          competition_id: string
-          round_number?: number
-          status?: string
-          created_at?: string | null
-          completed_at?: string | null
-        }
-        Update: {
-          id?: string
-          competition_id?: string
-          round_number?: number
-          status?: string
-          created_at?: string | null
-          completed_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_swiss_rounds_competition_id_fkey"
-            columns: ["competition_id"]
-            isOneToOne: false
-            referencedRelation: "inter_competitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inter_swiss_standings: {
-        Row: {
-          id: string
-          competition_id: string
-          athlete_id: string
-          points: number
-          buchholz: number
-          wins: number
-          draws: number
-          losses: number
-          rounds_played: number
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          competition_id: string
-          athlete_id: string
-          points?: number
-          buchholz?: number
-          wins?: number
-          draws?: number
-          losses?: number
-          rounds_played?: number
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          competition_id?: string
-          athlete_id?: string
-          points?: number
-          buchholz?: number
-          wins?: number
-          draws?: number
-          losses?: number
-          rounds_played?: number
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inter_swiss_standings_competition_id_fkey"
-            columns: ["competition_id"]
-            isOneToOne: false
-            referencedRelation: "inter_competitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       app_changelog: {
         Row: {
           body: string
@@ -2048,6 +1614,103 @@ export type Database = {
           },
         ]
       }
+      inter_bracket_matches: {
+        Row: {
+          competition_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          loser_id: string | null
+          match_number: number
+          notes: string | null
+          participant1_id: string | null
+          participant2_id: string | null
+          round: number
+          scheduled_at: string | null
+          side: string
+          status: string
+          winner_id: string | null
+          wod_id: string | null
+        }
+        Insert: {
+          competition_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          loser_id?: string | null
+          match_number: number
+          notes?: string | null
+          participant1_id?: string | null
+          participant2_id?: string | null
+          round: number
+          scheduled_at?: string | null
+          side?: string
+          status?: string
+          winner_id?: string | null
+          wod_id?: string | null
+        }
+        Update: {
+          competition_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          loser_id?: string | null
+          match_number?: number
+          notes?: string | null
+          participant1_id?: string | null
+          participant2_id?: string | null
+          round?: number
+          scheduled_at?: string | null
+          side?: string
+          status?: string
+          winner_id?: string | null
+          wod_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_bracket_matches_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_bracket_matches_loser_id_fkey"
+            columns: ["loser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_bracket_matches_participant1_id_fkey"
+            columns: ["participant1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_bracket_matches_participant2_id_fkey"
+            columns: ["participant2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_bracket_matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_bracket_matches_wod_id_fkey"
+            columns: ["wod_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competition_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inter_competition_wods: {
         Row: {
           competition_id: string | null
@@ -2153,6 +1816,343 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_elo_history: {
+        Row: {
+          athlete_id: string
+          avg_opponent_elo: number
+          calculated_at: string
+          competition_id: string
+          elo_after: number
+          elo_before: number
+          elo_change: number
+          final_rank: number
+          id: string
+          participants_count: number
+        }
+        Insert: {
+          athlete_id: string
+          avg_opponent_elo: number
+          calculated_at?: string
+          competition_id: string
+          elo_after: number
+          elo_before: number
+          elo_change: number
+          final_rank: number
+          id?: string
+          participants_count: number
+        }
+        Update: {
+          athlete_id?: string
+          avg_opponent_elo?: number
+          calculated_at?: string
+          competition_id?: string
+          elo_after?: number
+          elo_before?: number
+          elo_change?: number
+          final_rank?: number
+          id?: string
+          participants_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_elo_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_elo_history_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_league_rounds: {
+        Row: {
+          competition_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          round_number: number
+          started_at: string | null
+          status: string
+          title: string | null
+          wod_id: string | null
+        }
+        Insert: {
+          competition_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          round_number: number
+          started_at?: string | null
+          status?: string
+          title?: string | null
+          wod_id?: string | null
+        }
+        Update: {
+          competition_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          round_number?: number
+          started_at?: string | null
+          status?: string
+          title?: string | null
+          wod_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_league_rounds_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_league_rounds_wod_id_fkey"
+            columns: ["wod_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competition_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_league_standings: {
+        Row: {
+          athlete_id: string
+          competition_id: string
+          id: string
+          podiums: number
+          rounds_played: number
+          team_id: string | null
+          total_points: number
+          updated_at: string
+          wins: number
+        }
+        Insert: {
+          athlete_id: string
+          competition_id: string
+          id?: string
+          podiums?: number
+          rounds_played?: number
+          team_id?: string | null
+          total_points?: number
+          updated_at?: string
+          wins?: number
+        }
+        Update: {
+          athlete_id?: string
+          competition_id?: string
+          id?: string
+          podiums?: number
+          rounds_played?: number
+          team_id?: string | null
+          total_points?: number
+          updated_at?: string
+          wins?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_league_standings_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_league_standings_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_league_standings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "inter_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_pool_groups: {
+        Row: {
+          advance_count: number
+          competition_id: string
+          created_at: string
+          group_index: number
+          group_name: string
+          id: string
+        }
+        Insert: {
+          advance_count?: number
+          competition_id: string
+          created_at?: string
+          group_index: number
+          group_name: string
+          id?: string
+        }
+        Update: {
+          advance_count?: number
+          competition_id?: string
+          created_at?: string
+          group_index?: number
+          group_name?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_pool_groups_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_pool_matches: {
+        Row: {
+          athlete1_id: string
+          athlete2_id: string
+          competition_id: string
+          completed_at: string | null
+          created_at: string
+          group_id: string
+          id: string
+          score1: number | null
+          score2: number | null
+          status: string
+          winner_id: string | null
+          wod_id: string | null
+        }
+        Insert: {
+          athlete1_id: string
+          athlete2_id: string
+          competition_id: string
+          completed_at?: string | null
+          created_at?: string
+          group_id: string
+          id?: string
+          score1?: number | null
+          score2?: number | null
+          status?: string
+          winner_id?: string | null
+          wod_id?: string | null
+        }
+        Update: {
+          athlete1_id?: string
+          athlete2_id?: string
+          competition_id?: string
+          completed_at?: string | null
+          created_at?: string
+          group_id?: string
+          id?: string
+          score1?: number | null
+          score2?: number | null
+          status?: string
+          winner_id?: string | null
+          wod_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_pool_matches_athlete1_id_fkey"
+            columns: ["athlete1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_pool_matches_athlete2_id_fkey"
+            columns: ["athlete2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_pool_matches_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_pool_matches_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "inter_pool_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_pool_matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_pool_matches_wod_id_fkey"
+            columns: ["wod_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competition_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_pool_members: {
+        Row: {
+          athlete_id: string
+          draws: number
+          group_id: string
+          id: string
+          losses: number
+          points: number
+          score_against: number
+          score_for: number
+          wins: number
+        }
+        Insert: {
+          athlete_id: string
+          draws?: number
+          group_id: string
+          id?: string
+          losses?: number
+          points?: number
+          score_against?: number
+          score_for?: number
+          wins?: number
+        }
+        Update: {
+          athlete_id?: string
+          draws?: number
+          group_id?: string
+          id?: string
+          losses?: number
+          points?: number
+          score_against?: number
+          score_for?: number
+          wins?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_pool_members_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_pool_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "inter_pool_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -2302,6 +2302,183 @@ export type Database = {
             columns: ["wod_id"]
             isOneToOne: false
             referencedRelation: "inter_competition_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_swiss_pairings: {
+        Row: {
+          athlete1_id: string
+          athlete2_id: string | null
+          competition_id: string
+          created_at: string | null
+          id: string
+          round_id: string
+          score1: number | null
+          score2: number | null
+          status: string
+          winner_id: string | null
+          wod_id: string | null
+        }
+        Insert: {
+          athlete1_id: string
+          athlete2_id?: string | null
+          competition_id: string
+          created_at?: string | null
+          id?: string
+          round_id: string
+          score1?: number | null
+          score2?: number | null
+          status?: string
+          winner_id?: string | null
+          wod_id?: string | null
+        }
+        Update: {
+          athlete1_id?: string
+          athlete2_id?: string | null
+          competition_id?: string
+          created_at?: string | null
+          id?: string
+          round_id?: string
+          score1?: number | null
+          score2?: number | null
+          status?: string
+          winner_id?: string | null
+          wod_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_swiss_pairings_athlete1_id_fkey"
+            columns: ["athlete1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_swiss_pairings_athlete2_id_fkey"
+            columns: ["athlete2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_swiss_pairings_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_swiss_pairings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "inter_swiss_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_swiss_pairings_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_swiss_pairings_wod_id_fkey"
+            columns: ["wod_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competition_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_swiss_rounds: {
+        Row: {
+          competition_id: string
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          round_number: number
+          status: string
+        }
+        Insert: {
+          competition_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          round_number?: number
+          status?: string
+        }
+        Update: {
+          competition_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          round_number?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_swiss_rounds_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inter_swiss_standings: {
+        Row: {
+          athlete_id: string
+          buchholz: number
+          competition_id: string
+          created_at: string | null
+          draws: number
+          id: string
+          losses: number
+          points: number
+          rounds_played: number
+          updated_at: string | null
+          wins: number
+        }
+        Insert: {
+          athlete_id: string
+          buchholz?: number
+          competition_id: string
+          created_at?: string | null
+          draws?: number
+          id?: string
+          losses?: number
+          points?: number
+          rounds_played?: number
+          updated_at?: string | null
+          wins?: number
+        }
+        Update: {
+          athlete_id?: string
+          buchholz?: number
+          competition_id?: string
+          created_at?: string | null
+          draws?: number
+          id?: string
+          losses?: number
+          points?: number
+          rounds_played?: number
+          updated_at?: string | null
+          wins?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_swiss_standings_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_swiss_standings_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
             referencedColumns: ["id"]
           },
         ]
@@ -4752,6 +4929,7 @@ export type Database = {
           rank: number | null
           score_display: string | null
           score_value: number | null
+          scoring_type: string | null
           status: string | null
           submitted_at: string | null
           team_id: string | null
@@ -4823,36 +5001,12 @@ export type Database = {
       }
     }
     Functions: {
-      generate_inter_bracket_round_1: {
-        Args: { p_competition_id: string }
+      advance_bracket_round: {
+        Args: { p_completed_round: number; p_tournament_id: string }
         Returns: number
       }
       advance_inter_bracket_round: {
         Args: { p_competition_id: string; p_completed_round: number }
-        Returns: number
-      }
-      compute_inter_league_round: {
-        Args: { p_competition_id: string; p_round_number: number }
-        Returns: number
-      }
-      generate_inter_pool_groups: {
-        Args: { p_competition_id: string; p_groups_count: number; p_advance_count: number }
-        Returns: number
-      }
-      resolve_inter_pool_match: {
-        Args: { p_match_id: string; p_score1: number; p_score2: number; p_scoring_type: string }
-        Returns: undefined
-      }
-      generate_inter_swiss_round: {
-        Args: { p_competition_id: string }
-        Returns: number
-      }
-      resolve_inter_swiss_pairing: {
-        Args: { p_pairing_id: string; p_score1: number; p_score2: number; p_scoring_type: string }
-        Returns: undefined
-      }
-      advance_bracket_round: {
-        Args: { p_completed_round: number; p_tournament_id: string }
         Returns: number
       }
       calculate_elo: {
@@ -4887,6 +5041,20 @@ export type Database = {
           user_id: string
         }[]
       }
+      compute_inter_competition_elo: {
+        Args: { p_competition_id: string }
+        Returns: {
+          athlete_id: string
+          elo_after: number
+          elo_before: number
+          elo_change: number
+          final_rank: number
+        }[]
+      }
+      compute_inter_league_round: {
+        Args: { p_competition_id: string; p_round_number: number }
+        Returns: number
+      }
       compute_tournament_elo: {
         Args: { p_tournament_id: string }
         Returns: {
@@ -4919,6 +5087,22 @@ export type Database = {
       }
       generate_class_schedules_from_templates: {
         Args: { p_box_id: string; p_weeks_ahead?: number }
+        Returns: number
+      }
+      generate_inter_bracket_round_1: {
+        Args: { p_competition_id: string }
+        Returns: number
+      }
+      generate_inter_pool_groups: {
+        Args: {
+          p_advance_count?: number
+          p_competition_id: string
+          p_groups_count?: number
+        }
+        Returns: number
+      }
+      generate_inter_swiss_round: {
+        Args: { p_competition_id: string }
         Returns: number
       }
       get_box_mate_ids: { Args: never; Returns: string[] }
@@ -4955,6 +5139,10 @@ export type Database = {
       is_box_member: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner_member: { Args: { p_box_id: string }; Returns: boolean }
+      is_inter_competition_manager: {
+        Args: { p_competition_id: string }
+        Returns: boolean
+      }
       is_privileged_backend: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tournament_manager: {
@@ -4978,6 +5166,24 @@ export type Database = {
           p_reported_user_id: string
         }
         Returns: string
+      }
+      resolve_inter_pool_match: {
+        Args: {
+          p_match_id: string
+          p_score1: number
+          p_score2: number
+          p_scoring_type?: string
+        }
+        Returns: undefined
+      }
+      resolve_inter_swiss_pairing: {
+        Args: {
+          p_pairing_id: string
+          p_score1: number
+          p_score2: number
+          p_scoring_type?: string
+        }
+        Returns: undefined
       }
       update_user_elo: {
         Args: {
