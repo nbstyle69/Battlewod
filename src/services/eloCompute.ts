@@ -34,6 +34,11 @@ export async function computeAndSaveElo(wodId: string, _boxId: string, scores: W
     for (const r of rows) {
       await syncLevelAndBadges(r.member_id, r.elo_after);
     }
+
+    // Box-scoped ELO ranking (distinct from the global/tournament ELO).
+    const { error: boxErr } = await supabase.rpc('compute_box_elo', { p_wod_id: wodId });
+    if (boxErr) log.warn('[eloCompute] compute_box_elo error:', boxErr.message);
+
     log.debug('[eloCompute] done for wod', wodId, '—', rows.length, 'athletes');
   } catch (err: any) {
     log.error('[eloCompute] CRASH', err, { wodId });
