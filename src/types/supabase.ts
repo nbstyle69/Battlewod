@@ -1820,6 +1820,60 @@ export type Database = {
           },
         ]
       }
+      inter_elo_history: {
+        Row: {
+          athlete_id: string
+          avg_opponent_elo: number
+          calculated_at: string
+          competition_id: string
+          elo_after: number
+          elo_before: number
+          elo_change: number
+          final_rank: number
+          id: string
+          participants_count: number
+        }
+        Insert: {
+          athlete_id: string
+          avg_opponent_elo: number
+          calculated_at?: string
+          competition_id: string
+          elo_after: number
+          elo_before: number
+          elo_change: number
+          final_rank: number
+          id?: string
+          participants_count: number
+        }
+        Update: {
+          athlete_id?: string
+          avg_opponent_elo?: number
+          calculated_at?: string
+          competition_id?: string
+          elo_after?: number
+          elo_before?: number
+          elo_change?: number
+          final_rank?: number
+          id?: string
+          participants_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inter_elo_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_elo_history_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "inter_competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inter_league_rounds: {
         Row: {
           competition_id: string
@@ -4987,6 +5041,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      compute_inter_competition_elo: {
+        Args: { p_competition_id: string }
+        Returns: {
+          athlete_id: string
+          elo_after: number
+          elo_before: number
+          elo_change: number
+          final_rank: number
+        }[]
+      }
       compute_inter_league_round: {
         Args: { p_competition_id: string; p_round_number: number }
         Returns: number
@@ -5075,6 +5139,10 @@ export type Database = {
       is_box_member: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner_member: { Args: { p_box_id: string }; Returns: boolean }
+      is_inter_competition_manager: {
+        Args: { p_competition_id: string }
+        Returns: boolean
+      }
       is_privileged_backend: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tournament_manager: {

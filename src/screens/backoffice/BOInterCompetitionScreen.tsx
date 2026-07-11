@@ -10,7 +10,6 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { calculatePairwiseDeltas, clampElo, assignRanks, RankedPlayer } from '../../utils/elo';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import {
   sendInterWodRevealedNotification,
@@ -274,61 +273,37 @@ export default function BOInterCompetitionScreen() {
         { text: 'Annuler', style: 'cancel' },
         { text: 'Cloturer', style: 'destructive', onPress: async () => {
           try {
-            const { data: validatedScores } = await supabase.from('inter_scores')
-              .select('athlete_id, score_value').eq('competition_id', selectedId).eq('status', 'validated');
-            if (!validatedScores || validatedScores.length === 0) {
-              await supabase.from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
-              setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' } : c));
+            // ELO is computed and persisted entirely server-side (idempotent,
+            // authorized, atomic). The client only triggers the close.
+            const { data: eloRows, error: eloErr } = await supabase.rpc(
+              'compute_inter_competition_elo', { p_competition_id: selectedId },
+            );
+            if (eloErr) {
+              captureError(eloErr, { screen: 'BOInterCompetition', action: 'computeElo' });
+              Alert.alert('Erreur', eloErr.message ?? 'Erreur lors de la cloture');
+              return;
+            }
+
+            setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' } : c));
+
+            const results = eloRows ?? [];
+            for (const r of results) {
+              await syncLevelAndBadges(r.athlete_id, r.elo_after);
+            }
+
+            const comp = competitions.find(c => c.id === selectedId);
+            trackInterCompClose(selectedId!, comp?.format ?? 'unknown', results.length);
+
+            if (results.length === 0) {
               Alert.alert('Competition cloturee (aucun score valide).');
               return;
             }
 
-            const totals: Record<string, number> = {};
-            validatedScores.forEach(s => {
-              if (s.athlete_id) {
-                totals[s.athlete_id] = (totals[s.athlete_id] ?? 0) + (parseFloat(String(s.score_value)) || 0);
-              }
-            });
-
-            const athleteIds = Object.keys(totals);
-            const { data: profs } = await supabase.from('profiles').select('id, elo').in('id', athleteIds);
-            const profMap: Record<string, number> = {};
-            (profs ?? []).forEach((p: { id: string; elo: number | null }) => { profMap[p.id] = p.elo ?? 1000; });
-
-            const sorted = Object.entries(totals)
-              .map(([id, score]) => ({ id, score }))
-              .sort((a, b) => b.score - a.score);
-            const ranked = assignRanks(sorted);
-
-            const players: RankedPlayer[] = ranked.map(r => ({
-              id: r.id,
-              elo: profMap[r.id] ?? 1000,
-              rank: r.rank,
-            }));
-
-            const results = calculatePairwiseDeltas(players);
-
-            for (const r of results) {
-              const newElo = clampElo(r.elo + r.delta);
-              await supabase.rpc('update_user_elo', {
-                p_user_id: r.id,
-                p_new_elo: newElo,
-                p_increment_matches: 1,
-                p_increment_wins: r.rank === 1 ? 1 : 0,
-              });
-              await syncLevelAndBadges(r.id, newElo);
-            }
-
-            await supabase.from('inter_competitions').update({ status: 'closed' }).eq('id', selectedId);
-            setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: 'closed' } : c));
-
-            const winner = results.find(r => r.rank === 1);
-            const topDelta = winner ? `+${winner.delta}` : '';
-            const comp = competitions.find(c => c.id === selectedId);
-            trackInterCompClose(selectedId!, comp?.format ?? 'unknown', results.length);
+            const winner = results.find(r => r.final_rank === 1);
+            const topDelta = winner ? `+${winner.elo_change}` : '';
             Alert.alert('Competition cloturee !', `ELO distribue a ${results.length} athletes. 1er: ${topDelta} ELO`);
             if (comp && selectedId) {
-              const eloChanges = results.map(r => ({ athleteId: r.id, delta: r.delta }));
+              const eloChanges = results.map(r => ({ athleteId: r.athlete_id, delta: r.elo_change }));
               sendInterCompetitionClosedNotification(selectedId, comp.title, eloChanges).catch(() => {});
             }
           } catch (e: unknown) {
