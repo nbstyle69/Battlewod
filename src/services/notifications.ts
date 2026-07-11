@@ -188,6 +188,28 @@ export async function saveNotificationPrefs(userId: string, prefs: Partial<Notif
   }
 }
 
+// ── Helper: fan-out des push via la fonction service-role send-push ──
+// push_tokens et notification_preferences sont RLS-lockés par utilisateur,
+// donc le client ne peut ni lire les tokens ni les prefs d'un AUTRE user.
+// Tout envoi cross-utilisateur passe par l'Edge Function send-push.
+interface PushRecipient {
+  user_id: string;
+  title: string;
+  body: string;
+  data?: Record<string, any>;
+}
+
+async function invokePush(recipients: PushRecipient[], prefKey?: string) {
+  if (!recipients.length) return;
+  try {
+    await supabase.functions.invoke('send-push', {
+      body: { recipients, ...(prefKey ? { pref_key: prefKey } : {}) },
+    });
+  } catch (err) {
+    captureError(err, { service: 'notifications', action: 'invokePush' });
+  }
+}
+
 // ── Envoyer une push notification pour commentaire/réaction sur un score ──
 export async function sendScoreNotification(
   targetUserId: string,
@@ -195,19 +217,6 @@ export async function sendScoreNotification(
   type: 'comment' | 'reaction',
   emoji?: string,
 ) {
-  // Check if the target user has this notification type enabled
-  const prefs = await getNotificationPrefs(targetUserId);
-  if (type === 'comment' && !prefs.score_comments) return;
-  if (type === 'reaction' && !prefs.score_reactions) return;
-
-  // Get target user's push tokens
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token')
-    .eq('user_id', targetUserId);
-
-  if (!tokens || tokens.length === 0) return;
-
   const title = type === 'comment'
     ? `💬 ${senderUsername} a commenté ton score`
     : `${emoji ?? '❤️'} ${senderUsername} a réagi à ton score`;
@@ -216,53 +225,10 @@ export async function sendScoreNotification(
     ? 'Va voir ce qu\'il a dit !'
     : `Réaction ${emoji ?? '❤️'}`;
 
-  // Send via Expo Push API
-  const messages = tokens.map(t => ({
-    to: t.token,
-    sound: 'default' as const,
-    title,
-    body,
-    data: { type: `score_${type}`, targetUserId },
-  }));
-
-  try {
-    await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messages),
-    });
-  } catch (err) {
-    captureError(err, { service: 'notifications', action: 'sendScoreNotification' });
-  }
-}
-
-// ── Helper: envoyer des push via Expo Push API ──────────────────────
-async function sendPush(
-  tokens: { token: string }[],
-  title: string,
-  body: string,
-  data?: Record<string, any>,
-) {
-  if (!tokens.length) return;
-  const messages = tokens.map(t => ({
-    to: t.token,
-    sound: 'default' as const,
-    title,
-    body,
-    data: data ?? {},
-  }));
-  try {
-    await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(messages),
-    });
-  } catch (err) {
-    captureError(err, { service: 'notifications', action: 'pushSend' });
-  }
+  await invokePush(
+    [{ user_id: targetUserId, title, body, data: { type: `score_${type}`, targetUserId } }],
+    type === 'comment' ? 'score_comments' : 'score_reactions',
+  );
 }
 
 // ── #1 WOD publié → notifier les membres de la box ─────────────────
@@ -282,18 +248,13 @@ export async function sendWodPublishedNotification(
 
   const memberIds = members.map(m => m.member_id).filter((id): id is string => id != null);
 
-  // Get tokens for all members in one query
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token, user_id')
-    .in('user_id', memberIds);
-  if (!tokens || tokens.length === 0) return;
-
-  await sendPush(
-    tokens,
-    '💪 Nouveau WOD !',
-    `${wodTitle} — C'est parti !`,
-    { type: 'wod_published', boxId },
+  await invokePush(
+    memberIds.map(uid => ({
+      user_id: uid,
+      title: '💪 Nouveau WOD !',
+      body: `${wodTitle} — C'est parti !`,
+      data: { type: 'wod_published', boxId },
+    })),
   );
 }
 
@@ -302,20 +263,14 @@ export async function sendFriendRequestNotification(
   targetUserId: string,
   senderUsername: string,
 ) {
-  const prefs = await getNotificationPrefs(targetUserId);
-  if (!prefs.friend_requests) return;
-
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token')
-    .eq('user_id', targetUserId);
-  if (!tokens || tokens.length === 0) return;
-
-  await sendPush(
-    tokens,
-    '👋 Demande d\'ami',
-    `${senderUsername} veut t'ajouter en ami !`,
-    { type: 'friend_request', senderUsername },
+  await invokePush(
+    [{
+      user_id: targetUserId,
+      title: '👋 Demande d\'ami',
+      body: `${senderUsername} veut t'ajouter en ami !`,
+      data: { type: 'friend_request', senderUsername },
+    }],
+    'friend_requests',
   );
 }
 
@@ -324,20 +279,14 @@ export async function sendFriendAcceptedNotification(
   targetUserId: string,
   accepterUsername: string,
 ) {
-  const prefs = await getNotificationPrefs(targetUserId);
-  if (!prefs.friend_requests) return;
-
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token')
-    .eq('user_id', targetUserId);
-  if (!tokens || tokens.length === 0) return;
-
-  await sendPush(
-    tokens,
-    '✅ Ami ajouté',
-    `${accepterUsername} a accepté ta demande d'ami !`,
-    { type: 'friend_accepted', accepterUsername },
+  await invokePush(
+    [{
+      user_id: targetUserId,
+      title: '✅ Ami ajouté',
+      body: `${accepterUsername} a accepté ta demande d'ami !`,
+      data: { type: 'friend_accepted', accepterUsername },
+    }],
+    'friend_requests',
   );
 }
 
@@ -349,52 +298,18 @@ export async function sendTournamentClosedNotification(
 ) {
   if (eloChanges.length === 0) return;
 
-  const athleteIds = eloChanges.map(e => e.athleteId);
-
-  // Check prefs + get tokens in batch
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token, user_id')
-    .in('user_id', athleteIds);
-  if (!tokens || tokens.length === 0) return;
-
-  // Group tokens by user for personalized messages
-  const tokensByUser: Record<string, string[]> = {};
-  tokens.forEach(t => {
-    if (!tokensByUser[t.user_id]) tokensByUser[t.user_id] = [];
-    tokensByUser[t.user_id].push(t.token);
-  });
-
-  const messages: any[] = [];
-  for (const ec of eloChanges) {
-    const userTokens = tokensByUser[ec.athleteId];
-    if (!userTokens) continue;
-
-    const sign = ec.change >= 0 ? '+' : '';
-    for (const token of userTokens) {
-      messages.push({
-        to: token,
-        sound: 'default',
+  await invokePush(
+    eloChanges.map(ec => {
+      const sign = ec.change >= 0 ? '+' : '';
+      return {
+        user_id: ec.athleteId,
         title: `🏆 ${tournamentName} terminé !`,
         body: `Ton ELO : ${sign}${ec.change} points`,
         data: { type: 'tournament_closed', tournamentId },
-      });
-    }
-  }
-
-  if (messages.length === 0) return;
-  try {
-    // Expo Push API accepts max 100 per request
-    for (let i = 0; i < messages.length; i += 100) {
-      await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(messages.slice(i, i + 100)),
-      });
-    }
-  } catch (err) {
-    captureError(err, { service: 'notifications', action: 'tournamentNotification' });
-  }
+      };
+    }),
+    'tournament_updates',
+  );
 }
 
 // ── #5 Nouveau message dans un groupe ───────────────────────────────
@@ -417,21 +332,17 @@ export async function sendNewMessageNotification(
   const recipientIds = (group.members as string[]).filter(id => id !== senderUserId);
   if (recipientIds.length === 0) return;
 
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token')
-    .in('user_id', recipientIds);
-  if (!tokens || tokens.length === 0) return;
-
   const preview = messagePreview.length > 60
     ? messagePreview.substring(0, 57) + '…'
     : messagePreview;
 
-  await sendPush(
-    tokens,
-    `💬 ${senderUsername} dans ${groupName}`,
-    preview,
-    { type: 'new_message', groupId },
+  await invokePush(
+    recipientIds.map(uid => ({
+      user_id: uid,
+      title: `💬 ${senderUsername} dans ${groupName}`,
+      body: preview,
+      data: { type: 'new_message', groupId },
+    })),
   );
 }
 
@@ -443,42 +354,15 @@ export async function sendScoreOvertakenNotification(
 ) {
   if (overtakenUserIds.length === 0) return;
 
-  // Check prefs + get tokens
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token, user_id')
-    .in('user_id', overtakenUserIds);
-  if (!tokens || tokens.length === 0) return;
-
-  // Filter by user prefs
-  const messages: any[] = [];
-  for (const uid of overtakenUserIds) {
-    const prefs = await getNotificationPrefs(uid);
-    if (!prefs.score_updates) continue;
-    const userTokens = tokens.filter(t => t.user_id === uid);
-    for (const t of userTokens) {
-      messages.push({
-        to: t.token,
-        sound: 'default',
-        title: '📊 Tu as été dépassé !',
-        body: `${senderUsername} t'a dépassé sur "${wodTitle}"`,
-        data: { type: 'score_overtaken' },
-      });
-    }
-  }
-
-  if (messages.length === 0) return;
-  try {
-    for (let i = 0; i < messages.length; i += 100) {
-      await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(messages.slice(i, i + 100)),
-      });
-    }
-  } catch (err) {
-    captureError(err, { service: 'notifications', action: 'overtakenNotification' });
-  }
+  await invokePush(
+    overtakenUserIds.map(uid => ({
+      user_id: uid,
+      title: '📊 Tu as été dépassé !',
+      body: `${senderUsername} t'a dépassé sur "${wodTitle}"`,
+      data: { type: 'score_overtaken' },
+    })),
+    'score_updates',
+  );
 }
 
 // ── #7 Rappel tournoi J-1 (notification locale planifiée) ───────────
@@ -571,17 +455,13 @@ export async function sendInterWodRevealedNotification(
   if (!registrations || registrations.length === 0) return;
 
   const athleteIds = registrations.map((r: any) => r.athlete_id).filter(Boolean);
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token, user_id')
-    .in('user_id', athleteIds);
-  if (!tokens || tokens.length === 0) return;
-
-  await sendPush(
-    tokens,
-    `🏆 ${competitionTitle}`,
-    `Nouveau WOD revele : ${wodTitle}`,
-    { type: 'inter_wod_revealed', competitionId },
+  await invokePush(
+    athleteIds.map((uid: string) => ({
+      user_id: uid,
+      title: `🏆 ${competitionTitle}`,
+      body: `Nouveau WOD revele : ${wodTitle}`,
+      data: { type: 'inter_wod_revealed', competitionId },
+    })),
   );
 }
 
@@ -592,18 +472,14 @@ export async function sendInterBracketMatchNotification(
   opponentName: string,
   round: number,
 ) {
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token')
-    .eq('user_id', athleteId);
-  if (!tokens || tokens.length === 0) return;
-
-  await sendPush(
-    tokens,
-    `⚔️ ${competitionTitle}`,
-    `Round ${round} : tu affrontes ${opponentName} !`,
-    { type: 'inter_bracket_match', competitionTitle, round },
-  );
+  await invokePush([
+    {
+      user_id: athleteId,
+      title: `⚔️ ${competitionTitle}`,
+      body: `Round ${round} : tu affrontes ${opponentName} !`,
+      data: { type: 'inter_bracket_match', competitionTitle, round },
+    },
+  ]);
 }
 
 // ── #11 Résultat de match bracket (tu as gagné/perdu) ────────────────
@@ -613,20 +489,16 @@ export async function sendInterBracketResultNotification(
   won: boolean,
   round: number,
 ) {
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token')
-    .eq('user_id', athleteId);
-  if (!tokens || tokens.length === 0) return;
-
-  await sendPush(
-    tokens,
-    won ? `🎉 Victoire !` : `😤 Defaite`,
-    won
-      ? `Tu avances au round ${round + 1} de ${competitionTitle} !`
-      : `Tu es elimine au round ${round} de ${competitionTitle}.`,
-    { type: 'inter_bracket_result', competitionTitle, won, round },
-  );
+  await invokePush([
+    {
+      user_id: athleteId,
+      title: won ? `🎉 Victoire !` : `😤 Defaite`,
+      body: won
+        ? `Tu avances au round ${round + 1} de ${competitionTitle} !`
+        : `Tu es elimine au round ${round} de ${competitionTitle}.`,
+      data: { type: 'inter_bracket_result', competitionTitle, won, round },
+    },
+  ]);
 }
 
 // ── #12 Competition inter-box clôturée (ELO distribué) ───────────────
@@ -637,25 +509,17 @@ export async function sendInterCompetitionClosedNotification(
 ) {
   if (eloChanges.length === 0) return;
 
-  const athleteIds = eloChanges.map(e => e.athleteId);
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token, user_id')
-    .in('user_id', athleteIds);
-  if (!tokens || tokens.length === 0) return;
-
-  for (const change of eloChanges) {
-    const userTokens = tokens.filter(t => t.user_id === change.athleteId);
-    if (userTokens.length === 0) continue;
-
-    const sign = change.delta >= 0 ? '+' : '';
-    await sendPush(
-      userTokens,
-      `🏆 ${competitionTitle} terminee`,
-      `Ton ELO : ${sign}${change.delta} points`,
-      { type: 'inter_competition_closed', competitionId, delta: change.delta },
-    );
-  }
+  await invokePush(
+    eloChanges.map((change) => {
+      const sign = change.delta >= 0 ? '+' : '';
+      return {
+        user_id: change.athleteId,
+        title: `🏆 ${competitionTitle} terminee`,
+        body: `Ton ELO : ${sign}${change.delta} points`,
+        data: { type: 'inter_competition_closed', competitionId, delta: change.delta },
+      };
+    }),
+  );
 }
 
 // ── #13 Pool match assigné ───────────────────────────────────────────
@@ -665,16 +529,12 @@ export async function sendInterPoolMatchNotification(
   opponentName: string,
   groupName: string,
 ) {
-  const { data: tokens } = await supabase
-    .from('push_tokens')
-    .select('token')
-    .eq('user_id', athleteId);
-  if (!tokens || tokens.length === 0) return;
-
-  await sendPush(
-    tokens,
-    `⚔️ ${competitionTitle}`,
-    `${groupName} : tu affrontes ${opponentName}`,
-    { type: 'inter_pool_match', competitionTitle, groupName },
-  );
+  await invokePush([
+    {
+      user_id: athleteId,
+      title: `⚔️ ${competitionTitle}`,
+      body: `${groupName} : tu affrontes ${opponentName}`,
+      data: { type: 'inter_pool_match', competitionTitle, groupName },
+    },
+  ]);
 }

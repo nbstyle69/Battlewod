@@ -50,7 +50,7 @@ export async function blockUser(blockedId: string): Promise<boolean> {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return false;
     if (auth.user.id === blockedId) return false;
-    const { error } = await (supabase.from as any)('user_blocks').upsert({
+    const { error } = await supabase.from('user_blocks').upsert({
       blocker_id: auth.user.id,
       blocked_id: blockedId,
     }, { onConflict: 'blocker_id,blocked_id' });
@@ -66,7 +66,7 @@ export async function unblockUser(blockedId: string): Promise<boolean> {
   try {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return false;
-    const { error } = await (supabase.from as any)('user_blocks')
+    const { error } = await supabase.from('user_blocks')
       .delete()
       .eq('blocker_id', auth.user.id)
       .eq('blocked_id', blockedId);
@@ -87,7 +87,7 @@ export async function getBlockedUserIds(): Promise<string[]> {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return [];
     const uid = auth.user.id;
-    const { data } = await (supabase.from as any)('user_blocks')
+    const { data } = await supabase.from('user_blocks')
       .select('blocker_id, blocked_id')
       .or(`blocker_id.eq.${uid},blocked_id.eq.${uid}`);
     const ids = new Set<string>();
@@ -110,7 +110,7 @@ export async function getMyBlockedUsers(): Promise<{ id: string; username: strin
   try {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return [];
-    const { data } = await (supabase.from as any)('user_blocks')
+    const { data } = await supabase.from('user_blocks')
       .select('blocked_id, profiles:blocked_id(id, username, avatar_url)')
       .eq('blocker_id', auth.user.id);
     return ((data ?? []) as any[])
@@ -126,7 +126,7 @@ export async function isUserBlocked(otherUserId: string): Promise<boolean> {
   try {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return false;
-    const { data } = await (supabase.from as any)('user_blocks')
+    const { data } = await supabase.from('user_blocks')
       .select('blocker_id')
       .or(`and(blocker_id.eq.${auth.user.id},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${auth.user.id})`)
       .limit(1);

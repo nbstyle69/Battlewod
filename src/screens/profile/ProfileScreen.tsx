@@ -3,7 +3,7 @@ import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Image, Share, Switch,
+  Image, Share, Switch, Linking,
 } from 'react-native';
 import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { WEB_URL } from '../../lib/urls';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/designTokens';
@@ -177,12 +178,25 @@ export default function ProfileScreen() {
         .eq('is_active', true)
         .single();
       if (!prog) { Alert.alert('Erreur', 'Code programme invalide.'); setJoiningProg(false); return; }
-      // iOS: block paid programs (App Store IAP rules — must go through web)
-      if (Platform.OS === 'ios' && prog.price_cents > 0) {
-        Alert.alert(
-          'Programme payant',
-          'Les programmes payants sont disponibles uniquement via athlex.app depuis un navigateur. Une fois ton inscription confirmée, le programme apparaîtra automatiquement dans ton app.',
-        );
+      // Programmes payants : l'achat se fait hors de l'app.
+      // iOS reste neutre (règles App Store) ; Android peut ouvrir la page box.
+      if (prog.price_cents > 0) {
+        if (Platform.OS === 'ios') {
+          Alert.alert(
+            'Programme',
+            'Une fois ton inscription confirmée, ce programme apparaît automatiquement ici, dans « Mes programmes ».',
+            [{ text: 'OK', style: 'cancel' }],
+          );
+        } else {
+          Alert.alert(
+            'Programme',
+            'Ce programme se rejoint depuis la page de la box. Une fois confirmé, il apparaît automatiquement ici.',
+            [
+              { text: 'Fermer', style: 'cancel' },
+              { text: 'Ouvrir la page box', onPress: () => Linking.openURL(WEB_URL) },
+            ],
+          );
+        }
         setJoiningProg(false);
         return;
       }
@@ -886,7 +900,19 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                     const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
                     const currentWeek = Math.floor(daysSinceStart / 7) + 1;
                     return (
-                      <View key={prog.id} style={[S.boxRow, { marginBottom: 8 }]}>
+                      <TouchableOpacity
+                        key={prog.id}
+                        style={[S.boxRow, { marginBottom: 8 }]}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('ProgramDetail', {
+                          programId: prog.id,
+                          programTitle: prog.title,
+                          startDate: prog.start_date,
+                          progType: prog.type,
+                          durationWeeks: prog.duration_weeks,
+                          daysPerWeek: prog.days_per_week,
+                        })}
+                      >
                         <BookOpen color={theme.accent} size={20} />
                         <View style={{ flex: 1, marginLeft: 10 }}>
                           <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>{prog.title}</Text>
@@ -899,7 +925,8 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                         <View style={{ backgroundColor: `${theme.success}18`, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
                           <Text style={{ fontSize: 10, fontWeight: '700', color: theme.success }}>Actif</Text>
                         </View>
-                      </View>
+                        <ChevronRight color={theme.textMuted} size={16} style={{ marginLeft: 6 }} />
+                      </TouchableOpacity>
                     );
                   })}
                 </>

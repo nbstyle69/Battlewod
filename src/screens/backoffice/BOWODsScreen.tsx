@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { sendWodPublishedNotification } from '../../services/notifications';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, BoxWODType } from '../../types';
+import DateField from '../../components/DateField';
 
 const WOD_TYPES: { value: BoxWODType; label: string }[] = [
   { value: 'for-time', label: 'For Time' },
@@ -412,7 +413,7 @@ export default function BOWODsScreen({ navigation }: any) {
               <View style={S.mRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={S.mLabel}>DATE *</Text>
-                  <TextInput style={S.mInput} value={date} onChangeText={setDate} placeholder="2025-01-15" placeholderTextColor={theme.textMuted} />
+                  <DateField style={S.mInput} value={date} onChangeText={setDate} theme={theme} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={S.mLabel}>BLOCK</Text>

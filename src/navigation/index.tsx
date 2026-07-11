@@ -16,9 +16,11 @@ import { navigationRef } from './navigationRef';
 import { linking } from './linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Image, ActivityIndicator, Platform } from 'react-native';
+import { View, Image, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import OnboardingTutorialScreen, { ONBOARDING_KEY } from '../screens/onboarding/OnboardingTutorialScreen';
+import InteractiveTour from '../components/InteractiveTour';
+import { BO_TOUR_STEPS } from '../components/InteractiveTour';
 import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock, Compass } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
 
@@ -47,7 +49,6 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import WaitingScreen from '../screens/onboarding/WaitingScreen';
 import JoinBoxScreen from '../screens/onboarding/JoinBoxScreen';
-import CreateBoxScreen from '../screens/onboarding/CreateBoxScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import TimerScreen from '../screens/timer/TimerScreen';
 import TimerRunScreen from '../screens/timer/TimerRunScreen';
@@ -80,6 +81,7 @@ import BOSettingsScreen from '../screens/backoffice/BOSettingsScreen';
 import BOInterCompetitionScreen from '../screens/backoffice/BOInterCompetitionScreen';
 import BOProgramsScreen from '../screens/backoffice/BOProgramsScreen';
 import BOProgramEditorScreen from '../screens/backoffice/BOProgramEditorScreen';
+import ProgramDetailScreen from '../screens/programs/ProgramDetailScreen';
 import ArticlesScreen from '../screens/whiteboard/ArticlesScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import CommunityScreen from '../screens/community/CommunityScreen';
@@ -125,7 +127,6 @@ export type RootStackParamList = {
 export type OnboardingStackParamList = {
   Waiting: undefined;
   JoinBox: undefined;
-  CreateBox: undefined;
 };
 
 export type BoxOwnerTabParamList = {
@@ -145,6 +146,15 @@ export type CoachTabParamList = {
   CoachProfile: undefined;
 };
 
+export type ProgramDetailParams = {
+  programId: string;
+  programTitle: string;
+  startDate?: string;
+  progType: string;
+  durationWeeks?: number;
+  daysPerWeek?: number;
+};
+
 export type BOProfileStackParamList = {
   ProfileMain: undefined;
   EloHistory: undefined;
@@ -153,6 +163,7 @@ export type BOProfileStackParamList = {
   Legal: undefined;
   PublicProfile: { userId: string };
   NotificationSettings: undefined;
+  ProgramDetail: ProgramDetailParams;
 };
 
 export type BODashboardStackParamList = {
@@ -245,6 +256,7 @@ export type HomeStackParamList = {
   EloHistory: undefined;
   WODDetail: { wodId: string; scrollToLeaderboard?: boolean };
   Legal: undefined;
+  ProgramDetail: ProgramDetailParams;
   Friends: undefined;
   CompetitionDetail: { competition: CompetitionSummary };
   PublicProfile: { userId: string };
@@ -458,7 +470,6 @@ function OnboardingNavigator() {
     <OnbStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <OnbStack.Screen name="Waiting"   component={WaitingScreen} />
       <OnbStack.Screen name="JoinBox"   component={JoinBoxScreen} />
-      <OnbStack.Screen name="CreateBox" component={CreateBoxScreen} />
     </OnbStack.Navigator>
   );
 }
@@ -488,6 +499,7 @@ function HomeNavigator() {
       <HomeStack.Screen name="EloHistory" component={EloHistoryScreen} />
       <HomeStack.Screen name="WODDetail" component={WODDetailScreen} />
       <HomeStack.Screen name="Legal" component={LegalScreen} />
+      <HomeStack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -652,6 +664,7 @@ function BOProfileNavigator() {
       <BOProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <BOProfileStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <BOProfileStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
+      <BOProfileStack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
     </BOProfileStack.Navigator>
   );
 }
@@ -772,6 +785,7 @@ export default function AppNavigator() {
   useAndroidNavBar('', mode);
   const [splashDone, setSplashDone] = React.useState(false);
   const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
+  const [showTour, setShowTour] = React.useState(false);
 
   React.useEffect(() => {
     const t = setTimeout(() => setSplashDone(true), 1500);
@@ -799,7 +813,7 @@ export default function AppNavigator() {
 
   // Show tutorial AFTER login (user must be authenticated first)
   if (isAuthenticated && !onboardingDone) {
-    return <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />;
+    return <OnboardingTutorialScreen onDone={() => { setOnboardingDone(true); setShowTour(true); }} />;
   }
   const isSuperAdmin    = user?.role === 'super_admin' || user?.role === 'admin';
   const isBoxOwner      = user?.role === 'box_owner' || boxRole === 'owner';
@@ -809,29 +823,43 @@ export default function AppNavigator() {
   // boxSkipped = user explicitly chose to continue without a box
   const needsOnboarding = isAuthenticated && isB2BUser && !currentBox && !boxSkipped;
 
+  const tourSteps = isBoxOwner ? BO_TOUR_STEPS : undefined;
+
   return (
-    <NavigationContainer ref={navigationRef} linking={linking} theme={NAV_DARK_THEME}>
-      <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
-        {!isAuthenticated ? (
-          // ── Not logged in ──────────────────────────────
-          <RootStack.Screen name="Auth" component={AuthNavigator} />
-        ) : needsOnboarding ? (
-          // ── Logged in but no box yet ───────────────────
-          <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
-        ) : isBoxOwner && !isBoxActive ? (
-          // ── Box owner with expired subscription ────────
-          <RootStack.Screen name="BoxOwner" component={BOPaywallScreen} />
-        ) : isBoxOwner ? (
-          // ── Box owner with their box ───────────────────
-          <RootStack.Screen name="BoxOwner" component={BoxOwnerTabs} />
-        ) : isCoach && currentBox ? (
-          // ── Coach with their box ────────────────────────
-          <RootStack.Screen name="Coach" component={CoachTabs} />
-        ) : (
-          // ── Member / athlete / super_admin ─────────────
-          <RootStack.Screen name="Main" component={MainTabs} />
-        )}
-      </RootStack.Navigator>
-    </NavigationContainer>
+    <View style={styles.rootContainer}>
+      <NavigationContainer ref={navigationRef} linking={linking} theme={NAV_DARK_THEME}>
+        <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+          {!isAuthenticated ? (
+            // ── Not logged in ──────────────────────────────
+            <RootStack.Screen name="Auth" component={AuthNavigator} />
+          ) : needsOnboarding ? (
+            // ── Logged in but no box yet ───────────────────
+            <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
+          ) : isBoxOwner && !isBoxActive ? (
+            // ── Box owner with expired subscription ────────
+            <RootStack.Screen name="BoxOwner" component={BOPaywallScreen} />
+          ) : isBoxOwner ? (
+            // ── Box owner with their box ───────────────────
+            <RootStack.Screen name="BoxOwner" component={BoxOwnerTabs} />
+          ) : isCoach && currentBox ? (
+            // ── Coach with their box ────────────────────────
+            <RootStack.Screen name="Coach" component={CoachTabs} />
+          ) : (
+            // ── Member / athlete / super_admin ─────────────
+            <RootStack.Screen name="Main" component={MainTabs} />
+          )}
+        </RootStack.Navigator>
+      </NavigationContainer>
+      {showTour && (
+        <InteractiveTour
+          steps={tourSteps}
+          onComplete={() => setShowTour(false)}
+        />
+      )}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  rootContainer: { flex: 1 },
+});
