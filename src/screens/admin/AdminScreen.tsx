@@ -4,7 +4,7 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Shield, CheckCircle, XCircle, Video, Clock, Users, LogOut, Youtube, AlertTriangle, Zap, Plus, Trash2, Megaphone } from 'lucide-react-native';
+import { Shield, CheckCircle, XCircle, Video, Clock, Users, LogOut, Youtube, AlertTriangle, Zap, Plus, Trash2, Megaphone, Flame } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/designTokens';
@@ -202,6 +202,24 @@ export default function AdminScreen() {
     ]);
   }
 
+  const [publishingWod, setPublishingWod] = useState(false);
+  async function handlePublishOfficialWod() {
+    const parisDow = new Date().toLocaleDateString('en-US', { timeZone: 'Europe/Paris', weekday: 'short' });
+    if (parisDow === 'Sun') {
+      Alert.alert('Jour de repos', 'Le WOD du Jour n\u2019est pas publié le dimanche.');
+      return;
+    }
+    setPublishingWod(true);
+    const { data, error } = await supabase.rpc('ensure_daily_official_wod');
+    setPublishingWod(false);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    Alert.alert(
+      data ? '🔥 WOD du Jour prêt' : 'Aucun WOD',
+      data ? 'Le WOD du Jour officiel est publié (ou existait déjà).' : 'Aucun WOD publié.',
+    );
+    loadStats();
+  }
+
   async function handleCreateChangelog() {
     if (!clTitle.trim()) { Alert.alert('Titre requis'); return; }
     setClSaving(true);
@@ -377,6 +395,30 @@ export default function AdminScreen() {
 
         {activeTab === 1 && (
           <>
+            <View style={S.officialWodCard}>
+              <View style={S.officialWodHead}>
+                <Flame color={theme.accent} size={18} />
+                <Text style={S.officialWodTitle}>WOD du Jour officiel</Text>
+              </View>
+              <Text style={S.officialWodSub}>
+                Publié automatiquement chaque jour (lun–sam, minuit Paris). Utilise ce bouton si le déploiement automatique a échoué.
+              </Text>
+              <TouchableOpacity
+                style={[S.publishBtn, publishingWod && { opacity: 0.6 }]}
+                onPress={handlePublishOfficialWod}
+                disabled={publishingWod}
+                activeOpacity={0.85}
+              >
+                {publishingWod ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Flame color="#fff" size={16} />
+                    <Text style={S.publishBtnTxt}>Publier le WOD du jour</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
             {loadingDailies ? (
               <View style={S.emptyState}>
                 <ActivityIndicator size="large" color={theme.accent} />
@@ -593,6 +635,18 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: 48, gap: 12 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: theme.text },
   emptySub: { fontSize: 13, color: theme.textMuted },
+  officialWodCard: {
+    backgroundColor: theme.card, borderRadius: 16, padding: 16,
+    marginBottom: 16, borderWidth: 1.5, borderColor: theme.accent,
+  },
+  officialWodHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  officialWodTitle: { fontSize: 15, fontWeight: '800', color: theme.text },
+  officialWodSub: { fontSize: 12, color: theme.textMuted, marginBottom: 12, lineHeight: 17 },
+  publishBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: theme.accent, borderRadius: 12, paddingVertical: 12,
+  },
+  publishBtnTxt: { fontSize: 14, fontWeight: '800', color: '#fff' },
   scoreCard: {
     backgroundColor: theme.card, borderRadius: 16, padding: 16,
     marginBottom: 12, borderWidth: 1, borderColor: theme.cardBorder,

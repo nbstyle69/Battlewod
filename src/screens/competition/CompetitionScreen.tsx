@@ -35,6 +35,16 @@ interface MiniTournament {
   creator_name: string;
 }
 
+interface OfficialWod {
+  id: string;
+  wod_name: string;
+  wod_type: string;
+  level: string;
+  ends_at: string;
+  participant_count: number;
+  has_scored: boolean;
+}
+
 interface Tournament {
   id: string;
   name: string;
@@ -61,6 +71,7 @@ export default function CompetitionScreen() {
   const [myRegistered, setMyRegistered] = useState<Record<string, boolean>>({});
   const [miniTournaments, setMiniTournaments] = useState<MiniTournament[]>([]);
   const [miniLoading, setMiniLoading] = useState(false);
+  const [officialWod, setOfficialWod] = useState<OfficialWod | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -122,6 +133,7 @@ export default function CompetitionScreen() {
         participants:daily_tournament_participants(user_id),
         creator:profiles!creator_id(username)
       `)
+      .eq('is_official', false)
       .in('status', ['open', 'active'])
       .order('created_at', { ascending: false })
       .limit(20);
@@ -145,9 +157,38 @@ export default function CompetitionScreen() {
     setMiniLoading(false);
   }, [user]);
 
+  const loadOfficialWod = useCallback(async () => {
+    if (!user) return;
+    try {
+      const nowIso = new Date().toISOString();
+      const { data } = await supabase
+        .from('daily_tournaments')
+        .select(`
+          id, wod_name, wod_type, level, ends_at,
+          participants:daily_tournament_participants(user_id),
+          scores:daily_tournament_scores(user_id)
+        `)
+        .eq('is_official', true)
+        .gt('ends_at', nowIso)
+        .order('official_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) { setOfficialWod(null); return; }
+      setOfficialWod({
+        id: data.id,
+        wod_name: data.wod_name,
+        wod_type: data.wod_type,
+        level: data.level,
+        ends_at: data.ends_at,
+        participant_count: (data.participants ?? []).length,
+        has_scored: (data.scores ?? []).some((s: { user_id: string }) => s.user_id === user.id),
+      });
+    } catch (e) { captureError(e, { screen: 'Competition', action: 'loadOfficialWod' }); }
+  }, [user]);
+
   useEffect(() => { loadTournaments(); }, [loadTournaments, currentBox]);
 
-  useFocusEffect(useCallback(() => { loadMiniTournaments(); }, [loadMiniTournaments]));
+  useFocusEffect(useCallback(() => { loadMiniTournaments(); loadOfficialWod(); }, [loadMiniTournaments, loadOfficialWod]));
 
   async function handleJoinMini(tournamentId: string) {
     if (!user) return;
@@ -260,6 +301,37 @@ export default function CompetitionScreen() {
 
         {activeTab === 1 && (
           <>
+            {officialWod && (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={S.officialCard}
+                onPress={() => navigation.navigate('DailyTournamentDetail', { tournamentId: officialWod.id })}
+              >
+                <View style={S.officialBadgeRow}>
+                  <View style={S.officialBadge}>
+                    <Flame color="#fff" size={13} />
+                    <Text style={S.officialBadgeTxt}>{t('competition.wodOfDay')}</Text>
+                  </View>
+                  <Text style={S.officialTime}>{timeLeft(officialWod.ends_at)}</Text>
+                </View>
+                <Text style={S.officialName}>{officialWod.wod_name}</Text>
+                <Text style={S.officialSub}>{officialWod.wod_type} · {officialWod.level.toUpperCase()}</Text>
+                <View style={S.officialFooter}>
+                  <View style={S.officialParticipants}>
+                    <Users color={theme.textMuted} size={13} />
+                    <Text style={S.officialParticipantsTxt}>
+                      {t('competition.wodOfDayPlayers', { count: officialWod.participant_count })}
+                    </Text>
+                  </View>
+                  <View style={[S.officialCta, officialWod.has_scored && { backgroundColor: `${theme.accent}15` }]}>
+                    <Text style={[S.officialCtaTxt, officialWod.has_scored && { color: theme.accent }]}>
+                      {officialWod.has_scored ? t('competition.wodOfDayScored') : t('competition.wodOfDayPlay')}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+
             <View style={S.miniInfo}>
               <Zap color={theme.gold} size={16} />
               <Text style={S.miniInfoText}>{t('competition.miniInfo')}</Text>
@@ -487,6 +559,25 @@ function createStyles(theme: AppTheme) {
     padding: 12, marginBottom: 16, borderWidth: 1, borderColor: `${theme.gold}25`,
   },
   miniInfoText: { fontSize: 12, color: theme.gold, flex: 1 },
+  officialCard: {
+    backgroundColor: theme.card, borderRadius: 16, padding: 16,
+    marginBottom: 16, borderWidth: 1.5, borderColor: theme.accent,
+    ...cardShadow,
+  },
+  officialBadgeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  officialBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  officialBadgeTxt: { fontSize: 11, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
+  officialTime: { fontSize: 12, fontWeight: '800', color: theme.accent },
+  officialName: { fontSize: 18, fontWeight: '900', color: theme.text },
+  officialSub: { fontSize: 12, fontWeight: '600', color: theme.textMuted, marginTop: 2 },
+  officialFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  officialParticipants: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  officialParticipantsTxt: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
+  officialCta: { backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
+  officialCtaTxt: { fontSize: 12, fontWeight: '800', color: '#fff' },
   miniCard: {
     backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16, padding: 16,
     marginBottom: 10, borderWidth: 1, borderColor: theme.border,

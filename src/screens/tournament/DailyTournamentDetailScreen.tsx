@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import {
   ArrowLeft, Users, Clock, Zap, Trophy, Crown, Medal, Check, X, Play, Edit3,
-  Youtube, AlertTriangle, ThumbsUp, Link, Share2,
+  Youtube, AlertTriangle, ThumbsUp, Link, Share2, Flame,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -58,6 +58,7 @@ interface TournamentDetail {
   ends_at: string;
   created_at: string;
   gender_target?: string;
+  is_official?: boolean;
 }
 
 function formatScore(value: number, mode: string): string {
@@ -166,7 +167,7 @@ export default function DailyTournamentDetailScreen() {
 
     // ELO: compute lazily after tournament ends_at has passed, then load deltas
     const tournEnded = t?.ends_at ? new Date() >= new Date(t.ends_at) : false;
-    if (t?.status === 'completed' && tournEnded) {
+    if (t?.status === 'completed' && tournEnded && !t?.is_official) {
       const { data: eloHist } = await supabase
         .from('daily_tournament_elo_history')
         .select('user_id, elo_delta')
@@ -293,6 +294,14 @@ export default function DailyTournamentDetailScreen() {
       return;
     }
 
+    // Inscription implicite au WOD du Jour : soumettre un score = participer.
+    if (tournament?.is_official && !hasJoined) {
+      await supabase.from('daily_tournament_participants').upsert({
+        tournament_id: tournamentId,
+        user_id: user.id,
+      }, { onConflict: 'tournament_id,user_id', ignoreDuplicates: true });
+    }
+
     const { error } = await supabase.from('daily_tournament_scores').upsert({
       tournament_id: tournamentId,
       user_id: user.id,
@@ -394,7 +403,109 @@ export default function DailyTournamentDetailScreen() {
 
   const levelColor = LevelColors[tournament.level] ?? theme.textMuted;
   const isCompleted = tournament.status === 'completed';
-  const isFull = participants.length >= tournament.max_players;
+  const isOfficial = tournament.is_official === true;
+  const isFull = !isOfficial && participants.length >= tournament.max_players;
+
+  const scoreMode = tournament.score_mode ?? 'time';
+  const rankGroup = (rx: boolean) =>
+    participants
+      .filter(p => p.score_value !== null && p.rx === rx)
+      .sort((a, b) => scoreMode === 'time'
+        ? (a.score_value ?? 0) - (b.score_value ?? 0)
+        : (b.score_value ?? 0) - (a.score_value ?? 0));
+  const rxRanked = rankGroup(true);
+  const scaledRanked = rankGroup(false);
+
+  function renderPlayerRow(p: Participant, rank: number | null, isMe: boolean) {
+    const pLevelColor = LevelColors[p.level] ?? theme.textMuted;
+    const RankIcon = rank === 1 ? Crown : rank === 2 ? Medal : rank === 3 ? Medal : null;
+    const rankColor = rank === 1 ? theme.gold : rank === 2 ? theme.silver : rank === 3 ? theme.bronze : theme.textMuted;
+    const statusColor = p.status === 'validated' ? theme.success
+      : p.status === 'contested' ? theme.error : theme.warning;
+    const statusLabel = p.status === 'validated' ? 'Validé'
+      : p.status === 'contested' ? 'Contesté' : 'En attente';
+
+    return (
+      <View key={p.user_id} style={[S.playerCard, isMe && S.playerRowMe]}>
+        <View style={S.playerRow}>
+          <View style={S.rankCol}>
+            {RankIcon ? (
+              <RankIcon color={rankColor} size={18} />
+            ) : (
+              <Text style={S.rankNum}>{rank ?? '—'}</Text>
+            )}
+          </View>
+          <View style={S.playerInfo}>
+            <Text style={S.playerName}>{p.username} {isMe ? '(moi)' : ''}</Text>
+            <View style={S.playerMeta}>
+              <View style={[S.levelDot, { backgroundColor: pLevelColor }]} />
+              <Text style={[S.levelTxt, { color: pLevelColor }]}>{p.level.toUpperCase()}</Text>
+              <Text style={S.eloTxt}>{p.elo} ELO</Text>
+              {isCompleted && eloDeltas[p.user_id] != null && (
+                <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[p.user_id] > 0 ? '#22c55e' : eloDeltas[p.user_id] < 0 ? '#ef4444' : theme.textMuted }}>
+                  {eloDeltas[p.user_id] > 0 ? '+' : ''}{eloDeltas[p.user_id]}
+                </Text>
+              )}
+            </View>
+          </View>
+          {p.score_value !== null ? (
+            <View style={S.scoreCol}>
+              <Text style={S.scoreValue}>{formatScore(p.score_value, tournament!.score_mode)}</Text>
+              <Text style={S.scoreRx}>{p.rx ? 'RX' : 'SC'}</Text>
+            </View>
+          ) : (
+            <Text style={S.pendingTxt}>En attente…</Text>
+          )}
+        </View>
+
+        {/* Video + status + actions (only if scored) */}
+        {p.score_value !== null && (
+          <View style={S.playerActions}>
+            <View style={S.playerActionsTop}>
+              {p.video_url ? (
+                <TouchableOpacity style={S.videoBtn} onPress={async () => {
+                  try {
+                    const canOpen = await Linking.canOpenURL(p.video_url!);
+                    if (canOpen) {
+                      await Linking.openURL(p.video_url!);
+                    } else {
+                      Alert.alert('Lien invalide', `Impossible d'ouvrir ce lien vidéo.\n\n${p.video_url}`);
+                    }
+                  } catch (e: any) {
+                    Alert.alert('Erreur vidéo', e?.message ?? 'Erreur inconnue');
+                  }
+                }} activeOpacity={0.8}>
+                  <Youtube color="#FF0000" size={14} />
+                  <Text style={S.videoBtnTxt}>Vidéo</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={S.noVideoTag}>
+                  <Text style={S.noVideoTxt}>Pas de vidéo</Text>
+                </View>
+              )}
+              <View style={[S.statusTag, { backgroundColor: `${statusColor}15` }]}>
+                <Text style={[S.statusTxt, { color: statusColor }]}>{statusLabel}</Text>
+              </View>
+            </View>
+
+            {/* Validate / Contest (only for other participants, not self, and only if pending) */}
+            {!isMe && hasJoined && p.status === 'pending' && (
+              <View style={S.voteRow}>
+                <TouchableOpacity style={S.validateBtn} onPress={() => handleValidateScore(p.user_id)} activeOpacity={0.8}>
+                  <ThumbsUp color={theme.success} size={13} />
+                  <Text style={[S.voteTxt, { color: theme.success }]}>Valider</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={S.contestBtn} onPress={() => { setContestModal(p); setContestReason(''); }} activeOpacity={0.8}>
+                  <AlertTriangle color={theme.error} size={13} />
+                  <Text style={[S.voteTxt, { color: theme.error }]}>Contester</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={S.screen}>
@@ -416,6 +527,12 @@ export default function DailyTournamentDetailScreen() {
       >
         {/* Status + badges */}
         <View style={S.badges}>
+          {isOfficial && (
+            <View style={[S.badge, { backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+              <Flame color="#fff" size={10} />
+              <Text style={[S.badgeTxt, { color: '#fff' }]}>WOD DU JOUR</Text>
+            </View>
+          )}
           <View style={[S.badge, { backgroundColor: `${theme.accent}12` }]}>
             <Text style={[S.badgeTxt, { color: theme.accent }]}>{tournament.wod_type}</Text>
           </View>
@@ -442,11 +559,18 @@ export default function DailyTournamentDetailScreen() {
           )}
         </View>
 
-        {/* Reward */}
-        <View style={S.rewardCard}>
-          <Trophy color={theme.gold} size={18} />
-          <Text style={S.rewardTxt}>Récompense : +{tournament.elo_reward} ELO pour le 1er</Text>
-        </View>
+        {/* Reward / official banner */}
+        {isOfficial ? (
+          <View style={S.rewardCard}>
+            <Flame color={theme.accent} size={18} />
+            <Text style={S.rewardTxt}>WOD du Jour officiel · classement RX / Scaled · ouvert à toute la communauté</Text>
+          </View>
+        ) : (
+          <View style={S.rewardCard}>
+            <Trophy color={theme.gold} size={18} />
+            <Text style={S.rewardTxt}>Récompense : +{tournament.elo_reward} ELO pour le 1er</Text>
+          </View>
+        )}
 
         {/* WOD content */}
         <View style={S.wodCard}>
@@ -463,111 +587,57 @@ export default function DailyTournamentDetailScreen() {
         </View>
 
         {/* Leaderboard */}
-        <Text style={S.sectionTitle}>
-          Classement ({participants.length}/{tournament.max_players})
-        </Text>
-
-        {participants.length === 0 ? (
-          <Text style={S.noParticipants}>Aucun participant pour le moment.</Text>
+        {isOfficial ? (
+          <>
+            <Text style={S.sectionTitle}>Classement RX ({rxRanked.length})</Text>
+            {rxRanked.length === 0 ? (
+              <Text style={S.noParticipants}>Aucun score RX pour le moment.</Text>
+            ) : (
+              rxRanked.map((p, i) => renderPlayerRow(p, i + 1, p.user_id === user?.id))
+            )}
+            <Text style={[S.sectionTitle, { marginTop: 18 }]}>Classement Scaled ({scaledRanked.length})</Text>
+            {scaledRanked.length === 0 ? (
+              <Text style={S.noParticipants}>Aucun score Scaled pour le moment.</Text>
+            ) : (
+              scaledRanked.map((p, i) => renderPlayerRow(p, i + 1, p.user_id === user?.id))
+            )}
+          </>
         ) : (
-          participants.map((p, i) => {
-            const isMe = p.user_id === user?.id;
-            const pLevelColor = LevelColors[p.level] ?? theme.textMuted;
-            const rank = p.score_value !== null ? i + 1 : null;
-            const RankIcon = rank === 1 ? Crown : rank === 2 ? Medal : rank === 3 ? Medal : null;
-            const rankColor = rank === 1 ? theme.gold : rank === 2 ? theme.silver : rank === 3 ? theme.bronze : theme.textMuted;
-
-            const statusColor = p.status === 'validated' ? theme.success
-              : p.status === 'contested' ? theme.error : theme.warning;
-            const statusLabel = p.status === 'validated' ? 'Validé'
-              : p.status === 'contested' ? 'Contesté' : 'En attente';
-
-            return (
-              <View key={p.user_id} style={[S.playerCard, isMe && S.playerRowMe]}>
-                <View style={S.playerRow}>
-                  <View style={S.rankCol}>
-                    {RankIcon ? (
-                      <RankIcon color={rankColor} size={18} />
-                    ) : (
-                      <Text style={S.rankNum}>{rank ?? '—'}</Text>
-                    )}
-                  </View>
-                  <View style={S.playerInfo}>
-                    <Text style={S.playerName}>{p.username} {isMe ? '(moi)' : ''}</Text>
-                    <View style={S.playerMeta}>
-                      <View style={[S.levelDot, { backgroundColor: pLevelColor }]} />
-                      <Text style={[S.levelTxt, { color: pLevelColor }]}>{p.level.toUpperCase()}</Text>
-                      <Text style={S.eloTxt}>{p.elo} ELO</Text>
-                      {isCompleted && eloDeltas[p.user_id] != null && (
-                        <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[p.user_id] > 0 ? '#22c55e' : eloDeltas[p.user_id] < 0 ? '#ef4444' : theme.textMuted }}>
-                          {eloDeltas[p.user_id] > 0 ? '+' : ''}{eloDeltas[p.user_id]}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                  {p.score_value !== null ? (
-                    <View style={S.scoreCol}>
-                      <Text style={S.scoreValue}>{formatScore(p.score_value, tournament.score_mode)}</Text>
-                      <Text style={S.scoreRx}>{p.rx ? 'RX' : 'SC'}</Text>
-                    </View>
-                  ) : (
-                    <Text style={S.pendingTxt}>En attente…</Text>
-                  )}
-                </View>
-
-                {/* Video + status + actions (only if scored) */}
-                {p.score_value !== null && (
-                  <View style={S.playerActions}>
-                    <View style={S.playerActionsTop}>
-                      {p.video_url ? (
-                        <TouchableOpacity style={S.videoBtn} onPress={async () => {
-                          try {
-                            const canOpen = await Linking.canOpenURL(p.video_url!);
-                            if (canOpen) {
-                              await Linking.openURL(p.video_url!);
-                            } else {
-                              Alert.alert('Lien invalide', `Impossible d'ouvrir ce lien vidéo.\n\n${p.video_url}`);
-                            }
-                          } catch (e: any) {
-                            Alert.alert('Erreur vidéo', e?.message ?? 'Erreur inconnue');
-                          }
-                        }} activeOpacity={0.8}>
-                          <Youtube color="#FF0000" size={14} />
-                          <Text style={S.videoBtnTxt}>Vidéo</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View style={S.noVideoTag}>
-                          <Text style={S.noVideoTxt}>Pas de vidéo</Text>
-                        </View>
-                      )}
-                      <View style={[S.statusTag, { backgroundColor: `${statusColor}15` }]}>
-                        <Text style={[S.statusTxt, { color: statusColor }]}>{statusLabel}</Text>
-                      </View>
-                    </View>
-
-                    {/* Validate / Contest (only for other participants, not self, and only if pending) */}
-                    {!isMe && hasJoined && p.status === 'pending' && (
-                      <View style={S.voteRow}>
-                        <TouchableOpacity style={S.validateBtn} onPress={() => handleValidateScore(p.user_id)} activeOpacity={0.8}>
-                          <ThumbsUp color={theme.success} size={13} />
-                          <Text style={[S.voteTxt, { color: theme.success }]}>Valider</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={S.contestBtn} onPress={() => { setContestModal(p); setContestReason(''); }} activeOpacity={0.8}>
-                          <AlertTriangle color={theme.error} size={13} />
-                          <Text style={[S.voteTxt, { color: theme.error }]}>Contester</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          })
+          <>
+            <Text style={S.sectionTitle}>
+              Classement ({participants.length}/{tournament.max_players})
+            </Text>
+            {participants.length === 0 ? (
+              <Text style={S.noParticipants}>Aucun participant pour le moment.</Text>
+            ) : (
+              participants.map((p, i) => renderPlayerRow(p, p.score_value !== null ? i + 1 : null, p.user_id === user?.id))
+            )}
+          </>
         )}
 
         {/* Action buttons */}
         {!isCompleted && (
           <View style={S.actions}>
+            {isOfficial ? (
+              !hasScored ? (
+                <>
+                  <TouchableOpacity style={S.actionBtn} onPress={handleLaunchWOD} activeOpacity={0.85}>
+                    <Play color="#fff" size={16} />
+                    <Text style={S.actionBtnTxt}>Lancer le WOD</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={S.secondaryBtn} onPress={() => setScoreModal(true)} activeOpacity={0.85}>
+                    <Edit3 color={theme.accent} size={16} />
+                    <Text style={S.secondaryBtnTxt}>Entrer mon score manuellement</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={S.doneBadge}>
+                  <Check color={theme.accent} size={16} />
+                  <Text style={S.doneTxt}>Score soumis ✓</Text>
+                </View>
+              )
+            ) : (
+            <>
             {!hasJoined && !isFull && (
               <TouchableOpacity style={S.actionBtn} onPress={handleJoin} disabled={joining} activeOpacity={0.85}>
                 {joining ? <ActivityIndicator color="#fff" size="small" /> : (
@@ -596,10 +666,12 @@ export default function DailyTournamentDetailScreen() {
                 <Text style={S.doneTxt}>Score soumis ✓</Text>
               </View>
             )}
+            </>
+            )}
           </View>
         )}
 
-        {isCompleted && participants.length > 0 && participants[0].score_value !== null && (
+        {!isOfficial && isCompleted && participants.length > 0 && participants[0].score_value !== null && (
           <View style={S.winnerCard}>
             <Crown color={theme.gold} size={22} />
             <Text style={S.winnerTxt}>🏆 {participants[0].username} remporte +{tournament.elo_reward} ELO !</Text>

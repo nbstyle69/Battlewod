@@ -82,6 +82,7 @@ export default function DailyTournamentsScreen() {
         scores:daily_tournament_scores(user_id),
         creator:profiles!creator_id(username)
       `)
+      .eq('is_official', false)
       .in('status', ['open', 'active'])
       .order('created_at', { ascending: false })
       .limit(30);
