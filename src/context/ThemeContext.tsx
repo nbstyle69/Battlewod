@@ -123,7 +123,7 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({
+export const ThemeContext = createContext<ThemeContextType>({
   theme: lightTheme,
   mode: 'light',
   toggleTheme: () => {},
