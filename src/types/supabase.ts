@@ -1281,15 +1281,17 @@ export type Database = {
       daily_tournaments: {
         Row: {
           created_at: string | null
-          creator_id: string
+          creator_id: string | null
           duration: number
           elo_reward: number
           ends_at: string
           gender_target: string | null
           id: string
+          is_official: boolean
           level: string
           max_players: number
           movements: string
+          official_date: string | null
           score_mode: string
           scoring: string | null
           starts_at: string
@@ -1299,15 +1301,17 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          creator_id: string
+          creator_id?: string | null
           duration?: number
           elo_reward?: number
           ends_at?: string
           gender_target?: string | null
           id?: string
+          is_official?: boolean
           level?: string
           max_players?: number
           movements: string
+          official_date?: string | null
           score_mode?: string
           scoring?: string | null
           starts_at?: string
@@ -1317,15 +1321,17 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          creator_id?: string
+          creator_id?: string | null
           duration?: number
           elo_reward?: number
           ends_at?: string
           gender_target?: string | null
           id?: string
+          is_official?: boolean
           level?: string
           max_players?: number
           movements?: string
+          official_date?: string | null
           score_mode?: string
           scoring?: string | null
           starts_at?: string
@@ -5160,6 +5166,10 @@ export type Database = {
           elo_change: number
           final_rank: number
         }[]
+      }
+      ensure_daily_official_wod: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       compute_inter_league_round: {
         Args: { p_competition_id: string; p_round_number: number }
