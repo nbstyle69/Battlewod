@@ -18,6 +18,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import { LevelColors } from '../../theme/designTokens';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
@@ -43,6 +44,7 @@ interface RecentScore {
 }
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const { user, currentBox, myBoxes, switchBox } = useAuth();
   const [boxPickerVisible, setBoxPickerVisible] = useState(false);
   const { theme } = useTheme();
@@ -53,10 +55,10 @@ export default function HomeScreen() {
   const isDark = theme.mode === 'dark';
 
   const TOOLS = [
-    { icon: BarChart2, label: 'Classement',      desc: 'Individuel · Équipes · Box',   screen: 'Leaderboard'     },
-    { icon: Timer,     label: 'Minuteur vidéo',  desc: 'For Time · AMRAP · EMOM…',     screen: 'Timer'           },
-    { icon: Sparkles,  label: 'Générateur WOD',  desc: 'For Time · AMRAP · Tabata',    screen: 'WODGenerator'    },
-    { icon: Target,    label: 'Calculateur 1RM', desc: '50% → 130% · Zones',           screen: 'OneRMCalculator' },
+    { icon: BarChart2, label: t('home.tools.leaderboard'),   desc: t('home.tools.leaderboardDesc'), screen: 'Leaderboard'     },
+    { icon: Timer,     label: t('home.tools.timer'),         desc: 'For Time · AMRAP · EMOM…',      screen: 'Timer'           },
+    { icon: Sparkles,  label: t('home.tools.wodGenerator'),  desc: 'For Time · AMRAP · Tabata',     screen: 'WODGenerator'    },
+    { icon: Target,    label: t('home.tools.oneRM'),         desc: t('home.tools.oneRMDesc'),       screen: 'OneRMCalculator' },
   ];
 
   const [competitions,   setCompetitions]   = useState<CompetitionSummary[]>([]);
@@ -427,12 +429,12 @@ export default function HomeScreen() {
             <View style={S.heroTop}>
               <TouchableOpacity onPress={() => navigation.navigate('EloHistory' as never)} activeOpacity={0.7} style={{ alignItems: 'center', flex: 1.2 }}>
                 <Text style={S.heroEloNum}>{user?.elo ?? 1000}</Text>
-                <Text style={S.heroEloLabel}>ELO ›</Text>
+                <Text style={S.heroEloLabel}>{t('home.elo')} ›</Text>
               </TouchableOpacity>
               <View style={S.heroDivider} />
               <View style={S.heroStat}>
                 <Text style={S.heroStatNum}>{rank !== null ? `#${rank}` : '—'}</Text>
-                <Text style={S.heroStatLabel}>Rang</Text>
+                <Text style={S.heroStatLabel}>{t('home.rank')}</Text>
               </View>
               <View style={S.heroDivider} />
               <View style={S.heroStat}>
@@ -445,7 +447,7 @@ export default function HomeScreen() {
               <View style={S.heroDivider} />
               <View style={S.heroStat}>
                 <Text style={S.heroStatNum}>{user?.wins ?? 0}</Text>
-                <Text style={S.heroStatLabel}>Victoires</Text>
+                <Text style={S.heroStatLabel}>{t('home.wins')}</Text>
               </View>
             </View>
 
@@ -472,13 +474,13 @@ export default function HomeScreen() {
                 )}
               </View>
             }
-            label="Amis"
+            label={t('home.friends')}
           />
           <GlassButton
             style={{ flex: 1 }}
             onPress={() => navigation.navigate('Profile')}
             icon={<User size={17} color={isDark ? '#f9fafb' : '#111827'} />}
-            label="Profil"
+            label={t('tabs.profile')}
           />
         </View>
 
@@ -487,9 +489,9 @@ export default function HomeScreen() {
           <GlassCard style={{ marginTop: 16 }}>
             <View style={S.sectionInner}>
               <View style={S.sectionHeader}>
-                <Text style={S.sectionTitle}>Cette semaine</Text>
+                <Text style={S.sectionTitle}>{t('home.thisWeek')}</Text>
                 <TouchableOpacity onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.7}>
-                  <Text style={S.linkText}>Historique</Text>
+                  <Text style={S.linkText}>{t('home.history')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -519,11 +521,11 @@ export default function HomeScreen() {
                 <View style={S.legendRow}>
                   <View style={S.legendItem}>
                     <View style={[S.legendDot, { backgroundColor: isDark ? '#f9fafb' : '#111827' }]} />
-                    <Text style={S.legendText}>WODs</Text>
+                    <Text style={S.legendText}>{t('home.wods')}</Text>
                   </View>
                   <View style={S.legendItem}>
                     <View style={[S.legendDot, { backgroundColor: theme.accent }]} />
-                    <Text style={S.legendText}>Réservations</Text>
+                    <Text style={S.legendText}>{t('home.reservations')}</Text>
                   </View>
                 </View>
               )}
@@ -544,7 +546,7 @@ export default function HomeScreen() {
 
               {bestScores.length > 0 && (
                 <View style={S.prBlock}>
-                  <Text style={S.prBlockTitle}>Records personnels</Text>
+                  <Text style={S.prBlockTitle}>{t('home.personalRecords')}</Text>
                   {bestScores.map((pr, i) => (
                     <View key={i} style={S.prLine}>
                       <Text style={S.prLineIcon}>{pr.type}</Text>
@@ -559,7 +561,7 @@ export default function HomeScreen() {
         )}
 
         {/* ── Outils ──────────────────────────────────────────────────── */}
-        <Text style={S.sectionTitleOutside}>Outils</Text>
+        <Text style={S.sectionTitleOutside}>{t('home.tools.title')}</Text>
         <View style={{ gap: 10 }}>
           {TOOLS.map(t => (
             <TouchableOpacity key={t.label} onPress={() => navigation.navigate(t.screen as any)} activeOpacity={0.85}>
@@ -585,7 +587,7 @@ export default function HomeScreen() {
               <GlassCard radius={24}>
                 <View style={S.boxPickerSheet}>
                   <View style={S.boxPickerHandle} />
-                  <Text style={S.boxPickerTitle}>Mes boxes</Text>
+                  <Text style={S.boxPickerTitle}>{t('home.myBoxes')}</Text>
                   {myBoxes.map(entry => {
                     const isActive = entry.box.id === currentBox?.id;
                     return (
@@ -647,7 +649,7 @@ export default function HomeScreen() {
         {physComps.length > 0 && (
           <>
             <View style={[S.sectionHeader, { marginTop: 28, marginBottom: 12 }]}>
-              <Text style={S.sectionTitleOutside}>Compétitions</Text>
+              <Text style={S.sectionTitleOutside}>{t('home.competitions')}</Text>
               <TouchableOpacity
                 onPress={() => {
                   const nav = navigation.getParent?.();
@@ -655,7 +657,7 @@ export default function HomeScreen() {
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={S.linkText}>Voir la liste ›</Text>
+                <Text style={S.linkText}>{t('home.seeList')} ›</Text>
               </TouchableOpacity>
             </View>
             <AutoScrollCarousel
@@ -691,9 +693,9 @@ export default function HomeScreen() {
         {competitions.length > 0 && (
           <>
             <View style={[S.sectionHeader, { marginTop: 28, marginBottom: 12 }]}>
-              <Text style={S.sectionTitleOutside}>Tournois</Text>
+              <Text style={S.sectionTitleOutside}>{t('home.tournaments')}</Text>
               <TouchableOpacity activeOpacity={0.7}>
-                <Text style={S.linkText}>Voir tout ›</Text>
+                <Text style={S.linkText}>{t('home.seeAll')} ›</Text>
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
@@ -721,11 +723,11 @@ export default function HomeScreen() {
         )}
 
         {/* ── Résultats récents ─────────────────────────────────────── */}
-        <Text style={S.sectionTitleOutside}>Résultats récents</Text>
+        <Text style={S.sectionTitleOutside}>{t('home.recentResults')}</Text>
         {recentScores.length === 0 ? (
           <GlassCard radius={16}>
             <View style={{ padding: 16 }}>
-              <Text style={S.emptyText}>Aucun score soumis pour l'instant.</Text>
+              <Text style={S.emptyText}>{t('home.noScores')}</Text>
             </View>
           </GlassCard>
         ) : (

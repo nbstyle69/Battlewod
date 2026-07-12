@@ -8,6 +8,7 @@ import { Eye, EyeOff } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import { AuthStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
@@ -15,6 +16,7 @@ import { spacing, borderRadius, typography, shadows } from '../../theme/designTo
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
 export default function LoginScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const { signIn } = useAuth();
   const { theme, mode } = useTheme();
   const S = createStyles(theme);
@@ -24,11 +26,11 @@ export default function LoginScreen({ navigation }: Props) {
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin() {
-    if (!email || !password) { Alert.alert('Erreur', 'Remplis tous les champs'); return; }
+    if (!email || !password) { Alert.alert(t('common.error'), t('auth.fillAllFields')); return; }
     setLoading(true);
     const { error } = await signIn(email.trim(), password);
     setLoading(false);
-    if (error) Alert.alert('Connexion impossible', error);
+    if (error) Alert.alert(t('auth.loginFailed'), error);
   }
 
   return (
@@ -42,14 +44,14 @@ export default function LoginScreen({ navigation }: Props) {
               style={S.logo}
             />
             <Text style={S.appName}>AthleX</Text>
-            <Text style={S.tagline}>Compétition • Partout • Maintenant</Text>
+            <Text style={S.tagline}>{t('auth.tagline')}</Text>
           </View>
 
           <View style={S.form}>
-            <Text style={S.title}>Connexion</Text>
+            <Text style={S.title}>{t('auth.loginTitle')}</Text>
 
             <View style={S.inputContainer}>
-              <Text style={S.label}>Email</Text>
+              <Text style={S.label}>{t('auth.email')}</Text>
               <TextInput
                 style={S.input}
                 placeholder="ton@email.com"
@@ -65,7 +67,7 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
 
             <View style={S.inputContainer}>
-              <Text style={S.label}>Mot de passe</Text>
+              <Text style={S.label}>{t('auth.password')}</Text>
               <View style={{ position: 'relative' }}>
                 <TextInput
                   style={[S.input, { paddingRight: 48 }]}
@@ -93,19 +95,19 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
 
             <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={S.forgotLink} accessibilityLabel="Mot de passe oublié">
-              <Text style={S.forgotText}>Mot de passe oublié ?</Text>
+              <Text style={S.forgotText}>{t('auth.forgotPassword')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8} accessibilityLabel="Se connecter" accessibilityRole="button"
               style={[S.button, { backgroundColor: theme.ctaBg, borderWidth: 2, borderColor: theme.ctaBorder }]}>
               {loading
                 ? <ActivityIndicator color="#fff" />
-                : <Text style={S.buttonText}>SE CONNECTER</Text>}
+                : <Text style={S.buttonText}>{t('auth.login').toUpperCase()}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.navigate('Register')} style={S.registerLink} accessibilityLabel="Créer un compte" accessibilityRole="button">
               <Text style={S.registerText}>
-                Pas encore de compte ? <Text style={S.registerHighlight}>Créer un compte</Text>
+                {t('auth.noAccount')} <Text style={S.registerHighlight}>{t('auth.registerTitle')}</Text>
               </Text>
             </TouchableOpacity>
           </View>
