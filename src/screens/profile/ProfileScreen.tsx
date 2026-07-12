@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
@@ -27,11 +27,12 @@ import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
-const TABS = ['Stats', 'PR', 'Badges', 'Compte'];
+const TAB_KEYS = ['stats', 'pr', 'badges', 'account'] as const;
 
 const PR_CATEGORIES = [
   {
     label: 'Haltérophilie',
+    titleKey: 'weightlifting',
     icon: '🏋️',
     items: [
       { movement: 'Back Squat', value: '', unit: 'kg', date: '' },
@@ -57,6 +58,7 @@ const PR_CATEGORIES = [
   },
   {
     label: 'Gymnastics',
+    titleKey: 'gymnastics',
     icon: '🤸',
     items: [
       { movement: 'Toes To Bar', value: '', unit: 'reps', date: '' },
@@ -74,6 +76,7 @@ const PR_CATEGORIES = [
   },
   {
     label: 'Benchmarks CrossFit',
+    titleKey: 'benchmarks',
     icon: '🏆',
     items: [
       { movement: 'Fran', value: '', unit: 'min', date: '' },
@@ -87,6 +90,7 @@ const PR_CATEGORIES = [
   },
   {
     label: 'Cardio & Endurance',
+    titleKey: 'cardio',
     icon: '🏃',
     items: [
       { movement: '500m Row', value: '', unit: 'min', date: '' },
@@ -115,7 +119,7 @@ export default function ProfileScreen() {
   const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser, myBoxes, switchBox } = useAuth();
   const { theme, mode, toggleTheme } = useTheme();
   const navigation = useNavigation<Nav>();
-  const S = createStyles(theme);
+  const S = useMemo(() => createStyles(theme), [theme]);
   const [activeTab, setActiveTab]   = useState(0);
   const [expandedPR, setExpandedPR] = useState<string | null>('Haltérophilie');
 
@@ -180,23 +184,23 @@ export default function ProfileScreen() {
         .eq('invite_code', progCode.trim().toUpperCase())
         .eq('is_active', true)
         .single();
-      if (!prog) { Alert.alert('Erreur', 'Code programme invalide.'); setJoiningProg(false); return; }
+      if (!prog) { Alert.alert(t('common.error'), t('profile.alerts.invalidProgramCode')); setJoiningProg(false); return; }
       // Programmes payants : l'achat se fait hors de l'app.
       // iOS reste neutre (règles App Store) ; Android peut ouvrir la page box.
       if (prog.price_cents > 0) {
         if (Platform.OS === 'ios') {
           Alert.alert(
-            'Programme',
-            'Une fois ton inscription confirmée, ce programme apparaît automatiquement ici, dans « Mes programmes ».',
-            [{ text: 'OK', style: 'cancel' }],
+            t('profile.alerts.programTitle'),
+            t('profile.alerts.programIosMsg'),
+            [{ text: t('common.ok'), style: 'cancel' }],
           );
         } else {
           Alert.alert(
-            'Programme',
-            'Ce programme se rejoint depuis la page de la box. Une fois confirmé, il apparaît automatiquement ici.',
+            t('profile.alerts.programTitle'),
+            t('profile.alerts.programAndroidMsg'),
             [
-              { text: 'Fermer', style: 'cancel' },
-              { text: 'Ouvrir la page box', onPress: () => Linking.openURL(WEB_URL) },
+              { text: t('common.close'), style: 'cancel' },
+              { text: t('profile.alerts.openBoxPage'), onPress: () => Linking.openURL(WEB_URL) },
             ],
           );
         }
@@ -210,7 +214,7 @@ export default function ProfileScreen() {
         .eq('program_id', prog.id)
         .eq('user_id', user.id)
         .maybeSingle();
-      if (existing) { Alert.alert('Déjà inscrit', 'Tu fais déjà partie de ce programme.'); setJoiningProg(false); return; }
+      if (existing) { Alert.alert(t('profile.alerts.alreadyMemberTitle'), t('profile.alerts.alreadyMemberMsg')); setJoiningProg(false); return; }
       // For now: free join (Stripe integration later)
       const today = new Date().toISOString().split('T')[0];
       const { error } = await supabase.from('program_members').insert({
@@ -221,7 +225,7 @@ export default function ProfileScreen() {
         platform_fee_cents: Math.round(prog.price_cents * 0.04),
       });
       if (error) throw error;
-      Alert.alert('Bienvenue !', `Tu as rejoint le programme « ${prog.title} ».`);
+      Alert.alert(t('profile.alerts.welcomeTitle'), t('profile.alerts.joinedProgram', { title: prog.title }));
       setProgModal(false); setProgCode('');
       // Refresh programs
       const { data: refreshed } = await supabase
@@ -231,7 +235,7 @@ export default function ProfileScreen() {
         .eq('status', 'active');
       setMyPrograms((refreshed ?? []).map((r: any) => ({ ...r.programs, start_date: r.start_date, status: r.status })).filter(Boolean));
     } catch (e: any) {
-      Alert.alert('Erreur', e.message);
+      Alert.alert(t('common.error'), e.message);
     }
     setJoiningProg(false);
   }
@@ -286,19 +290,6 @@ export default function ProfileScreen() {
     loadReferralCode();
   }, [user?.id]);
 
-  async function loadPRs() {
-    if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('personal_records')
-      .eq('id', user.id)
-      .single();
-    if (data?.personal_records && typeof data.personal_records === 'object') {
-      const prs = data.personal_records as Record<string, string>;
-      setPrValues(prev => ({ ...prev, ...prs }));
-    }
-  }
-
   async function savePRs(updated: Record<string, string>) {
     if (!user) return;
     await supabase.from('profiles').update({ personal_records: { ...updated, _featured_badges: featuredBadges } }).eq('id', user.id);
@@ -317,30 +308,6 @@ export default function ProfileScreen() {
     await supabase.from('profiles').update({ personal_records: { ...prValues, _featured_badges: next } }).eq('id', user.id);
   }
 
-  async function loadWodCount() {
-    if (!user) return;
-    const { count } = await supabase
-      .from('wod_scores')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id);
-    setWodCount(count ?? 0);
-  }
-
-  async function loadFriends() {
-    if (!user) return;
-    const { data } = await supabase
-      .from('friendships')
-      .select('requester_id, addressee_id, requester:profiles!requester_id(id, username, level, avatar_url), addressee:profiles!addressee_id(id, username, level, avatar_url)')
-      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-      .eq('status', 'accepted');
-    if (!data) return;
-    const list = data.map((f: any) => {
-      const other = f.requester_id === user.id ? f.addressee : f.requester;
-      return other;
-    }).filter(Boolean);
-    setFriends(list);
-  }
-
   async function loadReferralCode() {
     if (!user) return;
     const { data } = await supabase
@@ -356,7 +323,7 @@ export default function ProfileScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       setPickingPhoto(false);
-      Alert.alert('Permission refusée', 'Autorise l\'accès à ta galerie dans les réglages.');
+      Alert.alert(t('profile.alerts.permissionDenied'), t('profile.alerts.galleryPermission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -374,7 +341,7 @@ export default function ProfileScreen() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       setPickingPhoto(false);
-      Alert.alert('Permission refusée', 'Autorise l\'accès à la caméra dans les réglages.');
+      Alert.alert(t('profile.alerts.permissionDenied'), t('profile.alerts.cameraPermission'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -387,12 +354,12 @@ export default function ProfileScreen() {
   }
 
   async function handleCopyReferral() {
-    await Share.share({ message: referralCode, title: 'Code de parrainage AthleX' });
+    await Share.share({ message: referralCode, title: t('profile.referral.shareTitle') });
   }
 
   async function handleShareReferral() {
     await Share.share({
-      message: `Rejoins-moi sur AthleX ! Utilise mon code de parrainage : ${referralCode} 🏋️`,
+      message: t('profile.referral.shareMessage', { code: referralCode }),
     });
   }
 
@@ -401,17 +368,17 @@ export default function ProfileScreen() {
     setJoining(true);
     const { error } = await joinBox(joinCode.trim());
     setJoining(false);
-    if (error) { Alert.alert('Erreur', error); return; }
+    if (error) { Alert.alert(t('common.error'), error); return; }
     setJoinModal(false);
     setJoinCode('');
   }
 
   async function handleLeaveBox() {
-    Alert.alert('Quitter la box ?', `Tu vas quitter « ${currentBox?.name} ». Tu devras utiliser un code d'invitation pour la rejoindre à nouveau.`, [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Quitter', style: 'destructive', onPress: async () => {
+    Alert.alert(t('profile.account.leaveBoxTitle'), t('profile.alerts.leaveCurrentBoxMsg', { name: currentBox?.name ?? '' }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('profile.account.leave'), style: 'destructive', onPress: async () => {
         const { error } = await leaveBox();
-        if (error) Alert.alert('Erreur', error);
+        if (error) Alert.alert(t('common.error'), error);
       }},
     ]);
   }
@@ -458,13 +425,13 @@ export default function ProfileScreen() {
         const uploaded = await uploadAvatarIfLocal(finalAvatarUrl);
         if (!uploaded) {
           setSaving(false);
-          Alert.alert('Erreur', 'Impossible d\'uploader la photo de profil.');
+          Alert.alert(t('common.error'), t('profile.alerts.avatarUploadFailed'));
           return;
         }
         finalAvatarUrl = uploaded;
       }
       if (finalAvatarUrl) updates.avatar_url = finalAvatarUrl;
-      if (editBio.trim() !== undefined) updates.bio = editBio.trim();
+      updates.bio = editBio.trim();
 
       // Handle email change via Supabase Auth
       const newEmail = editEmail.trim().toLowerCase();
@@ -473,26 +440,26 @@ export default function ProfileScreen() {
         const { error: authErr } = await supabase.auth.updateUser({ email: newEmail });
         if (authErr) {
           setSaving(false);
-          Alert.alert('Erreur email', authErr.message);
+          Alert.alert(t('profile.alerts.emailError'), authErr.message);
           return;
         }
       }
 
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
       setSaving(false);
-      if (error) { Alert.alert('Erreur', error.message); return; }
+      if (error) { Alert.alert(t('common.error'), error.message); return; }
       updateUser({ full_name: fullName, avatar_url: avatarUrl.trim() || user.avatar_url, username: editUsername.trim() });
       setEditing(false);
 
       if (emailChanged) {
         Alert.alert(
-          'Confirmation requise',
-          'Un email de confirmation a été envoyé à ta nouvelle adresse. Clique sur le lien dans l\'email pour valider le changement.',
+          t('profile.alerts.confirmationRequired'),
+          t('profile.alerts.emailConfirmationSent'),
         );
       }
     } catch (e: any) {
       setSaving(false);
-      Alert.alert('Erreur', e.message ?? 'Une erreur est survenue');
+      Alert.alert(t('common.error'), e.message ?? t('profile.alerts.genericError'));
     }
   }
 
@@ -515,9 +482,9 @@ export default function ProfileScreen() {
     : 100;
 
   async function handleSignOut() {
-    Alert.alert('Déconnexion', 'Tu veux vraiment te déconnecter ?', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Déconnexion', style: 'destructive', onPress: signOut },
+    Alert.alert(t('profile.alerts.signOutTitle'), t('profile.alerts.signOutMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('profile.alerts.signOutTitle'), style: 'destructive', onPress: signOut },
     ]);
   }
 
@@ -525,27 +492,27 @@ export default function ProfileScreen() {
 
   function handleDeleteAccount() {
     Alert.alert(
-      '⚠️ Supprimer ton compte ?',
-      'Toutes tes données seront définitivement supprimées : scores, PR, messages, historique ELO, badges…\n\nCette action est irréversible.',
+      `⚠️ ${t('profile.alerts.deleteTitle')}`,
+      t('profile.alerts.deleteMsg'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Supprimer définitivement',
+          text: t('profile.alerts.deleteConfirm'),
           style: 'destructive',
           onPress: () => {
             Alert.alert(
-              'Dernière confirmation',
-              'Es-tu vraiment sûr ? Il n\'y a aucun moyen de récupérer ton compte.',
+              t('profile.alerts.deleteLastTitle'),
+              t('profile.alerts.deleteLastMsg'),
               [
-                { text: 'Non, annuler', style: 'cancel' },
+                { text: t('profile.alerts.deleteNo'), style: 'cancel' },
                 {
-                  text: 'Oui, supprimer',
+                  text: t('profile.alerts.deleteYes'),
                   style: 'destructive',
                   onPress: async () => {
                     setDeleting(true);
                     const { error } = await deleteAccount();
                     setDeleting(false);
-                    if (error) Alert.alert('Erreur', error);
+                    if (error) Alert.alert(t('common.error'), error);
                   },
                 },
               ],
@@ -558,37 +525,16 @@ export default function ProfileScreen() {
 
   const levelColor = LevelColors[user?.level ?? 'scaled'];
 
-  const roleLabel = user?.role === 'box_owner'  ? 'Gérant de box'
-                  : user?.role === 'admin'       ? 'Administrateur'
-                  : user?.role === 'super_admin' ? 'Super Admin'
-                  : 'Athlète';
-
-  // Couleurs de rôle depuis le thème
-const roleColors: Record<string, string> = {
-  box_owner: '#C9A227',
-  admin: '#8B5CF6',
-  super_admin: theme.error,
-  athlete: theme.accent,
-};
-const roleColor = roleColors[user?.role ?? 'athlete'];
+  const roleLabel = user?.role === 'box_owner'  ? t('profile.roles.boxOwner')
+                  : user?.role === 'admin'       ? t('profile.roles.admin')
+                  : user?.role === 'super_admin' ? t('profile.roles.superAdmin')
+                  : t('profile.roles.athlete');
 
   async function handleShareBoxCode() {
     if (!currentBox?.invite_code) return;
     await Share.share({
-      message: `Rejoins ma box « ${currentBox.name} » sur AthleX !\nCode d'invitation : ${currentBox.invite_code} 🏋️`,
+      message: t('profile.referral.shareBox', { name: currentBox.name, code: currentBox.invite_code }),
     });
-  }
-
-  async function loadBadges() {
-    if (!user) return;
-    const [catalog, earned, streakData] = await Promise.all([
-      getBadgesCatalog(),
-      getEarnedBadges(user.id),
-      getStreak(user.id, currentBox?.id),
-    ]);
-    setBadgesCatalog(catalog);
-    setEarnedBadges(earned);
-    setStreak(streakData);
   }
 
   const earnedKeys = new Set(earnedBadges.map(b => b.badge_key));
@@ -602,7 +548,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
     const extras  = allCats.filter(c => !CATEGORY_ORDER.includes(c));
     return [...ordered, ...extras].map(cat => ({
       key: cat,
-      label: BADGE_CATEGORY_MAP[cat] ?? cat,
+      label: t(`profile.badges.categories.${cat}`, { defaultValue: BADGE_CATEGORY_MAP[cat] ?? cat }),
       badges: badgesCatalog.filter(b => b.category === cat),
     }));
   })();
@@ -645,9 +591,9 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
             <Text style={S.statPillLabel}>ELO ›</Text>
           </TouchableOpacity>
           {[
-            { label: 'Victoires', value: user?.wins ?? 0 },
-            { label: 'Matchs', value: user?.total_matches ?? 0 },
-            { label: 'Win Rate', value: `${winRate}%` },
+            { label: t('profile.stats.wins'), value: user?.wins ?? 0 },
+            { label: t('profile.stats.matches'), value: user?.total_matches ?? 0 },
+            { label: t('profile.stats.winRate'), value: `${winRate}%` },
           ].map((s, i) => (
             <View key={s.label} style={[S.statPill, i < 2 && S.statPillBorder]}>
               <Text style={S.statPillValue}>{s.value}</Text>
@@ -659,7 +605,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
         <View style={S.progressSection}>
           <View style={S.progressHeader}>
             <Text style={S.progressLabel}>
-              {nextStep ? `Vers ${nextStep.label}` : '🏆 Niveau maximum atteint'}
+              {nextStep ? t('profile.elo.toward', { level: nextStep.label }) : `🏆 ${t('profile.elo.maxLevel')}`}
             </Text>
             <Text style={S.progressPct}>{eloProgress}%</Text>
           </View>
@@ -668,17 +614,18 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
           </View>
           <Text style={S.progressNote}>
             {nextStep
-              ? `${currentElo} / ${nextStep.min} ELO · Niveau actuel : ${currentStep.label}`
+              ? `${currentElo} / ${nextStep.min} ELO · ${t('profile.elo.currentLevel', { level: currentStep.label })}`
               : `${currentElo} ELO · Pro Legend`}
           </Text>
         </View>
       </View>
 
       <View style={S.tabs}>
-        {TABS.map((tab, i) => (
+        {TAB_KEYS.map((tab, i) => (
           <TouchableOpacity key={tab} onPress={() => setActiveTab(i)}
-            style={[S.tab, activeTab === i && S.tabActive]}>
-            <Text style={[S.tabText, activeTab === i && S.tabTextActive]}>{tab}</Text>
+            style={[S.tab, activeTab === i && S.tabActive]}
+            accessibilityRole="tab" accessibilityState={{ selected: activeTab === i }}>
+            <Text style={[S.tabText, activeTab === i && S.tabTextActive]}>{t(`profile.tabs.${tab}`)}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -688,13 +635,13 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
           <>
             <View style={S.gridRow}>
               {[
-                { label: 'Total matchs', value: user?.total_matches ?? 0, icon: Zap },
-                { label: 'Victoires', value: user?.wins ?? 0, icon: Trophy },
-                { label: 'Défaites', value: (user?.total_matches ?? 0) - (user?.wins ?? 0), icon: TrendingUp },
-                { label: 'Win Rate', value: `${winRate}%`, icon: Star },
-                { label: 'Série actuelle', value: 5, icon: Flame },
-                { label: 'Badges obtenus', value: `${earnedCount}/${totalBadges}`, icon: Award },
-                ...(currentBox ? [{ label: 'WODs effectués', value: wodCount, icon: Zap }] : []),
+                { label: t('profile.stats.totalMatches'), value: user?.total_matches ?? 0, icon: Zap },
+                { label: t('profile.stats.wins'), value: user?.wins ?? 0, icon: Trophy },
+                { label: t('profile.stats.losses'), value: (user?.total_matches ?? 0) - (user?.wins ?? 0), icon: TrendingUp },
+                { label: t('profile.stats.winRate'), value: `${winRate}%`, icon: Star },
+                { label: t('profile.stats.currentStreak'), value: streak.current_streak, icon: Flame },
+                { label: t('profile.stats.badgesEarned'), value: `${earnedCount}/${totalBadges}`, icon: Award },
+                ...(currentBox ? [{ label: t('profile.stats.wodsDone'), value: wodCount, icon: Zap }] : []),
               ].map((s) => (
                 <View key={s.label} style={S.gridCard}>
                   <s.icon color={theme.text} size={18} />
@@ -718,8 +665,8 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                     activeOpacity={0.7}
                   >
                     <Text style={S.prCategoryIcon}>{cat.icon}</Text>
-                    <Text style={S.prCategoryLabel}>{cat.label}</Text>
-                    <Text style={S.prCategoryCount}>{cat.items.length} records</Text>
+                    <Text style={S.prCategoryLabel}>{t(`profile.pr.categories.${cat.titleKey}`)}</Text>
+                    <Text style={S.prCategoryCount}>{t('profile.pr.recordsCount', { count: cat.items.length })}</Text>
                     <ChevronRight
                       color={theme.textMuted} size={16}
                       style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
@@ -783,19 +730,19 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
             <View style={S.badgeSummary}>
               <Text style={S.badgeSummaryText}>
                 <Text style={{ fontWeight: '900', color: theme.text }}>{earnedCount}</Text>
-                {' '}badges obtenus sur{' '}
+                {' '}{t('profile.badges.earnedOf')}{' '}
                 <Text style={{ fontWeight: '900' }}>{totalBadges}</Text>
               </Text>
               <Text style={{ fontSize: 11, color: theme.accent, fontWeight: '700' }}>
-                ⭐ {featuredBadges.length}/3 épinglés
+                ⭐ {t('profile.badges.pinnedCount', { count: featuredBadges.length })}
               </Text>
             </View>
             {/* Streak widget */}
             <View style={S.streakWidget}>
               <Text style={S.streakFire}>🔥</Text>
               <View style={{ flex: 1 }}>
-                <Text style={S.streakTitle}>Semaine {streak.current_streak}</Text>
-                <Text style={S.streakSub}>{streak.week_session_count}/{streak.max_sessions_per_week ?? '∞'} sessions cette semaine</Text>
+                <Text style={S.streakTitle}>{t('profile.badges.week', { count: streak.current_streak })}</Text>
+                <Text style={S.streakSub}>{t('profile.badges.sessionsThisWeek', { done: streak.week_session_count, total: streak.max_sessions_per_week ?? '∞' })}</Text>
                 <View style={S.streakBar}>
                   <View style={[S.streakBarFill, { width: `${Math.min(100, (streak.week_session_count / (streak.max_sessions_per_week ?? 3)) * 100)}%` }]} />
                 </View>
@@ -803,7 +750,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
             </View>
 
             <Text style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, marginTop: -4 }}>
-              Appuie sur un badge débloqué pour l’épingler sur ton profil public
+              {t('profile.badges.pinHint')}
             </Text>
 
             {badgesByCategory.map((cat) => (
@@ -817,7 +764,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                     return (
                       <TouchableOpacity
                         key={badge.badge_key}
-                        style={[S.badgeCard, !earned && S.badgeCardLocked, isFeatured && { borderColor: '#f59e0b', borderWidth: 2 }]}
+                        style={[S.badgeCard, !earned && S.badgeCardLocked, isFeatured && { borderColor: theme.accent, borderWidth: 2 }]}
                         onPress={() => canFeature && toggleFeaturedBadge(badge.badge_key)}
                         activeOpacity={earned ? 0.75 : 1}
                       >
@@ -843,7 +790,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
 
             {/* ── Mes Boxes ─────────────────────────────────── */}
             <View style={S.compteCard}>
-              <Text style={S.compteCardTitle}>Mes boxes</Text>
+              <Text style={S.compteCardTitle}>{t('profile.account.myBoxes')}</Text>
               {myBoxes.length > 0 ? (
                 <>
                   {myBoxes.map(entry => {
@@ -854,21 +801,21 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                         <TouchableOpacity style={{ flex: 1 }} onPress={() => switchBox(entry.box.id)} activeOpacity={0.7}>
                           <Text style={[S.boxName, isActive && { color: theme.accent }]}>{entry.box.name}</Text>
                           <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 1 }}>
-                            {entry.role === 'owner' ? 'Propriétaire' : entry.role === 'coach' ? 'Coach' : 'Membre'}
+                            {entry.role === 'owner' ? t('profile.account.roleOwner') : entry.role === 'coach' ? t('profile.account.roleCoach') : t('profile.account.roleMember')}
                           </Text>
                         </TouchableOpacity>
-                        {isActive && <View style={S.activeTag}><Text style={S.activeTagText}>Actif</Text></View>}
+                        {isActive && <View style={S.activeTag}><Text style={S.activeTagText}>{t('profile.account.active')}</Text></View>}
                         {entry.role !== 'owner' && (
                           <TouchableOpacity
                             onPress={() => {
                               if (isActive) handleLeaveBox();
                               else {
-                                Alert.alert('Quitter cette box ?', `Tu vas quitter « ${entry.box.name} ».`, [
-                                  { text: 'Annuler', style: 'cancel' },
-                                  { text: 'Quitter', style: 'destructive', onPress: async () => {
+                                Alert.alert(t('profile.account.leaveBoxTitle'), t('profile.account.leaveBoxMsg', { name: entry.box.name }), [
+                                  { text: t('common.cancel'), style: 'cancel' },
+                                  { text: t('profile.account.leave'), style: 'destructive', onPress: async () => {
                                     await switchBox(entry.box.id);
                                     const { error } = await leaveBox();
-                                    if (error) Alert.alert('Erreur', error);
+                                    if (error) Alert.alert(t('common.error'), error);
                                   }},
                                 ]);
                               }
@@ -876,7 +823,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                             style={{ padding: 6 }}
                             activeOpacity={0.7}
                           >
-                            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.error }}>Quitter</Text>
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.error }}>{t('profile.account.leave')}</Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -884,17 +831,17 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                   })}
                 </>
               ) : (
-                <Text style={S.noBoxText}>Tu n'es rattaché à aucune box.</Text>
+                <Text style={S.noBoxText}>{t('profile.account.noBox')}</Text>
               )}
               <TouchableOpacity style={S.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
                 <Hash color={theme.background} size={16} />
-                <Text style={S.joinBtnText}>Rejoindre une box</Text>
+                <Text style={S.joinBtnText}>{t('profile.account.joinBox')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* ── Mes Programmes ─────────────────────────── */}
             <View style={S.compteCard}>
-              <Text style={S.compteCardTitle}>Mes programmes</Text>
+              <Text style={S.compteCardTitle}>{t('profile.account.myPrograms')}</Text>
               {myPrograms.length > 0 ? (
                 <>
                   {myPrograms.map(prog => {
@@ -921,12 +868,12 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                           <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>{prog.title}</Text>
                           <Text style={{ fontSize: 11, color: theme.textSecondary }}>
                             {prog.type === 'fixed'
-                              ? `S${currentWeek}/${prog.duration_weeks} · ${prog.days_per_week}j/sem`
-                              : `Ongoing · ${prog.days_per_week}j/sem`}
+                              ? t('profile.account.progFixed', { week: currentWeek, total: prog.duration_weeks, days: prog.days_per_week })
+                              : t('profile.account.progOngoing', { days: prog.days_per_week })}
                           </Text>
                         </View>
                         <View style={{ backgroundColor: `${theme.success}18`, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                          <Text style={{ fontSize: 10, fontWeight: '700', color: theme.success }}>Actif</Text>
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: theme.success }}>{t('profile.account.active')}</Text>
                         </View>
                         <ChevronRight color={theme.textMuted} size={16} style={{ marginLeft: 6 }} />
                       </TouchableOpacity>
@@ -934,41 +881,41 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                   })}
                 </>
               ) : (
-                <Text style={S.noBoxText}>Aucun programme rejoint.</Text>
+                <Text style={S.noBoxText}>{t('profile.account.noProgram')}</Text>
               )}
               <TouchableOpacity style={S.joinBtn} onPress={() => setProgModal(true)} activeOpacity={0.8}>
-                <BookOpen color="#fff" size={16} />
-                <Text style={S.joinBtnText}>Rejoindre un programme</Text>
+                <BookOpen color={theme.background} size={16} />
+                <Text style={S.joinBtnText}>{t('profile.account.joinProgram')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* ── Edit profile ─────────────────────────── */}
             <View style={S.compteCard}>
               <View style={S.compteCardHeader}>
-                <Text style={S.compteCardTitle}>Mes informations</Text>
+                <Text style={S.compteCardTitle}>{t('profile.account.myInfo')}</Text>
                 {!editing ? (
                   <TouchableOpacity onPress={() => setEditing(true)} style={S.editIconBtn}>
                     <Edit3 color={theme.text} size={16} />
-                    <Text style={S.editIconText}>Modifier</Text>
+                    <Text style={S.editIconText}>{t('common.edit')}</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity onPress={() => setEditing(false)} style={S.editIconBtn}>
                     <X color={theme.textMuted} size={16} />
-                    <Text style={[S.editIconText, { color: theme.textMuted }]}>Annuler</Text>
+                    <Text style={[S.editIconText, { color: theme.textMuted }]}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
               {!editing ? (
                 <View style={S.infoRows}>
-                  <InfoRow label="Pseudo" value={user?.username ?? ''} S={S} />
-                  <InfoRow label="Nom" value={user?.full_name || '—'} S={S} />
-                  <InfoRow label="Email" value={user?.email ?? ''} S={S} />
-                  <InfoRow label="Bio" value={user?.bio || 'Non renseignée'} S={S} />
-                  <InfoRow label="Photo" value={user?.avatar_url ? 'Définie' : 'Non définie'} S={S} />
+                  <InfoRow label={t('profile.account.usernameLabel')} value={user?.username ?? ''} S={S} />
+                  <InfoRow label={t('profile.account.nameLabel')} value={user?.full_name || '—'} S={S} />
+                  <InfoRow label={t('profile.account.emailLabel')} value={user?.email ?? ''} S={S} />
+                  <InfoRow label={t('profile.account.bioLabel')} value={user?.bio || t('profile.account.bioEmpty')} S={S} />
+                  <InfoRow label={t('profile.account.photoLabel')} value={user?.avatar_url ? t('profile.account.photoSet') : t('profile.account.photoUnset')} S={S} />
                   {/* Rôle */}
                   <View style={S.infoRow}>
-                    <Text style={S.infoRowLabel}>Rôle</Text>
+                    <Text style={S.infoRowLabel}>{t('profile.account.roleLabel')}</Text>
                     <View style={S.roleBadge}>
                       <Text style={S.roleBadgeText}>{roleLabel}</Text>
                     </View>
@@ -976,7 +923,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                   {/* Box invite code (owner only) */}
                   {user?.role === 'box_owner' && currentBox?.invite_code && (
                     <View style={S.infoRow}>
-                      <Text style={S.infoRowLabel}>Code box</Text>
+                      <Text style={S.infoRowLabel}>{t('profile.account.boxCode')}</Text>
                       <TouchableOpacity style={S.inviteCodeRow} onPress={handleShareBoxCode} activeOpacity={0.7}>
                         <Text style={S.inviteCodeText}>{currentBox.invite_code}</Text>
                         <Share2 size={14} color={theme.text} style={{ marginLeft: 6 }} />
@@ -997,54 +944,54 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                     )}
                     <View style={S.photoPickerBtns}>
                       <TouchableOpacity style={S.photoBtn} onPress={handlePickPhoto} disabled={pickingPhoto} activeOpacity={0.8}>
-                        {pickingPhoto ? <ActivityIndicator color={theme.text} size="small" /> : <><Camera color={theme.textSecondary} size={14} /><Text style={S.photoBtnText}>Galerie</Text></>}
+                        {pickingPhoto ? <ActivityIndicator color={theme.text} size="small" /> : <><Camera color={theme.textSecondary} size={14} /><Text style={S.photoBtnText}>{t('profile.account.gallery')}</Text></>}
                       </TouchableOpacity>
                       <TouchableOpacity style={S.photoBtn} onPress={handleTakePhoto} disabled={pickingPhoto} activeOpacity={0.8}>
                         <Camera color={theme.textMuted} size={14} />
-                        <Text style={[S.photoBtnText, { color: theme.textMuted }]}>Caméra</Text>
+                        <Text style={[S.photoBtnText, { color: theme.textMuted }]}>{t('profile.account.camera')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
 
-                  <Text style={S.editLabel}>Pseudo</Text>
-                  <TextInput style={S.editInput} value={editUsername} onChangeText={setEditUsername} autoCapitalize="none" placeholder="Pseudo" placeholderTextColor={theme.textMuted} />
+                  <Text style={S.editLabel}>{t('profile.account.usernameLabel')}</Text>
+                  <TextInput style={S.editInput} value={editUsername} onChangeText={setEditUsername} autoCapitalize="none" placeholder={t('profile.account.usernameLabel')} placeholderTextColor={theme.textMuted} />
 
                   <View style={S.editRow}>
                     <View style={S.editField}>
-                      <Text style={S.editLabel}>Prénom</Text>
-                      <TextInput style={S.editInput} value={firstName} onChangeText={setFirstName} placeholder="Prénom" placeholderTextColor={theme.textMuted} />
+                      <Text style={S.editLabel}>{t('profile.account.firstName')}</Text>
+                      <TextInput style={S.editInput} value={firstName} onChangeText={setFirstName} placeholder={t('profile.account.firstName')} placeholderTextColor={theme.textMuted} />
                     </View>
                     <View style={S.editField}>
-                      <Text style={S.editLabel}>Nom</Text>
-                      <TextInput style={S.editInput} value={lastName} onChangeText={setLastName} placeholder="Nom" placeholderTextColor={theme.textMuted} />
+                      <Text style={S.editLabel}>{t('profile.account.lastName')}</Text>
+                      <TextInput style={S.editInput} value={lastName} onChangeText={setLastName} placeholder={t('profile.account.lastName')} placeholderTextColor={theme.textMuted} />
                     </View>
                   </View>
 
-                  <Text style={S.editLabel}>Email</Text>
-                  <TextInput style={S.editInput} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Email" placeholderTextColor={theme.textMuted} />
+                  <Text style={S.editLabel}>{t('profile.account.emailLabel')}</Text>
+                  <TextInput style={S.editInput} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" placeholder={t('profile.account.emailLabel')} placeholderTextColor={theme.textMuted} />
 
-                  <Text style={S.editLabel}>Bio (avec #hashtags)</Text>
+                  <Text style={S.editLabel}>{t('profile.account.bioHashtags')}</Text>
                   <TextInput
                     style={[S.editInput, S.bioInput]}
                     value={editBio}
                     onChangeText={setEditBio}
                     multiline
                     numberOfLines={3}
-                    placeholder="Parle de toi... #crossfit #rx #motivation"
+                    placeholder={t('profile.account.bioPlaceholder')}
                     placeholderTextColor={theme.textMuted}
                   />
 
                   <TouchableOpacity style={S.saveBtn} onPress={handleSaveProfile} disabled={saving} activeOpacity={0.85}>
-                    {saving ? <ActivityIndicator color={theme.background} size="small" /> : <><Check color={theme.background} size={16} /><Text style={S.saveBtnText}>Enregistrer</Text></>}
+                    {saving ? <ActivityIndicator color={theme.background} size="small" /> : <><Check color={theme.background} size={16} /><Text style={S.saveBtnText}>{t('common.save')}</Text></>}
                   </TouchableOpacity>
                 </View>
               )}
             </View>
             {/* ── Mes amis ─────────────────────────────── */}
             <View style={S.compteCard}>
-              <Text style={S.compteCardTitle}>Mes amis ({friends.length})</Text>
+              <Text style={S.compteCardTitle}>{t('profile.account.myFriends', { count: friends.length })}</Text>
               {friends.length === 0 ? (
-                <Text style={S.friendsEmpty}>Aucun ami pour l'instant. Consulte les profils publics pour en ajouter.</Text>
+                <Text style={S.friendsEmpty}>{t('profile.account.noFriends')}</Text>
               ) : (
                 <View style={S.friendsList}>
                   {friends.map(f => {
@@ -1174,20 +1121,20 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               <View style={S.referralBtns}>
                 <TouchableOpacity style={S.referralBtn} onPress={handleCopyReferral} disabled={!referralCode} activeOpacity={0.8}>
                   <Copy color={theme.textSecondary} size={15} />
-                  <Text style={S.referralBtnText}>Copier</Text>
+                  <Text style={S.referralBtnText}>{t('profile.referral.copy')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[S.referralBtn, S.referralBtnShare]} onPress={handleShareReferral} disabled={!referralCode} activeOpacity={0.8}>
                   <Share2 color={theme.background} size={15} />
-                  <Text style={[S.referralBtnText, { color: theme.background }]}>Partager</Text>
+                  <Text style={[S.referralBtnText, { color: theme.background }]}>{t('profile.referral.share')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* ── Supprimer le compte ───────────────────── */}
             <View style={S.compteCard}>
-              <Text style={S.compteCardTitle}>Zone dangereuse</Text>
+              <Text style={S.compteCardTitle}>{t('profile.account.dangerZone')}</Text>
               <Text style={{ fontSize: 12, color: theme.textMuted, lineHeight: 18 }}>
-                La suppression de ton compte est définitive. Toutes tes données (scores, PR, messages, ELO, badges) seront supprimées.
+                {t('profile.account.deleteWarning')}
               </Text>
               <TouchableOpacity
                 style={S.deleteAccountBtn}
@@ -1196,9 +1143,9 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
                 activeOpacity={0.8}
               >
                 {deleting ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={theme.background} size="small" />
                 ) : (
-                  <Text style={S.deleteAccountText}>Supprimer mon compte</Text>
+                  <Text style={S.deleteAccountText}>{t('profile.deleteAccount')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1213,12 +1160,12 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
           <View style={S.modalSheet}>
             <View style={S.modalHandle} />
-            <Text style={S.modalTitle}>Rejoindre une box</Text>
-            <Text style={S.modalSub}>Entre le code d'invitation (6 caractères)</Text>
+            <Text style={S.modalTitle}>{t('profile.account.joinBox')}</Text>
+            <Text style={S.modalSub}>{t('profile.account.joinBoxSub')}</Text>
             <TextInput
               style={S.codeInput}
               value={joinCode}
-              onChangeText={t => setJoinCode(t.toUpperCase())}
+              onChangeText={v => setJoinCode(v.toUpperCase())}
               placeholder="Ex : ABC123"
               placeholderTextColor={theme.textMuted}
               maxLength={6}
@@ -1231,10 +1178,10 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               disabled={!joinCode.trim() || joining}
               activeOpacity={0.85}
             >
-              {joining ? <ActivityIndicator color={theme.background} size="small" /> : <><Hash color={theme.background} size={16} /><Text style={S.joinBtnText}>Rejoindre</Text></>}
+              {joining ? <ActivityIndicator color={theme.background} size="small" /> : <><Hash color={theme.background} size={16} /><Text style={S.joinBtnText}>{t('profile.account.join')}</Text></>}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setJoinModal(false)} style={S.modalCancel}>
-              <Text style={S.modalCancelText}>Annuler</Text>
+              <Text style={S.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1245,12 +1192,12 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
           <View style={S.modalSheet}>
             <View style={S.modalHandle} />
-            <Text style={S.modalTitle}>Rejoindre un programme</Text>
-            <Text style={S.modalSub}>Entre le code du programme (6 caractères)</Text>
+            <Text style={S.modalTitle}>{t('profile.account.joinProgram')}</Text>
+            <Text style={S.modalSub}>{t('profile.account.joinProgramSub')}</Text>
             <TextInput
               style={S.codeInput}
               value={progCode}
-              onChangeText={t => setProgCode(t.toUpperCase())}
+              onChangeText={v => setProgCode(v.toUpperCase())}
               placeholder="Ex : FORCE6"
               placeholderTextColor={theme.textMuted}
               maxLength={6}
@@ -1263,10 +1210,10 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               disabled={!progCode.trim() || joiningProg}
               activeOpacity={0.85}
             >
-              {joiningProg ? <ActivityIndicator color={theme.background} size="small" /> : <><BookOpen color={theme.background} size={16} /><Text style={S.joinBtnText}>Rejoindre</Text></>}
+              {joiningProg ? <ActivityIndicator color={theme.background} size="small" /> : <><BookOpen color={theme.background} size={16} /><Text style={S.joinBtnText}>{t('profile.account.join')}</Text></>}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setProgModal(false)} style={S.modalCancel}>
-              <Text style={S.modalCancelText}>Annuler</Text>
+              <Text style={S.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1424,7 +1371,7 @@ function createStyles(t: AppTheme) {
     gap: 8, backgroundColor: t.ctaBg, borderRadius: 14, padding: 14,
     borderWidth: 1.5, borderColor: t.ctaBorder,
   },
-  joinBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  joinBtnText: { color: t.background, fontSize: 14, fontWeight: '700' },
   leaveBtn: {
     borderWidth: 1.5, borderColor: t.border, borderRadius: 14,
     padding: 12, alignItems: 'center',
@@ -1452,7 +1399,7 @@ function createStyles(t: AppTheme) {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: t.accent, borderRadius: 14, padding: 14, marginTop: 4,
   },
-  saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  saveBtnText: { color: t.background, fontSize: 14, fontWeight: '700' },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: t.modalBackdrop },
   modalSheet: {
@@ -1533,7 +1480,7 @@ function createStyles(t: AppTheme) {
   inviteCodeRow: { flexDirection: 'row' as const, alignItems: 'center' as const },
   inviteCodeText: { fontSize: 14, fontWeight: '700' as const, letterSpacing: 2, color: t.text },
   deleteAccountBtn: {
-    backgroundColor: '#EF4444', borderRadius: 14, padding: 14,
+    backgroundColor: t.error, borderRadius: 14, padding: 14,
     alignItems: 'center' as const, justifyContent: 'center' as const,
   },
   deleteAccountText: { color: '#fff', fontSize: 14, fontWeight: '700' as const },
