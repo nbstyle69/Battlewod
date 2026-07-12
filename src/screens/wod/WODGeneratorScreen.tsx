@@ -8,6 +8,8 @@ import { BoxWODType } from '../../types';
 import { Sparkles, ChevronLeft, Clock, Zap, RefreshCw, History, Heart, BookOpen, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WODStackParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -1559,7 +1561,9 @@ function _legacyGenerateWOD(level: AthleteLevel, duration: number, type: WODType
 export default function WODGeneratorScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<WODStackParamList>>();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const { user, currentBox } = useAuth();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const insets = useSafeAreaInsets();
   // Tab bar (~70px) + system gesture bar + safe area inset bottom + breathing space.
   // Augmenté pour que le bouton soit totalement visible
@@ -1643,9 +1647,9 @@ export default function WODGeneratorScreen() {
       });
       if (error) throw error;
       setShowWBModal(false);
-      Alert.alert('✅ Ajouté !', `WOD planifié le ${new Date(wbDate + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`);
+      Alert.alert(t('wodGenerator.addedTitle'), t('wodGenerator.scheduledOn', { date: new Date(wbDate + 'T00:00:00').toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long' }) }));
     } catch (e: any) {
-      Alert.alert('Erreur', e.message ?? 'Impossible d\'ajouter au Whiteboard.');
+      Alert.alert(t('common.error'), e.message ?? t('wodGenerator.addFailed'));
     } finally {
       setWbSaving(false);
     }
@@ -1697,8 +1701,8 @@ export default function WODGeneratorScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.textSecondary} size={24} />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>Générateur WOD</Text>
-        <Text style={S.headerSub}>Crée ton WOD sur mesure</Text>
+        <Text style={S.headerTitle}>{t('wodGenerator.title')}</Text>
+        <Text style={S.headerSub}>{t('wodGenerator.subtitle')}</Text>
       </View>
 
       <ScrollView
@@ -1714,7 +1718,7 @@ export default function WODGeneratorScreen() {
               onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
             >
               <History color={theme.text} size={16} />
-              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Historique</Text>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>{t('wodGenerator.history')}</Text>
             </TouchableOpacity>
           </GlassCard>
           <GlassCard radius={12} style={{ flex: 1 }}>
@@ -1723,7 +1727,7 @@ export default function WODGeneratorScreen() {
               onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.8}
             >
               <Heart color="#EF4444" size={16} />
-              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>Favoris</Text>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>{t('wodGenerator.favorites')}</Text>
             </TouchableOpacity>
           </GlassCard>
         </View>
@@ -1732,7 +1736,7 @@ export default function WODGeneratorScreen() {
         <GlassCard radius={12} variant="emerald" style={{ marginBottom: 16 }}>
           <TouchableOpacity style={S.progBtnInner} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
             <BookOpen color={theme.accent} size={16} />
-            <Text style={S.progBtnTxt}>Programmation</Text>
+            <Text style={S.progBtnTxt}>{t('wodGenerator.programming')}</Text>
             <ChevronRight color={theme.textMuted} size={14} />
           </TouchableOpacity>
         </GlassCard>
@@ -1770,7 +1774,7 @@ export default function WODGeneratorScreen() {
         {sport === 'functional' ? (
           <>
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Catégorie</Text>
+          <Text style={S.sectionTitle}>{t('wodGenerator.category')}</Text>
           <View style={S.chipRow}>
             {LEVELS.map(l => (
               <TouchableOpacity
@@ -1787,7 +1791,7 @@ export default function WODGeneratorScreen() {
         </View>
 
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Durée</Text>
+          <Text style={S.sectionTitle}>{t('wodGenerator.duration')}</Text>
           <View style={S.chipRow}>
             {DURATIONS.map(d => (
               <TouchableOpacity
@@ -1803,7 +1807,7 @@ export default function WODGeneratorScreen() {
         </View>
 
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Intention</Text>
+          <Text style={S.sectionTitle}>{t('wodGenerator.intention')}</Text>
           <View style={[S.chipRow, { flexWrap: 'wrap' }]}>
             {INTENT_OPTIONS.map(o => (
               <TouchableOpacity
@@ -1812,7 +1816,7 @@ export default function WODGeneratorScreen() {
                 style={[S.chip, intent === o.key && !benchmark && S.chipSelected, { flex: 1, justifyContent: 'center' }]}
               >
                 <Text style={{ fontSize: 14 }}>{o.emoji}</Text>
-                <Text style={[S.chipText, intent === o.key && !benchmark && { color: theme.accent }]}>{o.label}</Text>
+                <Text style={[S.chipText, intent === o.key && !benchmark && { color: theme.accent }]}>{t(`wodGenerator.intentOpt.${o.key}`)}</Text>
               </TouchableOpacity>
             ))}
             <TouchableOpacity
@@ -1821,18 +1825,18 @@ export default function WODGeneratorScreen() {
               style={[S.chip, benchmark && S.chipSelected, { flex: 1, justifyContent: 'center' }]}
             >
               <Text style={{ fontSize: 14 }}>📋</Text>
-              <Text style={[S.chipText, benchmark && { color: theme.accent }]}>Benchmark</Text>
+              <Text style={[S.chipText, benchmark && { color: theme.accent }]}>{t('wodGenerator.benchmark')}</Text>
             </TouchableOpacity>
           </View>
           {benchmark && (
             <Text style={[S.chipText, { marginTop: 6, opacity: 0.7 }]}>
-              WOD officiel (Girls + Open) — tirage aléatoire, Solo uniquement, charges RX.
+              {t('wodGenerator.benchmarkHint')}
             </Text>
           )}
         </View>
 
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Type d'entraînement</Text>
+          <Text style={S.sectionTitle}>{t('wodGenerator.trainingType')}</Text>
           <View style={S.chipRow}>
             {UI_WOD_TYPES.map(t => (
               <TouchableOpacity
@@ -1847,7 +1851,7 @@ export default function WODGeneratorScreen() {
         </View>
 
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Équipement disponible</Text>
+          <Text style={S.sectionTitle}>{t('wodGenerator.equipment')}</Text>
           <View style={S.equipGrid}>
             {EQUIPMENT_OPTIONS.map(item => (
               <TouchableOpacity
@@ -1864,7 +1868,7 @@ export default function WODGeneratorScreen() {
         </View>
 
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Format</Text>
+          <Text style={S.sectionTitle}>{t('wodGenerator.format')}</Text>
           <View style={S.chipRow}>
             {TEAM_SIZES.map(s => {
               const disabled = benchmark && s !== 1;
@@ -1876,7 +1880,7 @@ export default function WODGeneratorScreen() {
                 style={[S.chip, teamSize === s && S.chipSelected, disabled && { opacity: 0.35 }]}
               >
                 <Text style={[S.chipText, teamSize === s && { color: theme.accent }]}>
-                  {s === 1 ? 'Solo' : `Équipe ${s}`}
+                  {s === 1 ? t('wodGenerator.solo') : t('wodGenerator.team', { n: s })}
                 </Text>
               </TouchableOpacity>
               );
@@ -1889,7 +1893,7 @@ export default function WODGeneratorScreen() {
           <>
             {/* Hyrox level */}
             <View style={S.section}>
-              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Catégorie</Text>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>{t('wodGenerator.category')}</Text>
               <View style={S.chipRow}>
                 {HYROX_LEVELS.map(l => (
                   <TouchableOpacity
@@ -1905,7 +1909,7 @@ export default function WODGeneratorScreen() {
 
             {/* Hyrox format */}
             <View style={S.section}>
-              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Format</Text>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>{t('wodGenerator.format')}</Text>
               <View style={S.chipRow}>
                 {HYROX_FORMATS.map(f => (
                   <TouchableOpacity
@@ -1921,7 +1925,7 @@ export default function WODGeneratorScreen() {
 
             {/* Hyrox type */}
             <View style={S.section}>
-              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Type d'entraînement</Text>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>{t('wodGenerator.trainingType')}</Text>
               <View style={S.chipRow}>
                 {HYROX_TYPES.map(t => (
                   <TouchableOpacity
@@ -1937,7 +1941,7 @@ export default function WODGeneratorScreen() {
 
             {/* Hyrox duration */}
             <View style={S.section}>
-              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Durée</Text>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>{t('wodGenerator.duration')}</Text>
               <View style={S.chipRow}>
                 {HYROX_DURATIONS.map(d => (
                   <TouchableOpacity
@@ -1954,7 +1958,7 @@ export default function WODGeneratorScreen() {
 
             {/* Hyrox equipment */}
             <View style={S.section}>
-              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Équipement disponible</Text>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>{t('wodGenerator.equipment')}</Text>
               <View style={S.equipGrid}>
                 {HYROX_EQUIPMENT.map(item => (
                   <TouchableOpacity
@@ -1972,7 +1976,7 @@ export default function WODGeneratorScreen() {
 
             {/* Hyrox session type (5 filières) */}
             <View style={S.section}>
-              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Type de session</Text>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>{t('wodGenerator.sessionType')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
                 <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4, paddingBottom: 4 }}>
                   {HYROX_SESSION_OPTS.map(o => (
@@ -1992,7 +1996,7 @@ export default function WODGeneratorScreen() {
 
             {/* Hyrox gilet lesté */}
             <View style={S.section}>
-              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>Gilet lesté</Text>
+              <Text style={[S.sectionTitle, { color: HYROX_ORANGE }]}>{t('wodGenerator.vest')}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {HYROX_VEST_OPTS.map(o => (
                   <TouchableOpacity
@@ -2000,7 +2004,7 @@ export default function WODGeneratorScreen() {
                     onPress={() => setHyroxVest(o.key)}
                     style={[S.chip, hyroxVest === o.key && { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE }, { flex: 1, justifyContent: 'center' }]}
                   >
-                    <Text style={[S.chipText, hyroxVest === o.key && { color: HYROX_ORANGE }, { textAlign: 'center' }]}>{o.label}</Text>
+                    <Text style={[S.chipText, hyroxVest === o.key && { color: HYROX_ORANGE }, { textAlign: 'center' }]}>{t(`wodGenerator.vestOpt.${o.key}`)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -2032,7 +2036,7 @@ export default function WODGeneratorScreen() {
               <>
                 <Sparkles color="#fff" size={20} />
                 <Text style={{ color: '#FF0000', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 }}>
-                  GÉNÉRER MON WOD
+                  {t('wodGenerator.generate')}
                 </Text>
               </>
             )}
@@ -2109,7 +2113,7 @@ export default function WODGeneratorScreen() {
             {/* Coaching Notes (Zone5 style) */}
             {generatedHyrox.coachingNotes && generatedHyrox.coachingNotes.length > 0 && (
               <View style={{ backgroundColor: theme.surface, borderRadius: 10, padding: 12, marginBottom: 12 }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: HYROX_ORANGE, marginBottom: 8 }}>🎯 Notes coach</Text>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: HYROX_ORANGE, marginBottom: 8 }}>{t('wodGenerator.coachNotes')}</Text>
                 {generatedHyrox.coachingNotes.map((note, i) => (
                   <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
                     <Text style={{ color: HYROX_ORANGE, fontSize: 12, fontWeight: '700', marginTop: 1 }}>•</Text>
@@ -2121,7 +2125,7 @@ export default function WODGeneratorScreen() {
 
             {/* Coach tip */}
             <View style={S.tipBox}>
-              <Text style={S.tipLabel}>💡 Conseil coach</Text>
+              <Text style={S.tipLabel}>{t('wodGenerator.coachTip')}</Text>
               <Text style={S.tipText}>{generatedHyrox.tip}</Text>
             </View>
 
@@ -2131,7 +2135,7 @@ export default function WODGeneratorScreen() {
               style={[S.startButton, { backgroundColor: `${HYROX_ORANGE}25`, borderColor: HYROX_ORANGE, borderWidth: 2 }]}
             >
               <Zap color={HYROX_ORANGE} size={18} />
-              <Text style={[S.startButtonText, { color: HYROX_ORANGE }]}>LANCER CET ENTRAÎNEMENT</Text>
+              <Text style={[S.startButtonText, { color: HYROX_ORANGE }]}>{t('wodGenerator.startWorkout')}</Text>
             </TouchableOpacity>
 
             </View>
@@ -2188,13 +2192,13 @@ export default function WODGeneratorScreen() {
             </View>
 
             <View style={S.tipBox}>
-              <Text style={S.tipLabel}>💡 Conseil coach</Text>
+              <Text style={S.tipLabel}>{t('wodGenerator.coachTip')}</Text>
               <Text style={S.tipText}>{generatedWOD.tip}</Text>
             </View>
 
             <TouchableOpacity activeOpacity={0.8} style={S.startButton}>
                 <Zap color="#fff" size={18} />
-                <Text style={S.startButtonText}>LANCER CE WOD</Text>
+                <Text style={S.startButtonText}>{t('wodGenerator.startWod')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -2203,7 +2207,7 @@ export default function WODGeneratorScreen() {
               onPress={openWBModal}
             >
               <BookOpen color={theme.accent} size={18} />
-              <Text style={[S.startButtonText, { color: theme.accent }]}>AJOUTER AU WHITEBOARD</Text>
+              <Text style={[S.startButtonText, { color: theme.accent }]}>{t('wodGenerator.addToWhiteboard')}</Text>
             </TouchableOpacity>
             </View>
           </GlassCard>
@@ -2224,9 +2228,9 @@ export default function WODGeneratorScreen() {
 
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 4 }} />
 
-            <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }}>📋 Ajouter au Whiteboard</Text>
+            <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }}>{t('wodGenerator.addToWhiteboardTitle')}</Text>
             <Text style={{ fontSize: 13, color: theme.textSecondary }}>
-              Choisir le jour de la séance
+              {t('wodGenerator.chooseDay')}
             </Text>
 
             {/* WOD preview */}
@@ -2245,7 +2249,7 @@ export default function WODGeneratorScreen() {
                 const iso = toISO(d);
                 const isToday = iso === toISO(new Date());
                 const isSelected = iso === wbDate;
-                const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' });
+                const dayName = d.toLocaleDateString(dateLocale, { weekday: 'short' });
                 const dayNum = d.getDate();
                 return (
                   <TouchableOpacity
@@ -2284,7 +2288,7 @@ export default function WODGeneratorScreen() {
               >
                 {wbSaving
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15 }}>Ajouter ✓</Text>
+                  : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15 }}>{t('wodGenerator.add')}</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -2306,7 +2310,7 @@ export default function WODGeneratorScreen() {
 
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 4 }} />
 
-            <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }}>⏱️ Lancer le chrono</Text>
+            <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }}>{t('wodGenerator.launchTimer')}</Text>
             {generatedHyrox?.timerPlan && (
               <Text style={{ fontSize: 13, color: HYROX_ORANGE, fontWeight: '700' }}>{generatedHyrox.timerPlan.summary}</Text>
             )}
@@ -2318,7 +2322,7 @@ export default function WODGeneratorScreen() {
                   const label = b.type === 'amrap' ? `AMRAP · ${b.durationMin} min`
                     : b.type === 'emom' ? `EMOM · ${b.emomRounds} rounds`
                     : b.type === 'tabata' ? `Tabata · ${b.tabRounds}×${b.workSec}/${b.restSec}s`
-                    : b.durationMin > 0 ? `For Time · cap ${b.durationMin} min` : 'Chrono libre';
+                    : b.durationMin > 0 ? `For Time · cap ${b.durationMin} min` : t('wodGenerator.freeTimer');
                   const restLabel = b.pauseSec > 0
                     ? (b.pauseSec % 60 === 0 ? `${b.pauseSec / 60} min` : `${Math.floor(b.pauseSec / 60)}:${String(b.pauseSec % 60).padStart(2, '0')}`)
                     : null;
@@ -2327,11 +2331,11 @@ export default function WODGeneratorScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: HYROX_ORANGE }} />
                         <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>
-                          {generatedHyrox!.timerPlan!.sequence.length > 1 ? `Bloc ${i + 1} — ` : ''}{label}
+                          {generatedHyrox!.timerPlan!.sequence.length > 1 ? t('wodGenerator.block', { n: i + 1 }) : ''}{label}
                         </Text>
                       </View>
                       {restLabel && (
-                        <Text style={{ fontSize: 12, color: theme.textMuted, marginLeft: 14, marginTop: 2 }}>→ Récup : {restLabel}</Text>
+                        <Text style={{ fontSize: 12, color: theme.textMuted, marginLeft: 14, marginTop: 2 }}>{t('wodGenerator.rest', { time: restLabel })}</Text>
                       )}
                     </View>
                   );
@@ -2341,7 +2345,7 @@ export default function WODGeneratorScreen() {
 
             {/* Compte à rebours avant départ */}
             <View>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.textSecondary, marginBottom: 8 }}>Compte à rebours</Text>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.textSecondary, marginBottom: 8 }}>{t('wodGenerator.countdown')}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {[3, 5, 10].map((c) => {
                   const sel = timerCountdown === c;
@@ -2376,7 +2380,7 @@ export default function WODGeneratorScreen() {
                 activeOpacity={0.85}
               >
                 <Zap color="#fff" size={18} />
-                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15 }}>Démarrer</Text>
+                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 15 }}>{t('wodGenerator.start')}</Text>
               </TouchableOpacity>
             </View>
 
