@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Dumbbell, Clock, Trophy, Building2, Camera, ChevronRight, Hash, ArrowRight, Zap } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -19,48 +20,17 @@ export const ONBOARDING_KEY = '@athlex:onboardingDone';
 
 interface Slide {
   id: string;
-  title: string;
-  description: string;
+  key: 'welcome' | 'wodTimer' | 'compElo' | 'box' | 'badge';
   icon: 'logo' | 'wod' | 'comp' | 'box' | 'badge';
   color: string;
 }
 
 const SLIDES: Slide[] = [
-  {
-    id: '1',
-    title: 'Bienvenue sur AthleX',
-    description: "Entraîne-toi. Rivalise. Progresse.\nTa plateforme d'entraînement complète.",
-    icon: 'logo',
-    color: '#059669',
-  },
-  {
-    id: '2',
-    title: 'Générateur de WODs\n& Timer',
-    description: 'Génère des WODs adaptés à ton niveau.\nChronomètre tes performances avec ou sans vidéo.',
-    icon: 'wod',
-    color: '#3B82F6',
-  },
-  {
-    id: '3',
-    title: 'Compétitions & ELO',
-    description: "Affronte les autres athlètes.\nTon ELO monte quand tu gagnes — ton niveau évolue automatiquement selon tes paliers.\n4 formats : Élimination, Ligue, Poules, Suisse.",
-    icon: 'comp',
-    color: '#F59E0B',
-  },
-  {
-    id: '4',
-    title: 'Ta Box',
-    description: 'Si tu as une box, rejoins-la avec un code.\nTu peux aussi continuer sans box et en rejoindre une plus tard.',
-    icon: 'box',
-    color: '#8B5CF6',
-  },
-  {
-    id: '5',
-    title: 'Badge débloqué !',
-    description: 'First Step — Tu as rejoint la communauté AthleX !',
-    icon: 'badge',
-    color: '#10b981',
-  },
+  { id: '1', key: 'welcome',  icon: 'logo',  color: '#059669' },
+  { id: '2', key: 'wodTimer', icon: 'wod',   color: '#3B82F6' },
+  { id: '3', key: 'compElo',  icon: 'comp',  color: '#F59E0B' },
+  { id: '4', key: 'box',      icon: 'box',   color: '#8B5CF6' },
+  { id: '5', key: 'badge',    icon: 'badge', color: '#10b981' },
 ];
 
 // ── Confetti Particle ──────────────────────────────────────
@@ -211,6 +181,7 @@ interface Props {
 }
 
 export default function OnboardingTutorialScreen({ onDone }: Props) {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const { user, joinBox, skipBox, currentBox } = useAuth();
   const isLoggedIn = !!user;
@@ -236,7 +207,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
     if (viewableItems.length > 0 && viewableItems[0].index != null) {
       const idx = viewableItems[0].index;
       setCurrentIndex(idx);
-      trackOnboardingStep(idx + 1, SLIDES[idx]?.title ?? '');
+      trackOnboardingStep(idx + 1, SLIDES[idx]?.key ?? '');
 
       // Trigger badge animation on slide 5
       if (idx === 4 && !badgeAwarded) {
@@ -285,14 +256,14 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
 
   async function handleJoinBox() {
     if (boxCode.trim().length !== 6) {
-      Alert.alert('Code invalide', 'Le code fait exactement 6 caractères.');
+      Alert.alert(t('onboarding.invalidCode'), t('onboarding.invalidCodeMsg'));
       return;
     }
     setJoining(true);
     const { error } = await joinBox(boxCode.trim().toUpperCase());
     setJoining(false);
     if (error) {
-      Alert.alert('Erreur', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
     setBoxJoined(true);
@@ -315,7 +286,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
       {/* Skip button */}
       {!isLast && (
         <TouchableOpacity style={S.skipBtn} onPress={handleDone} activeOpacity={0.7}>
-          <Text style={S.skipText}>Passer</Text>
+          <Text style={S.skipText}>{t('onboarding.tutorial.skip')}</Text>
         </TouchableOpacity>
       )}
 
@@ -358,15 +329,15 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
                   <Animated.View style={[S.iconCircle, { backgroundColor: slideColor(item.color) + '18', transform: [{ translateX: iconTranslateX }] }]}>
                     <SlideIcon type={item.icon} color={slideColor(item.color)} badgeScale={item.icon === 'badge' ? badgeScale : undefined} />
                   </Animated.View>
-                  <Text style={S.title}>{item.title}</Text>
-                  <Text style={S.description}>{item.description}</Text>
+                  <Text style={S.title}>{t(`onboarding.slides.${item.key}.title`)}</Text>
+                  <Text style={S.description}>{t(`onboarding.slides.${item.key}.description`)}</Text>
 
                   {/* Box join inline (slide 4) — only show input when logged in */}
                   {item.icon === 'box' && isLoggedIn && (
                     <View style={S.boxSection}>
                       {boxJoined ? (
                         <View style={S.boxJoinedRow}>
-                          <Text style={S.boxJoinedText}>Box rejointe !</Text>
+                          <Text style={S.boxJoinedText}>{t('onboarding.tutorial.boxJoined')}</Text>
                         </View>
                       ) : (
                         <>
@@ -376,7 +347,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
                               placeholder="ABC123"
                               placeholderTextColor={theme.textMuted}
                               value={boxCode}
-                              onChangeText={t => setBoxCode(t.toUpperCase())}
+                              onChangeText={v => setBoxCode(v.toUpperCase())}
                               autoCapitalize="characters"
                               maxLength={6}
                             />
@@ -389,12 +360,12 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
                               {joining ? (
                                 <ActivityIndicator color="#fff" size="small" />
                               ) : (
-                                <Text style={S.boxJoinBtnText}>Rejoindre</Text>
+                                <Text style={S.boxJoinBtnText}>{t('onboarding.tutorial.join')}</Text>
                               )}
                             </TouchableOpacity>
                           </View>
                           <TouchableOpacity onPress={handleSkipBox} style={S.skipBoxBtn} activeOpacity={0.7}>
-                            <Text style={S.skipBoxText}>Continuer sans box</Text>
+                            <Text style={S.skipBoxText}>{t('onboarding.tutorial.continueWithoutBox')}</Text>
                             <ArrowRight size={14} color={theme.textMuted} />
                           </TouchableOpacity>
                         </>
@@ -440,7 +411,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
             activeOpacity={0.85}
           >
             <Text style={S.ctaText}>
-              {isLast ? "Découvrir l'app" : currentIndex === 0 ? "C'est parti !" : 'Suivant'}
+              {isLast ? t('onboarding.tutorial.discoverApp') : currentIndex === 0 ? t('onboarding.tutorial.letsGo') : t('onboarding.tutorial.next')}
             </Text>
             {!isLast && <ChevronRight size={20} color="#fff" style={{ marginLeft: 4 }} />}
           </TouchableOpacity>
@@ -453,7 +424,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
             onPress={handleNext}
             activeOpacity={0.85}
           >
-            <Text style={S.ctaText}>Suivant</Text>
+            <Text style={S.ctaText}>{t('onboarding.tutorial.next')}</Text>
             <ChevronRight size={20} color="#fff" style={{ marginLeft: 4 }} />
           </TouchableOpacity>
         )}

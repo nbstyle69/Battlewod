@@ -4,6 +4,7 @@ import {
   Alert, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Bell, Send, Users, User, Clock, CheckCircle } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +16,8 @@ interface SentNotif { id: string; title: string; body: string; target: string; c
 export default function BONotificationsScreen() {
   const { currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const S = styles(theme);
 
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,7 @@ export default function BONotificationsScreen() {
   useEffect(() => { load(); }, [load]);
 
   async function handleSend() {
-    if (!title.trim()) { Alert.alert('Erreur', 'Le titre est requis'); return; }
+    if (!title.trim()) { Alert.alert(t('common.error'), t('bo.notifications.titleRequired')); return; }
     if (!currentBox) return;
 
     setSending(true);
@@ -69,7 +72,7 @@ export default function BONotificationsScreen() {
 
     if (error || !inserted) {
       captureError(error, { screen: 'BONotifications', action: 'send' });
-      Alert.alert('Erreur', error?.message ?? 'Impossible d\'enregistrer la notification.');
+      Alert.alert(t('common.error'), error?.message ?? t('bo.notifications.saveFailed'));
       setSending(false);
       return;
     }
@@ -80,10 +83,10 @@ export default function BONotificationsScreen() {
     });
     if (pushErr) {
       captureError(pushErr, { screen: 'BONotifications', action: 'push' });
-      Alert.alert('Enregistrée', 'La notification est enregistrée mais l\'envoi push a échoué. Réessaie plus tard.');
+      Alert.alert(t('bo.notifications.savedTitle'), t('bo.notifications.pushFailed'));
     } else {
       const recipients = pushRes?.sent ?? 0;
-      Alert.alert('Envoyé', `Notification poussée à ${recipients} appareil(s).`);
+      Alert.alert(t('bo.notifications.sentTitle'), t('bo.notifications.sentMsg', { count: recipients }));
     }
     setTitle('');
     setBody('');
@@ -104,7 +107,7 @@ export default function BONotificationsScreen() {
     <View style={S.container}>
       <View style={S.header}>
         <Bell color={theme.accent} size={22} />
-        <Text style={S.headerTitle}>Notifications</Text>
+        <Text style={S.headerTitle}>{t('bo.notifications.title')}</Text>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -115,10 +118,10 @@ export default function BONotificationsScreen() {
         >
           {/* Compose */}
           <View style={S.composeCard}>
-            <Text style={S.composeTitle}>Nouvelle notification</Text>
+            <Text style={S.composeTitle}>{t('bo.notifications.compose')}</Text>
 
             {/* Target selector */}
-            <Text style={S.label}>Destinataire</Text>
+            <Text style={S.label}>{t('bo.notifications.recipient')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity
@@ -128,7 +131,7 @@ export default function BONotificationsScreen() {
                 >
                   <Users color={target === 'all' ? theme.card : theme.textMuted} size={14} />
                   <Text style={[S.targetPillText, target === 'all' && S.targetPillTextActive]}>
-                    Tous ({members.length})
+                    {t('bo.notifications.allCount', { count: members.length })}
                   </Text>
                 </TouchableOpacity>
                 {members.map(m => (
@@ -148,23 +151,23 @@ export default function BONotificationsScreen() {
             </ScrollView>
 
             {/* Title */}
-            <Text style={S.label}>Titre</Text>
+            <Text style={S.label}>{t('bo.notifications.labelTitle')}</Text>
             <TextInput
               style={S.input}
               value={title}
               onChangeText={setTitle}
-              placeholder="Titre de la notification..."
+              placeholder={t('bo.notifications.titlePlaceholder')}
               placeholderTextColor={theme.textMuted}
               maxLength={80}
             />
 
             {/* Body */}
-            <Text style={S.label}>Message (optionnel)</Text>
+            <Text style={S.label}>{t('bo.notifications.labelBody')}</Text>
             <TextInput
               style={[S.input, { height: 80, textAlignVertical: 'top' }]}
               value={body}
               onChangeText={setBody}
-              placeholder="Corps du message..."
+              placeholder={t('bo.notifications.bodyPlaceholder')}
               placeholderTextColor={theme.textMuted}
               multiline
               maxLength={300}
@@ -177,17 +180,17 @@ export default function BONotificationsScreen() {
               activeOpacity={0.8}
             >
               <Send color={theme.card} size={16} />
-              <Text style={S.sendBtnText}>{sending ? 'Envoi...' : 'Envoyer'}</Text>
+              <Text style={S.sendBtnText}>{sending ? t('bo.notifications.sending') : t('bo.notifications.send')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* History */}
           <View style={S.section}>
-            <Text style={S.sectionTitle}>Historique</Text>
+            <Text style={S.sectionTitle}>{t('bo.notifications.history')}</Text>
             {history.length === 0 ? (
               <View style={S.emptyCard}>
                 <Bell color={theme.textMuted} size={28} />
-                <Text style={S.emptyText}>Aucune notification envoyée</Text>
+                <Text style={S.emptyText}>{t('bo.notifications.empty')}</Text>
               </View>
             ) : (
               <View style={S.listCard}>
@@ -202,12 +205,12 @@ export default function BONotificationsScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                         <Clock color={theme.textMuted} size={10} />
                         <Text style={S.historyDate}>
-                          {new Date(n.created_at).toLocaleDateString('fr-FR', {
+                          {new Date(n.created_at).toLocaleDateString(dateLocale, {
                             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                           })}
                         </Text>
                         <Text style={S.historyTarget}>
-                          → {n.target === 'all' ? 'Tous' : 'Individuel'}
+                          → {n.target === 'all' ? t('bo.notifications.targetAll') : t('bo.notifications.targetIndividual')}
                         </Text>
                       </View>
                     </View>

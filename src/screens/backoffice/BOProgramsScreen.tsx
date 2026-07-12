@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Plus, ChevronLeft, Pencil, Trash2, Copy, Users, Calendar, BookOpen } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +23,7 @@ function genCode(): string {
 export default function BOProgramsScreen({ navigation }: any) {
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
 
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -115,16 +117,16 @@ export default function BOProgramsScreen({ navigation }: any) {
       setModalOpen(false);
       load();
     } catch (e: any) {
-      Alert.alert('Erreur', e.message);
+      Alert.alert(t('common.error'), e.message);
     }
     setSubmitting(false);
   }
 
   async function deleteProg(p: Program) {
-    Alert.alert('Supprimer ?', `"${p.title}" et tous ses WODs seront supprimés.`, [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('bo.programs.deleteTitle'), t('bo.programs.deleteMsg', { title: p.title }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive',
+        text: t('common.delete'), style: 'destructive',
         onPress: async () => {
           await supabase.from('programs').delete().eq('id', p.id);
           load();
@@ -135,7 +137,7 @@ export default function BOProgramsScreen({ navigation }: any) {
 
   function copyCode(code: string) {
     Clipboard.setString(code);
-    Alert.alert('Copié !', `Code : ${code}`);
+    Alert.alert(t('bo.programs.copied'), t('bo.programs.codeMsg', { code }));
   }
 
 
@@ -145,7 +147,7 @@ export default function BOProgramsScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>Programmes</Text>
+        <Text style={S.headerTitle}>{t('bo.programs.title')}</Text>
         <TouchableOpacity onPress={openCreate} style={S.addBtn}>
           <Plus color={theme.accent} size={20} />
         </TouchableOpacity>
@@ -161,11 +163,11 @@ export default function BOProgramsScreen({ navigation }: any) {
           {programs.length === 0 ? (
             <View style={S.emptyCard}>
               <BookOpen color={theme.textMuted} size={40} />
-              <Text style={S.emptyTitle}>Aucun programme</Text>
-              <Text style={S.emptySub}>Crée ton premier programme pour le vendre à tes athlètes.</Text>
+              <Text style={S.emptyTitle}>{t('bo.programs.empty')}</Text>
+              <Text style={S.emptySub}>{t('bo.programs.emptySub')}</Text>
               <TouchableOpacity style={S.createBtn} onPress={openCreate} activeOpacity={0.85}>
                 <Plus color="#fff" size={16} />
-                <Text style={S.createBtnText}>Créer un programme</Text>
+                <Text style={S.createBtnText}>{t('bo.programs.createProgram')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -175,7 +177,7 @@ export default function BOProgramsScreen({ navigation }: any) {
                   <View style={{ flex: 1 }}>
                     <Text style={S.progTitle}>{p.title}</Text>
                     <Text style={S.progMeta}>
-                      {p.type === 'fixed' ? `${p.duration_weeks} sem.` : 'Ongoing'} · {p.days_per_week}j/sem
+                      {p.type === 'fixed' ? t('bo.programs.weeksShort', { n: p.duration_weeks }) : t('bo.programs.ongoing')} · {t('bo.programs.daysPerWeekShort', { n: p.days_per_week })}
                     </Text>
                   </View>
                 </View>
@@ -185,13 +187,13 @@ export default function BOProgramsScreen({ navigation }: any) {
                 <View style={S.progStats}>
                   <View style={S.statChip}>
                     <Users color={theme.accent} size={14} />
-                    <Text style={S.statText}>{p.member_count ?? 0} acheteurs</Text>
+                    <Text style={S.statText}>{t('bo.programs.buyers', { count: p.member_count ?? 0 })}</Text>
                   </View>
                   <TouchableOpacity style={S.codeChip} onPress={() => copyCode(p.invite_code)} activeOpacity={0.7}>
                     <Copy color={theme.accent} size={12} />
                     <Text style={S.codeText}>{p.invite_code}</Text>
                   </TouchableOpacity>
-                  {!p.is_active && <Text style={S.inactiveBadge}>Inactif</Text>}
+                  {!p.is_active && <Text style={S.inactiveBadge}>{t('bo.programs.inactive')}</Text>}
                 </View>
 
                 <View style={S.progActions}>
@@ -201,15 +203,15 @@ export default function BOProgramsScreen({ navigation }: any) {
                     activeOpacity={0.7}
                   >
                     <Calendar color={theme.accent} size={14} />
-                    <Text style={S.actionText}>WODs</Text>
+                    <Text style={S.actionText}>{t('bo.programs.wods')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={S.actionBtn} onPress={() => openEdit(p)} activeOpacity={0.7}>
                     <Pencil color={theme.accent} size={14} />
-                    <Text style={S.actionText}>Modifier</Text>
+                    <Text style={S.actionText}>{t('common.edit')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={S.actionBtn} onPress={() => deleteProg(p)} activeOpacity={0.7}>
                     <Trash2 color={theme.error} size={14} />
-                    <Text style={[S.actionText, { color: theme.error }]}>Supprimer</Text>
+                    <Text style={[S.actionText, { color: theme.error }]}>{t('common.delete')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -223,43 +225,43 @@ export default function BOProgramsScreen({ navigation }: any) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={S.modalContainer}>
             <View style={S.modalHeader}>
-              <Text style={S.modalTitle}>{editProg ? 'Modifier' : 'Nouveau programme'}</Text>
+              <Text style={S.modalTitle}>{editProg ? t('bo.programs.editTitle') : t('bo.programs.newProgram')}</Text>
               <TouchableOpacity onPress={() => setModalOpen(false)}>
-                <Text style={S.modalCancel}>Annuler</Text>
+                <Text style={S.modalCancel}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={S.modalBody} keyboardShouldPersistTaps="handled">
-              <Text style={S.mLabel}>TITRE *</Text>
-              <TextInput style={S.mInput} value={title} onChangeText={setTitle} placeholder="Force 6 semaines" placeholderTextColor={theme.textMuted} />
+              <Text style={S.mLabel}>{t('bo.programs.labelTitle')}</Text>
+              <TextInput style={S.mInput} value={title} onChangeText={setTitle} placeholder={t('bo.programs.titlePlaceholder')} placeholderTextColor={theme.textMuted} />
 
-              <Text style={S.mLabel}>DESCRIPTION</Text>
-              <TextInput style={[S.mInput, S.mTextarea]} value={description} onChangeText={setDescription} placeholder="Programme de force progressive…" placeholderTextColor={theme.textMuted} multiline />
+              <Text style={S.mLabel}>{t('bo.programs.labelDescription')}</Text>
+              <TextInput style={[S.mInput, S.mTextarea]} value={description} onChangeText={setDescription} placeholder={t('bo.programs.descPlaceholder')} placeholderTextColor={theme.textMuted} multiline />
 
-              <Text style={S.mLabel}>TYPE</Text>
+              <Text style={S.mLabel}>{t('bo.programs.labelType')}</Text>
               <View style={S.typeRow}>
                 <TouchableOpacity style={[S.typeChip, progType === 'fixed' && S.typeChipActive]} onPress={() => setProgType('fixed')}>
-                  <Text style={[S.typeChipText, progType === 'fixed' && S.typeChipTextActive]}>Programme fixe</Text>
+                  <Text style={[S.typeChipText, progType === 'fixed' && S.typeChipTextActive]}>{t('bo.programs.typeFixed')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[S.typeChip, progType === 'ongoing' && S.typeChipActive]} onPress={() => setProgType('ongoing')}>
-                  <Text style={[S.typeChipText, progType === 'ongoing' && S.typeChipTextActive]}>Ongoing</Text>
+                  <Text style={[S.typeChipText, progType === 'ongoing' && S.typeChipTextActive]}>{t('bo.programs.ongoing')}</Text>
                 </TouchableOpacity>
               </View>
 
               {progType === 'fixed' && (
                 <View style={S.row}>
                   <View style={{ flex: 1 }}>
-                    <Text style={S.mLabel}>DURÉE (semaines)</Text>
+                    <Text style={S.mLabel}>{t('bo.programs.labelDuration')}</Text>
                     <TextInput style={S.mInput} value={durationWeeks} onChangeText={setDurationWeeks} keyboardType="numeric" placeholder="6" placeholderTextColor={theme.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={S.mLabel}>JOURS / SEMAINE</Text>
+                    <Text style={S.mLabel}>{t('bo.programs.labelDaysPerWeek')}</Text>
                     <TextInput style={S.mInput} value={daysPerWeek} onChangeText={setDaysPerWeek} keyboardType="numeric" placeholder="5" placeholderTextColor={theme.textMuted} />
                   </View>
                 </View>
               )}
 
               <View style={S.publishRow}>
-                <Text style={S.publishLabel}>Actif (visible)</Text>
+                <Text style={S.publishLabel}>{t('bo.programs.activeVisible')}</Text>
                 <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: theme.success }} />
               </View>
 
@@ -271,7 +273,7 @@ export default function BOProgramsScreen({ navigation }: any) {
               >
                 {submitting
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.saveBtnText}>{editProg ? 'Enregistrer' : 'Créer le programme'}</Text>}
+                  : <Text style={S.saveBtnText}>{editProg ? t('common.save') : t('bo.programs.createProgram')}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>

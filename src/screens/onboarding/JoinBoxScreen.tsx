@@ -4,12 +4,14 @@ import {
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { ChevronLeft, Hash, LogIn } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import GlassBackground from '../../components/glass/GlassBackground';
 
 export default function JoinBoxScreen({ navigation }: any) {
   const { joinBox, user } = useAuth();
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const S = createStyles(theme);
   const [code, setCode]       = useState('');
@@ -17,13 +19,13 @@ export default function JoinBoxScreen({ navigation }: any) {
 
   async function handleJoin() {
     if (code.trim().length !== 6) {
-      Alert.alert('Code invalide', 'Le code fait exactement 6 caractères.');
+      Alert.alert(t('onboarding.invalidCode'), t('onboarding.invalidCodeMsg'));
       return;
     }
     setLoading(true);
     const { error } = await joinBox(code.trim().toUpperCase());
     setLoading(false);
-    if (error) Alert.alert('Erreur', error);
+    if (error) Alert.alert(t('common.error'), error);
     // Navigation handled by AppNavigator reacting to currentBox change
   }
 
@@ -42,9 +44,9 @@ export default function JoinBoxScreen({ navigation }: any) {
         <View style={S.iconWrap}>
           <Hash color={theme.accent} size={32} />
         </View>
-        <Text style={S.title}>Rejoindre une box</Text>
+        <Text style={S.title}>{t('onboarding.join.title')}</Text>
         <Text style={S.subtitle}>
-          Demande le code à 6 caractères à ton coach ou gérant de box.
+          {t('onboarding.join.subtitle')}
         </Text>
 
         <View style={S.inputWrap}>
@@ -53,7 +55,7 @@ export default function JoinBoxScreen({ navigation }: any) {
             placeholder="ABC123"
             placeholderTextColor={theme.textMuted}
             value={code}
-            onChangeText={t => setCode(t.toUpperCase())}
+            onChangeText={v => setCode(v.toUpperCase())}
             autoCapitalize="characters"
             maxLength={6}
             autoFocus
@@ -71,13 +73,13 @@ export default function JoinBoxScreen({ navigation }: any) {
             : (
               <>
                 <LogIn color="#fff" size={18} />
-                <Text style={S.btnText}>Rejoindre</Text>
+                <Text style={S.btnText}>{t('onboarding.join.button')}</Text>
               </>
             )}
         </TouchableOpacity>
 
         <Text style={S.hint}>
-          Bonjour {user?.username} · si tu n'as pas encore de code, contacte ton box
+          {t('onboarding.join.hint', { username: user?.username ?? '' })}
         </Text>
       </View>
     </KeyboardAvoidingView>

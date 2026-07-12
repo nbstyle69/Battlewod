@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { Award, Flame, Users, ChevronRight, TrendingUp, AlertTriangle } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -39,6 +40,7 @@ interface MemberMovementStat {
 export default function BOGamificationScreen() {
   const { currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = styles(theme);
 
   const [loading, setLoading] = useState(true);
@@ -170,16 +172,16 @@ export default function BOGamificationScreen() {
   }
 
   const tabs: { key: typeof tab; label: string; icon: any }[] = [
-    { key: 'badges', label: 'Badges', icon: Award },
-    { key: 'streaks', label: 'Streaks', icon: Flame },
-    { key: 'movements', label: 'Mouvements', icon: TrendingUp },
+    { key: 'badges', label: t('bo.gamification.tabBadges'), icon: Award },
+    { key: 'streaks', label: t('bo.gamification.tabStreaks'), icon: Flame },
+    { key: 'movements', label: t('bo.gamification.tabMovements'), icon: TrendingUp },
   ];
 
   return (
     <View style={S.container}>
       <View style={S.header}>
         <Award color={theme.accent} size={22} />
-        <Text style={S.headerTitle}>Gamification</Text>
+        <Text style={S.headerTitle}>{t('bo.gamification.title')}</Text>
       </View>
 
       <ScrollView
@@ -192,36 +194,36 @@ export default function BOGamificationScreen() {
           <View style={S.kpiCard}>
             <Award color={theme.accent} size={18} />
             <Text style={S.kpiValue}>{totalBadgesEarned}</Text>
-            <Text style={S.kpiLabel}>Badges gagnés</Text>
+            <Text style={S.kpiLabel}>{t('bo.gamification.badgesEarned')}</Text>
           </View>
           <View style={S.kpiCard}>
             <Flame color={theme.warning} size={18} />
             <Text style={[S.kpiValue, { color: theme.warning }]}>{avgStreak}</Text>
-            <Text style={S.kpiLabel}>Streak moyen</Text>
+            <Text style={S.kpiLabel}>{t('bo.gamification.avgStreak')}</Text>
           </View>
           <View style={S.kpiCard}>
             <Users color={theme.accent} size={18} />
             <Text style={S.kpiValue}>
               {memberStreaks.filter(m => m.sessions_this_week >= 3).length}
             </Text>
-            <Text style={S.kpiLabel}>Actifs /sem</Text>
+            <Text style={S.kpiLabel}>{t('bo.gamification.activePerWeek')}</Text>
           </View>
         </View>
 
         {/* Tab selector */}
         <View style={S.tabRow}>
-          {tabs.map(t => {
-            const Icon = t.icon;
-            const active = tab === t.key;
+          {tabs.map(tb => {
+            const Icon = tb.icon;
+            const active = tab === tb.key;
             return (
               <TouchableOpacity
-                key={t.key}
+                key={tb.key}
                 style={[S.tabBtn, active && S.tabBtnActive]}
-                onPress={() => setTab(t.key)}
+                onPress={() => setTab(tb.key)}
                 activeOpacity={0.8}
               >
                 <Icon color={active ? theme.card : theme.textMuted} size={14} />
-                <Text style={[S.tabBtnText, active && S.tabBtnTextActive]}>{t.label}</Text>
+                <Text style={[S.tabBtnText, active && S.tabBtnTextActive]}>{tb.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -233,13 +235,13 @@ export default function BOGamificationScreen() {
             {/* Badge popularity */}
             {badgeSummary.length > 0 && (
               <>
-                <Text style={S.subTitle}>Badges les plus gagnés</Text>
+                <Text style={S.subTitle}>{t('bo.gamification.mostEarnedBadges')}</Text>
                 <View style={S.listCard}>
                   {badgeSummary.slice(0, 8).map((b, i) => (
                     <View key={b.badge_key} style={[S.listRow, i < Math.min(badgeSummary.length, 8) - 1 && S.listRowBorder]}>
                       <Text style={S.badgeIcon}>{b.icon}</Text>
                       <Text style={S.listName} numberOfLines={1}>{b.title}</Text>
-                      <Text style={S.listValue}>{b.earned_count} ×</Text>
+                      <Text style={S.listValue}>{t('bo.gamification.timesEarned', { count: b.earned_count })}</Text>
                     </View>
                   ))}
                 </View>
@@ -247,10 +249,10 @@ export default function BOGamificationScreen() {
             )}
 
             {/* Member badges ranking */}
-            <Text style={[S.subTitle, { marginTop: 20 }]}>Classement membres</Text>
+            <Text style={[S.subTitle, { marginTop: 20 }]}>{t('bo.gamification.memberRanking')}</Text>
             <View style={S.listCard}>
               {memberBadges.length === 0 ? (
-                <Text style={S.emptyText}>Aucun membre</Text>
+                <Text style={S.emptyText}>{t('bo.gamification.noMember')}</Text>
               ) : memberBadges.map((m, i) => (
                 <View key={m.user_id} style={[S.listRow, i < memberBadges.length - 1 && S.listRowBorder]}>
                   <View style={[S.rank, i === 0 && { backgroundColor: `${theme.gold}20` }]}>
@@ -272,7 +274,7 @@ export default function BOGamificationScreen() {
           <View style={S.section}>
             <View style={S.listCard}>
               {memberStreaks.length === 0 ? (
-                <Text style={S.emptyText}>Aucun membre</Text>
+                <Text style={S.emptyText}>{t('bo.gamification.noMember')}</Text>
               ) : memberStreaks.map((m, i) => {
                 const isInactive = m.current_streak === 0 && m.sessions_this_week === 0;
                 return (
@@ -288,14 +290,14 @@ export default function BOGamificationScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={S.listName} numberOfLines={1}>{m.username}</Text>
                       <Text style={S.listSub}>
-                        {m.sessions_this_week} sessions cette sem. · Record: {m.longest_streak} sem.
+                        {t('bo.gamification.streakSub', { sessions: m.sessions_this_week, record: m.longest_streak })}
                       </Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={[S.streakValue, {
                         color: m.current_streak >= 4 ? theme.success : m.current_streak > 0 ? theme.text : theme.warning,
                       }]}>
-                        {m.current_streak} sem.
+                        {t('bo.gamification.weeksShort', { n: m.current_streak })}
                       </Text>
                     </View>
                   </View>
@@ -310,7 +312,7 @@ export default function BOGamificationScreen() {
           <View style={S.section}>
             <View style={S.listCard}>
               {memberMovements.length === 0 ? (
-                <Text style={S.emptyText}>Aucun mouvement tracké</Text>
+                <Text style={S.emptyText}>{t('bo.gamification.noMovement')}</Text>
               ) : memberMovements.map((m, i) => (
                 <View key={m.user_id} style={[S.listRow, i < memberMovements.length - 1 && S.listRowBorder]}>
                   <View style={[S.rank, i === 0 && { backgroundColor: `${theme.gold}20` }]}>
@@ -318,9 +320,9 @@ export default function BOGamificationScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={S.listName} numberOfLines={1}>{m.username}</Text>
-                    <Text style={S.listSub}>{m.movement_count} mouvements différents</Text>
+                    <Text style={S.listSub}>{t('bo.gamification.differentMovements', { count: m.movement_count })}</Text>
                   </View>
-                  <Text style={S.listValue}>{m.total_reps.toLocaleString()} reps</Text>
+                  <Text style={S.listValue}>{t('bo.gamification.repsCount', { count: m.total_reps.toLocaleString() })}</Text>
                 </View>
               ))}
             </View>

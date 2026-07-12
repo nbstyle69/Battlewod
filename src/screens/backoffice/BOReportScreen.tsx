@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Share,
 } from 'react-native';
 import { FileText, Download, Users, Trophy, ClipboardList, TrendingUp, Flame } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +25,8 @@ interface MonthlyReport {
 export default function BOReportScreen() {
   const { currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const S = styles(theme);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,7 +37,7 @@ export default function BOReportScreen() {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - offset, 1);
     const end = new Date(now.getFullYear(), now.getMonth() - offset + 1, 1);
-    const label = start.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    const label = start.toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
     return { start, end, label };
   };
 
@@ -122,15 +125,15 @@ export default function BOReportScreen() {
 
   async function shareReport() {
     if (!report) return;
-    const text = `📊 Rapport mensuel — ${report.month}\n\n` +
-      `👥 Membres: ${report.totalMembers} (${report.newMembers} nouveaux)\n` +
-      `📝 Scores soumis: ${report.totalScores}\n` +
-      `🏋️ WODs publiés: ${report.totalWODs}\n` +
-      `📈 Rétention: ${report.retentionRate}%\n` +
-      `⭐ Moy. scores/membre: ${report.avgScoresPerMember}\n` +
-      (report.topAthlete ? `🏆 Top athlète: ${report.topAthlete.username} (${report.topAthlete.scores} scores)\n` : '') +
-      (report.mostPopularWOD ? `🔥 WOD populaire: ${report.mostPopularWOD.title} (${report.mostPopularWOD.scores} scores)\n` : '') +
-      `\n— AthleX`;
+    const text = t('bo.report.shareTitle', { month: report.month }) + '\n\n' +
+      t('bo.report.shareMembers', { total: report.totalMembers, new: report.newMembers }) + '\n' +
+      t('bo.report.shareScores', { count: report.totalScores }) + '\n' +
+      t('bo.report.shareWods', { count: report.totalWODs }) + '\n' +
+      t('bo.report.shareRetention', { rate: report.retentionRate }) + '\n' +
+      t('bo.report.shareAvg', { avg: report.avgScoresPerMember }) + '\n' +
+      (report.topAthlete ? t('bo.report.shareTop', { name: report.topAthlete.username, count: report.topAthlete.scores }) + '\n' : '') +
+      (report.mostPopularWOD ? t('bo.report.sharePopular', { title: report.mostPopularWOD.title, count: report.mostPopularWOD.scores }) + '\n' : '') +
+      t('bo.report.shareFooter');
     await Share.share({ message: text });
   }
 
@@ -146,7 +149,7 @@ export default function BOReportScreen() {
     <View style={S.container}>
       <View style={S.header}>
         <FileText color={theme.accent} size={22} />
-        <Text style={S.headerTitle}>Rapport mensuel</Text>
+        <Text style={S.headerTitle}>{t('bo.report.title')}</Text>
       </View>
 
       <ScrollView
@@ -185,17 +188,17 @@ export default function BOReportScreen() {
               </Text>
               <TouchableOpacity style={S.shareBtn} onPress={shareReport} activeOpacity={0.8}>
                 <Download color={theme.accent} size={16} />
-                <Text style={S.shareBtnText}>Partager</Text>
+                <Text style={S.shareBtnText}>{t('bo.report.share')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* KPI Grid */}
             <View style={S.kpiGrid}>
               {[
-                { icon: Users, label: 'Membres', value: String(report.totalMembers), sub: `+${report.newMembers} nouveaux`, color: theme.accent },
-                { icon: ClipboardList, label: 'WODs publiés', value: String(report.totalWODs), sub: null, color: theme.accent },
-                { icon: Trophy, label: 'Scores soumis', value: String(report.totalScores), sub: `~${report.avgScoresPerMember}/membre`, color: theme.accent },
-                { icon: TrendingUp, label: 'Rétention', value: `${report.retentionRate}%`, sub: 'membres actifs', color: report.retentionRate >= 50 ? theme.success : theme.warning },
+                { icon: Users, label: t('bo.report.kpiMembers'), value: String(report.totalMembers), sub: t('bo.report.kpiNew', { count: report.newMembers }), color: theme.accent },
+                { icon: ClipboardList, label: t('bo.report.kpiWods'), value: String(report.totalWODs), sub: null, color: theme.accent },
+                { icon: Trophy, label: t('bo.report.kpiScores'), value: String(report.totalScores), sub: t('bo.report.kpiAvg', { avg: report.avgScoresPerMember }), color: theme.accent },
+                { icon: TrendingUp, label: t('bo.report.kpiRetention'), value: `${report.retentionRate}%`, sub: t('bo.report.kpiActiveMembers'), color: report.retentionRate >= 50 ? theme.success : theme.warning },
               ].map(({ icon: Icon, label, value, sub, color }) => (
                 <View key={label} style={S.kpiCard}>
                   <Icon color={color} size={18} />
@@ -211,9 +214,9 @@ export default function BOReportScreen() {
               <View style={S.highlightCard}>
                 <Trophy color={theme.gold} size={20} />
                 <View style={{ flex: 1 }}>
-                  <Text style={S.highlightLabel}>Top athlète du mois</Text>
+                  <Text style={S.highlightLabel}>{t('bo.report.topAthlete')}</Text>
                   <Text style={S.highlightValue}>{report.topAthlete.username}</Text>
-                  <Text style={S.highlightSub}>{report.topAthlete.scores} scores soumis</Text>
+                  <Text style={S.highlightSub}>{t('bo.report.scoresSubmitted', { count: report.topAthlete.scores })}</Text>
                 </View>
               </View>
             )}
@@ -222,9 +225,9 @@ export default function BOReportScreen() {
               <View style={S.highlightCard}>
                 <Flame color={theme.accent} size={20} />
                 <View style={{ flex: 1 }}>
-                  <Text style={S.highlightLabel}>WOD le plus populaire</Text>
+                  <Text style={S.highlightLabel}>{t('bo.report.popularWod')}</Text>
                   <Text style={S.highlightValue}>{report.mostPopularWOD.title}</Text>
-                  <Text style={S.highlightSub}>{report.mostPopularWOD.scores} participations</Text>
+                  <Text style={S.highlightSub}>{t('bo.report.participations', { count: report.mostPopularWOD.scores })}</Text>
                 </View>
               </View>
             )}

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView, AppState, Platform,
 } from 'react-native';
 import { Lock, CreditCard, Check, LogOut } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { openExternalUrl, pollUntilTrue } from '../../lib/openCheckout';
@@ -10,21 +11,12 @@ import { supabase } from '../../lib/supabase';
 
 const PRICING_URL = 'https://the-hub-rho.vercel.app/pricing';
 
-const FEATURES = [
-  'Membres illimités',
-  'Coachs illimités',
-  'WODs & Réservations',
-  'Analytics & Rapports',
-  'Notifications push',
-  'Annuaire AthleX',
-  'Gamification complète',
-  'Support prioritaire',
-];
-
 export default function BOPaywallScreen() {
   const { currentBox, signOut, refreshSubscription } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
+  const FEATURES = t('bo.paywall.features', { returnObjects: true }) as string[];
   const [loading, setLoading] = useState(false);
   const appState = useRef(AppState.currentState);
 
@@ -44,7 +36,7 @@ export default function BOPaywallScreen() {
     if (!currentBox) return;
     setLoading(true);
     const url = `${PRICING_URL}?box_id=${currentBox.id}`;
-    const opened = await openExternalUrl(url, 'Impossible d\'ouvrir la page de souscription.');
+    const opened = await openExternalUrl(url, t('bo.paywall.cantOpen'));
     if (!opened) { setLoading(false); return; }
 
     // Poll DB every 2s for up to 60s to detect the new subscription status.
@@ -67,17 +59,17 @@ export default function BOPaywallScreen() {
           <Lock color={theme.error} size={40} />
         </View>
 
-        <Text style={S.title}>Ton essai est terminé</Text>
+        <Text style={S.title}>{t('bo.paywall.trialOver')}</Text>
         <Text style={S.subtitle}>
-          Souscris au plan complet pour retrouver l'accès à ton back-office et continuer à gérer ta box.
+          {t('bo.paywall.subtitle')}
         </Text>
 
         <View style={S.planCard}>
           <View style={S.planHeader}>
-            <Text style={S.planName}>Plan Complet</Text>
+            <Text style={S.planName}>{t('bo.paywall.planName')}</Text>
             <View style={S.priceRow}>
               <Text style={S.price}>79€</Text>
-              <Text style={S.pricePeriod}>/mois</Text>
+              <Text style={S.pricePeriod}>{t('bo.paywall.perMonth')}</Text>
             </View>
           </View>
 
@@ -93,10 +85,9 @@ export default function BOPaywallScreen() {
 
         {Platform.OS === 'ios' ? (
           <View style={S.iosNotice}>
-            <Text style={S.iosNoticeTitle}>Souscription via le web</Text>
+            <Text style={S.iosNoticeTitle}>{t('bo.paywall.webTitle')}</Text>
             <Text style={S.iosNoticeText}>
-              Pour souscrire au plan complet, rends-toi sur athlex.app depuis un navigateur.
-              Ton abonnement sera automatiquement activé dans l'app dès que le paiement sera confirmé.
+              {t('bo.paywall.webText')}
             </Text>
           </View>
         ) : (
@@ -111,26 +102,26 @@ export default function BOPaywallScreen() {
             ) : (
               <>
                 <CreditCard color="#fff" size={18} />
-                <Text style={S.primaryBtnText}>Souscrire — 79€/mois</Text>
+                <Text style={S.primaryBtnText}>{t('bo.paywall.subscribe')}</Text>
               </>
             )}
           </TouchableOpacity>
         )}
 
         <Text style={S.retention}>
-          Tes données (membres, WODs, scores) sont conservées 30 jours.{Platform.OS === 'ios' ? '' : '\nSouscris maintenant pour ne rien perdre.'}
+          {t('bo.paywall.retention')}{Platform.OS === 'ios' ? '' : t('bo.paywall.retentionExtra')}
         </Text>
 
         <TouchableOpacity
           style={S.logoutBtn}
-          onPress={() => Alert.alert('Déconnexion', 'Confirmer ?', [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Déconnexion', style: 'destructive', onPress: signOut },
+          onPress={() => Alert.alert(t('bo.paywall.logoutTitle'), t('bo.paywall.logoutConfirm'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('bo.paywall.logout'), style: 'destructive', onPress: signOut },
           ])}
           activeOpacity={0.7}
         >
           <LogOut color={theme.textMuted} size={16} />
-          <Text style={S.logoutText}>Se déconnecter</Text>
+          <Text style={S.logoutText}>{t('bo.paywall.logout')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Dimensions,
 } from 'react-native';
 import { BarChart3, TrendingUp, Users, Flame, AlertTriangle } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -16,6 +17,7 @@ interface InactiveMember { username: string; last_active: string | null; user_id
 export default function BOStatsScreen() {
   const { currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = styles(theme);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,7 +49,7 @@ export default function BOStatsScreen() {
       start.setHours(0, 0, 0, 0);
       const end = new Date(start);
       end.setDate(end.getDate() + 7);
-      const label = `S${8 - w}`;
+      const label = t('bo.stats.weekLabel', { n: 8 - w });
 
       const { count } = await supabase
         .from('wod_scores').select('*', { count: 'exact', head: true })
@@ -158,7 +160,7 @@ export default function BOStatsScreen() {
     <View style={S.container}>
       <View style={S.header}>
         <BarChart3 color={theme.accent} size={22} />
-        <Text style={S.headerTitle}>Statistiques</Text>
+        <Text style={S.headerTitle}>{t('bo.stats.title')}</Text>
       </View>
 
       <ScrollView
@@ -171,25 +173,25 @@ export default function BOStatsScreen() {
           <View style={S.kpiCard}>
             <Users color={theme.accent} size={18} />
             <Text style={S.kpiValue}>{memberCount}</Text>
-            <Text style={S.kpiLabel}>Membres</Text>
+            <Text style={S.kpiLabel}>{t('bo.stats.members')}</Text>
           </View>
           <View style={S.kpiCard}>
             <TrendingUp color={retentionRate >= 50 ? theme.success : theme.warning} size={18} />
             <Text style={[S.kpiValue, { color: retentionRate >= 50 ? theme.success : theme.warning }]}>
               {retentionRate}%
             </Text>
-            <Text style={S.kpiLabel}>Rétention 30j</Text>
+            <Text style={S.kpiLabel}>{t('bo.stats.retention30')}</Text>
           </View>
           <View style={S.kpiCard}>
             <Flame color={theme.accent} size={18} />
             <Text style={S.kpiValue}>{weeklyData[weeklyData.length - 1]?.count ?? 0}</Text>
-            <Text style={S.kpiLabel}>Scores/sem</Text>
+            <Text style={S.kpiLabel}>{t('bo.stats.scoresPerWeek')}</Text>
           </View>
         </View>
 
         {/* Weekly participation chart */}
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Participation / semaine</Text>
+          <Text style={S.sectionTitle}>{t('bo.stats.participationPerWeek')}</Text>
           <View style={S.chartCard}>
             <View style={S.chartBars}>
               {weeklyData.map((w, i) => (
@@ -210,17 +212,17 @@ export default function BOStatsScreen() {
 
         {/* Top athletes */}
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Top 5 athlètes du mois</Text>
+          <Text style={S.sectionTitle}>{t('bo.stats.top5')}</Text>
           <View style={S.listCard}>
             {topAthletes.length === 0 ? (
-              <Text style={S.emptyText}>Aucun score ce mois-ci</Text>
+              <Text style={S.emptyText}>{t('bo.stats.noScoreMonth')}</Text>
             ) : topAthletes.map((a, i) => (
               <View key={a.user_id} style={[S.listRow, i < topAthletes.length - 1 && S.listRowBorder]}>
                 <View style={[S.rank, i === 0 && { backgroundColor: `${theme.gold}20` }]}>
                   <Text style={[S.rankText, i === 0 && { color: theme.gold }]}>{i + 1}</Text>
                 </View>
                 <Text style={S.listName} numberOfLines={1}>{a.username}</Text>
-                <Text style={S.listValue}>{a.score_count} scores</Text>
+                <Text style={S.listValue}>{t('bo.stats.scoresCount', { count: a.score_count })}</Text>
               </View>
             ))}
           </View>
@@ -228,17 +230,17 @@ export default function BOStatsScreen() {
 
         {/* Popular WODs */}
         <View style={S.section}>
-          <Text style={S.sectionTitle}>WODs les plus populaires</Text>
+          <Text style={S.sectionTitle}>{t('bo.stats.popularWods')}</Text>
           <View style={S.listCard}>
             {popularWODs.length === 0 ? (
-              <Text style={S.emptyText}>Aucun WOD cette période</Text>
+              <Text style={S.emptyText}>{t('bo.stats.noWodPeriod')}</Text>
             ) : popularWODs.map((w, i) => (
               <View key={i} style={[S.listRow, i < popularWODs.length - 1 && S.listRowBorder]}>
                 <View style={S.wodPill}>
                   <Text style={S.wodPillText}>{w.wod_type.toUpperCase()}</Text>
                 </View>
                 <Text style={S.listName} numberOfLines={1}>{w.title}</Text>
-                <Text style={S.listValue}>{w.count} scores</Text>
+                <Text style={S.listValue}>{t('bo.stats.scoresCount', { count: w.count })}</Text>
               </View>
             ))}
           </View>
@@ -248,11 +250,11 @@ export default function BOStatsScreen() {
         <View style={S.section}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <AlertTriangle color={theme.warning} size={18} />
-            <Text style={S.sectionTitle}>Membres inactifs (+14j)</Text>
+            <Text style={S.sectionTitle}>{t('bo.stats.inactiveMembers')}</Text>
           </View>
           <View style={S.listCard}>
             {inactiveMembers.length === 0 ? (
-              <Text style={[S.emptyText, { color: theme.success }]}>Tous les membres sont actifs 🎉</Text>
+              <Text style={[S.emptyText, { color: theme.success }]}>{t('bo.stats.allActive')}</Text>
             ) : inactiveMembers.map((m, i) => {
               const days = m.last_active
                 ? Math.floor((Date.now() - new Date(m.last_active).getTime()) / 86400000)
@@ -264,7 +266,7 @@ export default function BOStatsScreen() {
                   </View>
                   <Text style={S.listName} numberOfLines={1}>{m.username}</Text>
                   <Text style={[S.listValue, { color: theme.warning }]}>
-                    {days !== null ? `${days}j` : 'Jamais actif'}
+                    {days !== null ? t('bo.stats.daysAgo', { n: days }) : t('bo.stats.neverActive')}
                   </Text>
                 </View>
               );

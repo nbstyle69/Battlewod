@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Newspaper, Plus, Trash2, X, Image as ImageIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -23,6 +24,8 @@ interface Article {
 export default function BOArticlesScreen() {
   const { currentBox, user } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const S = styles(theme);
 
   const [loading, setLoading] = useState(true);
@@ -90,7 +93,7 @@ export default function BOArticlesScreen() {
   }
 
   async function handlePublish() {
-    if (!title.trim()) { Alert.alert('Erreur', 'Le titre est obligatoire.'); return; }
+    if (!title.trim()) { Alert.alert(t('common.error'), t('bo.articles.titleRequired')); return; }
     if (!currentBox || !user) return;
     setSaving(true);
 
@@ -108,7 +111,7 @@ export default function BOArticlesScreen() {
     });
 
     setSaving(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
 
     setTitle('');
     setBody('');
@@ -118,10 +121,10 @@ export default function BOArticlesScreen() {
   }
 
   async function handleDelete(id: string) {
-    Alert.alert('Supprimer', 'Supprimer cet article ?', [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('common.delete'), t('bo.articles.deleteConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive',
+        text: t('common.delete'), style: 'destructive',
         onPress: async () => {
           await supabase.from('box_articles').delete().eq('id', id);
           load();
@@ -142,7 +145,7 @@ export default function BOArticlesScreen() {
     <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={S.header}>
         <Newspaper color={theme.accent} size={22} />
-        <Text style={S.headerTitle}>Actualités</Text>
+        <Text style={S.headerTitle}>{t('bo.articles.title')}</Text>
         <TouchableOpacity
           style={S.addBtn}
           onPress={() => setShowForm(!showForm)}
@@ -162,14 +165,14 @@ export default function BOArticlesScreen() {
           <View style={S.formCard}>
             <TextInput
               style={S.input}
-              placeholder="Titre de l'article"
+              placeholder={t('bo.articles.titlePlaceholder')}
               placeholderTextColor={theme.textMuted}
               value={title}
               onChangeText={setTitle}
             />
             <TextInput
               style={[S.input, { height: 100, textAlignVertical: 'top' }]}
-              placeholder="Contenu (optionnel)"
+              placeholder={t('bo.articles.bodyPlaceholder')}
               placeholderTextColor={theme.textMuted}
               value={body}
               onChangeText={setBody}
@@ -177,7 +180,7 @@ export default function BOArticlesScreen() {
             />
             <TouchableOpacity style={S.imageBtn} onPress={pickImage} activeOpacity={0.8}>
               <ImageIcon color={theme.accent} size={16} />
-              <Text style={S.imageBtnText}>{imageUri ? 'Image sélectionnée ✓' : 'Ajouter une image'}</Text>
+              <Text style={S.imageBtnText}>{imageUri ? t('bo.articles.imageSelected') : t('bo.articles.addImage')}</Text>
             </TouchableOpacity>
             {imageUri && (
               <Image source={{ uri: imageUri }} style={S.previewImage} resizeMode="cover" />
@@ -188,14 +191,14 @@ export default function BOArticlesScreen() {
               disabled={saving}
               activeOpacity={0.8}
             >
-              <Text style={S.publishBtnText}>{saving ? 'Publication...' : 'Publier'}</Text>
+              <Text style={S.publishBtnText}>{saving ? t('bo.articles.publishing') : t('bo.articles.publish')}</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Articles list */}
         {articles.length === 0 ? (
-          <Text style={S.emptyText}>Aucun article pour le moment</Text>
+          <Text style={S.emptyText}>{t('bo.articles.empty')}</Text>
         ) : articles.map(a => (
           <View key={a.id} style={S.articleCard}>
             {a.image_url && (
@@ -206,7 +209,7 @@ export default function BOArticlesScreen() {
               {a.body ? <Text style={S.articleBody} numberOfLines={3}>{a.body}</Text> : null}
               <View style={S.articleMeta}>
                 <Text style={S.metaText}>
-                  {new Date(a.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  {new Date(a.created_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })}
                 </Text>
                 <Text style={S.metaText}>❤️ {a.likes_count}</Text>
                 <Text style={S.metaText}>💬 {a.comments_count}</Text>

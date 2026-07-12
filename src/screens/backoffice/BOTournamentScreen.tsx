@@ -11,6 +11,7 @@ import {
   RotateCcw, AlertTriangle, Users, UserX, Star,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { sendTournamentClosedNotification } from '../../services/notifications';
@@ -26,10 +27,11 @@ import {
 } from '../../utils/tournamentUtils';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function StatusPill({ status, theme: t }: { status: string; theme: AppTheme }) {
-  const color = status === 'pending' ? t.warning
-    : status === 'validated' ? t.success : t.error;
-  const label = status === 'pending' ? 'En attente' : status === 'validated' ? 'Validé' : 'Rejeté';
+function StatusPill({ status, theme: th }: { status: string; theme: AppTheme }) {
+  const { t } = useTranslation();
+  const color = status === 'pending' ? th.warning
+    : status === 'validated' ? th.success : th.error;
+  const label = status === 'pending' ? t('bo.tournament.statusPending') : status === 'validated' ? t('bo.tournament.statusValidated') : t('bo.tournament.statusRejected');
   return (
     <View style={[pill.wrap, { backgroundColor: `${color}20` }]}>
       <Text style={[pill.txt, { color }]}>{label}</Text>
@@ -46,6 +48,8 @@ export default function BOTournamentScreen() {
   const navigation = useNavigation();
   const { currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const s = createStyles(theme);
 
   const [tournaments,     setTournaments]     = useState<any[]>([]);
@@ -85,13 +89,13 @@ export default function BOTournamentScreen() {
     if (!selectedId) return;
 
     // Auto-close: if end_date has passed and tournament not yet completed
-    const currentTourn = tournaments.find(t => t.id === selectedId);
+    const currentTourn = tournaments.find(tt => tt.id === selectedId);
     if (currentTourn && currentTourn.status !== 'completed' && currentTourn.end_date) {
       const endDate = new Date(currentTourn.end_date + 'T00:00:00');
       endDate.setDate(endDate.getDate() + 1); // end of end_date day
       if (new Date() >= endDate) {
         await performTournamentClose(selectedId);
-        setTournaments(prev => prev.map(t => t.id === selectedId ? { ...t, status: 'completed' } : t));
+        setTournaments(prev => prev.map(tt => tt.id === selectedId ? { ...tt, status: 'completed' } : tt));
       }
     }
 
@@ -143,22 +147,22 @@ export default function BOTournamentScreen() {
     rejected:  scores.filter(s => s.status === 'rejected').length,
   };
 
-  const selectedTourn = tournaments.find(t => t.id === selectedId);
+  const selectedTourn = tournaments.find(tt => tt.id === selectedId);
 
   // ── Kick participant
   async function handleKick(athleteId: string, username: string) {
     Alert.alert(
-      'Exclure le participant',
-      `Exclure ${username} du tournoi ?`,
+      t('bo.tournament.kickTitle'),
+      t('bo.tournament.kickMsg', { username }),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Exclure', style: 'destructive', onPress: async () => {
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('bo.tournament.kick'), style: 'destructive', onPress: async () => {
           const { error } = await supabase
             .from('tournament_participants')
             .delete()
             .eq('tournament_id', selectedId!)
             .eq('athlete_id', athleteId);
-          if (error) { Alert.alert('Erreur', error.message); return; }
+          if (error) { Alert.alert(t('common.error'), error.message); return; }
           loadData();
         }},
       ]
@@ -189,13 +193,13 @@ export default function BOTournamentScreen() {
 
   // ── Validate score ────────────────────────────────────────────────────────
   async function handleValidate(score: TournamentScore) {
-    Alert.alert('Valider ce score ?', `${score.profile?.username} — ${score.score_value}`, [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Valider', onPress: async () => {
+    Alert.alert(t('bo.tournament.validateTitle'), `${score.profile?.username} — ${score.score_value}`, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('bo.tournament.validate'), onPress: async () => {
         const { error } = await supabase.from('tournament_scores').update({
           status: 'validated', validated_at: new Date().toISOString(),
         }).eq('id', score.id);
-        if (error) { Alert.alert('Erreur', error.message); return; }
+        if (error) { Alert.alert(t('common.error'), error.message); return; }
 
         // Update movement rep counts + badges
         const movements: string[] = (score.tw as any)?.movements ?? [];
@@ -229,9 +233,9 @@ export default function BOTournamentScreen() {
 
         await recalcLeaderboard();
         const msg = newBadges.length > 0
-          ? `\n\n🏅 Nouveau badge pour ${score.profile?.username} :\n${newBadges.join('\n')}`
+          ? '\n\n' + t('bo.tournament.newBadge', { username: score.profile?.username, badges: newBadges.join('\n') })
           : '';
-        Alert.alert('✅ Score validé !', `Score de ${score.profile?.username} validé.${msg}`);
+        Alert.alert(t('bo.tournament.scoreValidated'), t('bo.tournament.scoreValidatedMsg', { username: score.profile?.username }) + msg);
         loadData();
       }},
     ]);
@@ -245,7 +249,7 @@ export default function BOTournamentScreen() {
     }).eq('id', rejectModal.id);
     setRejectModal(null);
     setRejectReason('');
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     loadData();
   }
 
@@ -260,14 +264,14 @@ export default function BOTournamentScreen() {
         body: { score_id: score.id },
       });
       if (error) throw error;
-      const analysis: string = data?.analysis ?? 'Analyse indisponible.';
+      const analysis: string = data?.analysis ?? t('bo.tournament.analysisUnavailable');
       setAiLoading(null);
       setAiModal({ score: { ...score, ai_analysis: analysis }, analysis });
       loadData();
     } catch (e: any) {
       captureError(e, { screen: 'BOTournament', action: 'aiAnalysis' });
       setAiLoading(null);
-      Alert.alert('Erreur IA', e?.message ?? 'Impossible de contacter l\'API.');
+      Alert.alert(t('bo.tournament.aiError'), e?.message ?? t('bo.tournament.apiUnreachable'));
     }
   }
 
@@ -308,7 +312,7 @@ export default function BOTournamentScreen() {
     }
 
     // Send push notifications to all participants
-    const tournName = tournaments.find(t => t.id === tournId)?.name ?? 'Tournoi';
+    const tournName = tournaments.find(tt => tt.id === tournId)?.name ?? t('bo.tournament.tournamentFallback');
     sendTournamentClosedNotification(
       tournId,
       tournName,
@@ -335,26 +339,26 @@ export default function BOTournamentScreen() {
   async function handleCloseTournament() {
     if (!selectedId) return;
     if (stats.pending > 0) {
-      Alert.alert('Scores en attente', `${stats.pending} score(s) non traité(s). Valide ou rejette-les d'abord.`);
+      Alert.alert(t('bo.tournament.pendingScores'), t('bo.tournament.pendingScoresMsg', { count: stats.pending }));
       return;
     }
     Alert.alert(
-      'Clôturer le tournoi ?',
-      'Les points ELO seront calculés et distribués. Action irréversible.',
-      [{ text: 'Annuler', style: 'cancel' }, {
-        text: 'Clôturer', style: 'destructive', onPress: async () => {
+      t('bo.tournament.closeTitle'),
+      t('bo.tournament.closeMsg'),
+      [{ text: t('common.cancel'), style: 'cancel' }, {
+        text: t('bo.tournament.close'), style: 'destructive', onPress: async () => {
           setClosingTourn(true);
           const eloChanges = await performTournamentClose(selectedId);
           setClosingTourn(false);
-          setTournaments(prev => prev.map(t => t.id === selectedId ? { ...t, status: 'completed' } : t));
+          setTournaments(prev => prev.map(tt => tt.id === selectedId ? { ...tt, status: 'completed' } : tt));
 
           if (eloChanges.length === 0) {
-            Alert.alert('Tournoi clôturé', 'Pas assez de participants pour calculer l\'ELO (minimum 2).');
+            Alert.alert(t('bo.tournament.closed'), t('bo.tournament.notEnoughParticipants'));
           } else {
             const recap = eloChanges.slice(0, 5).map(e =>
               `${e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : e.rank === 3 ? '🥉' : `#${e.rank}`} ${e.name}: ${e.change >= 0 ? '+' : ''}${e.change} ELO`
             ).join('\n');
-            Alert.alert('✅ Tournoi clôturé !', `ELO distribué :\n\n${recap}\n${eloChanges.length > 5 ? `...et ${eloChanges.length - 5} autres` : ''}`);
+            Alert.alert(t('bo.tournament.closedSuccess'), t('bo.tournament.eloDistributed', { recap }) + '\n' + (eloChanges.length > 5 ? t('bo.tournament.andOthers', { count: eloChanges.length - 5 }) : ''));
           }
           loadData();
         },
@@ -401,8 +405,8 @@ export default function BOTournamentScreen() {
           <Text style={s.backTxt}>←</Text>
         </TouchableOpacity>
         <View style={s.headerTexts}>
-          <Text style={s.headerLabel}>BACK OFFICE</Text>
-          <Text style={s.headerTitle}>Tournois & Scores</Text>
+          <Text style={s.headerLabel}>{t('bo.tournament.backOffice')}</Text>
+          <Text style={s.headerTitle}>{t('bo.tournament.title')}</Text>
         </View>
         {stats.pending > 0 && (
           <View style={s.pendingBadge}><Text style={s.pendingBadgeTxt}>{stats.pending}</Text></View>
@@ -412,13 +416,13 @@ export default function BOTournamentScreen() {
       {/* ── Tournament selector ── */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         style={s.tournamentScroll} contentContainerStyle={s.tournamentScrollContent}>
-        {tournaments.map(t => {
-          const pendingCount = t.id === selectedId ? stats.pending : 0;
+        {tournaments.map(tn => {
+          const pendingCount = tn.id === selectedId ? stats.pending : 0;
           return (
-            <TouchableOpacity key={t.id} onPress={() => setSelectedId(t.id)}
-              style={[s.tournamentChip, t.id === selectedId && s.tournamentChipActive]}>
-              <Text style={[s.tournamentChipTxt, t.id === selectedId && s.tournamentChipTxtActive]}>
-                {t.name}
+            <TouchableOpacity key={tn.id} onPress={() => setSelectedId(tn.id)}
+              style={[s.tournamentChip, tn.id === selectedId && s.tournamentChipActive]}>
+              <Text style={[s.tournamentChipTxt, tn.id === selectedId && s.tournamentChipTxtActive]}>
+                {tn.name}
               </Text>
               {pendingCount > 0 && (
                 <View style={s.chipBadge}><Text style={s.chipBadgeTxt}>{pendingCount}</Text></View>
@@ -431,10 +435,10 @@ export default function BOTournamentScreen() {
       {/* ── Stats ── */}
       <View style={s.statsRow}>
         {[
-          { label: 'Total',     value: stats.total,     color: theme.textSecondary },
-          { label: 'Attente',   value: stats.pending,   color: theme.warning },
-          { label: 'Validés',   value: stats.validated, color: theme.success },
-          { label: 'Rejetés',   value: stats.rejected,  color: theme.error },
+          { label: t('bo.tournament.statTotal'),     value: stats.total,     color: theme.textSecondary },
+          { label: t('bo.tournament.statPending'),   value: stats.pending,   color: theme.warning },
+          { label: t('bo.tournament.statValidated'), value: stats.validated, color: theme.success },
+          { label: t('bo.tournament.statRejected'),  value: stats.rejected,  color: theme.error },
         ].map(stat => (
           <View key={stat.label} style={s.statCard}>
             <Text style={[s.statValue, { color: stat.color }]}>{stat.value}</Text>
@@ -445,11 +449,11 @@ export default function BOTournamentScreen() {
 
       {/* ══ Tabs ══ */}
       <View style={s.tabs}>
-        {(['leaderboard', 'participants', 'validate'] as const).map(t => (
-          <TouchableOpacity key={t} style={[s.tab, tab === t && s.tabActive]} onPress={() => setTab(t)}>
-            <Text style={[s.tabTxt, tab === t && s.tabTxtActive]} numberOfLines={1}>
-              {t === 'leaderboard' ? '🏆 Classement'
-                : t === 'participants' ? `👥 (${participants.length})`
+        {(['leaderboard', 'participants', 'validate'] as const).map(tabKey => (
+          <TouchableOpacity key={tabKey} style={[s.tab, tab === tabKey && s.tabActive]} onPress={() => setTab(tabKey)}>
+            <Text style={[s.tabTxt, tab === tabKey && s.tabTxtActive]} numberOfLines={1}>
+              {tabKey === 'leaderboard' ? t('bo.tournament.tabLeaderboard')
+                : tabKey === 'participants' ? `👥 (${participants.length})`
                 : `⚖️${stats.pending > 0 ? ` (${stats.pending})` : ''}`}
             </Text>
           </TouchableOpacity>
@@ -464,9 +468,9 @@ export default function BOTournamentScreen() {
           <>
             {/* Rank filter */}
             <View style={s.rankFilterRow}>
-              <Text style={s.rankFilterLabel}>Du rang</Text>
+              <Text style={s.rankFilterLabel}>{t('bo.tournament.fromRank')}</Text>
               <TextInput style={s.rankFilterInput} value={rankFrom} onChangeText={setRankFrom} keyboardType="numeric" />
-              <Text style={s.rankFilterLabel}>au rang</Text>
+              <Text style={s.rankFilterLabel}>{t('bo.tournament.toRank')}</Text>
               <TextInput style={s.rankFilterInput} value={rankTo} onChangeText={setRankTo} keyboardType="numeric" />
               <TouchableOpacity onPress={() => { setRankFrom('1'); setRankTo(String(participants.length)); }} style={s.rankResetBtn}>
                 <RotateCcw color={theme.textMuted} size={14} />
@@ -474,16 +478,16 @@ export default function BOTournamentScreen() {
             </View>
 
             {/* Recalc button */}
-            <TouchableOpacity style={s.recalcBtn} onPress={async () => { await recalcLeaderboard(); await loadData(); Alert.alert('✅', 'Classement recalculé.'); }} activeOpacity={0.8}>
+            <TouchableOpacity style={s.recalcBtn} onPress={async () => { await recalcLeaderboard(); await loadData(); Alert.alert('✅', t('bo.tournament.leaderboardRecalculated')); }} activeOpacity={0.8}>
               <RotateCcw color={theme.accent} size={14} />
-              <Text style={s.recalcTxt}>Recalculer le classement</Text>
+              <Text style={s.recalcTxt}>{t('bo.tournament.recalcLeaderboard')}</Text>
             </TouchableOpacity>
 
             {/* Table */}
             {buildLeaderboard().length === 0 ? (
               <View style={s.emptyState}>
                 <Text style={s.emptyEmoji}>🏆</Text>
-                <Text style={s.emptyTxt}>Aucun participant dans ce filtre.</Text>
+                <Text style={s.emptyTxt}>{t('bo.tournament.noParticipantFilter')}</Text>
               </View>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator>
@@ -491,13 +495,13 @@ export default function BOTournamentScreen() {
                   {/* Header row */}
                   <View style={[s.tableRow, s.tableHeaderRow]}>
                     <Text style={[s.tableCell, s.colRank, s.tableHeaderTxt]}>#</Text>
-                    <Text style={[s.tableCell, s.colName, s.tableHeaderTxt]}>Athlète</Text>
+                    <Text style={[s.tableCell, s.colName, s.tableHeaderTxt]}>{t('bo.tournament.athlete')}</Text>
                     {wods.map(w => (
                       <Text key={w.id} style={[s.tableCell, s.colWod, s.tableHeaderTxt]} numberOfLines={1}>
                         {w.title.slice(0, 8)}
                       </Text>
                     ))}
-                    <Text style={[s.tableCell, s.colTotal, s.tableHeaderTxt]}>Total</Text>
+                    <Text style={[s.tableCell, s.colTotal, s.tableHeaderTxt]}>{t('bo.tournament.total')}</Text>
                   </View>
                   {buildLeaderboard().map((row, i) => {
                     const levelColor = LevelColors[row.level] ?? theme.accent;
@@ -542,7 +546,7 @@ export default function BOTournamentScreen() {
                 disabled={closingTourn} activeOpacity={0.85}>
                 {closingTourn
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Lock color="#fff" size={16} /><Text style={s.closeBtnTxt}>Clôturer le tournoi</Text></>}
+                  : <><Lock color="#fff" size={16} /><Text style={s.closeBtnTxt}>{t('bo.tournament.closeTournament')}</Text></>}
               </TouchableOpacity>
             )}
           </>
@@ -553,18 +557,18 @@ export default function BOTournamentScreen() {
           <>
             <View style={s.partHeader}>
               <Users color={theme.accent} size={14} />
-              <Text style={s.partHeaderTxt}>{participants.length} inscrits — admin : exclure en appuyant sur 🗑</Text>
+              <Text style={s.partHeaderTxt}>{t('bo.tournament.participantsHeader', { count: participants.length })}</Text>
             </View>
             {participants.length === 0 ? (
               <View style={s.emptyState}>
                 <Text style={s.emptyEmoji}>👥</Text>
-                <Text style={s.emptyTxt}>Aucun inscrit pour ce tournoi.</Text>
+                <Text style={s.emptyTxt}>{t('bo.tournament.noParticipant')}</Text>
               </View>
             ) : participants.map((p: any) => {
               const levelColor = LevelColors[p.profile?.level ?? ''] ?? theme.accent;
               const boxName = p.profile?.box_members?.[0]?.box?.name ?? null;
               const regDate = p.created_at
-                ? new Date(p.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                ? new Date(p.created_at).toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit', year: 'numeric' })
                 : '—';
               return (
                 <View key={p.athlete_id} style={s.partRow}>
@@ -592,7 +596,7 @@ export default function BOTournamentScreen() {
                         <Text style={s.partMetaTxt}>{boxName}</Text></>
                       )}
                     </View>
-                    <Text style={s.partDate}>Inscrit le {regDate}</Text>
+                    <Text style={s.partDate}>{t('bo.tournament.registeredOn', { date: regDate })}</Text>
                   </View>
                   <TouchableOpacity style={s.kickBtn}
                     onPress={() => handleKick(p.athlete_id, p.profile?.username ?? '?')}
@@ -614,7 +618,7 @@ export default function BOTournamentScreen() {
                 <TouchableOpacity key={f} onPress={() => setFilterStatus(f)}
                   style={[s.filterChip, filterStatus === f && s.filterChipActive]}>
                   <Text style={[s.filterChipTxt, filterStatus === f && s.filterChipTxtActive]}>
-                    {f === 'all' ? 'Tous' : f === 'pending' ? `En attente (${stats.pending})` : f === 'validated' ? 'Validés' : 'Rejetés'}
+                    {f === 'all' ? t('bo.tournament.filterAll') : f === 'pending' ? t('bo.tournament.filterPending', { count: stats.pending }) : f === 'validated' ? t('bo.tournament.filterValidated') : t('bo.tournament.filterRejected')}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -623,7 +627,7 @@ export default function BOTournamentScreen() {
             {filteredScores.length === 0 ? (
               <View style={s.emptyState}>
                 <Text style={s.emptyEmoji}>📋</Text>
-                <Text style={s.emptyTxt}>Aucun score dans cette catégorie.</Text>
+                <Text style={s.emptyTxt}>{t('bo.tournament.noScoreCategory')}</Text>
               </View>
             ) : filteredScores.map(score => {
               const isExpanded = expandedId === score.id;
@@ -668,16 +672,16 @@ export default function BOTournamentScreen() {
                     <View style={s.scoreCardBody}>
                       {score.notes ? (
                         <View style={s.scoreNote}>
-                          <Text style={s.scoreNoteLabel}>Notes athlète</Text>
+                          <Text style={s.scoreNoteLabel}>{t('bo.tournament.athleteNotes')}</Text>
                           <Text style={s.scoreNoteTxt}>{score.notes}</Text>
                         </View>
                       ) : null}
                       {score.tiebreak_value != null && (
-                        <Text style={s.tiebreakTxt}>🔗 Tie-break : {score.tiebreak_value} reps</Text>
+                        <Text style={s.tiebreakTxt}>{t('bo.tournament.tiebreak', { value: score.tiebreak_value })}</Text>
                       )}
                       {score.deadline_at && (
                         <Text style={s.deadlineTxt}>
-                          <Clock color={theme.textMuted} size={12} /> Deadline : {formatDateTime(score.deadline_at)}
+                          <Clock color={theme.textMuted} size={12} /> {t('bo.tournament.deadline', { date: formatDateTime(score.deadline_at) })}
                         </Text>
                       )}
 
@@ -685,12 +689,12 @@ export default function BOTournamentScreen() {
                       {score.video_url ? (
                         <TouchableOpacity style={s.ytBtn} onPress={() => Linking.openURL(score.video_url!)} activeOpacity={0.85}>
                           <Youtube color="#FF0000" size={16} />
-                          <Text style={s.ytBtnTxt}>Voir la vidéo YouTube</Text>
+                          <Text style={s.ytBtnTxt}>{t('bo.tournament.watchYoutube')}</Text>
                         </TouchableOpacity>
                       ) : (
                         <View style={s.ytWarning}>
                           <AlertTriangle color={theme.error} size={14} />
-                          <Text style={s.ytWarningTxt}>Aucun lien vidéo soumis</Text>
+                          <Text style={s.ytWarningTxt}>{t('bo.tournament.noVideo')}</Text>
                         </View>
                       )}
 
@@ -711,12 +715,12 @@ export default function BOTournamentScreen() {
                           <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.success}15`, borderColor: `${theme.success}30` }]}
                             onPress={() => handleValidate(score)} activeOpacity={0.8}>
                             <CheckCircle color={theme.success} size={16} />
-                            <Text style={[s.actionBtnTxt, { color: theme.success }]}>Valider</Text>
+                            <Text style={[s.actionBtnTxt, { color: theme.success }]}>{t('bo.tournament.validate')}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.error}15`, borderColor: `${theme.error}30` }]}
                             onPress={() => { setRejectModal(score); setRejectReason(''); }} activeOpacity={0.8}>
                             <XCircle color={theme.error} size={16} />
-                            <Text style={[s.actionBtnTxt, { color: theme.error }]}>Rejeter</Text>
+                            <Text style={[s.actionBtnTxt, { color: theme.error }]}>{t('bo.tournament.reject')}</Text>
                           </TouchableOpacity>
                           {/* Bouton IA désactivé (clé Anthropic retirée)
                           <TouchableOpacity style={[s.actionBtn, { backgroundColor: `${theme.accent}10`, borderColor: `${theme.accent}20`, flex: 1.2 }]}
@@ -743,21 +747,21 @@ export default function BOTournamentScreen() {
       <Modal visible={!!rejectModal} transparent animationType="slide" onRequestClose={() => setRejectModal(null)}>
         <View style={s.modalOverlay}>
           <View style={s.modalSheet}>
-            <Text style={s.modalTitle}>Rejeter le score</Text>
+            <Text style={s.modalTitle}>{t('bo.tournament.rejectScore')}</Text>
             <Text style={s.modalSub}>{rejectModal?.profile?.username} — {rejectModal?.score_value}</Text>
             <TextInput
               style={s.rejectInput}
               value={rejectReason}
               onChangeText={setRejectReason}
-              placeholder="Motif du rejet (optionnel)"
+              placeholder={t('bo.tournament.rejectReasonPlaceholder')}
               placeholderTextColor={theme.textMuted}
               multiline
             />
             <TouchableOpacity style={s.rejectConfirmBtn} onPress={confirmReject} activeOpacity={0.85}>
-              <Text style={s.rejectConfirmTxt}>Confirmer le rejet</Text>
+              <Text style={s.rejectConfirmTxt}>{t('bo.tournament.confirmReject')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.modalCancelBtn} onPress={() => setRejectModal(null)}>
-              <Text style={s.modalCancelTxt}>Annuler</Text>
+              <Text style={s.modalCancelTxt}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

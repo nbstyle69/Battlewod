@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings, Building2, CreditCard, BookOpen, Globe2 } from 'lucide-react-native';
 import TrialBanner from '../../components/TrialBanner';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -31,7 +32,10 @@ interface InterBoxStats {
 export default function BODashboardScreen({ navigation }: any) {
   const { user, currentBox, signOut, boxSubscription, isBoxActive, daysLeftTrial } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
+  const formatLabel = (fmt: string) => fmt === 'bracket' ? t('bo.dashboard.fmtBracket') : fmt === 'league' ? t('bo.dashboard.fmtLeague') : fmt === 'pool' ? t('bo.dashboard.fmtPool') : fmt === 'swiss' ? t('bo.dashboard.fmtSwiss') : fmt;
+  const statusLabel = (status: string) => status === 'draft' ? t('bo.dashboard.statusDraft') : status === 'open' ? t('bo.dashboard.statusOpen') : status === 'active' ? t('bo.dashboard.statusActive') : t('bo.dashboard.statusClosed');
   const [stats, setStats]         = useState<Stats>({ memberCount: 0, todayWOD: null, recentScores: [] });
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -114,7 +118,7 @@ export default function BODashboardScreen({ navigation }: any) {
 
   async function copyCode() {
     if (!currentBox) return;
-    await Share.share({ message: `Rejoins ma box sur AthleX ! Code : ${currentBox.invite_code}` });
+    await Share.share({ message: t('bo.dashboard.shareMsg', { code: currentBox.invite_code }) });
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
   }
@@ -131,12 +135,12 @@ export default function BODashboardScreen({ navigation }: any) {
     <View style={S.container}>
       <View style={S.header}>
         <View>
-          <Text style={S.headerTop}>BACK OFFICE</Text>
-          <Text style={S.headerTitle}>{currentBox?.name ?? 'Ma Box'}</Text>
+          <Text style={S.headerTop}>{t('bo.dashboard.backOffice')}</Text>
+          <Text style={S.headerTitle}>{currentBox?.name ?? t('bo.dashboard.myBox')}</Text>
         </View>
-        <TouchableOpacity onPress={() => Alert.alert('Déconnexion', 'Confirmer ?', [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Déconnexion', style: 'destructive', onPress: signOut },
+        <TouchableOpacity onPress={() => Alert.alert(t('bo.dashboard.logout'), t('bo.dashboard.logoutConfirm'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('bo.dashboard.logout'), style: 'destructive', onPress: signOut },
         ])} style={S.logoutBtn}>
           <LogOut color={theme.textMuted} size={20} />
         </TouchableOpacity>
@@ -159,17 +163,17 @@ export default function BODashboardScreen({ navigation }: any) {
 
         {/* Code d'invitation */}
         <View style={S.inviteCard}>
-          <Text style={S.inviteLabel}>CODE D'INVITATION</Text>
+          <Text style={S.inviteLabel}>{t('bo.dashboard.inviteCode')}</Text>
           <View style={S.inviteRow}>
             <Text style={S.inviteCode}>{currentBox?.invite_code ?? '------'}</Text>
             <TouchableOpacity style={[S.copyBtn, codeCopied && S.copyBtnDone]} onPress={copyCode} activeOpacity={0.8}>
               <Copy color={codeCopied ? theme.success : theme.accent} size={16} />
               <Text style={[S.copyBtnText, codeCopied && { color: theme.success }]}>
-                {codeCopied ? 'Copié !' : 'Copier'}
+                {codeCopied ? t('bo.dashboard.copied') : t('bo.dashboard.copy')}
               </Text>
             </TouchableOpacity>
           </View>
-          <Text style={S.inviteHint}>Partage ce code à tes adhérents pour qu'ils rejoignent la box</Text>
+          <Text style={S.inviteHint}>{t('bo.dashboard.inviteHint')}</Text>
         </View>
 
         {/* Stats */}
@@ -177,26 +181,26 @@ export default function BODashboardScreen({ navigation }: any) {
           <TouchableOpacity style={S.statCard} onPress={() => navigation.navigate('Members')} activeOpacity={0.8}>
             <Users color={theme.accent} size={22} />
             <Text style={S.statValue}>{stats.memberCount}</Text>
-            <Text style={S.statLabel}>Membres actifs</Text>
+            <Text style={S.statLabel}>{t('bo.dashboard.activeMembers')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={S.statCard} onPress={() => navigation.navigate('WODs')} activeOpacity={0.8}>
             <ClipboardList color={theme.accent} size={22} />
             <Text style={S.statValue}>{stats.todayWOD ? '1' : '0'}</Text>
-            <Text style={S.statLabel}>WOD du jour</Text>
+            <Text style={S.statLabel}>{t('bo.dashboard.todayWod')}</Text>
           </TouchableOpacity>
           <View style={S.statCard}>
             <Trophy color={theme.gold} size={22} />
             <Text style={S.statValue}>{stats.recentScores.length}</Text>
-            <Text style={S.statLabel}>Scores récents</Text>
+            <Text style={S.statLabel}>{t('bo.dashboard.recentScores')}</Text>
           </View>
         </View>
 
         {/* WOD du jour */}
         <View style={S.section}>
           <View style={S.sectionHeader}>
-            <Text style={S.sectionTitle}>WOD du jour</Text>
+            <Text style={S.sectionTitle}>{t('bo.dashboard.todayWod')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('WODs')} activeOpacity={0.7}>
-              <Text style={S.seeAll}>Gérer</Text>
+              <Text style={S.seeAll}>{t('bo.dashboard.manage')}</Text>
             </TouchableOpacity>
           </View>
           {stats.todayWOD ? (
@@ -208,8 +212,8 @@ export default function BODashboardScreen({ navigation }: any) {
             </View>
           ) : (
             <TouchableOpacity style={S.noWod} onPress={() => navigation.navigate('WODs')} activeOpacity={0.8}>
-              <Text style={S.noWodText}>Aucun WOD publié aujourd'hui</Text>
-              <Text style={S.noWodCta}>+ Créer un WOD →</Text>
+              <Text style={S.noWodText}>{t('bo.dashboard.noWodToday')}</Text>
+              <Text style={S.noWodCta}>{t('bo.dashboard.createWodCta')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -217,7 +221,7 @@ export default function BODashboardScreen({ navigation }: any) {
         {/* Derniers scores */}
         {stats.recentScores.length > 0 && (
           <View style={S.section}>
-            <Text style={S.sectionTitle}>Derniers scores soumis</Text>
+            <Text style={S.sectionTitle}>{t('bo.dashboard.latestScores')}</Text>
             <View style={S.scoreList}>
               {stats.recentScores.map((sc, i) => (
                 <View key={i} style={S.scoreRow}>
@@ -231,7 +235,7 @@ export default function BODashboardScreen({ navigation }: any) {
                       {formatScoreValue(sc.score_value, sc.score_type)}
                     </Text>
                     <Text style={[S.rxTag, { color: sc.rx ? theme.success : theme.warning }]}>
-                      {sc.rx ? 'RX' : 'Scaled'}
+                      {sc.rx ? t('bo.dashboard.rx') : t('bo.dashboard.scaled')}
                     </Text>
                   </View>
                 </View>
@@ -242,16 +246,16 @@ export default function BODashboardScreen({ navigation }: any) {
 
         {/* Quick actions */}
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Actions rapides</Text>
+          <Text style={S.sectionTitle}>{t('bo.dashboard.quickActions')}</Text>
           <View style={S.quickActions}>
             {[
-              { label: 'Abonnement',        icon: CreditCard,    onPress: () => navigation.navigate('BOSubscription') },
-              { label: 'Infos box',         icon: Building2,     onPress: () => navigation.navigate('BOBoxInfo') },
-              { label: 'Créer un WOD',      icon: ClipboardList, onPress: () => navigation.navigate('WODs') },
-              { label: 'Gérer les membres', icon: Users,         onPress: () => navigation.navigate('Members') },
-              { label: 'Tournois & Scores', icon: Trophy,        onPress: () => navigation.navigate('BOTournament') },
-              { label: 'Inter-box',         icon: Globe2,        onPress: () => navigation.navigate('BOInterCompetition') },
-              { label: 'Programmes',        icon: BookOpen,      onPress: () => navigation.navigate('BOPrograms') },
+              { label: t('bo.dashboard.qaSubscription'),  icon: CreditCard,    onPress: () => navigation.navigate('BOSubscription') },
+              { label: t('bo.dashboard.qaBoxInfo'),       icon: Building2,     onPress: () => navigation.navigate('BOBoxInfo') },
+              { label: t('bo.dashboard.qaCreateWod'),     icon: ClipboardList, onPress: () => navigation.navigate('WODs') },
+              { label: t('bo.dashboard.qaManageMembers'), icon: Users,         onPress: () => navigation.navigate('Members') },
+              { label: t('bo.dashboard.qaTournaments'),   icon: Trophy,        onPress: () => navigation.navigate('BOTournament') },
+              { label: t('bo.dashboard.qaInterBox'),      icon: Globe2,        onPress: () => navigation.navigate('BOInterCompetition') },
+              { label: t('bo.dashboard.qaPrograms'),      icon: BookOpen,      onPress: () => navigation.navigate('BOPrograms') },
             ].map(({ label, icon: Icon, onPress }) => (
               <TouchableOpacity key={label} style={S.quickBtn} onPress={onPress} activeOpacity={0.8}>
                 <Icon color={theme.accent} size={18} />
@@ -265,26 +269,26 @@ export default function BODashboardScreen({ navigation }: any) {
         {interBoxStats.totalCompetitions > 0 && (
           <View style={S.section}>
             <View style={S.sectionHeader}>
-              <Text style={S.sectionTitle}>Inter-box</Text>
+              <Text style={S.sectionTitle}>{t('bo.dashboard.interBox')}</Text>
               <TouchableOpacity onPress={() => navigation.navigate('BOInterCompetition')} activeOpacity={0.7}>
-                <Text style={S.seeAll}>Gérer</Text>
+                <Text style={S.seeAll}>{t('bo.dashboard.manage')}</Text>
               </TouchableOpacity>
             </View>
             <View style={S.statsRow}>
               <View style={S.statCard}>
                 <Globe2 color={theme.accent} size={20} />
                 <Text style={S.statValue}>{interBoxStats.totalCompetitions}</Text>
-                <Text style={S.statLabel}>Compétitions</Text>
+                <Text style={S.statLabel}>{t('bo.dashboard.competitions')}</Text>
               </View>
               <View style={S.statCard}>
                 <Trophy color={theme.gold} size={20} />
                 <Text style={S.statValue}>{interBoxStats.activeCompetitions}</Text>
-                <Text style={S.statLabel}>En cours</Text>
+                <Text style={S.statLabel}>{t('bo.dashboard.inProgress')}</Text>
               </View>
               <View style={S.statCard}>
                 <Users color={theme.accent} size={20} />
                 <Text style={S.statValue}>{interBoxStats.totalParticipants}</Text>
-                <Text style={S.statLabel}>Participants</Text>
+                <Text style={S.statLabel}>{t('bo.dashboard.participants')}</Text>
               </View>
             </View>
             {/* Format breakdown */}
@@ -293,7 +297,7 @@ export default function BODashboardScreen({ navigation }: any) {
                 {Object.entries(interBoxStats.formatBreakdown).map(([fmt, cnt]) => (
                   <View key={fmt} style={{ backgroundColor: `${theme.accent}15`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
                     <Text style={{ fontSize: 11, color: theme.accent, fontWeight: '600' }}>
-                      {fmt === 'bracket' ? 'Elimination' : fmt === 'league' ? 'Ligue' : fmt === 'pool' ? 'Poules' : fmt === 'swiss' ? 'Suisse' : fmt} ({cnt})
+                      {formatLabel(fmt)} ({cnt})
                     </Text>
                   </View>
                 ))}
@@ -312,7 +316,7 @@ export default function BODashboardScreen({ navigation }: any) {
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text }}>{c.title}</Text>
                       <Text style={{ fontSize: 11, color: theme.textMuted }}>
-                        {c.format === 'bracket' ? 'Elimination' : c.format === 'league' ? 'Ligue' : c.format === 'pool' ? 'Poules' : c.format === 'swiss' ? 'Suisse' : c.format} · {c.participantCount} participant{c.participantCount > 1 ? 's' : ''}
+                        {formatLabel(c.format)} · {t('bo.dashboard.participantCount', { count: c.participantCount })}
                       </Text>
                     </View>
                     <View style={{
@@ -323,7 +327,7 @@ export default function BODashboardScreen({ navigation }: any) {
                         fontSize: 10, fontWeight: '700',
                         color: c.status === 'active' ? theme.success : c.status === 'open' ? theme.accent : theme.textMuted,
                       }}>
-                        {c.status === 'draft' ? 'Brouillon' : c.status === 'open' ? 'Ouvert' : c.status === 'active' ? 'En cours' : 'Terminé'}
+                        {statusLabel(c.status)}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -335,15 +339,15 @@ export default function BODashboardScreen({ navigation }: any) {
 
         {/* Analytics & Tools */}
         <View style={S.section}>
-          <Text style={S.sectionTitle}>Analytics & Outils</Text>
+          <Text style={S.sectionTitle}>{t('bo.dashboard.analyticsTools')}</Text>
           <View style={S.quickActions}>
             {[
-              { label: 'Statistiques',   icon: BarChart3, onPress: () => navigation.navigate('BOStats') },
-              { label: 'Gamification',   icon: Award,      onPress: () => navigation.navigate('BOGamification') },
-              { label: 'Rapport',        icon: FileText,   onPress: () => navigation.navigate('BOReport') },
-              { label: 'Notifications',  icon: Bell,       onPress: () => navigation.navigate('BONotifications') },
-              { label: 'Actualités',    icon: Newspaper,  onPress: () => navigation.navigate('BOArticles') },
-              { label: 'Publication',   icon: Settings,   onPress: () => navigation.navigate('BOSettings') },
+              { label: t('bo.dashboard.qaStats'),         icon: BarChart3, onPress: () => navigation.navigate('BOStats') },
+              { label: t('bo.dashboard.qaGamification'),  icon: Award,      onPress: () => navigation.navigate('BOGamification') },
+              { label: t('bo.dashboard.qaReport'),        icon: FileText,   onPress: () => navigation.navigate('BOReport') },
+              { label: t('bo.dashboard.qaNotifications'), icon: Bell,       onPress: () => navigation.navigate('BONotifications') },
+              { label: t('bo.dashboard.qaArticles'),      icon: Newspaper,  onPress: () => navigation.navigate('BOArticles') },
+              { label: t('bo.dashboard.qaPublication'),   icon: Settings,   onPress: () => navigation.navigate('BOSettings') },
             ].map(({ label, icon: Icon, onPress }) => (
               <TouchableOpacity key={label} style={S.quickBtn} onPress={onPress} activeOpacity={0.8}>
                 <Icon color={theme.accent} size={18} />

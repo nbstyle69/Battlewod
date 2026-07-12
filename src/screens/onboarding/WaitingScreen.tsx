@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { Hash, Building2, LogOut, ArrowRight } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import GlassBackground from '../../components/glass/GlassBackground';
@@ -8,6 +9,7 @@ import { OWNER_ONBOARDING_URL } from '../../lib/urls';
 
 export default function WaitingScreen({ navigation }: any) {
   const { user, signOut, skipBox } = useAuth();
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const S = createStyles(theme);
 
@@ -16,11 +18,9 @@ export default function WaitingScreen({ navigation }: any) {
       <GlassBackground />
       <View style={S.inner}>
         <Text style={S.emoji}>🏋️</Text>
-        <Text style={S.title}>Rejoins ta box</Text>
+        <Text style={S.title}>{t('onboarding.waiting.title')}</Text>
         <Text style={S.subtitle}>
-          Bonjour {user?.username ?? 'Athlète'} !{'\n'}
-          Pour accéder au contenu, tu dois rejoindre une box avec un code d'invitation
-          ou créer la tienne.
+          {t('onboarding.waiting.subtitle', { username: user?.username ?? t('onboarding.athleteFallback') })}
         </Text>
 
         <View style={S.actions}>
@@ -30,7 +30,7 @@ export default function WaitingScreen({ navigation }: any) {
             activeOpacity={0.85}
           >
             <Hash color="#fff" size={18} />
-            <Text style={S.primaryBtnText}>J'ai un code d'invitation</Text>
+            <Text style={S.primaryBtnText}>{t('onboarding.waiting.haveCode')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -39,7 +39,7 @@ export default function WaitingScreen({ navigation }: any) {
             activeOpacity={0.85}
           >
             <Building2 color={theme.accent} size={18} />
-            <Text style={S.secondaryBtnText}>Je suis gérant · s'abonner sur athlex.app</Text>
+            <Text style={S.secondaryBtnText}>{t('onboarding.waiting.ownerCta')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -47,7 +47,7 @@ export default function WaitingScreen({ navigation }: any) {
             onPress={skipBox}
             activeOpacity={0.7}
           >
-            <Text style={S.skipBtnText}>Je n'ai pas de code d'invitation</Text>
+            <Text style={S.skipBtnText}>{t('onboarding.waiting.noCode')}</Text>
             <ArrowRight color={theme.textMuted} size={14} />
           </TouchableOpacity>
         </View>
@@ -55,7 +55,7 @@ export default function WaitingScreen({ navigation }: any) {
 
       <TouchableOpacity style={S.signOutBtn} onPress={signOut} activeOpacity={0.7}>
         <LogOut color={theme.textMuted} size={16} />
-        <Text style={S.signOutText}>Se déconnecter</Text>
+        <Text style={S.signOutText}>{t('onboarding.waiting.signOut')}</Text>
       </TouchableOpacity>
     </View>
   );

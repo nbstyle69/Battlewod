@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { Trophy, GitBranch, Play } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { AppTheme } from '../../../context/ThemeContext';
 import { BracketMatch, TabStyleSheet } from './types';
 
@@ -18,14 +19,15 @@ export default function BracketTab({
   bracketMatches, registrationCount, theme, S,
   onGenerateBracket, onResolveMatch, onAdvanceRound,
 }: Props) {
+  const { t } = useTranslation();
   if (bracketMatches.length === 0) {
     return (
       <View style={S.section}>
         <View style={S.bracketEmpty}>
           <GitBranch color={theme.textMuted} size={32} />
-          <Text style={S.emptyText}>Bracket non genere.</Text>
+          <Text style={S.emptyText}>{t('bo.interComp.bracketNotGenerated')}</Text>
           <TouchableOpacity style={S.generateBtn} onPress={onGenerateBracket}>
-            <Text style={S.generateBtnText}>Generer le bracket ({registrationCount} inscrits)</Text>
+            <Text style={S.generateBtnText}>{t('bo.interComp.generateBracket', { count: registrationCount })}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -36,7 +38,7 @@ export default function BracketTab({
     <View style={S.section}>
       <TouchableOpacity style={S.advanceBtn} onPress={onAdvanceRound}>
         <Play color="#fff" size={12} />
-        <Text style={S.advanceBtnText}>Avancer au round suivant</Text>
+        <Text style={S.advanceBtnText}>{t('bo.interComp.advanceRound')}</Text>
       </TouchableOpacity>
 
       {Object.entries(
@@ -46,7 +48,7 @@ export default function BracketTab({
         }, {} as Record<number, BracketMatch[]>)
       ).sort(([a], [b]) => Number(a) - Number(b)).map(([round, matches]) => (
         <View key={round} style={S.roundSection}>
-          <Text style={S.roundTitle}>Round {round}</Text>
+          <Text style={S.roundTitle}>{t('bo.interComp.roundLabel', { n: round })}</Text>
           {matches.map(match => (
             <View key={match.id} style={S.matchCard}>
               <View style={S.matchRow}>
@@ -92,11 +94,11 @@ export default function BracketTab({
 
               {match.status === 'completed' && (
                 <Text style={S.matchResolved}>
-                  Gagnant : {match.winner_id === match.participant1_id ? match.p1_username : match.p2_username}
+                  {t('bo.interComp.winner', { name: match.winner_id === match.participant1_id ? match.p1_username : match.p2_username })}
                 </Text>
               )}
               {match.status === 'bye' && (
-                <Text style={S.matchBye}>BYE — avance automatiquement</Text>
+                <Text style={S.matchBye}>{t('bo.interComp.byeAuto')}</Text>
               )}
             </View>
           ))}
