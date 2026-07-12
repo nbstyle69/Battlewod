@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { ArrowLeft, Heart, Clock, Zap, Trash2, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -52,20 +54,25 @@ function formatScore(score: WODScore): string {
   return formatScoreValue(score.score_value, score.score_type);
 }
 
+function localeTag(): string {
+  return i18n.language === 'en' ? 'en-US' : 'fr-FR';
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(localeTag(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function formatDateShort(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(localeTag(), { day: 'numeric', month: 'short' });
 }
 
 export default function WodHistoryScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
 
   const [wods, setWods] = useState<SavedWOD[]>([]);
@@ -126,10 +133,10 @@ export default function WodHistoryScreen() {
   }
 
   async function deleteWod(wod: SavedWOD) {
-    Alert.alert('Supprimer ce WOD ?', wod.wod_name, [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('wodHistory.deleteConfirmTitle'), wod.wod_name, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive',
+        text: t('common.delete'), style: 'destructive',
         onPress: async () => {
           setWods(prev => prev.filter(w => w.id !== wod.id));
           await supabase.from('generated_wods').delete().eq('id', wod.id);
@@ -204,7 +211,7 @@ export default function WodHistoryScreen() {
         {bestScore && (
           <View style={S.bestScoreRow}>
             <Zap color={theme.gold} size={12} />
-            <Text style={S.bestScoreTxt}>Meilleur : {formatScore(bestScore)} {bestScore.rx ? '(RX)' : '(Scaled)'}</Text>
+            <Text style={S.bestScoreTxt}>{t('wodHistory.best', { score: formatScore(bestScore), tag: bestScore.rx ? t('wodHistory.rxTag') : t('wodHistory.scaledTag') })}</Text>
           </View>
         )}
 
@@ -231,7 +238,7 @@ export default function WodHistoryScreen() {
             {/* All scores */}
             {item.scores && item.scores.length > 0 && (
               <View style={S.scoresSection}>
-                <Text style={S.scoresTitle}>Mes scores ({item.scores.length})</Text>
+                <Text style={S.scoresTitle}>{t('wodHistory.myScores', { count: item.scores.length })}</Text>
                 {item.scores.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()).map(sc => (
                   <View key={sc.id} style={S.scoreRow}>
                     <Text style={S.scoreDate}>{formatDateShort(sc.completed_at)}</Text>
@@ -246,7 +253,7 @@ export default function WodHistoryScreen() {
             {/* Delete */}
             <TouchableOpacity style={S.deleteBtn} onPress={() => deleteWod(item)} activeOpacity={0.7}>
               <Trash2 color="#EF4444" size={14} />
-              <Text style={S.deleteTxt}>Supprimer</Text>
+              <Text style={S.deleteTxt}>{t('common.delete')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -262,7 +269,7 @@ export default function WodHistoryScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
           <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>Historique WODs</Text>
+        <Text style={S.headerTitle}>{t('wodHistory.title')}</Text>
         <View style={{ width: 22 }} />
       </View>
 
@@ -270,21 +277,21 @@ export default function WodHistoryScreen() {
       <View style={S.statsRow}>
         <View style={S.statBox}>
           <Text style={S.statNum}>{totalWods}</Text>
-          <Text style={S.statLabel}>WODs</Text>
+          <Text style={S.statLabel}>{t('wodHistory.statWods')}</Text>
         </View>
         <View style={S.statBox}>
           <Text style={S.statNum}>{totalScores}</Text>
-          <Text style={S.statLabel}>Scores</Text>
+          <Text style={S.statLabel}>{t('wodHistory.statScores')}</Text>
         </View>
         <View style={S.statBox}>
           <Text style={[S.statNum, streak >= 3 && { color: '#EF4444' }]}>{streak}🔥</Text>
-          <Text style={S.statLabel}>Streak</Text>
+          <Text style={S.statLabel}>{t('wodHistory.statStreak')}</Text>
         </View>
       </View>
 
       {/* Filter tabs */}
       <View style={S.filterRow}>
-        {([['all', 'Tous'], ['favorites', '❤️ Favoris'], ['benchmark', '🏋️ Benchmark']] as const).map(([key, label]) => (
+        {([['all', t('wodHistory.filterAll')], ['favorites', t('wodHistory.filterFavorites')], ['benchmark', t('wodHistory.filterBenchmark')]] as const).map(([key, label]) => (
           <TouchableOpacity key={key} onPress={() => setFilter(key)} activeOpacity={0.7}
             style={[S.filterChip, filter === key && S.filterChipSel]}>
             <Text style={[S.filterTxt, filter === key && S.filterTxtSel]}>{label}</Text>
@@ -309,8 +316,8 @@ export default function WodHistoryScreen() {
           ListEmptyComponent={
             <View style={S.empty}>
               <Text style={S.emptyEmoji}>📋</Text>
-              <Text style={S.emptyTitle}>Aucun WOD sauvegardé</Text>
-              <Text style={S.emptySub}>Génère un WOD et clique sur "Sauvegarder" pour le retrouver ici.</Text>
+              <Text style={S.emptyTitle}>{t('wodHistory.emptyTitle')}</Text>
+              <Text style={S.emptySub}>{t('wodHistory.emptySub')}</Text>
             </View>
           }
         />

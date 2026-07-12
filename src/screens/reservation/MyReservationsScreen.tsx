@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { ChevronLeft, Calendar, Clock, Check, Timer, X as XIcon } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -34,6 +35,7 @@ function minutesUntilSlot(scheduled_date: string, start_time: string): number {
 export default function MyReservationsScreen() {
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation();
   const S = createStyles(theme);
 
@@ -79,7 +81,8 @@ export default function MyReservationsScreen() {
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    const locale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
+    return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
   return (
@@ -90,8 +93,8 @@ export default function MyReservationsScreen() {
           <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <View>
-          <Text style={S.headerTitle}>Mes réservations</Text>
-          <Text style={S.headerSub}>{upcoming.length} en cours · {past.length} passées</Text>
+          <Text style={S.headerTitle}>{t('myReservations.title')}</Text>
+          <Text style={S.headerSub}>{t('myReservations.summary', { upcoming: upcoming.length, past: past.length })}</Text>
         </View>
       </View>
 
@@ -102,7 +105,7 @@ export default function MyReservationsScreen() {
           onPress={() => setTab('upcoming')}
         >
           <Text style={[S.tabText, tab === 'upcoming' && S.tabTextActive]}>
-            En cours ({upcoming.length})
+            {t('myReservations.tabUpcoming', { count: upcoming.length })}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -110,7 +113,7 @@ export default function MyReservationsScreen() {
           onPress={() => setTab('past')}
         >
           <Text style={[S.tabText, tab === 'past' && S.tabTextActive]}>
-            Passées ({past.length})
+            {t('myReservations.tabPast', { count: past.length })}
           </Text>
         </TouchableOpacity>
       </View>
@@ -129,10 +132,10 @@ export default function MyReservationsScreen() {
             <View style={S.empty}>
               <Calendar color={theme.textMuted} size={40} strokeWidth={1.5} />
               <Text style={S.emptyTitle}>
-                {tab === 'upcoming' ? 'Aucune réservation à venir' : 'Aucune réservation passée'}
+                {tab === 'upcoming' ? t('myReservations.emptyUpcomingTitle') : t('myReservations.emptyPastTitle')}
               </Text>
               <Text style={S.emptySub}>
-                {tab === 'upcoming' ? 'Réserve un créneau depuis le calendrier.' : 'Ton historique apparaîtra ici.'}
+                {tab === 'upcoming' ? t('myReservations.emptyUpcomingSub') : t('myReservations.emptyPastSub')}
               </Text>
             </View>
           }
@@ -151,7 +154,7 @@ export default function MyReservationsScreen() {
                     <View style={[S.statusBadge, isConfirmed ? S.statusConfirmed : S.statusWaiting]}>
                       {isConfirmed ? <Check color="#C9A227" size={11} /> : <Timer color="#f59e0b" size={11} />}
                       <Text style={[S.statusText, isConfirmed ? { color: '#C9A227' } : { color: '#f59e0b' }]}>
-                        {isConfirmed ? 'Confirmé' : 'Attente'}
+                        {isConfirmed ? t('myReservations.confirmed') : t('myReservations.waiting')}
                       </Text>
                     </View>
                   </View>
@@ -165,7 +168,7 @@ export default function MyReservationsScreen() {
                       <Text style={S.detailText}>{s.start_time} – {s.end_time}</Text>
                     </View>
                   </View>
-                  {s.coach && <Text style={S.coach}>Coach : {s.coach}</Text>}
+                  {s.coach && <Text style={S.coach}>{t('myReservations.coach', { name: s.coach })}</Text>}
                   {!isPast && minutesUntilSlot(s.scheduled_date, s.start_time) >= CANCEL_CUTOFF_MIN && (
                     <TouchableOpacity
                       style={S.cancelBtn}
@@ -174,27 +177,27 @@ export default function MyReservationsScreen() {
                         const minsLeft = minutesUntilSlot(s.scheduled_date, s.start_time);
                         if (minsLeft < CANCEL_CUTOFF_MIN) {
                           Alert.alert(
-                            'Trop tard',
-                            `La désinscription n'est plus possible moins de ${CANCEL_CUTOFF_MIN} minutes avant le cours.`,
+                            t('reservation.tooLateTitle'),
+                            t('reservation.cancelTooLate', { min: CANCEL_CUTOFF_MIN }),
                           );
                           return;
                         }
                         Alert.alert(
-                          isConfirmed ? 'Annuler la réservation' : 'Quitter la liste d\'attente',
+                          isConfirmed ? t('reservation.cancelReservationTitle') : t('reservation.leaveWaitlistTitle'),
                           isConfirmed
-                            ? 'Ta place sera libérée et le premier en liste d\'attente sera inscrit.'
-                            : 'Tu seras retiré(e) de la liste d\'attente.',
+                            ? t('myReservations.cancelConfirmedBody')
+                            : t('myReservations.cancelWaitingBody'),
                           [
-                            { text: 'Non', style: 'cancel' },
+                            { text: t('common.no'), style: 'cancel' },
                             {
-                              text: 'Oui, annuler',
+                              text: t('myReservations.yesCancel'),
                               style: 'destructive',
                               onPress: async () => {
                                 const { error } = await supabase
                                   .from('class_reservations')
                                   .delete()
                                   .eq('id', item.id);
-                                if (error) Alert.alert('Erreur', error.message);
+                                if (error) Alert.alert(t('common.error'), error.message);
                                 else load();
                               },
                             },
@@ -203,7 +206,7 @@ export default function MyReservationsScreen() {
                       }}
                     >
                       <XIcon color={'#ef4444'} size={13} />
-                      <Text style={S.cancelBtnText}>Annuler</Text>
+                      <Text style={S.cancelBtnText}>{t('myReservations.cancel')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
