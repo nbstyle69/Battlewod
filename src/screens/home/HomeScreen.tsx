@@ -74,6 +74,10 @@ export default function HomeScreen() {
   const [genStreak,       setGenStreak]       = useState(0);
   const [weekActivity,    setWeekActivity]    = useState<number[]>([0,0,0,0,0,0,0]);
   const [weekReservations, setWeekReservations] = useState<number[]>([0,0,0,0,0,0,0]);
+  const [weekWodsTotal,   setWeekWodsTotal]   = useState(0);
+  const [weekResTotal,    setWeekResTotal]    = useState(0);
+  const [activeDayStreak, setActiveDayStreak] = useState(0);
+  const [selectedDay,     setSelectedDay]     = useState<number | null>(null);
   const [totalReservations, setTotalReservations] = useState(0);
   const [favCount,        setFavCount]        = useState(0);
   const [bestScores,      setBestScores]      = useState<{name:string; value:string; type:string}[]>([]);
@@ -168,11 +172,12 @@ export default function HomeScreen() {
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
       const sevenDaysStr = sevenDaysAgo.toISOString();
 
-      const [{ count: genWodCount }, { count: genScoreCount }, { count: genFavCount }, { data: genWeek }, { data: genAll }] = await Promise.all([
+      const [{ count: genWodCount }, { count: genScoreCount }, { count: genFavCount }, { data: genScoreWeek }, { data: boxScoreWeek }, { data: genAll }] = await Promise.all([
         supabase.from('generated_wods').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('generated_wod_scores').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('generated_wods').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_favorite', true),
-        supabase.from('generated_wods').select('created_at').eq('user_id', user.id).gte('created_at', sevenDaysStr),
+        supabase.from('generated_wod_scores').select('completed_at').eq('user_id', user.id).gte('completed_at', sevenDaysStr),
+        supabase.from('wod_scores').select('submitted_at').eq('member_id', user.id).gte('submitted_at', sevenDaysStr),
         supabase.from('generated_wods').select('created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
       ]);
 
@@ -185,8 +190,13 @@ export default function HomeScreen() {
       sunday.setDate(monday.getDate() + 7);
 
       const weekArr = [0,0,0,0,0,0,0];
-      (genWeek ?? []).forEach((w: any) => {
-        const d = new Date(w.created_at);
+      const completedTs = [
+        ...(genScoreWeek ?? []).map((s: any) => s.completed_at),
+        ...(boxScoreWeek ?? []).map((s: any) => s.submitted_at),
+      ];
+      completedTs.forEach((ts: string | null) => {
+        if (!ts) return;
+        const d = new Date(ts);
         if (d >= monday && d < sunday) {
           const idx = (d.getDay() + 6) % 7;
           weekArr[idx]++;
@@ -223,6 +233,15 @@ export default function HomeScreen() {
           if (days.includes(check.toISOString().slice(0, 10))) gs++;
           else break;
         }
+      }
+
+      const weekWodsSum = weekArr.reduce((a, b) => a + b, 0);
+      const weekResSum = weekResArr.reduce((a, b) => a + b, 0);
+
+      let dayStreak = 0;
+      for (let i = todayIdx; i >= 0; i--) {
+        if (weekArr[i] > 0 || weekResArr[i] > 0) dayStreak++;
+        else break;
       }
 
       const { data: bestData } = await supabase
@@ -285,6 +304,9 @@ export default function HomeScreen() {
         favCount: genFavCount ?? 0,
         weekActivity: weekArr,
         weekReservations: weekResArr,
+        weekWodsTotal: weekWodsSum,
+        weekResTotal: weekResSum,
+        activeDayStreak: dayStreak,
         totalReservations: totalRes,
         genStreak: gs,
         bestScores: bestScoresMapped,
@@ -308,6 +330,9 @@ export default function HomeScreen() {
     setFavCount(homeData.favCount);
     setWeekActivity(homeData.weekActivity);
     setWeekReservations(homeData.weekReservations);
+    setWeekWodsTotal(homeData.weekWodsTotal);
+    setWeekResTotal(homeData.weekResTotal);
+    setActiveDayStreak(homeData.activeDayStreak);
     setTotalReservations(homeData.totalReservations);
     setGenStreak(homeData.genStreak);
     setBestScores(homeData.bestScores);
@@ -489,7 +514,15 @@ export default function HomeScreen() {
           <GlassCard style={{ marginTop: 16 }}>
             <View style={S.sectionInner}>
               <View style={S.sectionHeader}>
-                <Text style={S.sectionTitle}>{t('home.thisWeek')}</Text>
+                <View style={S.weekTitleRow}>
+                  <Text style={S.sectionTitle}>{t('home.thisWeek')}</Text>
+                  {activeDayStreak >= 3 && (
+                    <View style={S.streakBadge}>
+                      <Flame color={theme.accent} size={12} />
+                      <Text style={S.streakTxt}>{t('home.dayStreak', { count: activeDayStreak })}</Text>
+                    </View>
+                  )}
+                </View>
                 <TouchableOpacity onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.7}>
                   <Text style={S.linkText}>{t('home.history')}</Text>
                 </TouchableOpacity>
@@ -503,39 +536,55 @@ export default function HomeScreen() {
                   const hWod = wods > 0 ? Math.max(4, (wods / maxAll) * 32) : 0;
                   const hRes = res > 0 ? Math.max(4, (res / maxAll) * 32) : 0;
                   const isToday = i === (new Date().getDay() + 6) % 7;
+                  const isSelected = selectedDay === i;
                   const hasActivity = wods > 0 || res > 0;
                   return (
-                    <View key={i} style={S.weekCol}>
+                    <TouchableOpacity
+                      key={i}
+                      style={[S.weekCol, isSelected && S.weekColSelected]}
+                      activeOpacity={0.7}
+                      onPress={() => setSelectedDay(isSelected ? null : i)}
+                    >
                       <View style={{ alignItems: 'center', gap: 2 }}>
                         {hRes > 0 && <View style={[S.weekBar, { height: hRes, backgroundColor: theme.accent }]} />}
                         {hWod > 0 && <View style={[S.weekBar, { height: hWod, backgroundColor: isToday ? theme.accentLight : (isDark ? '#f9fafb' : '#111827') }]} />}
                         {!hasActivity && <View style={[S.weekBar, { height: 4, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]} />}
                       </View>
                       <Text style={[S.weekDayTxt, isToday && { fontWeight: '900', color: isDark ? '#f9fafb' : '#111827' }]}>{day}</Text>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {weekReservations.some(r => r > 0) && (
-                <View style={S.legendRow}>
-                  <View style={S.legendItem}>
-                    <View style={[S.legendDot, { backgroundColor: isDark ? '#f9fafb' : '#111827' }]} />
-                    <Text style={S.legendText}>{t('home.wods')}</Text>
-                  </View>
-                  <View style={S.legendItem}>
-                    <View style={[S.legendDot, { backgroundColor: theme.accent }]} />
-                    <Text style={S.legendText}>{t('home.reservations')}</Text>
-                  </View>
-                </View>
+              {selectedDay !== null && (
+                <Text style={S.dayDetailTxt}>
+                  {t('home.dayDetail', {
+                    day: (t('home.dayNamesFull', { returnObjects: true }) as string[])[selectedDay],
+                    res: weekReservations[selectedDay],
+                    wods: weekActivity[selectedDay],
+                  })}
+                </Text>
               )}
+
+              <View style={S.legendRow}>
+                <View style={S.legendItem}>
+                  <View style={[S.legendDot, { backgroundColor: isDark ? '#f9fafb' : '#111827' }]} />
+                  <Text style={S.legendText}>{t('home.wodsCompleted')}</Text>
+                </View>
+                <View style={S.legendItem}>
+                  <View style={[S.legendDot, { backgroundColor: theme.accent }]} />
+                  <Text style={S.legendText}>{t('home.reservations')}</Text>
+                </View>
+              </View>
+
+              <Text style={S.weekTotalTxt}>{t('home.weekTotal', { res: weekResTotal, wods: weekWodsTotal })}</Text>
 
               <View style={S.progStrip}>
                 {[
                   { val: totalWods, lbl: 'WODs' },
                   { val: totalScoresGen, lbl: 'Scores' },
                   { val: genStreak, lbl: 'Streak' },
-                  { val: totalReservations, lbl: 'Réservations' },
+                  { val: totalReservations, lbl: t('home.reservations') },
                 ].map(s => (
                   <View key={s.lbl} style={S.progItem}>
                     <Text style={S.progItemNum}>{s.val}</Text>
@@ -822,10 +871,16 @@ function createStyles(t: AppTheme) {
     emptyText: { ...typography.body, color: textSecondary },
 
     // Week activity
+    weekTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
+    streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: `${t.accent}15`, borderRadius: borderRadius.sm, paddingHorizontal: 8, paddingVertical: 3 },
+    streakTxt: { ...typography.caption, color: t.accent, fontWeight: '800' },
     weekRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 60, marginTop: spacing.md, marginBottom: spacing.sm },
-    weekCol: { alignItems: 'center', flex: 1, gap: spacing.xs },
+    weekCol: { alignItems: 'center', flex: 1, gap: spacing.xs, paddingVertical: 4, borderRadius: borderRadius.sm },
+    weekColSelected: { backgroundColor: `${t.accent}12` },
     weekBar: { width: 22, borderRadius: borderRadius.sm, minHeight: 4 },
     weekDayTxt: { ...typography.caption, color: textSecondary },
+    dayDetailTxt: { ...typography.caption, color: t.text, fontWeight: '700', textAlign: 'center', marginBottom: spacing.sm },
+    weekTotalTxt: { ...typography.caption, color: textSecondary, textAlign: 'center', marginBottom: spacing.sm },
 
     // Legend
     legendRow: { flexDirection: 'row', gap: spacing.md, justifyContent: 'center', marginBottom: spacing.sm },
