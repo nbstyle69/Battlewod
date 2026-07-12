@@ -103,8 +103,8 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   unblockBtn: {
     paddingHorizontal: 16, paddingVertical: 10,
     borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(16,185,129,0.25)',
-    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)',
+    backgroundColor: t.ctaBg,
+    borderWidth: 1.5, borderColor: t.ctaBorder,
   },
   unblockText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
 }); }

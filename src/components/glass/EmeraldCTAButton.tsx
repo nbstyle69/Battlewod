@@ -48,10 +48,10 @@ export default function EmeraldCTAButton({
           borderRadius: radius,
           overflow: 'hidden',
           // Glassmorphism style
-          backgroundColor: 'rgba(16,185,129,0.25)',
+          backgroundColor: theme.ctaBg,
           borderWidth: 2,
-          borderColor: 'rgba(16,185,129,0.8)',
-          shadowColor: '#10b981',
+          borderColor: theme.ctaBorder,
+          shadowColor: theme.accent,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: dark ? 0.3 : 0.2,
           shadowRadius: 12,

@@ -450,7 +450,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   ytHelpText: { fontSize: 12, color: theme.accent, fontWeight: '600' },
   honorText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 21 },
   actionBtn:      { marginBottom: 12 },
-  actionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, paddingVertical: 18, backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)' },
+  actionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, paddingVertical: 18, backgroundColor: theme.ctaBg, borderWidth: 2, borderColor: theme.ctaBorder },
   actionBtnText:  { color: '#fff', fontSize: 15, fontWeight: '900' },
   successContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16 },
   successTitle:     { fontSize: 26, fontWeight: '900', color: '#fff' },

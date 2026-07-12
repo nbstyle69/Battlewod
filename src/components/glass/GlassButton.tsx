@@ -30,22 +30,22 @@ export default function GlassButton({
 
   const overlayColor =
     variant === 'emerald'
-      ? (isDark ? 'rgba(16,185,129,0.18)' : 'rgba(16,185,129,0.14)')
+      ? (isDark ? 'rgba(16,185,129,0.18)' : 'rgba(148,163,184,0.16)')
       : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.40)');
   const borderColor =
     variant === 'emerald'
-      ? (isDark ? 'rgba(16,185,129,0.35)' : 'rgba(16,185,129,0.30)')
+      ? (isDark ? 'rgba(16,185,129,0.35)' : 'rgba(148,163,184,0.32)')
       : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.50)');
   const reflectionColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)';
-  const labelColor = variant === 'emerald' ? '#10b981' : theme.text;
+  const labelColor = variant === 'emerald' ? theme.accent : theme.text;
 
   // Android : solid themed button (opaque fill for crisp look, matching GlassCard).
   if (Platform.OS === 'android') {
     const bg =
       variant === 'emerald'
-        ? (isDark ? 'rgba(16,185,129,0.12)' : 'rgba(236,253,245,0.92)')
+        ? (isDark ? 'rgba(16,185,129,0.12)' : 'rgba(241,245,249,0.92)')
         : (isDark ? 'rgba(22,28,26,0.82)' : 'rgba(255,255,255,0.92)');
-    const brd = variant === 'emerald' ? (isDark ? 'rgba(16,185,129,0.35)' : 'rgba(16,185,129,0.30)') : theme.border;
+    const brd = variant === 'emerald' ? (isDark ? 'rgba(16,185,129,0.35)' : 'rgba(148,163,184,0.32)') : theme.border;
     return (
       <TouchableOpacity
         activeOpacity={0.75}

@@ -15,26 +15,13 @@ type ThemePalette = {
   blobColors: { b1: string; b2: string; b3: string; b4: string };
 };
 
-type GlassVariant = 'emerald' | 'silver';
-
-function usePalette(variant: GlassVariant): ThemePalette {
+function usePalette(): ThemePalette {
   const { theme } = useTheme();
   const isDark = theme.mode === 'dark';
-  // Silver/argenté palette — light mode only (dark mode keeps the emerald look).
-  if (variant === 'silver' && !isDark) {
-    return {
-      gradient: ['#f8fafc', '#f1f5f9', '#e2e8f0'],
-      blobColors: {
-        b1: 'rgba(148,163,184,0.45)',
-        b2: 'rgba(100,116,139,0.35)',
-        b3: 'rgba(203,213,225,0.45)',
-        b4: 'rgba(148,163,184,0.30)',
-      },
-    };
-  }
+  // Dark mode keeps the emerald look; light mode uses a gray/silver (argenté) palette.
   const gradient: [string, string, string] = isDark
     ? ['#022c22', '#0d1f17', '#14532d']
-    : ['#ecfdf5', '#f0fdf4', '#d1fae5'];
+    : ['#f8fafc', '#f1f5f9', '#e2e8f0'];
   const blobColors = isDark
     ? {
         b1: 'rgba(16,185,129,0.30)',
@@ -43,17 +30,17 @@ function usePalette(variant: GlassVariant): ThemePalette {
         b4: 'rgba(110,231,183,0.20)',
       }
     : {
-        b1: 'rgba(16,185,129,0.50)',
-        b2: 'rgba(5,150,105,0.40)',
-        b3: 'rgba(52,211,153,0.40)',
-        b4: 'rgba(110,231,183,0.35)',
+        b1: 'rgba(148,163,184,0.45)',
+        b2: 'rgba(100,116,139,0.35)',
+        b3: 'rgba(203,213,225,0.45)',
+        b4: 'rgba(148,163,184,0.30)',
       };
   return { gradient, blobColors };
 }
 
 /** Lightweight static background for Android — no animations, 2 fixed blobs. */
-function AndroidGlassBackground({ variant }: { variant: GlassVariant }) {
-  const { gradient, blobColors } = usePalette(variant);
+function AndroidGlassBackground() {
+  const { gradient, blobColors } = usePalette();
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <LinearGradient
@@ -73,8 +60,8 @@ function AndroidGlassBackground({ variant }: { variant: GlassVariant }) {
 }
 
 /** Full-glass animated background for iOS — 4 blobs with native-driven floating loops. */
-function IOSGlassBackground({ variant }: { variant: GlassVariant }) {
-  const { gradient, blobColors } = usePalette(variant);
+function IOSGlassBackground() {
+  const { gradient, blobColors } = usePalette();
   const a1 = useRef(new Animated.Value(0)).current;
   const a2 = useRef(new Animated.Value(0)).current;
   const a3 = useRef(new Animated.Value(0)).current;
@@ -126,10 +113,8 @@ function IOSGlassBackground({ variant }: { variant: GlassVariant }) {
   );
 }
 
-export default function GlassBackground({ variant = 'emerald' }: { variant?: GlassVariant }) {
-  return Platform.OS === 'android'
-    ? <AndroidGlassBackground variant={variant} />
-    : <IOSGlassBackground variant={variant} />;
+export default function GlassBackground() {
+  return Platform.OS === 'android' ? <AndroidGlassBackground /> : <IOSGlassBackground />;
 }
 
 /**

@@ -312,6 +312,106 @@ export type Database = {
           },
         ]
       }
+      box_elo: {
+        Row: {
+          box_id: string
+          elo: number
+          matches: number
+          member_id: string
+          updated_at: string
+          wins: number
+        }
+        Insert: {
+          box_id: string
+          elo?: number
+          matches?: number
+          member_id: string
+          updated_at?: string
+          wins?: number
+        }
+        Update: {
+          box_id?: string
+          elo?: number
+          matches?: number
+          member_id?: string
+          updated_at?: string
+          wins?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_elo_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_elo_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      box_elo_history: {
+        Row: {
+          box_id: string
+          created_at: string
+          elo_after: number
+          elo_before: number
+          elo_delta: number
+          id: string
+          member_id: string
+          rank: number
+          wod_id: string
+        }
+        Insert: {
+          box_id: string
+          created_at?: string
+          elo_after?: number
+          elo_before?: number
+          elo_delta?: number
+          id?: string
+          member_id: string
+          rank?: number
+          wod_id: string
+        }
+        Update: {
+          box_id?: string
+          created_at?: string
+          elo_after?: number
+          elo_before?: number
+          elo_delta?: number
+          id?: string
+          member_id?: string
+          rank?: number
+          wod_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_elo_history_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_elo_history_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_elo_history_wod_id_fkey"
+            columns: ["wod_id"]
+            isOneToOne: false
+            referencedRelation: "box_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       box_members: {
         Row: {
           amount_cents: number | null
@@ -5031,6 +5131,16 @@ export type Database = {
             }
             Returns: Json
           }
+      compute_box_elo: {
+        Args: { p_wod_id: string }
+        Returns: {
+          elo_after: number
+          elo_before: number
+          elo_delta: number
+          member_id: string
+          rank: number
+        }[]
+      }
       compute_daily_tournament_elo: {
         Args: { p_tournament_id: string }
         Returns: {

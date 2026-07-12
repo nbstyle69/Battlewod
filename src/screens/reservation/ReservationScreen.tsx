@@ -627,7 +627,7 @@ function createStyles(t: AppTheme) {
     spotsLabel:         { fontSize: 11, fontWeight: '600', color: t.accent },
     waitingPositionLabel: { fontSize: 11, fontWeight: '700', color: '#f59e0b' },
 
-    bookBtn:            { backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
+    bookBtn:            { backgroundColor: t.ctaBg, borderWidth: 1.5, borderColor: t.ctaBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
     bookBtnBooked:      { backgroundColor: 'rgba(201,162,39,0.15)', borderWidth: 1, borderColor: '#C9A227' },
     bookBtnWaiting:     { backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 1, borderColor: '#f59e0b' },
     bookBtnQueue:       { backgroundColor: t.card, borderWidth: 1, borderColor: t.border },

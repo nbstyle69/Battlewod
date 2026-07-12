@@ -24,6 +24,10 @@ export interface AppTheme {
   accentDark: string;
   accentLight: string;
   accentShadow: string;
+  // Translucent accent fill/border used by primary action buttons across screens.
+  // Mode-aware: silver in light, emerald in dark.
+  ctaBg: string;
+  ctaBorder: string;
   secondary: string;
   text: string;
   textPrimary: string;
@@ -51,24 +55,26 @@ export const lightTheme: AppTheme = {
   // Glassmorphism: cards/surfaces are translucent so the emerald gradient/blobs show through on iOS.
   // On Android (no BlurView), we use more opaque fills to keep cards crisp and legible.
   card: IS_ANDROID ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.55)',
-  cardBorder: IS_ANDROID ? 'rgba(16,185,129,0.20)' : 'rgba(255,255,255,0.55)',
+  cardBorder: IS_ANDROID ? 'rgba(148,163,184,0.22)' : 'rgba(255,255,255,0.55)',
   surface: IS_ANDROID ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.40)',
-  surfaceAlt: IS_ANDROID ? 'rgba(236,253,245,0.88)' : 'rgba(236,253,245,0.50)',
+  surfaceAlt: IS_ANDROID ? 'rgba(241,245,249,0.90)' : 'rgba(241,245,249,0.55)',
   primary: '#111827',
   primaryLight: '#374151',
-  accent: '#10b981',
-  accentDark: '#047857',
-  accentLight: '#34d399',
-  accentShadow: 'rgba(16,185,129,0.30)',
+  accent: '#94a3b8',
+  accentDark: '#64748b',
+  accentLight: '#cbd5e1',
+  accentShadow: 'rgba(148,163,184,0.30)',
+  ctaBg: 'rgba(148,163,184,0.25)',
+  ctaBorder: 'rgba(148,163,184,0.85)',
   secondary: '#6b7280',
   text: '#111827',
   textPrimary: '#111827',
   textSecondary: '#6b7280',
   textMuted: '#9ca3af',
-  border: 'rgba(16,185,129,0.18)',
+  border: 'rgba(148,163,184,0.20)',
   tabBar: 'rgba(255,255,255,0.85)',
-  tabBarBorder: 'rgba(16,185,129,0.20)',
-  tabBarActive: '#10b981',
+  tabBarBorder: 'rgba(148,163,184,0.22)',
+  tabBarActive: '#94a3b8',
   tabBarInactive: '#9ca3af',
   gold: '#FFD700',
   silver: '#C0C0C0',
@@ -96,6 +102,8 @@ export const darkTheme: AppTheme = {
   accentDark: '#059669',
   accentLight: '#34d399',
   accentShadow: 'rgba(16,185,129,0.40)',
+  ctaBg: 'rgba(16,185,129,0.25)',
+  ctaBorder: 'rgba(16,185,129,0.8)',
   secondary: '#9ca3af',
   text: '#f9fafb',
   textPrimary: '#f9fafb',
@@ -123,7 +131,7 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
-export const ThemeContext = createContext<ThemeContextType>({
+const ThemeContext = createContext<ThemeContextType>({
   theme: lightTheme,
   mode: 'light',
   toggleTheme: () => {},

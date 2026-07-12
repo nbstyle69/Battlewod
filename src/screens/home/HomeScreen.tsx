@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Modal, Pressable,
   RefreshControl, LayoutAnimation, UIManager, Platform, Animated,
@@ -17,7 +17,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 import { useAuth } from '../../context/AuthContext';
-import { ThemeContext, AppTheme } from '../../context/ThemeContext';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/designTokens';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
@@ -45,28 +45,7 @@ interface RecentScore {
 export default function HomeScreen() {
   const { user, currentBox, myBoxes, switchBox } = useAuth();
   const [boxPickerVisible, setBoxPickerVisible] = useState(false);
-  const themeCtx = useContext(ThemeContext);
-  const baseTheme = themeCtx.theme;
-  // Preview #64/UX: on the home page, in light mode, swap the emerald accent for a
-  // gray/silver (argenté) accent. Scoped to Home only via a nested ThemeContext.Provider
-  // (below), so the rest of the app keeps its emerald look until validated.
-  const theme = useMemo<AppTheme>(
-    () =>
-      baseTheme.mode === 'light'
-        ? {
-            ...baseTheme,
-            accent: '#94a3b8',
-            accentDark: '#64748b',
-            accentLight: '#cbd5e1',
-            accentShadow: 'rgba(148,163,184,0.30)',
-            border: 'rgba(148,163,184,0.20)',
-            cardBorder: 'rgba(148,163,184,0.22)',
-            surfaceAlt: 'rgba(241,245,249,0.55)',
-            tabBarActive: '#94a3b8',
-          }
-        : baseTheme,
-    [baseTheme],
-  );
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const level = user?.level ?? 'scaled';
@@ -388,10 +367,9 @@ export default function HomeScreen() {
   const friendsCount = pendingFriends + unreadAccepted;
 
   return (
-    <ThemeContext.Provider value={{ ...themeCtx, theme }}>
     <View style={S.root}>
-      {/* Animated background (silver/argenté in light mode on Home) */}
-      <GlassBackground variant="silver" />
+      {/* Animated emerald background */}
+      <GlassBackground />
 
       <ScrollView
         style={S.container}
@@ -782,7 +760,6 @@ export default function HomeScreen() {
       {/* Interactive tour overlay — shown once after onboarding */}
       <InteractiveTour />
     </View>
-    </ThemeContext.Provider>
   );
 }
 
@@ -900,7 +877,7 @@ function createStyles(t: AppTheme) {
       position: 'absolute', bottom: 100, left: 16, right: 16, zIndex: 99,
     },
     badgePopupCard: {
-      backgroundColor: isDark ? 'rgba(10,20,15,0.97)' : 'rgba(240,255,248,0.97)',
+      backgroundColor: isDark ? 'rgba(10,20,15,0.97)' : 'rgba(241,245,249,0.97)',
       borderRadius: 20, padding: 16,
       borderWidth: 1.5, borderColor: t.accent,
       shadowColor: t.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12,

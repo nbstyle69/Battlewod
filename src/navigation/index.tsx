@@ -63,6 +63,7 @@ import TournamentScreen from '../screens/competition/TournamentScreen';
 import TournamentWODScreen from '../screens/competition/TournamentWODScreen';
 import BOTournamentScreen from '../screens/backoffice/BOTournamentScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
+import BoxRankingScreen from '../screens/leaderboard/BoxRankingScreen';
 import WhiteboardScreen from '../screens/whiteboard/WhiteboardScreen';
 import WODDetailScreen from '../screens/whiteboard/WODDetailScreen';
 import PersonalWODFormScreen from '../screens/whiteboard/PersonalWODFormScreen';
@@ -396,6 +397,7 @@ export type CompetitionStackParamList = {
 export type WhiteboardStackParamList = {
   WhiteboardMain: undefined;
   WODDetail: { wodId: string; scrollToLeaderboard?: boolean };
+  BoxRanking: undefined;
   PublicProfile: { userId: string };
   Messages: undefined;
   Documents: undefined;
@@ -521,6 +523,7 @@ function WhiteboardNavigator() {
     <WhiteboardStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <WhiteboardStack.Screen name="WhiteboardMain" component={WhiteboardScreen} />
       <WhiteboardStack.Screen name="WODDetail"      component={WODDetailScreen} />
+      <WhiteboardStack.Screen name="BoxRanking"     component={BoxRankingScreen} />
       <WhiteboardStack.Screen name="PublicProfile"  component={PublicProfileScreen} />
       <WhiteboardStack.Screen name="Messages"       component={MessagesScreen} />
       <WhiteboardStack.Screen name="Documents"      component={DocumentsScreen} />
