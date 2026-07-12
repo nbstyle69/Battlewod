@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { AppTheme } from '../../../context/ThemeContext';
 import { PoolGroup, PoolMember, PoolMatch, TabStyleSheet } from './types';
 
@@ -7,6 +8,7 @@ function PoolMatchCard({ match, theme, S, onResolve }: {
   match: PoolMatch; theme: AppTheme; S: TabStyleSheet;
   onResolve: (match: PoolMatch, s1: number, s2: number) => void;
 }) {
+  const { t } = useTranslation();
   const [s1, setS1] = useState('');
   const [s2, setS2] = useState('');
   if (match.status === 'completed') {
@@ -30,18 +32,18 @@ function PoolMatchCard({ match, theme, S, onResolve }: {
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' }}>
         <TextInput
           style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
-          value={s1} onChangeText={setS1} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
+          value={s1} onChangeText={setS1} placeholder={t('bo.interComp.score')} placeholderTextColor={theme.textMuted} keyboardType="numeric"
         />
         <Text style={{ fontSize: 11, color: theme.textMuted }}>-</Text>
         <TextInput
           style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
-          value={s2} onChangeText={setS2} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
+          value={s2} onChangeText={setS2} placeholder={t('bo.interComp.score')} placeholderTextColor={theme.textMuted} keyboardType="numeric"
         />
         <TouchableOpacity
           style={{ backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
           onPress={() => {
             const n1 = parseFloat(s1); const n2 = parseFloat(s2);
-            if (isNaN(n1) || isNaN(n2)) { Alert.alert('Erreur', 'Entrez les deux scores'); return; }
+            if (isNaN(n1) || isNaN(n2)) { Alert.alert(t('common.error'), t('bo.interComp.enterBothScores')); return; }
             onResolve(match, n1, n2);
           }}
         >
@@ -67,13 +69,14 @@ export default function PoolTab({
   poolGroups, poolMembers, poolMatches, registrationCount, theme, S,
   onGeneratePool, onResolveMatch,
 }: Props) {
+  const { t } = useTranslation();
   if (poolGroups.length === 0) {
     return (
       <View style={S.section}>
         <View style={S.bracketEmpty}>
-          <Text style={S.emptyText}>Poules non generees.</Text>
+          <Text style={S.emptyText}>{t('bo.interComp.poolsNotGenerated')}</Text>
           <TouchableOpacity style={S.generateBtn} onPress={onGeneratePool}>
-            <Text style={S.generateBtnText}>Generer les poules ({registrationCount} inscrits)</Text>
+            <Text style={S.generateBtnText}>{t('bo.interComp.generatePools', { count: registrationCount })}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -95,12 +98,12 @@ export default function PoolTab({
                   <Text style={S.matchPlayer}>{m.username}</Text>
                 </View>
                 <Text style={[S.matchPlayer, { color: theme.accent }]}>
-                  {m.points}pts ({m.wins}V {m.draws}N {m.losses}D)
+                  {t('bo.interComp.poolRecord', { points: m.points, w: m.wins, d: m.draws, l: m.losses })}
                 </Text>
               </View>
             ))}
             <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textMuted, marginTop: 8, marginBottom: 4 }}>
-              Matchs ({matches.filter(m => m.status === 'completed').length}/{matches.length})
+              {t('bo.interComp.matchesCount', { done: matches.filter(m => m.status === 'completed').length, total: matches.length })}
             </Text>
             {matches.map(match => (
               <PoolMatchCard

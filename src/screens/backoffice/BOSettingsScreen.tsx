@@ -4,17 +4,18 @@ import {
   TextInput, Alert, ActivityIndicator,
 } from 'react-native';
 import { Settings, ArrowLeft, Save } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 
-const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-
 export default function BOSettingsScreen({ navigation }: any) {
   const { currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = styles(theme);
+  const DAYS = t('bo.settings.days', { returnObjects: true }) as string[];
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,8 +53,8 @@ export default function BOSettingsScreen({ navigation }: any) {
       weekly_publish_hour: wh,
     }).eq('id', currentBox.id);
     setSaving(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
-    Alert.alert('Enregistré', 'Les paramètres de publication ont été mis à jour.');
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
+    Alert.alert(t('bo.settings.savedTitle'), t('bo.settings.savedMsg'));
   }
 
   if (loading) {
@@ -71,36 +72,36 @@ export default function BOSettingsScreen({ navigation }: any) {
           <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Settings color={theme.accent} size={20} />
-        <Text style={S.headerTitle}>Paramètres publication</Text>
+        <Text style={S.headerTitle}>{t('bo.settings.title')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 140 }}>
         {/* Daily publish hour */}
         <View style={S.card}>
-          <Text style={S.cardTitle}>WOD du jour</Text>
+          <Text style={S.cardTitle}>{t('bo.settings.wodOfDay')}</Text>
           <Text style={S.cardDesc}>
-            Heure de publication par défaut pour les WODs quotidiens
+            {t('bo.settings.dailyDesc')}
           </Text>
           <View style={S.hourRow}>
             <TextInput
               style={S.hourInput}
               value={dailyHour}
-              onChangeText={t => setDailyHour(t.replace(/[^0-9]/g, '').slice(0, 2))}
+              onChangeText={v => setDailyHour(v.replace(/[^0-9]/g, '').slice(0, 2))}
               keyboardType="numeric"
               maxLength={2}
             />
-            <Text style={S.hourLabel}>h 00</Text>
+            <Text style={S.hourLabel}>{t('bo.settings.hourSuffix')}</Text>
           </View>
         </View>
 
         {/* Weekly publish settings */}
         <View style={S.card}>
-          <Text style={S.cardTitle}>Programmation hebdomadaire</Text>
+          <Text style={S.cardTitle}>{t('bo.settings.weeklyTitle')}</Text>
           <Text style={S.cardDesc}>
-            Jour et heure de publication de la programmation de la semaine
+            {t('bo.settings.weeklyDesc')}
           </Text>
 
-          <Text style={S.subLabel}>JOUR</Text>
+          <Text style={S.subLabel}>{t('bo.settings.day')}</Text>
           <View style={S.dayGrid}>
             {DAYS.map((d, i) => (
               <TouchableOpacity
@@ -113,16 +114,16 @@ export default function BOSettingsScreen({ navigation }: any) {
             ))}
           </View>
 
-          <Text style={[S.subLabel, { marginTop: 10 }]}>HEURE</Text>
+          <Text style={[S.subLabel, { marginTop: 10 }]}>{t('bo.settings.hour')}</Text>
           <View style={S.hourRow}>
             <TextInput
               style={S.hourInput}
               value={weeklyHour}
-              onChangeText={t => setWeeklyHour(t.replace(/[^0-9]/g, '').slice(0, 2))}
+              onChangeText={v => setWeeklyHour(v.replace(/[^0-9]/g, '').slice(0, 2))}
               keyboardType="numeric"
               maxLength={2}
             />
-            <Text style={S.hourLabel}>h 00</Text>
+            <Text style={S.hourLabel}>{t('bo.settings.hourSuffix')}</Text>
           </View>
         </View>
 
@@ -133,7 +134,7 @@ export default function BOSettingsScreen({ navigation }: any) {
           activeOpacity={0.85}
         >
           <Save color="#fff" size={16} />
-          <Text style={S.saveBtnText}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Text>
+          <Text style={S.saveBtnText}>{saving ? t('bo.settings.saving') : t('common.save')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

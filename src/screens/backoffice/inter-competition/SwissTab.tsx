@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { AppTheme } from '../../../context/ThemeContext';
 import { SwissRound, SwissPairing, SwissStanding, TabStyleSheet } from './types';
 
@@ -7,6 +8,7 @@ function SwissPairingCard({ pairing, theme, S, onResolve }: {
   pairing: SwissPairing; theme: AppTheme; S: TabStyleSheet;
   onResolve: (pairing: SwissPairing, s1: number, s2: number) => void;
 }) {
+  const { t } = useTranslation();
   const [s1, setS1] = useState('');
   const [s2, setS2] = useState('');
   if (pairing.status === 'bye') {
@@ -41,18 +43,18 @@ function SwissPairingCard({ pairing, theme, S, onResolve }: {
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' }}>
         <TextInput
           style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
-          value={s1} onChangeText={setS1} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
+          value={s1} onChangeText={setS1} placeholder={t('bo.interComp.score')} placeholderTextColor={theme.textMuted} keyboardType="numeric"
         />
         <Text style={{ fontSize: 11, color: theme.textMuted }}>-</Text>
         <TextInput
           style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 8, padding: 8, fontSize: 13, color: theme.text, textAlign: 'center', borderWidth: 1, borderColor: theme.border }}
-          value={s2} onChangeText={setS2} placeholder="Score" placeholderTextColor={theme.textMuted} keyboardType="numeric"
+          value={s2} onChangeText={setS2} placeholder={t('bo.interComp.score')} placeholderTextColor={theme.textMuted} keyboardType="numeric"
         />
         <TouchableOpacity
           style={{ backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
           onPress={() => {
             const n1 = parseFloat(s1); const n2 = parseFloat(s2);
-            if (isNaN(n1) || isNaN(n2)) { Alert.alert('Erreur', 'Entrez les deux scores'); return; }
+            if (isNaN(n1) || isNaN(n2)) { Alert.alert(t('common.error'), t('bo.interComp.enterBothScores')); return; }
             onResolve(pairing, n1, n2);
           }}
         >
@@ -78,12 +80,13 @@ export default function SwissTab({
   swissRounds, swissPairings, swissStandings, registrationCount, theme, S,
   onGenerateRound, onResolvePairing,
 }: Props) {
+  const { t } = useTranslation();
   return (
     <View style={S.section}>
       {/* Standings */}
       {swissStandings.length > 0 && (
         <View style={{ marginBottom: 16 }}>
-          <Text style={S.roundTitle}>Classement</Text>
+          <Text style={S.roundTitle}>{t('bo.interComp.standings')}</Text>
           {swissStandings.map((st, i) => (
             <View key={st.id} style={[S.matchCard, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -91,7 +94,7 @@ export default function SwissTab({
                 <Text style={S.matchPlayer}>{st.username}</Text>
               </View>
               <Text style={[S.matchPlayer, { color: theme.accent }]}>
-                {st.points}pts ({st.wins}V {st.draws}N {st.losses}D) B:{st.buchholz}
+                {t('bo.interComp.swissRecord', { points: st.points, w: st.wins, d: st.draws, l: st.losses, b: st.buchholz })}
               </Text>
             </View>
           ))}
@@ -101,9 +104,9 @@ export default function SwissTab({
       {/* Rounds */}
       {swissRounds.length === 0 ? (
         <View style={S.bracketEmpty}>
-          <Text style={S.emptyText}>Aucun round suisse.</Text>
+          <Text style={S.emptyText}>{t('bo.interComp.noSwissRound')}</Text>
           <TouchableOpacity style={S.generateBtn} onPress={onGenerateRound}>
-            <Text style={S.generateBtnText}>Generer Round 1 ({registrationCount} inscrits)</Text>
+            <Text style={S.generateBtnText}>{t('bo.interComp.generateRound1', { count: registrationCount })}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -114,9 +117,9 @@ export default function SwissTab({
             return (
               <View key={round.id} style={{ marginBottom: 16 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <Text style={S.roundTitle}>Round {round.round_number}</Text>
+                  <Text style={S.roundTitle}>{t('bo.interComp.roundLabel', { n: round.round_number })}</Text>
                   <Text style={{ fontSize: 11, color: round.status === 'completed' ? theme.success : theme.textMuted }}>
-                    {round.status === 'completed' ? 'Termine' : `${completedCount}/${roundPairings.length}`}
+                    {round.status === 'completed' ? t('bo.interComp.statusCompleted') : `${completedCount}/${roundPairings.length}`}
                   </Text>
                 </View>
                 {roundPairings.map(pairing => (
@@ -133,7 +136,7 @@ export default function SwissTab({
           })}
           {swissRounds.every(r => r.status === 'completed') && (
             <TouchableOpacity style={S.generateBtn} onPress={onGenerateRound}>
-              <Text style={S.generateBtnText}>Generer Round {swissRounds.length + 1}</Text>
+              <Text style={S.generateBtnText}>{t('bo.interComp.generateRoundN', { n: swissRounds.length + 1 })}</Text>
             </TouchableOpacity>
           )}
         </>

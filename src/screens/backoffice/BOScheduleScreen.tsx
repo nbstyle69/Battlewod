@@ -5,6 +5,7 @@ import {
   ActivityIndicator, Alert, RefreshControl, Share,
 } from 'react-native';
 import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Users, CalendarClock, Timer, Check, X, UserPlus, Search, Download, ClipboardCheck } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -63,6 +64,8 @@ function toISO(d: Date): string {
 export default function BOScheduleScreen({ navigation }: any) {
   const { user, currentBox, boxRole } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const S = createStyles(theme);
 
   const [schedules,   setSchedules]   = useState<ClassSchedule[]>([]);
@@ -186,7 +189,7 @@ export default function BOScheduleScreen({ navigation }: any) {
     const finalTitle = title === 'Autre' ? customTitle.trim() : title;
     if (!finalTitle || !date || !startTime || !endTime || !currentBox || !user) return;
     const cap = parseInt(maxCapacity);
-    if (isNaN(cap) || cap < 1) { Alert.alert('Capacité invalide'); return; }
+    if (isNaN(cap) || cap < 1) { Alert.alert(t('bo.schedule.invalidCapacity')); return; }
 
     setSubmitting(true);
     const payload = {
@@ -205,16 +208,16 @@ export default function BOScheduleScreen({ navigation }: any) {
       : await supabase.from('class_schedules').insert(payload);
 
     setSubmitting(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     setModalOpen(false);
     load();
   }
 
   async function deleteItem(item: ClassSchedule) {
-    Alert.alert('Supprimer ce créneau ?', `${item.title} — ${item.start_time}`, [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('bo.schedule.deleteTitle'), `${item.title} — ${item.start_time}`, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive',
+        text: t('common.delete'), style: 'destructive',
         onPress: async () => {
           await supabase.from('class_schedules').delete().eq('id', item.id);
           load();
@@ -257,7 +260,7 @@ export default function BOScheduleScreen({ navigation }: any) {
       .update({ attended: next })
       .eq('id', resId);
     if (error) {
-      Alert.alert('Erreur', error.message);
+      Alert.alert(t('common.error'), error.message);
       setReservations(prev => prev.map(r => r.id === resId ? { ...r, attended: current } : r));
     }
   }
@@ -299,8 +302,8 @@ export default function BOScheduleScreen({ navigation }: any) {
         attended: true,
       });
     if (error) {
-      if (error.code === '23505') Alert.alert('Déjà inscrit', 'Ce membre est déjà inscrit à ce créneau.');
-      else Alert.alert('Erreur', error.message);
+      if (error.code === '23505') Alert.alert(t('bo.schedule.alreadyRegistered'), t('bo.schedule.alreadyRegisteredMsg'));
+      else Alert.alert(t('common.error'), error.message);
       return;
     }
     setReservations(prev => [
@@ -322,7 +325,7 @@ export default function BOScheduleScreen({ navigation }: any) {
       }
 
       if (targetSchedules.length === 0) {
-        Alert.alert('Aucun créneau', 'Pas de cours à exporter pour cette période.');
+        Alert.alert(t('bo.schedule.noSlot'), t('bo.schedule.noSlotMsg'));
         return;
       }
 
@@ -332,7 +335,7 @@ export default function BOScheduleScreen({ navigation }: any) {
         .select('schedule_id, member_id, status, attended, profiles:member_id(username)')
         .in('schedule_id', ids);
 
-      let csv = 'Date,Heure,Cours,Coach,Membre,Statut,Present\n';
+      let csv = t('bo.schedule.csvHeader') + '\n';
       for (const s of targetSchedules) {
         const slotRes = (allRes ?? []).filter((r: any) => r.schedule_id === s.id);
         if (slotRes.length === 0) {
@@ -340,27 +343,27 @@ export default function BOScheduleScreen({ navigation }: any) {
         } else {
           for (const r of slotRes) {
             const uname = (Array.isArray((r as any).profiles) ? (r as any).profiles[0] : (r as any).profiles)?.username ?? '—';
-            const att = r.attended === true ? 'Oui' : r.attended === false ? 'Non' : '—';
+            const att = r.attended === true ? t('bo.schedule.yes') : r.attended === false ? t('bo.schedule.no') : '—';
             csv += `${s.scheduled_date},${s.start_time}-${s.end_time},${s.title},${s.coach ?? ''},${uname},${r.status},${att}\n`;
           }
         }
       }
 
       const label = mode === 'day'
-        ? `Présences ${attendanceSlot?.scheduled_date}`
-        : `Présences semaine ${toISO(weekDates[0])} — ${toISO(weekDates[6])}`;
+        ? t('bo.schedule.exportDayLabel', { date: attendanceSlot?.scheduled_date })
+        : t('bo.schedule.exportWeekLabel', { start: toISO(weekDates[0]), end: toISO(weekDates[6]) });
 
       await Share.share({ title: label, message: csv });
     } catch (e) { captureError(e, { screen: 'BOSchedule', action: 'exportAttendance' }); }
   }
 
-  const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const DAY_LABELS = t('bo.schedule.dayLabels', { returnObjects: true }) as string[];
   const todayISO = toISO(new Date());
 
   return (
     <View style={S.container}>
       <View style={S.header}>
-        <Text style={S.headerTitle}>Horaires & Créneaux</Text>
+        <Text style={S.headerTitle}>{t('bo.schedule.title')}</Text>
         <Text style={S.headerSub}>{currentBox?.name ?? ''}</Text>
       </View>
 
@@ -369,9 +372,9 @@ export default function BOScheduleScreen({ navigation }: any) {
           <ChevronLeft color={theme.text} size={20} />
         </TouchableOpacity>
         <Text style={S.weekLabel}>
-          {weekDates[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+          {weekDates[0].toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })}
           {' — '}
-          {weekDates[6].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {weekDates[6].toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' })}
         </Text>
         <TouchableOpacity onPress={() => setWeekOffset(w => w + 1)} style={S.weekArrow}>
           <ChevronRight color={theme.text} size={20} />
@@ -395,7 +398,7 @@ export default function BOScheduleScreen({ navigation }: any) {
                     <Text style={[S.dayLabel, isToday && S.dayLabelToday]}>
                       {DAY_LABELS[i]} {d.getDate()}
                     </Text>
-                    {isToday && <Text style={S.todayBadge}>Aujourd'hui</Text>}
+                    {isToday && <Text style={S.todayBadge}>{t('bo.schedule.today')}</Text>}
                     <TouchableOpacity onPress={() => openCreate(iso)} style={S.addDayBtn}>
                       <Plus color={isToday ? theme.card : theme.accent} size={16} />
                     </TouchableOpacity>
@@ -403,7 +406,7 @@ export default function BOScheduleScreen({ navigation }: any) {
 
                   {dayItems.length === 0 ? (
                     <TouchableOpacity style={S.emptyDay} onPress={() => openCreate(iso)} activeOpacity={0.7}>
-                      <Text style={S.emptyDayText}>+ Ajouter un créneau</Text>
+                      <Text style={S.emptyDayText}>{t('bo.schedule.addSlot')}</Text>
                     </TouchableOpacity>
                   ) : (
                     dayItems.map(item => (
@@ -458,40 +461,40 @@ export default function BOScheduleScreen({ navigation }: any) {
         >
           <View style={S.modalSheet}>
             <View style={S.modalHeader}>
-              <Text style={S.modalTitle}>{editItem ? 'Modifier le créneau' : 'Nouveau créneau'}</Text>
+              <Text style={S.modalTitle}>{editItem ? t('bo.schedule.editSlot') : t('bo.schedule.newSlot')}</Text>
               <TouchableOpacity onPress={() => setModalOpen(false)}>
                 <Text style={S.modalClose}>✕</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 20 }}>
-              <Text style={S.fieldLabel}>Type de cours</Text>
+              <Text style={S.fieldLabel}>{t('bo.schedule.classType')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                {CLASS_TYPES.map(t => (
+                {CLASS_TYPES.map(ct => (
                   <TouchableOpacity
-                    key={t}
-                    style={[S.typePill, title === t && S.typePillActive]}
-                    onPress={() => setTitle(t)}
+                    key={ct}
+                    style={[S.typePill, title === ct && S.typePillActive]}
+                    onPress={() => setTitle(ct)}
                   >
-                    <Text style={[S.typePillText, title === t && S.typePillTextActive]}>{t}</Text>
+                    <Text style={[S.typePillText, title === ct && S.typePillTextActive]}>{ct}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
 
               {title === 'Autre' && (
                 <>
-                  <Text style={S.fieldLabel}>Nom personnalisé</Text>
+                  <Text style={S.fieldLabel}>{t('bo.schedule.customName')}</Text>
                   <TextInput
                     style={S.input}
                     value={customTitle}
                     onChangeText={setCustomTitle}
-                    placeholder="Ex : Yoga, Pilates…"
+                    placeholder={t('bo.schedule.customNamePlaceholder')}
                     placeholderTextColor={theme.textMuted}
                   />
                 </>
               )}
 
-              <Text style={S.fieldLabel}>Coach (optionnel)</Text>
+              <Text style={S.fieldLabel}>{t('bo.schedule.coachOptional')}</Text>
               {coaches.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                   {coaches.map(c => {
@@ -511,11 +514,11 @@ export default function BOScheduleScreen({ navigation }: any) {
                 </ScrollView>
               ) : (
                 <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 12 }}>
-                  Aucun coach assigné à cette box
+                  {t('bo.schedule.noCoach')}
                 </Text>
               )}
 
-              <Text style={S.fieldLabel}>Date (AAAA-MM-JJ)</Text>
+              <Text style={S.fieldLabel}>{t('bo.schedule.dateLabel')}</Text>
               <DateField
                 style={S.input}
                 value={date}
@@ -525,7 +528,7 @@ export default function BOScheduleScreen({ navigation }: any) {
 
               <View style={S.row}>
                 <View style={{ flex: 1 }}>
-                  <Text style={S.fieldLabel}>Début</Text>
+                  <Text style={S.fieldLabel}>{t('bo.schedule.start')}</Text>
                   <TextInput
                     style={S.input}
                     value={startTime}
@@ -536,7 +539,7 @@ export default function BOScheduleScreen({ navigation }: any) {
                 </View>
                 <View style={{ width: 12 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={S.fieldLabel}>Fin</Text>
+                  <Text style={S.fieldLabel}>{t('bo.schedule.end')}</Text>
                   <TextInput
                     style={S.input}
                     value={endTime}
@@ -547,7 +550,7 @@ export default function BOScheduleScreen({ navigation }: any) {
                 </View>
                 <View style={{ width: 12 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={S.fieldLabel}>Capacité</Text>
+                  <Text style={S.fieldLabel}>{t('bo.schedule.capacity')}</Text>
                   <TextInput
                     style={S.input}
                     value={maxCapacity}
@@ -559,12 +562,12 @@ export default function BOScheduleScreen({ navigation }: any) {
                 </View>
               </View>
 
-              <Text style={S.fieldLabel}>Description (optionnel)</Text>
+              <Text style={S.fieldLabel}>{t('bo.schedule.descriptionOptional')}</Text>
               <TextInput
                 style={[S.input, { height: 72, textAlignVertical: 'top' }]}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Détails du cours…"
+                placeholder={t('bo.schedule.descriptionPlaceholder')}
                 placeholderTextColor={theme.textMuted}
                 multiline
               />
@@ -574,7 +577,7 @@ export default function BOScheduleScreen({ navigation }: any) {
                 onPress={save}
                 disabled={submitting}
               >
-                <Text style={S.saveBtnText}>{submitting ? 'Enregistrement…' : editItem ? 'Modifier' : 'Créer le créneau'}</Text>
+                <Text style={S.saveBtnText}>{submitting ? t('bo.schedule.saving') : editItem ? t('common.edit') : t('bo.schedule.createSlot')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -591,7 +594,7 @@ export default function BOScheduleScreen({ navigation }: any) {
                   {attendanceSlot?.title} — {attendanceSlot?.start_time}–{attendanceSlot?.end_time}
                 </Text>
                 {attendanceSlot?.coach ? (
-                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Coach: {attendanceSlot.coach}</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>{t('bo.schedule.coachName', { name: attendanceSlot.coach })}</Text>
                 ) : null}
               </View>
               <TouchableOpacity onPress={() => setAttendanceOpen(false)}>
@@ -600,14 +603,14 @@ export default function BOScheduleScreen({ navigation }: any) {
             </View>
 
             <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              {reservations.length} inscrit{reservations.length !== 1 ? 's' : ''} / {attendanceSlot?.max_capacity ?? '—'} max
+              {t('bo.schedule.registeredCount', { count: reservations.length, max: attendanceSlot?.max_capacity ?? '—' })}
             </Text>
 
             {attendanceLoading ? (
               <ActivityIndicator style={{ marginVertical: 30 }} color={theme.accent} />
             ) : reservations.length === 0 ? (
               <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginVertical: 30 }}>
-                Aucun inscrit pour ce créneau
+                {t('bo.schedule.noRegistered')}
               </Text>
             ) : (
               <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={{ paddingBottom: 8 }}>
@@ -616,7 +619,7 @@ export default function BOScheduleScreen({ navigation }: any) {
                     <View style={{ flex: 1 }}>
                       <Text style={S.attName}>{r.username}</Text>
                       <Text style={S.attStatus}>
-                        {r.status === 'waiting' ? 'En attente' : 'Confirmé'}
+                        {r.status === 'waiting' ? t('bo.schedule.statusWaiting') : t('bo.schedule.statusConfirmed')}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -643,7 +646,7 @@ export default function BOScheduleScreen({ navigation }: any) {
             {/* Add member button */}
             <TouchableOpacity onPress={openAddMember} style={S.attAddBtn}>
               <UserPlus color={theme.accent} size={16} />
-              <Text style={{ color: theme.accent, fontSize: 14, fontWeight: '700', marginLeft: 8 }}>Ajouter un membre</Text>
+              <Text style={{ color: theme.accent, fontSize: 14, fontWeight: '700', marginLeft: 8 }}>{t('bo.schedule.addMember')}</Text>
             </TouchableOpacity>
 
             {/* Add member sub-modal */}
@@ -655,7 +658,7 @@ export default function BOScheduleScreen({ navigation }: any) {
                     style={S.attSearchInput}
                     value={memberSearch}
                     onChangeText={setMemberSearch}
-                    placeholder="Rechercher un membre…"
+                    placeholder={t('bo.schedule.searchMember')}
                     placeholderTextColor={theme.textMuted}
                     autoFocus
                   />
@@ -687,11 +690,11 @@ export default function BOScheduleScreen({ navigation }: any) {
               <View style={S.attExportRow}>
                 <TouchableOpacity style={S.attExportBtn} onPress={() => exportAttendance('day')}>
                   <Download color={theme.accent} size={14} />
-                  <Text style={S.attExportText}>Export jour</Text>
+                  <Text style={S.attExportText}>{t('bo.schedule.exportDay')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={S.attExportBtn} onPress={() => exportAttendance('week')}>
                   <Download color={theme.accent} size={14} />
-                  <Text style={S.attExportText}>Export semaine</Text>
+                  <Text style={S.attExportText}>{t('bo.schedule.exportWeek')}</Text>
                 </TouchableOpacity>
               </View>
             )}

@@ -6,6 +6,7 @@ import {
 import {
   Plus, Globe2, CheckCircle, XCircle, Play, Youtube,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -28,13 +29,32 @@ import {
   PoolGroup, PoolMember, PoolMatch,
   LeagueRound, LeagueStanding,
   SwissRound, SwissPairing, SwissStanding,
-  FORMAT_LABELS, STATUS_LABELS, SCORING_LABELS,
 } from './inter-competition';
 
 export default function BOInterCompetitionScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const S = createStyles(theme);
+
+  const FORMAT_LABELS: Record<string, string> = {
+    league: t('bo.interComp.format.league'),
+    bracket: t('bo.interComp.format.bracket'),
+    pool: t('bo.interComp.format.pool'),
+    swiss: t('bo.interComp.format.swiss'),
+  };
+  const STATUS_LABELS: Record<string, string> = {
+    draft: t('bo.interComp.status.draft'),
+    open: t('bo.interComp.status.open'),
+    active: t('bo.interComp.status.active'),
+    closed: t('bo.interComp.status.closed'),
+  };
+  const SCORING_LABELS: Record<string, string> = {
+    reps: t('bo.interComp.scoring.reps'),
+    time: t('bo.interComp.scoring.time'),
+    weight: t('bo.interComp.scoring.weight'),
+    rounds_reps: t('bo.interComp.scoring.rounds_reps'),
+  };
 
   const [competitions, setCompetitions] = useState<InterCompetition[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -236,7 +256,7 @@ export default function BOInterCompetitionScreen() {
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   async function handleCreate() {
-    if (!newTitle.trim()) { Alert.alert('Erreur', 'Titre requis'); return; }
+    if (!newTitle.trim()) { Alert.alert(t('common.error'), t('bo.interComp.titleRequired')); return; }
     setCreating(true);
     const { data, error } = await supabase.from('inter_competitions').insert({
       title: newTitle.trim(),
@@ -247,7 +267,7 @@ export default function BOInterCompetitionScreen() {
       created_by: user?.id,
     }).select().single();
     setCreating(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     trackInterCompCreate(newFormat, newType);
     setCreateModal(false);
     setNewTitle('');
@@ -260,18 +280,18 @@ export default function BOInterCompetitionScreen() {
     if (newStatus === 'closed') { await handleCloseCompetition(); return; }
     const { error } = await supabase.from('inter_competitions')
       .update({ status: newStatus }).eq('id', selectedId);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     setCompetitions(prev => prev.map(c => c.id === selectedId ? { ...c, status: newStatus as InterCompetition['status'] } : c));
   }
 
   async function handleCloseCompetition() {
     if (!selectedId) return;
     Alert.alert(
-      'Cloturer la competition ?',
-      'Les ELO seront calcules et distribues a tous les participants.',
+      t('bo.interComp.closeConfirmTitle'),
+      t('bo.interComp.closeConfirmMsg'),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Cloturer', style: 'destructive', onPress: async () => {
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('bo.interComp.close'), style: 'destructive', onPress: async () => {
           try {
             // ELO is computed and persisted entirely server-side (idempotent,
             // authorized, atomic). The client only triggers the close.
@@ -280,7 +300,7 @@ export default function BOInterCompetitionScreen() {
             );
             if (eloErr) {
               captureError(eloErr, { screen: 'BOInterCompetition', action: 'computeElo' });
-              Alert.alert('Erreur', eloErr.message ?? 'Erreur lors de la cloture');
+              Alert.alert(t('common.error'), eloErr.message ?? t('bo.interComp.closeError'));
               return;
             }
 
@@ -295,20 +315,20 @@ export default function BOInterCompetitionScreen() {
             trackInterCompClose(selectedId!, comp?.format ?? 'unknown', results.length);
 
             if (results.length === 0) {
-              Alert.alert('Competition cloturee (aucun score valide).');
+              Alert.alert(t('bo.interComp.closedNoScore'));
               return;
             }
 
             const winner = results.find(r => r.final_rank === 1);
             const topDelta = winner ? `+${winner.elo_change}` : '';
-            Alert.alert('Competition cloturee !', `ELO distribue a ${results.length} athletes. 1er: ${topDelta} ELO`);
+            Alert.alert(t('bo.interComp.closedTitle'), t('bo.interComp.closedMsg', { n: results.length, delta: topDelta }));
             if (comp && selectedId) {
               const eloChanges = results.map(r => ({ athleteId: r.athlete_id, delta: r.elo_change }));
               sendInterCompetitionClosedNotification(selectedId, comp.title, eloChanges).catch(() => {});
             }
           } catch (e: unknown) {
             captureError(e, { screen: 'BOInterCompetition', action: 'close' });
-            Alert.alert('Erreur', (e as Error)?.message ?? 'Erreur lors de la cloture');
+            Alert.alert(t('common.error'), (e as Error)?.message ?? t('bo.interComp.closeError'));
           }
         }},
       ]
@@ -316,7 +336,7 @@ export default function BOInterCompetitionScreen() {
   }
 
   async function handleAddWod() {
-    if (!wodTitle.trim() || !selectedId) { Alert.alert('Erreur', 'Titre requis'); return; }
+    if (!wodTitle.trim() || !selectedId) { Alert.alert(t('common.error'), t('bo.interComp.titleRequired')); return; }
     const { error } = await supabase.from('inter_competition_wods').insert({
       competition_id: selectedId,
       title: wodTitle.trim(),
@@ -325,7 +345,7 @@ export default function BOInterCompetitionScreen() {
       scoring_type: wodScoring,
       order_index: wods.length + 1,
     });
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     setWodModal(false);
     setWodTitle(''); setWodDesc(''); setWodTimeCap('');
     loadData();
@@ -334,7 +354,7 @@ export default function BOInterCompetitionScreen() {
   async function handleRevealWod(wodId: string) {
     const { error } = await supabase.from('inter_competition_wods')
       .update({ revealed_at: new Date().toISOString() }).eq('id', wodId);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     loadData();
     const comp = competitions.find(c => c.id === selectedId);
     const wod = wods.find(w => w.id === wodId);
@@ -347,18 +367,18 @@ export default function BOInterCompetitionScreen() {
     const { error } = await supabase.from('inter_scores')
       .update({ status: 'validated', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
       .eq('id', scoreId);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     loadData();
   }
 
   async function handleRejectScore(scoreId: string) {
-    Alert.alert('Rejeter ce score ?', 'Le participant devra re-soumettre.', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Rejeter', style: 'destructive', onPress: async () => {
+    Alert.alert(t('bo.interComp.rejectScoreTitle'), t('bo.interComp.rejectScoreMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('bo.interComp.reject'), style: 'destructive', onPress: async () => {
         const { error } = await supabase.from('inter_scores')
           .update({ status: 'rejected', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
           .eq('id', scoreId);
-        if (error) { Alert.alert('Erreur', error.message); return; }
+        if (error) { Alert.alert(t('common.error'), error.message); return; }
         loadData();
       }},
     ]);
@@ -369,18 +389,18 @@ export default function BOInterCompetitionScreen() {
   async function handleGenerateBracket() {
     if (!selectedId) return;
     Alert.alert(
-      'Generer le bracket ?',
-      `${registrationCount} inscrits seront apparies aleatoirement en Round 1.`,
+      t('bo.interComp.generateBracketTitle'),
+      t('bo.interComp.generateBracketMsg', { count: registrationCount }),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Generer', onPress: async () => {
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('bo.interComp.generate'), onPress: async () => {
           const { error } = await supabase.rpc('generate_inter_bracket_round_1', {
             p_competition_id: selectedId,
           });
-          if (error) { Alert.alert('Erreur', error.message); return; }
+          if (error) { Alert.alert(t('common.error'), error.message); return; }
           trackBracketGenerate(selectedId!, registrationCount);
           loadData();
-          Alert.alert('Bracket genere !');
+          Alert.alert(t('bo.interComp.bracketGenerated'));
         }},
       ]
     );
@@ -389,15 +409,15 @@ export default function BOInterCompetitionScreen() {
   async function handleResolveMatch(match: BracketMatch, winnerId: string) {
     const loserId = winnerId === match.participant1_id ? match.participant2_id : match.participant1_id;
     Alert.alert(
-      'Declarer le gagnant ?',
-      `Gagnant : ${winnerId === match.participant1_id ? match.p1_username : match.p2_username}`,
+      t('bo.interComp.declareWinnerTitle'),
+      t('bo.interComp.winner', { name: winnerId === match.participant1_id ? match.p1_username : match.p2_username }),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Confirmer', onPress: async () => {
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.confirm'), onPress: async () => {
           const { error } = await supabase.from('inter_bracket_matches')
             .update({ winner_id: winnerId, loser_id: loserId, status: 'completed', completed_at: new Date().toISOString() })
             .eq('id', match.id);
-          if (error) { Alert.alert('Erreur', error.message); return; }
+          if (error) { Alert.alert(t('common.error'), error.message); return; }
           trackBracketResolve(selectedId!, match.round);
           loadData();
           const comp = competitions.find(c => c.id === selectedId);
@@ -416,14 +436,14 @@ export default function BOInterCompetitionScreen() {
       bracketMatches.filter(m => m.status === 'completed' || m.status === 'bye').map(m => m.round)
     )].sort((a, b) => b - a);
     const lastCompleted = completedRounds[0];
-    if (!lastCompleted) { Alert.alert('Aucun round termine'); return; }
+    if (!lastCompleted) { Alert.alert(t('bo.interComp.noRoundCompleted')); return; }
     const { error } = await supabase.rpc('advance_inter_bracket_round', {
       p_competition_id: selectedId,
       p_completed_round: lastCompleted,
     });
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     loadData();
-    Alert.alert('Round suivant genere !');
+    Alert.alert(t('bo.interComp.nextRoundGenerated'));
   }
 
   // ── League handlers ───────────────────────────────────────────────────────
@@ -435,14 +455,14 @@ export default function BOInterCompetitionScreen() {
     const { error } = await supabase.from('inter_league_rounds').insert({
       competition_id: selectedId,
       round_number: nextNumber,
-      title: `Journee ${nextNumber}`,
+      title: t('bo.interComp.roundN', { n: nextNumber }),
       wod_id: availableWod?.id ?? null,
       status: 'pending',
     });
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     trackLeagueRoundCreate(selectedId!, nextNumber);
     loadData();
-    Alert.alert(`Journee ${nextNumber} creee !`);
+    Alert.alert(t('bo.interComp.roundCreated', { n: nextNumber }));
   }
 
   async function handleComputeLeagueRound(roundNumber: number) {
@@ -451,9 +471,9 @@ export default function BOInterCompetitionScreen() {
       p_competition_id: selectedId,
       p_round_number: roundNumber,
     });
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     loadData();
-    Alert.alert(`Points calcules pour ${data} athletes !`);
+    Alert.alert(t('bo.interComp.pointsComputed', { n: data }));
   }
 
   // ── Pool handlers ─────────────────────────────────────────────────────────
@@ -461,21 +481,21 @@ export default function BOInterCompetitionScreen() {
   async function handleGeneratePool() {
     if (!selectedId) return;
     Alert.alert(
-      'Generer les poules ?',
-      `${registrationCount} inscrits seront repartis en poules (seeding par ELO).`,
+      t('bo.interComp.generatePoolTitle'),
+      t('bo.interComp.generatePoolMsg', { count: registrationCount }),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Generer', onPress: async () => {
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('bo.interComp.generate'), onPress: async () => {
           const groupsCount = registrationCount <= 8 ? 2 : registrationCount <= 16 ? 4 : 8;
           const { error } = await supabase.rpc('generate_inter_pool_groups', {
             p_competition_id: selectedId,
             p_groups_count: groupsCount,
             p_advance_count: 2,
           });
-          if (error) { Alert.alert('Erreur', error.message); return; }
+          if (error) { Alert.alert(t('common.error'), error.message); return; }
           trackPoolGenerate(selectedId!, groupsCount);
           loadData();
-          Alert.alert(`${groupsCount} poules generees !`);
+          Alert.alert(t('bo.interComp.poolsGenerated', { n: groupsCount }));
         }},
       ]
     );
@@ -489,7 +509,7 @@ export default function BOInterCompetitionScreen() {
       p_score2: s2,
       p_scoring_type: scoringType,
     });
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     trackPoolMatchResolve(selectedId!);
     loadData();
   }
@@ -501,9 +521,9 @@ export default function BOInterCompetitionScreen() {
     const { data, error } = await supabase.rpc('generate_inter_swiss_round', {
       p_competition_id: selectedId,
     });
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     trackSwissRoundGenerate(selectedId!, swissRounds.length + 1);
-    Alert.alert('Round suisse genere', `${data} appariements crees`);
+    Alert.alert(t('bo.interComp.swissRoundGenerated'), t('bo.interComp.swissPairingsCreated', { n: data }));
     loadData();
   }
 
@@ -515,7 +535,7 @@ export default function BOInterCompetitionScreen() {
       p_score2: s2,
       p_scoring_type: scoringType,
     });
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     trackSwissPairingResolve(selectedId!);
     loadData();
   }
@@ -531,7 +551,7 @@ export default function BOInterCompetitionScreen() {
       {/* Header */}
       <View style={S.header}>
         <Globe2 color={theme.accent} size={22} />
-        <Text style={S.headerTitle}>Inter-box Competitions</Text>
+        <Text style={S.headerTitle}>{t('bo.interComp.header')}</Text>
         <TouchableOpacity style={S.addBtn} onPress={() => setCreateModal(true)}>
           <Plus color="#fff" size={16} />
         </TouchableOpacity>
@@ -559,7 +579,7 @@ export default function BOInterCompetitionScreen() {
 
       {!selected ? (
         <View style={S.center}>
-          <Text style={S.emptyText}>Aucune competition. Cree-en une !</Text>
+          <Text style={S.emptyText}>{t('bo.interComp.noCompetition')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -574,21 +594,21 @@ export default function BOInterCompetitionScreen() {
                 {STATUS_LABELS[selected.status]}
               </Text>
             </View>
-            <Text style={S.regCount}>{registrationCount} inscrit(s)</Text>
+            <Text style={S.regCount}>{t('bo.interComp.entrants', { count: registrationCount })}</Text>
             {selected.status === 'draft' && (
               <TouchableOpacity style={S.actionBtn} onPress={() => handleChangeStatus('open')}>
-                <Text style={S.actionBtnText}>Ouvrir inscriptions</Text>
+                <Text style={S.actionBtnText}>{t('bo.interComp.openRegistrations')}</Text>
               </TouchableOpacity>
             )}
             {selected.status === 'open' && (
               <TouchableOpacity style={S.actionBtn} onPress={() => handleChangeStatus('active')}>
                 <Play color="#fff" size={12} />
-                <Text style={S.actionBtnText}>Lancer</Text>
+                <Text style={S.actionBtnText}>{t('bo.interComp.launch')}</Text>
               </TouchableOpacity>
             )}
             {selected.status === 'active' && (
               <TouchableOpacity style={[S.actionBtn, { backgroundColor: theme.error }]} onPress={() => handleChangeStatus('closed')}>
-                <Text style={S.actionBtnText}>Cloturer</Text>
+                <Text style={S.actionBtnText}>{t('bo.interComp.close')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -600,10 +620,10 @@ export default function BOInterCompetitionScreen() {
               ...(selected.format === 'swiss' ? ['swiss'] : []),
               ...(selected.format === 'league' ? ['league'] : []),
               ...(selected.format === 'pool' ? ['pool'] : []),
-            ] as const).map(t => (
-              <TouchableOpacity key={t} style={[S.tabItem, tab === t && S.tabActive]} onPress={() => setTab(t as typeof tab)}>
-                <Text style={[S.tabText, tab === t && S.tabTextActive]}>
-                  {t === 'wods' ? 'WODs' : t === 'scores' ? `Scores (${scores.length})` : t === 'bracket' ? 'Bracket' : t === 'swiss' ? 'Suisse' : t === 'league' ? 'Ligue' : 'Poules'}
+            ] as const).map(tabKey => (
+              <TouchableOpacity key={tabKey} style={[S.tabItem, tab === tabKey && S.tabActive]} onPress={() => setTab(tabKey as typeof tab)}>
+                <Text style={[S.tabText, tab === tabKey && S.tabTextActive]}>
+                  {tabKey === 'wods' ? t('bo.interComp.tabWods') : tabKey === 'scores' ? t('bo.interComp.tabScores', { n: scores.length }) : tabKey === 'bracket' ? t('bo.interComp.format.bracket') : tabKey === 'swiss' ? t('bo.interComp.format.swiss') : tabKey === 'league' ? t('bo.interComp.format.league') : t('bo.interComp.format.pool')}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -614,7 +634,7 @@ export default function BOInterCompetitionScreen() {
             <View style={S.section}>
               <TouchableOpacity style={S.addWodBtn} onPress={() => setWodModal(true)}>
                 <Plus color={theme.accent} size={14} />
-                <Text style={[S.addWodBtnText, { color: theme.accent }]}>Ajouter un WOD</Text>
+                <Text style={[S.addWodBtnText, { color: theme.accent }]}>{t('bo.interComp.addWod')}</Text>
               </TouchableOpacity>
               {wods.map(w => (
                 <View key={w.id} style={S.wodCard}>
@@ -623,12 +643,12 @@ export default function BOInterCompetitionScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={S.wodTitle}>{w.title}</Text>
                       <Text style={S.wodMeta}>
-                        {SCORING_LABELS[w.scoring_type]}{w.time_cap ? ` · ${w.time_cap}min cap` : ''}
+                        {SCORING_LABELS[w.scoring_type]}{w.time_cap ? t('bo.interComp.cap', { cap: w.time_cap }) : ''}
                       </Text>
                     </View>
                     {!w.revealed_at ? (
                       <TouchableOpacity style={S.revealBtn} onPress={() => handleRevealWod(w.id)}>
-                        <Text style={S.revealBtnText}>Reveler</Text>
+                        <Text style={S.revealBtnText}>{t('bo.interComp.reveal')}</Text>
                       </TouchableOpacity>
                     ) : (
                       <CheckCircle color={theme.success} size={16} />
@@ -644,7 +664,7 @@ export default function BOInterCompetitionScreen() {
           {tab === 'scores' && (
             <View style={S.section}>
               {scores.length === 0 ? (
-                <Text style={S.emptyText}>Aucun score soumis.</Text>
+                <Text style={S.emptyText}>{t('bo.interComp.noScoreSubmitted')}</Text>
               ) : scores.map(s => {
                 const wod = wods.find(w => w.id === s.wod_id);
                 return (
@@ -659,12 +679,12 @@ export default function BOInterCompetitionScreen() {
                           color: s.status === 'validated' ? theme.success
                             : s.status === 'rejected' ? theme.error : theme.warning
                         }]}>
-                          {s.status === 'validated' ? 'Valide' : s.status === 'rejected' ? 'Rejete' : 'En attente'}
+                          {s.status === 'validated' ? t('bo.interComp.scoreStatus.validated') : s.status === 'rejected' ? t('bo.interComp.scoreStatus.rejected') : t('bo.interComp.scoreStatus.pending')}
                         </Text>
                       </View>
                     </View>
                     <Text style={S.scoreValue}>
-                      {s.score_display ?? s.score_value ?? '—'} · WOD {wod?.order_index ?? '?'}
+                      {t('bo.interComp.scoreLine', { score: s.score_display ?? s.score_value ?? '—', n: wod?.order_index ?? '?' })}
                     </Text>
                     {s.video_url ? (
                       <View style={S.videoRow}>
@@ -676,11 +696,11 @@ export default function BOInterCompetitionScreen() {
                       <View style={S.scoreActions}>
                         <TouchableOpacity style={S.validateBtn} onPress={() => handleValidateScore(s.id)}>
                           <CheckCircle color="#fff" size={12} />
-                          <Text style={S.validateBtnText}>Valider</Text>
+                          <Text style={S.validateBtnText}>{t('bo.interComp.validate')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={S.rejectBtn} onPress={() => handleRejectScore(s.id)}>
                           <XCircle color="#fff" size={12} />
-                          <Text style={S.rejectBtnText}>Rejeter</Text>
+                          <Text style={S.rejectBtnText}>{t('bo.interComp.reject')}</Text>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -750,13 +770,13 @@ export default function BOInterCompetitionScreen() {
       <Modal visible={createModal} transparent animationType="slide">
         <View style={S.modalOverlay}>
           <View style={S.modalContent}>
-            <Text style={S.modalTitle}>Nouvelle competition Inter-box</Text>
+            <Text style={S.modalTitle}>{t('bo.interComp.newCompTitle')}</Text>
 
-            <Text style={S.inputLabel}>Titre</Text>
+            <Text style={S.inputLabel}>{t('bo.interComp.labelTitle')}</Text>
             <TextInput style={S.input} value={newTitle} onChangeText={setNewTitle}
-              placeholder="Ex: Inter-box Championship 2026" placeholderTextColor={theme.textMuted} />
+              placeholder={t('bo.interComp.placeholderCompTitle')} placeholderTextColor={theme.textMuted} />
 
-            <Text style={S.inputLabel}>Format</Text>
+            <Text style={S.inputLabel}>{t('bo.interComp.labelFormat')}</Text>
             <View style={S.formatRow}>
               {(['bracket', 'league', 'pool', 'swiss'] as const).map(f => (
                 <TouchableOpacity key={f} style={[S.formatPill, newFormat === f && S.formatPillActive]}
@@ -768,21 +788,21 @@ export default function BOInterCompetitionScreen() {
               ))}
             </View>
 
-            <Text style={S.inputLabel}>Type</Text>
+            <Text style={S.inputLabel}>{t('bo.interComp.labelType')}</Text>
             <View style={S.formatRow}>
               <TouchableOpacity style={[S.formatPill, newType === 'individual' && S.formatPillActive]}
                 onPress={() => setNewType('individual')}>
-                <Text style={[S.formatPillText, newType === 'individual' && S.formatPillTextActive]}>Individuel</Text>
+                <Text style={[S.formatPillText, newType === 'individual' && S.formatPillTextActive]}>{t('bo.interComp.typeIndividual')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[S.formatPill, newType === 'team' && S.formatPillActive]}
                 onPress={() => setNewType('team')}>
-                <Text style={[S.formatPillText, newType === 'team' && S.formatPillTextActive]}>Equipe</Text>
+                <Text style={[S.formatPillText, newType === 'team' && S.formatPillTextActive]}>{t('bo.interComp.typeTeam')}</Text>
               </TouchableOpacity>
             </View>
 
             {newType === 'team' && (
               <>
-                <Text style={S.inputLabel}>Taille equipe</Text>
+                <Text style={S.inputLabel}>{t('bo.interComp.labelTeamSize')}</Text>
                 <TextInput style={S.input} value={newTeamSize} onChangeText={setNewTeamSize}
                   keyboardType="number-pad" placeholder="2" placeholderTextColor={theme.textMuted} />
               </>
@@ -790,11 +810,11 @@ export default function BOInterCompetitionScreen() {
 
             <View style={S.modalActions}>
               <TouchableOpacity style={S.cancelBtn} onPress={() => setCreateModal(false)}>
-                <Text style={S.cancelBtnText}>Annuler</Text>
+                <Text style={S.cancelBtnText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={S.confirmBtn} onPress={handleCreate} disabled={creating}>
                 {creating ? <ActivityIndicator color="#fff" size="small" /> :
-                  <Text style={S.confirmBtnText}>Creer</Text>}
+                  <Text style={S.confirmBtnText}>{t('bo.interComp.create')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -805,22 +825,22 @@ export default function BOInterCompetitionScreen() {
       <Modal visible={wodModal} transparent animationType="slide">
         <View style={S.modalOverlay}>
           <View style={S.modalContent}>
-            <Text style={S.modalTitle}>Ajouter un WOD</Text>
+            <Text style={S.modalTitle}>{t('bo.interComp.addWod')}</Text>
 
-            <Text style={S.inputLabel}>Titre</Text>
+            <Text style={S.inputLabel}>{t('bo.interComp.labelTitle')}</Text>
             <TextInput style={S.input} value={wodTitle} onChangeText={setWodTitle}
-              placeholder="Ex: WOD 1 — Chipper" placeholderTextColor={theme.textMuted} />
+              placeholder={t('bo.interComp.placeholderWodTitle')} placeholderTextColor={theme.textMuted} />
 
-            <Text style={S.inputLabel}>Description</Text>
+            <Text style={S.inputLabel}>{t('bo.interComp.labelDescription')}</Text>
             <TextInput style={[S.input, { height: 80 }]} value={wodDesc} onChangeText={setWodDesc}
-              placeholder="Mouvements, charges..." placeholderTextColor={theme.textMuted}
+              placeholder={t('bo.interComp.placeholderWodDesc')} placeholderTextColor={theme.textMuted}
               multiline textAlignVertical="top" />
 
-            <Text style={S.inputLabel}>Time cap (min)</Text>
+            <Text style={S.inputLabel}>{t('bo.interComp.labelTimeCap')}</Text>
             <TextInput style={S.input} value={wodTimeCap} onChangeText={setWodTimeCap}
-              keyboardType="number-pad" placeholder="Optionnel" placeholderTextColor={theme.textMuted} />
+              keyboardType="number-pad" placeholder={t('bo.interComp.placeholderOptional')} placeholderTextColor={theme.textMuted} />
 
-            <Text style={S.inputLabel}>Scoring</Text>
+            <Text style={S.inputLabel}>{t('bo.interComp.labelScoring')}</Text>
             <View style={S.formatRow}>
               {(['reps', 'time', 'weight', 'rounds_reps'] as const).map(st => (
                 <TouchableOpacity key={st} style={[S.formatPill, wodScoring === st && S.formatPillActive]}
@@ -834,10 +854,10 @@ export default function BOInterCompetitionScreen() {
 
             <View style={S.modalActions}>
               <TouchableOpacity style={S.cancelBtn} onPress={() => setWodModal(false)}>
-                <Text style={S.cancelBtnText}>Annuler</Text>
+                <Text style={S.cancelBtnText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={S.confirmBtn} onPress={handleAddWod}>
-                <Text style={S.confirmBtnText}>Ajouter</Text>
+                <Text style={S.confirmBtnText}>{t('bo.interComp.add')}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -7,6 +7,7 @@ import {
 import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Eye, EyeOff, Upload, Clock } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -15,13 +16,13 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, BoxWODType } from '../../types';
 import DateField from '../../components/DateField';
 
-const WOD_TYPES: { value: BoxWODType; label: string }[] = [
-  { value: 'for-time', label: 'For Time' },
-  { value: 'amrap',    label: 'AMRAP' },
-  { value: 'emom',     label: 'EMOM' },
-  { value: 'tabata',   label: 'Tabata' },
-  { value: 'strength', label: 'Force' },
-  { value: 'custom',   label: 'Custom' },
+const WOD_TYPES: { value: BoxWODType; labelKey: string }[] = [
+  { value: 'for-time', labelKey: 'bo.wods.typeForTime' },
+  { value: 'amrap',    labelKey: 'bo.wods.typeAmrap' },
+  { value: 'emom',     labelKey: 'bo.wods.typeEmom' },
+  { value: 'tabata',   labelKey: 'bo.wods.typeTabata' },
+  { value: 'strength', labelKey: 'bo.wods.typeStrength' },
+  { value: 'custom',   labelKey: 'bo.wods.typeCustom' },
 ];
 
 const TYPE_COLORS: Record<string, string> = {
@@ -52,6 +53,8 @@ function toISO(d: Date): string {
 export default function BOWODsScreen({ navigation }: any) {
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const S = createStyles(theme);
 
   const [wods,      setWods]      = useState<BoxWOD[]>([]);
@@ -158,7 +161,7 @@ export default function BOWODsScreen({ navigation }: any) {
     }
     const error = dbError;
     setSubmitting(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     // Only send notification if publishing now (no future schedule)
     if (published && publishMode === 'now' && currentBox && user) {
       sendWodPublishedNotification(currentBox.id, title.trim(), user.id).catch(e => captureError(e, { action: 'sendWodPublishedNotif' }));
@@ -177,10 +180,10 @@ export default function BOWODsScreen({ navigation }: any) {
   }
 
   async function deleteWOD(wod: BoxWOD) {
-    Alert.alert('Supprimer ce WOD ?', wod.title, [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('bo.wods.deleteTitle'), wod.title, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive',
+        text: t('common.delete'), style: 'destructive',
         onPress: async () => {
           await supabase.from('box_wods').delete().eq('id', wod.id);
           load();
@@ -230,7 +233,7 @@ export default function BOWODsScreen({ navigation }: any) {
           if (cols.length < 2) continue;
           rows.push({
             scheduled_date: cols[0] || toISO(new Date()),
-            title: cols[1] || 'WOD importé',
+            title: cols[1] || t('bo.wods.importedWod'),
             wod_type: cols[2] || 'custom',
             description: cols[3] || null,
             time_cap_seconds: cols[4] ? parseInt(cols[4]) * 60 : null,
@@ -244,7 +247,7 @@ export default function BOWODsScreen({ navigation }: any) {
         }
       }
 
-      if (rows.length === 0) { Alert.alert('Import', 'Aucun WOD trouvé dans le fichier.'); return; }
+      if (rows.length === 0) { Alert.alert(t('bo.wods.import'), t('bo.wods.noWodInFile')); return; }
 
       // Résoudre noms de groupes → IDs
       const allGroupNames = [...new Set(rows.flatMap((r: any) => r.groups ?? []))] as string[];
@@ -258,7 +261,7 @@ export default function BOWODsScreen({ navigation }: any) {
         if (grps) grps.forEach((g: any) => { groupMap[g.name] = g.id; });
         const missing = allGroupNames.filter(n => !groupMap[n]);
         if (missing.length > 0) {
-          Alert.alert('Groupes inconnus', `Ces groupes n'existent pas :\n${missing.join(', ')}\n\nLes WODs concernés seront visibles par tous.`);
+          Alert.alert(t('bo.wods.unknownGroups'), t('bo.wods.unknownGroupsMsg', { groups: missing.join(', ') }));
         }
       }
 
@@ -266,7 +269,7 @@ export default function BOWODsScreen({ navigation }: any) {
       const payloads = rows.map((r: any) => ({
         box_id: currentBox!.id,
         created_by: user!.id,
-        title: String(r.title || 'WOD importé').trim(),
+        title: String(r.title || t('bo.wods.importedWod')).trim(),
         description: r.description || null,
         wod_type: VALID_TYPES.includes(r.wod_type ?? r.type ?? '') ? (r.wod_type ?? r.type) : 'custom',
         scheduled_date: r.scheduled_date ?? r.date ?? toISO(new Date()),
@@ -279,7 +282,7 @@ export default function BOWODsScreen({ navigation }: any) {
       }));
 
       const { data: inserted, error } = await supabase.from('box_wods').insert(payloads).select('id');
-      if (error || !inserted) { Alert.alert('Erreur import', error?.message ?? 'Erreur inconnue'); return; }
+      if (error || !inserted) { Alert.alert(t('bo.wods.importError'), error?.message ?? t('bo.wods.unknownError')); return; }
 
       // Insérer wod_group_access
       const accessRows: { wod_id: string; group_id: string }[] = [];
@@ -291,18 +294,18 @@ export default function BOWODsScreen({ navigation }: any) {
       });
       if (accessRows.length > 0) {
         const { error: gErr } = await supabase.from('wod_group_access').insert(accessRows);
-        if (gErr) Alert.alert('Attention', `WODs importés mais erreur groupes : ${gErr.message}`);
+        if (gErr) Alert.alert(t('bo.wods.warning'), t('bo.wods.groupError', { msg: gErr.message }));
       }
 
-      Alert.alert('Import réussi', `${inserted.length} WOD(s) importé(s) !`);
+      Alert.alert(t('bo.wods.importSuccess'), t('bo.wods.importSuccessMsg', { count: inserted.length }));
       load();
     } catch (e: any) {
       captureError(e, { screen: 'BOWODs', action: 'importCSV' });
-      Alert.alert('Erreur', e.message || 'Import échoué');
+      Alert.alert(t('common.error'), e.message || t('bo.wods.importFailed'));
     }
   }
 
-  const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const DAY_LABELS = t('bo.wods.dayLabels', { returnObjects: true }) as string[];
   const todayISO = toISO(new Date());
 
   return (
@@ -311,7 +314,7 @@ export default function BOWODsScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>Calendrier WODs</Text>
+        <Text style={S.headerTitle}>{t('bo.wods.title')}</Text>
         <TouchableOpacity onPress={importWODs} style={S.importBtn}>
           <Upload color={theme.accent} size={18} />
         </TouchableOpacity>
@@ -323,9 +326,9 @@ export default function BOWODsScreen({ navigation }: any) {
           <ChevronLeft color={theme.text} size={20} />
         </TouchableOpacity>
         <Text style={S.weekLabel}>
-          {weekDates[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+          {weekDates[0].toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })}
           {' — '}
-          {weekDates[6].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {weekDates[6].toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' })}
         </Text>
         <TouchableOpacity onPress={() => setWeekOffset(w => w + 1)} style={S.weekArrow}>
           <ChevronRight color={theme.text} size={20} />
@@ -349,7 +352,7 @@ export default function BOWODsScreen({ navigation }: any) {
                     <Text style={[S.dayLabel, isToday && S.dayLabelToday]}>
                       {DAY_LABELS[i]} {d.getDate()}
                     </Text>
-                    {isToday && <Text style={S.todayBadge}>Aujourd'hui</Text>}
+                    {isToday && <Text style={S.todayBadge}>{t('bo.wods.today')}</Text>}
                     <TouchableOpacity onPress={() => openCreate(iso)} style={S.addDayBtn}>
                       <Plus color={isToday ? theme.card : theme.accent} size={16} />
                     </TouchableOpacity>
@@ -357,7 +360,7 @@ export default function BOWODsScreen({ navigation }: any) {
 
                   {dayWODs.length === 0 ? (
                     <TouchableOpacity style={S.emptyDay} onPress={() => openCreate(iso)} activeOpacity={0.7}>
-                      <Text style={S.emptyDayText}>+ Ajouter un WOD</Text>
+                      <Text style={S.emptyDayText}>{t('bo.wods.addWod')}</Text>
                     </TouchableOpacity>
                   ) : (
                     dayWODs.map(wod => {
@@ -368,10 +371,10 @@ export default function BOWODsScreen({ navigation }: any) {
                           <View style={S.wodRowContent}>
                             <Text style={S.wodRowType}>{(wod.wod_type ?? 'WOD').toUpperCase()}</Text>
                             <Text style={S.wodRowTitle}>{wod.title}</Text>
-                            {!wod.is_published && <Text style={S.draftTag}>Brouillon</Text>}
+                            {!wod.is_published && <Text style={S.draftTag}>{t('bo.wods.draft')}</Text>}
                             {wod.is_published && (wod as any).publish_at && new Date((wod as any).publish_at) > new Date() && (
                               <Text style={[S.draftTag, { color: theme.accent }]}>
-                                Programmé {new Date((wod as any).publish_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                {t('bo.wods.scheduledAt', { time: new Date((wod as any).publish_at).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' }) })}
                               </Text>
                             )}
                           </View>
@@ -403,69 +406,69 @@ export default function BOWODsScreen({ navigation }: any) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={S.modalContainer}>
             <View style={S.modalHeader}>
-              <Text style={S.modalTitle}>{editWOD ? 'Modifier le WOD' : 'Créer un WOD'}</Text>
+              <Text style={S.modalTitle}>{editWOD ? t('bo.wods.editWod') : t('bo.wods.createWod')}</Text>
               <TouchableOpacity onPress={() => setModalOpen(false)}>
-                <Text style={S.modalCancel}>Annuler</Text>
+                <Text style={S.modalCancel}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={S.modalBody} keyboardShouldPersistTaps="handled">
 
               <View style={S.mRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={S.mLabel}>DATE *</Text>
+                  <Text style={S.mLabel}>{t('bo.wods.labelDate')}</Text>
                   <DateField style={S.mInput} value={date} onChangeText={setDate} theme={theme} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={S.mLabel}>BLOCK</Text>
-                  <TextInput style={S.mInput} value={blockName} onChangeText={setBlockName} placeholder="A, B, Metcon…" placeholderTextColor={theme.textMuted} />
+                  <Text style={S.mLabel}>{t('bo.wods.labelBlock')}</Text>
+                  <TextInput style={S.mInput} value={blockName} onChangeText={setBlockName} placeholder={t('bo.wods.blockPlaceholder')} placeholderTextColor={theme.textMuted} />
                 </View>
               </View>
 
-              <Text style={S.mLabel}>TITRE *</Text>
-              <TextInput style={S.mInput} value={title} onChangeText={setTitle} placeholder="Fran, Cindy, Helen…" placeholderTextColor={theme.textMuted} />
+              <Text style={S.mLabel}>{t('bo.wods.labelTitle')}</Text>
+              <TextInput style={S.mInput} value={title} onChangeText={setTitle} placeholder={t('bo.wods.titlePlaceholder')} placeholderTextColor={theme.textMuted} />
 
-              <Text style={S.mLabel}>TYPE</Text>
+              <Text style={S.mLabel}>{t('bo.wods.labelType')}</Text>
               <View style={S.typeGrid}>
-                {WOD_TYPES.map(t => (
+                {WOD_TYPES.map(wt => (
                   <TouchableOpacity
-                    key={t.value}
-                    style={[S.typeChip, wodType === t.value && { backgroundColor: TYPE_COLORS[t.value], borderColor: TYPE_COLORS[t.value] }]}
-                    onPress={() => setWodType(t.value)}
+                    key={wt.value}
+                    style={[S.typeChip, wodType === wt.value && { backgroundColor: TYPE_COLORS[wt.value], borderColor: TYPE_COLORS[wt.value] }]}
+                    onPress={() => setWodType(wt.value)}
                   >
-                    <Text style={[S.typeChipText, wodType === t.value && { color: '#fff' }]}>{t.label}</Text>
+                    <Text style={[S.typeChipText, wodType === wt.value && { color: '#fff' }]}>{t(wt.labelKey)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={S.mLabel}>DESCRIPTION</Text>
+              <Text style={S.mLabel}>{t('bo.wods.labelDescription')}</Text>
               <TextInput
                 style={[S.mInput, S.mTextarea]}
                 value={description} onChangeText={setDescription}
-                placeholder="21-15-9 Thrusters + Pull-ups…"
+                placeholder={t('bo.wods.descriptionPlaceholder')}
                 placeholderTextColor={theme.textMuted} multiline
               />
 
               <View style={S.mRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={S.mLabel}>TIME CAP (min)</Text>
+                  <Text style={S.mLabel}>{t('bo.wods.labelTimeCap')}</Text>
                   <TextInput style={S.mInput} value={timeCap} onChangeText={setTimeCap} keyboardType="numeric" placeholder="20" placeholderTextColor={theme.textMuted} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={S.mLabel}>ROUNDS</Text>
+                  <Text style={S.mLabel}>{t('bo.wods.labelRounds')}</Text>
                   <TextInput style={S.mInput} value={rounds} onChangeText={setRounds} keyboardType="numeric" placeholder="5" placeholderTextColor={theme.textMuted} />
                 </View>
               </View>
 
-              <Text style={S.mLabel}>NOTES COACH</Text>
+              <Text style={S.mLabel}>{t('bo.wods.labelNotes')}</Text>
               <TextInput
                 style={[S.mInput, S.mTextarea]}
                 value={notes} onChangeText={setNotes}
-                placeholder="Conseils, scaling options…"
+                placeholder={t('bo.wods.notesPlaceholder')}
                 placeholderTextColor={theme.textMuted} multiline
               />
 
               <View style={S.publishRow}>
-                <Text style={S.publishLabel}>Publier</Text>
+                <Text style={S.publishLabel}>{t('bo.wods.publish')}</Text>
                 <Switch value={published} onValueChange={setPublished} trackColor={{ true: theme.success }} />
               </View>
 
@@ -476,23 +479,23 @@ export default function BOWODsScreen({ navigation }: any) {
                       style={[S.typeChip, publishMode === 'now' && { backgroundColor: theme.success, borderColor: theme.success }]}
                       onPress={() => setPublishMode('now')}
                     >
-                      <Text style={[S.typeChipText, publishMode === 'now' && { color: '#fff' }]}>Maintenant</Text>
+                      <Text style={[S.typeChipText, publishMode === 'now' && { color: '#fff' }]}>{t('bo.wods.now')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[S.typeChip, publishMode === 'scheduled' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
                       onPress={() => setPublishMode('scheduled')}
                     >
                       <Clock size={12} color={publishMode === 'scheduled' ? '#fff' : theme.textSecondary} />
-                      <Text style={[S.typeChipText, publishMode === 'scheduled' && { color: '#fff' }]}> Programmer</Text>
+                      <Text style={[S.typeChipText, publishMode === 'scheduled' && { color: '#fff' }]}> {t('bo.wods.schedule')}</Text>
                     </TouchableOpacity>
                   </View>
                   {publishMode === 'scheduled' && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={S.mLabel}>HEURE</Text>
+                      <Text style={S.mLabel}>{t('bo.wods.hour')}</Text>
                       <TextInput
                         style={[S.mInput, { width: 50, textAlign: 'center' }]}
                         value={publishHour}
-                        onChangeText={t => setPublishHour(t.replace(/[^0-9]/g, '').slice(0, 2))}
+                        onChangeText={v => setPublishHour(v.replace(/[^0-9]/g, '').slice(0, 2))}
                         keyboardType="numeric"
                         maxLength={2}
                         placeholder="06"
@@ -502,7 +505,7 @@ export default function BOWODsScreen({ navigation }: any) {
                       <TextInput
                         style={[S.mInput, { width: 50, textAlign: 'center' }]}
                         value={publishMin}
-                        onChangeText={t => setPublishMin(t.replace(/[^0-9]/g, '').slice(0, 2))}
+                        onChangeText={v => setPublishMin(v.replace(/[^0-9]/g, '').slice(0, 2))}
                         keyboardType="numeric"
                         maxLength={2}
                         placeholder="00"
@@ -521,7 +524,7 @@ export default function BOWODsScreen({ navigation }: any) {
               >
                 {submitting
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.saveBtnText}>{editWOD ? 'Enregistrer' : 'Créer le WOD'}</Text>}
+                  : <Text style={S.saveBtnText}>{editWOD ? t('common.save') : t('bo.wods.createWodBtn')}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>

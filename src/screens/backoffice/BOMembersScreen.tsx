@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Alert, Modal, ScrollView,
 } from 'react-native';
 import { UserX, UserCheck, ChevronLeft, ChevronRight, X, Calendar, Clock, Check, Timer, ShieldCheck } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -37,6 +38,8 @@ interface MemberReservation {
 export default function BOMembersScreen({ navigation }: any) {
   const { currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const S = createStyles(theme);
   const [members,    setMembers]    = useState<MemberRow[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -83,14 +86,14 @@ export default function BOMembersScreen({ navigation }: any) {
 
   async function toggleCoach(member: MemberRow) {
     const newRole = member.role === 'coach' ? 'member' : 'coach';
-    const label = newRole === 'coach' ? 'Promouvoir coach' : 'Retirer le rôle coach';
+    const label = newRole === 'coach' ? t('bo.members.promoteCoach') : t('bo.members.demoteCoach');
     Alert.alert(
-      `${label} ?`,
+      t('bo.members.confirmTitle', { label }),
       newRole === 'coach'
-        ? `${member.profile.username} pourra créer et gérer les WODs.`
-        : `${member.profile.username} redeviendra un membre classique.`,
+        ? t('bo.members.promoteMsg', { username: member.profile.username })
+        : t('bo.members.demoteMsg', { username: member.profile.username }),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
           text: label,
           onPress: async () => {
@@ -105,12 +108,12 @@ export default function BOMembersScreen({ navigation }: any) {
 
   async function toggleBan(member: MemberRow) {
     const newStatus = member.status === 'active' ? 'banned' : 'active';
-    const label = newStatus === 'banned' ? 'Bannir' : 'Réactiver';
+    const label = newStatus === 'banned' ? t('bo.members.ban') : t('bo.members.reactivate');
     Alert.alert(
-      `${label} ${member.profile.username} ?`,
-      newStatus === 'banned' ? 'Ce membre ne pourra plus accéder à la box.' : 'Ce membre retrouvera l\'accès.',
+      t('bo.members.confirmBanTitle', { label, username: member.profile.username }),
+      newStatus === 'banned' ? t('bo.members.banMsg') : t('bo.members.reactivateMsg'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
           text: label,
           style: newStatus === 'banned' ? 'destructive' : 'default',
@@ -125,7 +128,7 @@ export default function BOMembersScreen({ navigation }: any) {
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    return d.toLocaleDateString(dateLocale, { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -148,8 +151,8 @@ export default function BOMembersScreen({ navigation }: any) {
           <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <View>
-          <Text style={S.headerTitle}>Membres</Text>
-          <Text style={S.headerSub}>{active} actifs · {banned} bannis</Text>
+          <Text style={S.headerTitle}>{t('bo.members.title')}</Text>
+          <Text style={S.headerSub}>{t('bo.members.summary', { active, banned })}</Text>
         </View>
       </View>
 
@@ -170,7 +173,7 @@ export default function BOMembersScreen({ navigation }: any) {
                 <Text style={[S.name, m.status === 'banned' && S.nameBanned]}>{m.profile.username}</Text>
                 {m.role === 'coach' && (
                   <View style={[S.levelPill, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
-                    <Text style={[S.levelText, { color: '#3B82F6' }]}>COACH</Text>
+                    <Text style={[S.levelText, { color: '#3B82F6' }]}>{t('bo.members.coachBadge')}</Text>
                   </View>
                 )}
                 <View style={[S.levelPill, { backgroundColor: `${LevelColors[m.profile.level] ?? theme.surface}18` }]}>
@@ -180,14 +183,14 @@ export default function BOMembersScreen({ navigation }: any) {
                 </View>
               </View>
               <Text style={S.email}>{m.profile.email}</Text>
-              <Text style={S.elo}>{m.profile.elo} ELO · depuis {new Date(m.joined_at).toLocaleDateString('fr-FR')}</Text>
+              <Text style={S.elo}>{t('bo.members.eloSince', { elo: m.profile.elo, date: new Date(m.joined_at).toLocaleDateString(dateLocale) })}</Text>
             </View>
             <ChevronRight color={theme.textMuted} size={16} />
           </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={S.empty}>
-            <Text style={S.emptyText}>Aucun membre pour l'instant.{'\n'}Partage le code d'invitation !</Text>
+            <Text style={S.emptyText}>{t('bo.members.empty')}</Text>
           </View>
         }
       />
@@ -230,7 +233,7 @@ export default function BOMembersScreen({ navigation }: any) {
               >
                 <ShieldCheck color="#3B82F6" size={15} />
                 <Text style={[S.banBtnText, { color: '#3B82F6' }]}>
-                  {selectedMember.role === 'coach' ? 'Retirer le rôle coach' : 'Promouvoir coach'}
+                  {selectedMember.role === 'coach' ? t('bo.members.demoteCoach') : t('bo.members.promoteCoach')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -244,14 +247,14 @@ export default function BOMembersScreen({ navigation }: any) {
                   ? <UserX color={theme.error} size={15} />
                   : <UserCheck color={theme.success} size={15} />}
                 <Text style={[S.banBtnText, selectedMember.status === 'banned' && { color: theme.success }]}>
-                  {selectedMember.status === 'active' ? 'Bannir ce membre' : 'Réactiver ce membre'}
+                  {selectedMember.status === 'active' ? t('bo.members.banMember') : t('bo.members.reactivateMember')}
                 </Text>
               </TouchableOpacity>
             )}
 
             {/* Reservations section */}
             <View style={S.resSection}>
-              <Text style={S.resSectionTitle}>Réservations</Text>
+              <Text style={S.resSectionTitle}>{t('bo.members.reservations')}</Text>
             </View>
 
             {resLoading ? (
@@ -259,7 +262,7 @@ export default function BOMembersScreen({ navigation }: any) {
             ) : memberRes.length === 0 ? (
               <View style={{ alignItems: 'center', paddingVertical: 30 }}>
                 <Calendar color={theme.textMuted} size={32} strokeWidth={1.5} />
-                <Text style={[S.modalSub, { marginTop: 10 }]}>Aucune réservation</Text>
+                <Text style={[S.modalSub, { marginTop: 10 }]}>{t('bo.members.noReservation')}</Text>
               </View>
             ) : (
               <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
@@ -277,7 +280,7 @@ export default function BOMembersScreen({ navigation }: any) {
                           <View style={[S.resBadge, isConfirmed ? S.resBadgeOk : S.resBadgeWait]}>
                             {isConfirmed ? <Check color="#C9A227" size={10} /> : <Timer color="#f59e0b" size={10} />}
                             <Text style={[S.resBadgeText, isConfirmed ? { color: '#C9A227' } : { color: '#f59e0b' }]}>
-                              {isConfirmed ? 'Confirmé' : 'Attente'}
+                              {isConfirmed ? t('bo.members.confirmed') : t('bo.members.waiting')}
                             </Text>
                           </View>
                         </View>

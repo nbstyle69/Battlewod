@@ -5,24 +5,25 @@ import {
   ActivityIndicator, Alert,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Copy } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { ProgramWOD, BoxWODType } from '../../types';
+import { ProgramWOD } from '../../types';
 
-const WOD_TYPES: { value: string; label: string; color: string }[] = [
-  { value: 'for-time', label: 'For Time', color: '#EF4444' },
-  { value: 'amrap',    label: 'AMRAP',    color: '#3B82F6' },
-  { value: 'emom',     label: 'EMOM',     color: '#8B5CF6' },
-  { value: 'strength', label: 'Force',    color: '#16A34A' },
-  { value: 'custom',   label: 'Custom',   color: '#6B7280' },
+const WOD_TYPES: { value: string; labelKey: string; color: string }[] = [
+  { value: 'for-time', labelKey: 'bo.programEditor.typeForTime', color: '#EF4444' },
+  { value: 'amrap',    labelKey: 'bo.programEditor.typeAmrap',   color: '#3B82F6' },
+  { value: 'emom',     labelKey: 'bo.programEditor.typeEmom',    color: '#8B5CF6' },
+  { value: 'strength', labelKey: 'bo.programEditor.typeStrength', color: '#16A34A' },
+  { value: 'custom',   labelKey: 'bo.programEditor.typeCustom',  color: '#6B7280' },
 ];
-
-const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 export default function BOProgramEditorScreen({ navigation, route }: any) {
   const { programId, programTitle, durationWeeks, daysPerWeek, progType } = route.params;
   const { theme } = useTheme();
+  const { t } = useTranslation();
+  const DAY_LABELS = t('bo.programEditor.dayLabels', { returnObjects: true }) as string[];
   const S = createStyles(theme);
 
   const totalWeeks = durationWeeks ?? 12;
@@ -114,16 +115,16 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
       setModalOpen(false);
       load();
     } catch (e: any) {
-      Alert.alert('Erreur', e.message);
+      Alert.alert(t('common.error'), e.message);
     }
     setSubmitting(false);
   }
 
   async function deleteWod(w: ProgramWOD) {
-    Alert.alert('Supprimer ce WOD ?', w.title, [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('bo.programEditor.deleteWodTitle'), w.title, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive',
+        text: t('common.delete'), style: 'destructive',
         onPress: async () => {
           await supabase.from('program_wods').delete().eq('id', w.id);
           load();
@@ -134,7 +135,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
 
   async function duplicateWeek() {
     const currentWods = wods.filter(w => (w.day_number ?? 0) > weekStart && (w.day_number ?? 0) <= weekStart + 7);
-    if (currentWods.length === 0) { Alert.alert('Vide', 'Aucun WOD cette semaine.'); return; }
+    if (currentWods.length === 0) { Alert.alert(t('bo.programEditor.emptyTitle'), t('bo.programEditor.emptyWeekMsg')); return; }
     const nextWeekStart = weekStart + 7;
     const inserts = currentWods.map(w => ({
       program_id: programId,
@@ -148,7 +149,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
       sort_order: w.sort_order,
     }));
     const { error } = await supabase.from('program_wods').insert(inserts);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     setWeekIdx(prev => prev + 1);
     load();
   }
@@ -162,7 +163,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
         <View style={{ flex: 1 }}>
           <Text style={S.headerTitle} numberOfLines={1}>{programTitle}</Text>
           <Text style={S.headerSub}>
-            {progType === 'fixed' ? `${totalWeeks} semaines · ${dpw}j/sem` : 'Programme ongoing'}
+            {progType === 'fixed' ? t('bo.programEditor.headerSub', { weeks: totalWeeks, days: dpw }) : t('bo.programEditor.headerOngoing')}
           </Text>
         </View>
       </View>
@@ -172,7 +173,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
         <TouchableOpacity onPress={() => setWeekIdx(w => Math.max(0, w - 1))} style={S.weekArrow} disabled={weekIdx === 0}>
           <ChevronLeft color={weekIdx === 0 ? theme.textMuted : theme.text} size={20} />
         </TouchableOpacity>
-        <Text style={S.weekLabel}>Semaine {weekIdx + 1}{progType === 'fixed' ? ` / ${totalWeeks}` : ''}</Text>
+        <Text style={S.weekLabel}>{t('bo.programEditor.week', { n: weekIdx + 1 })}{progType === 'fixed' ? ` / ${totalWeeks}` : ''}</Text>
         <TouchableOpacity
           onPress={() => setWeekIdx(w => progType === 'fixed' ? Math.min(totalWeeks - 1, w + 1) : w + 1)}
           style={S.weekArrow}
@@ -185,7 +186,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
       {/* Duplicate week */}
       <TouchableOpacity style={S.dupBtn} onPress={duplicateWeek} activeOpacity={0.7}>
         <Copy color={theme.accent} size={14} />
-        <Text style={S.dupText}>Dupliquer vers semaine {weekIdx + 2}</Text>
+        <Text style={S.dupText}>{t('bo.programEditor.duplicateTo', { n: weekIdx + 2 })}</Text>
       </TouchableOpacity>
 
       {loading ? (
@@ -198,19 +199,19 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
             return (
               <View key={dayNum} style={S.dayBlock}>
                 <View style={[S.dayHeader, isRest && { opacity: 0.4 }]}>
-                  <Text style={S.dayLabel}>{DAY_LABELS[i]} — Jour {dayNum}</Text>
-                  {isRest && <Text style={S.restBadge}>Repos</Text>}
+                  <Text style={S.dayLabel}>{t('bo.programEditor.dayHeader', { day: DAY_LABELS[i], n: dayNum })}</Text>
+                  {isRest && <Text style={S.restBadge}>{t('bo.programEditor.rest')}</Text>}
                   <TouchableOpacity onPress={() => openCreate(dayNum)} style={S.addDayBtn}>
                     <Plus color={theme.accent} size={16} />
                   </TouchableOpacity>
                 </View>
                 {dayWods.length === 0 ? (
                   <TouchableOpacity style={S.emptyDay} onPress={() => openCreate(dayNum)} activeOpacity={0.7}>
-                    <Text style={S.emptyDayText}>+ Ajouter un WOD</Text>
+                    <Text style={S.emptyDayText}>{t('bo.programEditor.addWod')}</Text>
                   </TouchableOpacity>
                 ) : (
                   dayWods.map(w => {
-                    const tc = WOD_TYPES.find(t => t.value === w.wod_type)?.color ?? '#6B7280';
+                    const tc = WOD_TYPES.find(wt => wt.value === w.wod_type)?.color ?? '#6B7280';
                     return (
                       <View key={w.id} style={S.wodRow}>
                         <View style={[S.wodTypeBar, { backgroundColor: tc }]} />
@@ -242,29 +243,29 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={S.modalContainer}>
             <View style={S.modalHeader}>
-              <Text style={S.modalTitle}>{editWod ? 'Modifier le WOD' : `Jour ${fDayNumber}`}</Text>
+              <Text style={S.modalTitle}>{editWod ? t('bo.programEditor.editWod') : t('bo.programEditor.dayN', { n: fDayNumber })}</Text>
               <TouchableOpacity onPress={() => setModalOpen(false)}>
-                <Text style={S.modalCancel}>Annuler</Text>
+                <Text style={S.modalCancel}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={S.modalBody} keyboardShouldPersistTaps="handled">
-              <Text style={S.mLabel}>TITRE *</Text>
-              <TextInput style={S.mInput} value={fTitle} onChangeText={setFTitle} placeholder="Back Squat 5×5 + Metcon" placeholderTextColor={theme.textMuted} />
+              <Text style={S.mLabel}>{t('bo.programEditor.labelTitle')}</Text>
+              <TextInput style={S.mInput} value={fTitle} onChangeText={setFTitle} placeholder={t('bo.programEditor.titlePlaceholder')} placeholderTextColor={theme.textMuted} />
 
-              <Text style={S.mLabel}>TYPE</Text>
+              <Text style={S.mLabel}>{t('bo.programEditor.labelType')}</Text>
               <View style={S.typeGrid}>
-                {WOD_TYPES.map(t => (
+                {WOD_TYPES.map(wt => (
                   <TouchableOpacity
-                    key={t.value}
-                    style={[S.typeChip, fType === t.value && { backgroundColor: t.color, borderColor: t.color }]}
-                    onPress={() => setFType(t.value)}
+                    key={wt.value}
+                    style={[S.typeChip, fType === wt.value && { backgroundColor: wt.color, borderColor: wt.color }]}
+                    onPress={() => setFType(wt.value)}
                   >
-                    <Text style={[S.typeChipText, fType === t.value && { color: '#fff' }]}>{t.label}</Text>
+                    <Text style={[S.typeChipText, fType === wt.value && { color: '#fff' }]}>{t(wt.labelKey)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={S.mLabel}>DESCRIPTION *</Text>
+              <Text style={S.mLabel}>{t('bo.programEditor.labelDescription')}</Text>
               <TextInput
                 style={[S.mInput, S.mTextarea]}
                 value={fDesc} onChangeText={setFDesc}
@@ -272,11 +273,11 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
                 placeholderTextColor={theme.textMuted} multiline
               />
 
-              <Text style={S.mLabel}>TIME CAP (min)</Text>
+              <Text style={S.mLabel}>{t('bo.programEditor.labelTimeCap')}</Text>
               <TextInput style={S.mInput} value={fTimeCap} onChangeText={setFTimeCap} keyboardType="numeric" placeholder="20" placeholderTextColor={theme.textMuted} />
 
-              <Text style={S.mLabel}>NOTES COACH</Text>
-              <TextInput style={[S.mInput, { minHeight: 60 }]} value={fNotes} onChangeText={setFNotes} placeholder="Scaling, conseils…" placeholderTextColor={theme.textMuted} multiline />
+              <Text style={S.mLabel}>{t('bo.programEditor.labelNotes')}</Text>
+              <TextInput style={[S.mInput, { minHeight: 60 }]} value={fNotes} onChangeText={setFNotes} placeholder={t('bo.programEditor.notesPlaceholder')} placeholderTextColor={theme.textMuted} multiline />
 
               <TouchableOpacity
                 style={[S.saveBtn, (!fTitle.trim() || !fDesc.trim() || submitting) && S.saveBtnDisabled]}
@@ -286,7 +287,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
               >
                 {submitting
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={S.saveBtnText}>{editWod ? 'Enregistrer' : 'Ajouter le WOD'}</Text>}
+                  : <Text style={S.saveBtnText}>{editWod ? t('common.save') : t('bo.programEditor.addWodBtn')}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>

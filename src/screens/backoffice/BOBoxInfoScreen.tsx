@@ -6,6 +6,7 @@ import {
 import { ArrowLeft, Save, Building2, Camera, Trash2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +15,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 export default function BOBoxInfoScreen({ navigation }: any) {
   const { currentBox, refreshBox } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
 
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function BOBoxInfoScreen({ navigation }: any) {
         });
 
       if (upErr) {
-        Alert.alert('Erreur upload', upErr.message);
+        Alert.alert(t('bo.boxInfo.uploadError'), upErr.message);
         setUploadingLogo(false);
         return;
       }
@@ -90,17 +92,17 @@ export default function BOBoxInfoScreen({ navigation }: any) {
       refreshBox?.();
     } catch (e: any) {
       captureError(e, { screen: 'BOBoxInfo', action: 'uploadLogo' });
-      Alert.alert('Erreur', e?.message ?? 'Erreur upload logo');
+      Alert.alert(t('common.error'), e?.message ?? t('bo.boxInfo.logoUploadError'));
     }
     setUploadingLogo(false);
   }
 
   async function handleDeleteLogo() {
     if (!currentBox) return;
-    Alert.alert('Supprimer le logo', 'Confirmer la suppression ?', [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('bo.boxInfo.deleteLogoTitle'), t('bo.boxInfo.deleteLogoConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive', onPress: async () => {
+        text: t('common.delete'), style: 'destructive', onPress: async () => {
           try {
             await supabase.from('boxes').update({ logo_url: null }).eq('id', currentBox.id);
             setLogoUrl(null);
@@ -115,14 +117,14 @@ export default function BOBoxInfoScreen({ navigation }: any) {
 
   async function handleSave() {
     if (!currentBox) return;
-    if (!name.trim()) { Alert.alert('Erreur', 'Le nom de la box est requis.'); return; }
+    if (!name.trim()) { Alert.alert(t('common.error'), t('bo.boxInfo.nameRequired')); return; }
 
     if (websiteUrl.trim() && !/^https?:\/\/.+/i.test(websiteUrl.trim())) {
-      Alert.alert('URL invalide', 'Le site web doit commencer par http:// ou https://');
+      Alert.alert(t('bo.boxInfo.invalidUrlTitle'), t('bo.boxInfo.invalidUrlMsg'));
       return;
     }
     if (contactEmail.trim() && !contactEmail.trim().includes('@')) {
-      Alert.alert('Email invalide', 'Vérifie le format de l\'email.');
+      Alert.alert(t('bo.boxInfo.invalidEmailTitle'), t('bo.boxInfo.invalidEmailMsg'));
       return;
     }
 
@@ -135,9 +137,9 @@ export default function BOBoxInfoScreen({ navigation }: any) {
     } as any).eq('id', currentBox.id);
     setSaving(false);
 
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     refreshBox?.();
-    Alert.alert('Enregistré', 'Les informations de la box ont été mises à jour.');
+    Alert.alert(t('bo.boxInfo.savedTitle'), t('bo.boxInfo.savedMsg'));
   }
 
   if (loading) {
@@ -154,15 +156,15 @@ export default function BOBoxInfoScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>Informations de la box</Text>
+        <Text style={S.headerTitle}>{t('bo.boxInfo.title')}</Text>
         <View style={{ width: 22 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content} keyboardShouldPersistTaps="handled">
         {/* Logo */}
         <View style={S.card}>
-          <Text style={S.cardTitle}>Logo de la box</Text>
-          <Text style={S.cardDesc}>Visible par tous les membres dans l'app mobile. Carré, 512×512px min, max 2 Mo.</Text>
+          <Text style={S.cardTitle}>{t('bo.boxInfo.logoTitle')}</Text>
+          <Text style={S.cardDesc}>{t('bo.boxInfo.logoDesc')}</Text>
           <View style={S.logoRow}>
             {logoUrl ? (
               <Image source={{ uri: logoUrl }} style={S.logoPreview} />
@@ -178,14 +180,14 @@ export default function BOBoxInfoScreen({ navigation }: any) {
                 ) : (
                   <>
                     <Camera color={theme.accent} size={14} />
-                    <Text style={S.logoBtnTxt}>Changer</Text>
+                    <Text style={S.logoBtnTxt}>{t('bo.boxInfo.change')}</Text>
                   </>
                 )}
               </TouchableOpacity>
               {logoUrl ? (
                 <TouchableOpacity style={[S.logoBtn, S.logoBtnDanger]} onPress={handleDeleteLogo} activeOpacity={0.8}>
                   <Trash2 color={theme.error} size={14} />
-                  <Text style={[S.logoBtnTxt, { color: theme.error }]}>Supprimer</Text>
+                  <Text style={[S.logoBtnTxt, { color: theme.error }]}>{t('common.delete')}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -194,32 +196,32 @@ export default function BOBoxInfoScreen({ navigation }: any) {
 
         {/* Fields */}
         <View style={S.card}>
-          <Text style={S.cardTitle}>Informations générales</Text>
+          <Text style={S.cardTitle}>{t('bo.boxInfo.generalInfo')}</Text>
 
           <View style={S.field}>
-            <Text style={S.label}>NOM DE LA BOX *</Text>
+            <Text style={S.label}>{t('bo.boxInfo.nameLabel')}</Text>
             <TextInput
               style={S.input}
               value={name}
               onChangeText={setName}
-              placeholder="CrossFit Lyon, Box Forge…"
+              placeholder={t('bo.boxInfo.namePlaceholder')}
               placeholderTextColor={theme.textMuted}
             />
           </View>
 
           <View style={S.field}>
-            <Text style={S.label}>ADRESSE</Text>
+            <Text style={S.label}>{t('bo.boxInfo.addressLabel')}</Text>
             <TextInput
               style={S.input}
               value={address}
               onChangeText={setAddress}
-              placeholder="12 rue du Sport, 69001 Lyon"
+              placeholder={t('bo.boxInfo.addressPlaceholder')}
               placeholderTextColor={theme.textMuted}
             />
           </View>
 
           <View style={S.field}>
-            <Text style={S.label}>SITE WEB</Text>
+            <Text style={S.label}>{t('bo.boxInfo.websiteLabel')}</Text>
             <TextInput
               style={S.input}
               value={websiteUrl}
@@ -232,7 +234,7 @@ export default function BOBoxInfoScreen({ navigation }: any) {
           </View>
 
           <View style={S.field}>
-            <Text style={S.label}>EMAIL DE CONTACT</Text>
+            <Text style={S.label}>{t('bo.boxInfo.emailLabel')}</Text>
             <TextInput
               style={S.input}
               value={contactEmail}
@@ -253,7 +255,7 @@ export default function BOBoxInfoScreen({ navigation }: any) {
           activeOpacity={0.85}
         >
           <Save color="#fff" size={16} />
-          <Text style={S.saveBtnText}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Text>
+          <Text style={S.saveBtnText}>{saving ? t('bo.boxInfo.saving') : t('common.save')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

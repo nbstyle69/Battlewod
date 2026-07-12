@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, AppState, Platform,
 } from 'react-native';
 import { ArrowLeft, Crown, Clock, CreditCard, ExternalLink, Shield, Zap, Check } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { openExternalUrl, pollUntilTrue } from '../../lib/openCheckout';
@@ -10,26 +11,13 @@ import { supabase } from '../../lib/supabase';
 
 const PRICING_URL = 'https://the-hub-rho.vercel.app/pricing';
 
-const FEATURES = [
-  'Membres illimités',
-  'Coachs illimités',
-  'WODs illimités',
-  'Horaires & Réservations',
-  'Messages & Groupes illimités',
-  'Analytics box avancés',
-  'Export CSV',
-  'Notifications push custom',
-  'Tournois & Compétitions',
-  'Référencement annuaire AthleX',
-  'Gamification (badges, ELO)',
-  'Rapport mensuel auto',
-  'Support prioritaire',
-];
-
 export default function BOSubscriptionScreen({ navigation }: any) {
   const { currentBox, boxSubscription, isBoxActive, daysLeftTrial, refreshSubscription } = useAuth();
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
   const S = createStyles(theme);
+  const FEATURES = t('bo.subscription.features', { returnObjects: true }) as string[];
   const [loadingCheckout, setLoadingCheckout] = useState(false);
   const appState = useRef(AppState.currentState);
 
@@ -53,7 +41,7 @@ export default function BOSubscriptionScreen({ navigation }: any) {
     if (!currentBox) return;
     setLoadingCheckout(true);
     const url = `${PRICING_URL}?box_id=${currentBox.id}`;
-    const opened = await openExternalUrl(url, 'Impossible d\'ouvrir la page de souscription.');
+    const opened = await openExternalUrl(url, t('bo.subscription.cantOpenSub'));
     if (!opened) { setLoadingCheckout(false); return; }
 
     // Poll DB every 2s for up to 60s to detect the new subscription status.
@@ -74,7 +62,7 @@ export default function BOSubscriptionScreen({ navigation }: any) {
     if (!currentBox) return;
     const opened = await openExternalUrl(
       `${PRICING_URL}/manage?box_id=${currentBox.id}`,
-      'Impossible d\'ouvrir le portail.',
+      t('bo.subscription.cantOpenPortal'),
     );
     if (!opened) return;
     // Refresh once the user comes back (AppState listener will also fire).
@@ -82,11 +70,11 @@ export default function BOSubscriptionScreen({ navigation }: any) {
   }
 
   function getStatusLabel() {
-    if (isActive) return { text: 'Plan Complet actif', color: theme.success, icon: Crown };
-    if (isPastDue) return { text: 'Paiement en attente', color: theme.error, icon: CreditCard };
-    if (isExpired) return { text: 'Essai terminé', color: theme.error, icon: Clock };
-    if (isTrialing && daysLeftTrial > 0) return { text: `Essai gratuit · J-${daysLeftTrial}`, color: theme.accent, icon: Zap };
-    return { text: 'Aucun abonnement', color: theme.textMuted, icon: Shield };
+    if (isActive) return { text: t('bo.subscription.statusActive'), color: theme.success, icon: Crown };
+    if (isPastDue) return { text: t('bo.subscription.statusPastDue'), color: theme.error, icon: CreditCard };
+    if (isExpired) return { text: t('bo.subscription.statusExpired'), color: theme.error, icon: Clock };
+    if (isTrialing && daysLeftTrial > 0) return { text: t('bo.subscription.statusTrial', { n: daysLeftTrial }), color: theme.accent, icon: Zap };
+    return { text: t('bo.subscription.statusNone'), color: theme.textMuted, icon: Shield };
   }
 
   const statusInfo = getStatusLabel();
@@ -98,7 +86,7 @@ export default function BOSubscriptionScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <ArrowLeft color={theme.text} size={22} />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>Mon abonnement</Text>
+        <Text style={S.headerTitle}>{t('bo.subscription.title')}</Text>
         <View style={{ width: 22 }} />
       </View>
 
@@ -110,20 +98,18 @@ export default function BOSubscriptionScreen({ navigation }: any) {
           </View>
           <Text style={[S.statusTitle, { color: statusInfo.color }]}>{statusInfo.text}</Text>
           {boxSubscription?.is_early_adopter && (
-            <Text style={[S.earlyBadge, { color: theme.gold }]}>🏅 Box Fondateur</Text>
+            <Text style={[S.earlyBadge, { color: theme.gold }]}>{t('bo.subscription.earlyAdopter')}</Text>
           )}
           {isTrialing && daysLeftTrial > 0 && (
             <Text style={S.statusDesc}>
-              Ton essai expire le{' '}
-              {boxSubscription?.trial_ends_at
-                ? new Date(boxSubscription.trial_ends_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-                : '—'}
+              {t('bo.subscription.trialExpires', { date: boxSubscription?.trial_ends_at
+                ? new Date(boxSubscription.trial_ends_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })
+                : '—' })}
             </Text>
           )}
           {isActive && boxSubscription?.current_period_end && (
             <Text style={S.statusDesc}>
-              Prochain renouvellement le{' '}
-              {new Date(boxSubscription.current_period_end).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {t('bo.subscription.nextRenewal', { date: new Date(boxSubscription.current_period_end).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' }) })}
             </Text>
           )}
         </View>
@@ -131,13 +117,13 @@ export default function BOSubscriptionScreen({ navigation }: any) {
         {/* Plan card */}
         <View style={S.planCard}>
           <View style={S.planHeader}>
-            <Text style={S.planName}>Plan Complet</Text>
+            <Text style={S.planName}>{t('bo.subscription.planName')}</Text>
             <View style={S.priceRow}>
               <Text style={S.priceAmount}>79€</Text>
-              <Text style={S.pricePeriod}>/mois</Text>
+              <Text style={S.pricePeriod}>{t('bo.subscription.perMonth')}</Text>
             </View>
           </View>
-          <Text style={S.planAnnual}>ou 749€/an (2 mois offerts)</Text>
+          <Text style={S.planAnnual}>{t('bo.subscription.annual')}</Text>
 
           <View style={S.featureList}>
             {FEATURES.map((f) => (
@@ -152,10 +138,9 @@ export default function BOSubscriptionScreen({ navigation }: any) {
         {/* Actions */}
         {Platform.OS === 'ios' ? (
           <View style={S.iosNotice}>
-            <Text style={S.iosNoticeTitle}>Gestion de l'abonnement via le web</Text>
+            <Text style={S.iosNoticeTitle}>{t('bo.subscription.iosTitle')}</Text>
             <Text style={S.iosNoticeText}>
-              Pour souscrire, modifier ou annuler ton abonnement AthleX Pro, connecte-toi sur
-              athlex.app depuis un navigateur. Les changements sont automatiquement synchronisés dans l'app.
+              {t('bo.subscription.iosText')}
             </Text>
           </View>
         ) : (
@@ -173,7 +158,7 @@ export default function BOSubscriptionScreen({ navigation }: any) {
                   <>
                     <CreditCard color="#fff" size={18} />
                     <Text style={S.primaryBtnText}>
-                      {isExpired ? 'Souscrire — 79€/mois' : 'Souscrire maintenant'}
+                      {isExpired ? t('bo.subscription.subscribePrice') : t('bo.subscription.subscribeNow')}
                     </Text>
                   </>
                 )}
@@ -187,13 +172,13 @@ export default function BOSubscriptionScreen({ navigation }: any) {
                 activeOpacity={0.85}
               >
                 <ExternalLink color={theme.accent} size={16} />
-                <Text style={S.secondaryBtnText}>Gérer mon abonnement</Text>
+                <Text style={S.secondaryBtnText}>{t('bo.subscription.managePlan')}</Text>
               </TouchableOpacity>
             )}
 
             {isExpired && (
               <Text style={S.retentionText}>
-                Tes données sont conservées 30 jours. Souscris pour retrouver ton back-office complet.
+                {t('bo.subscription.retention')}
               </Text>
             )}
           </>
