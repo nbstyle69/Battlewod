@@ -10,6 +10,8 @@ import {
 import { Clock, ChevronRight, ChevronUp, ChevronDown, Hash, Users, X, MessageCircle, FileText, Trophy, Upload, Sparkles, Newspaper, Play, BookOpen, Check, Timer as TimerIcon, Camera, CameraOff } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { hapticSuccess } from '../../lib/haptics';
@@ -72,8 +74,10 @@ function WodTypeBadge({ type }: { type?: string }) {
 export default function WhiteboardScreen() {
   const { user, currentBox, boxRole, joinBox } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const S = createStyles(theme);
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
 
   const [dayWODs,       setDayWODs]       = useState<BoxWOD[]>([]);
   const [completedIds,  setCompletedIds]  = useState<Set<string>>(new Set());
@@ -143,13 +147,13 @@ export default function WhiteboardScreen() {
 
     return (
       <View style={{ marginBottom: 12 }}>
-        <Text style={S.timerModalLabel}>Intervalle</Text>
+        <Text style={S.timerModalLabel}>{t('whiteboard.interval')}</Text>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={S.emomStepRow}>
             <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: Math.max(1, customSec - 60) })}>
               <Text style={S.emomStepBtnText}>−</Text>
             </TouchableOpacity>
-            <Text style={S.emomStepValue}>{customMin}<Text style={S.emomStepUnit}> min</Text></Text>
+            <Text style={S.emomStepValue}>{customMin}<Text style={S.emomStepUnit}> {t('whiteboard.minUnit')}</Text></Text>
             <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, intervalMinutes: 0, customSec: customSec + 60 })}>
               <Text style={S.emomStepBtnText}>+</Text>
             </TouchableOpacity>
@@ -161,7 +165,7 @@ export default function WhiteboardScreen() {
             }}>
               <Text style={S.emomStepBtnText}>−</Text>
             </TouchableOpacity>
-            <Text style={S.emomStepValue}>{customSs}<Text style={S.emomStepUnit}> sec</Text></Text>
+            <Text style={S.emomStepValue}>{customSs}<Text style={S.emomStepUnit}> {t('whiteboard.secUnit')}</Text></Text>
             <TouchableOpacity style={S.emomStepBtn} onPress={() => {
               const next = customSec % 5 === 0 ? customSec + 5 : Math.ceil(customSec / 5) * 5;
               setEmomOverride({ ...ov, intervalMinutes: 0, customSec: next });
@@ -171,18 +175,18 @@ export default function WhiteboardScreen() {
           </View>
         </View>
 
-        <Text style={S.timerModalLabel}>Rounds</Text>
+        <Text style={S.timerModalLabel}>{t('whiteboard.rounds')}</Text>
         <View style={S.emomStepRow}>
           <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, rounds: Math.max(1, ov.rounds - 1) })}>
             <Text style={S.emomStepBtnText}>−</Text>
           </TouchableOpacity>
-          <Text style={S.emomStepValue}>{ov.rounds}<Text style={S.emomStepUnit}> rounds</Text></Text>
+          <Text style={S.emomStepValue}>{ov.rounds}<Text style={S.emomStepUnit}> {t('whiteboard.roundsUnit')}</Text></Text>
           <TouchableOpacity style={S.emomStepBtn} onPress={() => setEmomOverride({ ...ov, rounds: ov.rounds + 1 })}>
             <Text style={S.emomStepBtnText}>+</Text>
           </TouchableOpacity>
         </View>
         <Text style={S.emomTotalHint}>
-          Bip au début de chaque interval · Total : {totalMm} min{totalSs ? ` ${totalSs}s` : ''}
+          {t('whiteboard.emomTotal', { total: `${totalMm} min${totalSs ? ` ${totalSs}s` : ''}` })}
         </Text>
       </View>
     );
@@ -452,7 +456,7 @@ export default function WhiteboardScreen() {
         return next;
       });
       captureError(e, { screen: 'Whiteboard', action: 'toggleCompletion', wodId });
-      Alert.alert('Erreur', "Impossible de mettre à jour.");
+      Alert.alert(t('common.error'), t('whiteboard.updateFailed'));
     }
   }, [user, currentBox, completedIds, scoredIds]);
 
@@ -476,7 +480,7 @@ export default function WhiteboardScreen() {
     setJoining(true);
     const { error } = await joinBox(joinCode.trim());
     setJoining(false);
-    if (error) { Alert.alert('Erreur', error); return; }
+    if (error) { Alert.alert(t('common.error'), error); return; }
     setJoinModal(false);
     setJoinCode('');
   }
@@ -503,14 +507,14 @@ export default function WhiteboardScreen() {
       <View style={S.container}>
       <GlassBackground />
         <View style={S.header}>
-          <Text style={S.headerTitle}>Ma Box</Text>
+          <Text style={S.headerTitle}>{t('whiteboard.title')}</Text>
         </View>
 
         {/* Top CTA: rejoindre une box / importation WOD */}
         <View style={S.topCtaRow}>
           <TouchableOpacity style={S.topJoinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.85}>
             <Hash color="#fff" size={15} />
-            <Text style={S.topJoinBtnText}>Rejoindre une box</Text>
+            <Text style={S.topJoinBtnText}>{t('whiteboard.joinBox')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={S.topImportBtn}
@@ -518,7 +522,7 @@ export default function WhiteboardScreen() {
             activeOpacity={0.85}
           >
             <Upload size={15} color={theme.accent} />
-            <Text style={S.topImportBtnText}>Importation WOD</Text>
+            <Text style={S.topImportBtnText}>{t('whiteboard.importWodCta')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -538,8 +542,8 @@ export default function WhiteboardScreen() {
           <View style={S.section}>
             <Text style={S.sectionTitle}>
               {selectedDate === todayISO
-                ? 'Whiteboard — Séance du jour'
-                : new Date(selectedDate + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                ? t('whiteboard.sessionOfDay')
+                : new Date(selectedDate + 'T00:00:00').toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long' })}
             </Text>
 
             {personalWODs.length > 0 ? (
@@ -556,7 +560,7 @@ export default function WhiteboardScreen() {
                       {wod.time_cap_seconds != null && (
                         <View style={S.timeCap}>
                           <Clock color={theme.textMuted} size={12} />
-                          <Text style={S.timeCapText}>Cap {Math.floor(wod.time_cap_seconds / 60)} min</Text>
+                          <Text style={S.timeCapText}>{t('whiteboard.cap', { min: Math.floor(wod.time_cap_seconds / 60) })}</Text>
                         </View>
                       )}
                     </View>
@@ -564,7 +568,7 @@ export default function WhiteboardScreen() {
                     {wod.description ? <Text style={S.wodDesc} numberOfLines={3}>{wod.description}</Text> : null}
                     <View style={S.wodCardFooter}>
                       <View style={S.wodCardAction}>
-                        <Text style={S.wodCardActionText}>Modifier</Text>
+                        <Text style={S.wodCardActionText}>{t('whiteboard.edit')}</Text>
                         <ChevronRight color={theme.accent} size={14} />
                       </View>
                       <TouchableOpacity
@@ -573,7 +577,7 @@ export default function WhiteboardScreen() {
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         activeOpacity={0.8}
                         accessibilityRole="button"
-                        accessibilityLabel="Lancer le chrono"
+                        accessibilityLabel={t('whiteboard.launchTimer')}
                       >
                         <TimerIcon color={theme.accent} size={16} />
                       </TouchableOpacity>
@@ -586,20 +590,20 @@ export default function WhiteboardScreen() {
                   activeOpacity={0.85}
                 >
                   <Sparkles size={16} color={theme.accent} />
-                  <Text style={S.createWodBtnText}>+ Ajouter un WOD</Text>
+                  <Text style={S.createWodBtnText}>{t('whiteboard.addWod')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={S.noWodCard}>
                 <Text style={S.noWodEmoji}>📋</Text>
-                <Text style={S.noWodText}>Pas de WOD publié ce jour</Text>
+                <Text style={S.noWodText}>{t('whiteboard.noWod')}</Text>
                 <EmeraldCTAButton
                   icon={<Sparkles size={16} color="#fff" />}
                   size="md"
                   onPress={() => navigation.navigate('PersonalWODForm', { date: selectedDate })}
                   style={{ marginTop: 14 }}
                 >
-                  + Créer un WOD
+                  {t('whiteboard.createWod')}
                 </EmeraldCTAButton>
               </View>
             )}
@@ -618,7 +622,7 @@ export default function WhiteboardScreen() {
             <View style={S.timerModalCard}>
               <View style={S.timerModalHeader}>
                 <View style={{ flex: 1 }}>
-                  <Text style={S.timerModalTitle}>Lancer le chrono</Text>
+                  <Text style={S.timerModalTitle}>{t('whiteboard.launchTimer')}</Text>
                   {timerModalWod && (
                     <Text style={S.timerModalSubtitle} numberOfLines={1}>{timerModalWod.title}</Text>
                   )}
@@ -634,7 +638,7 @@ export default function WhiteboardScreen() {
                 </View>
               )}
               {renderEmomPicker()}
-              <Text style={S.timerModalLabel}>Compte à rebours</Text>
+              <Text style={S.timerModalLabel}>{t('whiteboard.countdown')}</Text>
               <View style={S.timerModalCountdownRow}>
                 {[0, 3, 5, 10].map(v => (
                   <TouchableOpacity
@@ -656,7 +660,7 @@ export default function WhiteboardScreen() {
                   activeOpacity={0.85}
                 >
                   <CameraOff color={theme.text} size={18} />
-                  <Text style={S.timerModalBtnSecondaryText}>Sans caméra</Text>
+                  <Text style={S.timerModalBtnSecondaryText}>{t('whiteboard.withoutCamera')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => timerModalWod && launchTimerFromWod(timerModalWod, true)}
@@ -664,7 +668,7 @@ export default function WhiteboardScreen() {
                   activeOpacity={0.85}
                 >
                   <Camera color="#fff" size={18} />
-                  <Text style={S.timerModalBtnPrimaryText}>Avec caméra</Text>
+                  <Text style={S.timerModalBtnPrimaryText}>{t('whiteboard.withCamera')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -675,13 +679,13 @@ export default function WhiteboardScreen() {
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
             <View style={S.joinSheet}>
               <View style={S.joinHandle} />
-              <Text style={S.joinSheetTitle}>Rejoindre une box</Text>
-              <Text style={S.joinSheetSub}>Entre le code d'invitation (6 caractères)</Text>
+              <Text style={S.joinSheetTitle}>{t('whiteboard.joinBox')}</Text>
+              <Text style={S.joinSheetSub}>{t('whiteboard.joinCodeHint')}</Text>
               <TextInput
                 style={S.codeInput}
                 value={joinCode}
                 onChangeText={text => setJoinCode(text.toUpperCase().slice(0, 6))}
-                placeholder="EX: ABC123"
+                placeholder={t('whiteboard.codePlaceholder')}
                 placeholderTextColor={theme.textMuted}
                 autoCapitalize="characters"
                 autoFocus
@@ -694,7 +698,7 @@ export default function WhiteboardScreen() {
               >
                 {joining
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Hash color="#fff" size={16} /><Text style={S.joinBtnText}>Rejoindre</Text></>
+                  : <><Hash color="#fff" size={16} /><Text style={S.joinBtnText}>{t('whiteboard.join')}</Text></>
                 }
               </TouchableOpacity>
             </View>
@@ -719,7 +723,7 @@ export default function WhiteboardScreen() {
       <View style={S.header}>
         <View style={S.headerRow}>
           <View>
-            <Text style={S.headerTitle}>Ma Box</Text>
+            <Text style={S.headerTitle}>{t('whiteboard.title')}</Text>
             <Text style={S.headerSub}>{currentBox.name}</Text>
           </View>
         </View>
@@ -730,7 +734,7 @@ export default function WhiteboardScreen() {
             activeOpacity={0.8}
           >
             <Users size={16} color={theme.accent} />
-            <Text style={S.membersBtnText}>Membres</Text>
+            <Text style={S.membersBtnText}>{t('whiteboard.members')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[S.membersBtn, { flex: 1 }]}
@@ -745,7 +749,7 @@ export default function WhiteboardScreen() {
                 </View>
               )}
             </View>
-            <Text style={S.membersBtnText}>Messages</Text>
+            <Text style={S.membersBtnText}>{t('whiteboard.messages')}</Text>
           </TouchableOpacity>
         </View>
         <View style={[S.headerBtns, { marginTop: 8 }]}>
@@ -755,7 +759,7 @@ export default function WhiteboardScreen() {
             activeOpacity={0.8}
           >
             <Upload size={16} color={theme.accent} />
-            <Text style={S.membersBtnText}>Import WOD</Text>
+            <Text style={S.membersBtnText}>{t('whiteboard.importWod')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[S.membersBtn, { flex: 1 }]}
@@ -770,7 +774,7 @@ export default function WhiteboardScreen() {
                 </View>
               )}
             </View>
-            <Text style={S.membersBtnText}>Actualités</Text>
+            <Text style={S.membersBtnText}>{t('whiteboard.news')}</Text>
           </TouchableOpacity>
         </View>
         <View style={[S.headerBtns, { marginTop: 8 }]}>
@@ -780,7 +784,7 @@ export default function WhiteboardScreen() {
             activeOpacity={0.8}
           >
             <Trophy size={16} color={theme.accent} />
-            <Text style={S.membersBtnText}>Classement de la box</Text>
+            <Text style={S.membersBtnText}>{t('whiteboard.boxRanking')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -808,7 +812,7 @@ export default function WhiteboardScreen() {
               onPress={() => navigation.navigate('WODDetail', { wodId: mainWod.id })}
               textStyle={{ fontSize: 17 }}
             >
-              ENTRER MON SCORE
+              {t('whiteboard.enterScore')}
             </EmeraldCTAButton>
             <TouchableOpacity
               style={S.rankBtn}
@@ -816,7 +820,7 @@ export default function WhiteboardScreen() {
               activeOpacity={0.85}
             >
               <Trophy size={18} color={theme.accent} />
-              <Text style={S.rankBtnText}>Classement</Text>
+              <Text style={S.rankBtnText}>{t('whiteboard.ranking')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -830,8 +834,8 @@ export default function WhiteboardScreen() {
         <View style={S.section}>
           <Text style={S.sectionTitle}>
             {selectedDate === toISO(new Date())
-              ? 'Whiteboard — Séance du jour'
-              : new Date(selectedDate + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+              ? t('whiteboard.sessionOfDay')
+              : new Date(selectedDate + 'T00:00:00').toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long' })}
           </Text>
           {dayWODs.length > 0 ? (
             <View style={S.dayGroup}>
@@ -871,14 +875,14 @@ export default function WhiteboardScreen() {
                           {wod.video_url && (
                             <View style={[S.timeCap, { backgroundColor: '#EF444418', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
                               <Play color="#EF4444" size={10} />
-                              <Text style={[S.timeCapText, { color: '#EF4444' }]}>Vidéo</Text>
+                              <Text style={[S.timeCapText, { color: '#EF4444' }]}>{t('whiteboard.video')}</Text>
                             </View>
                           )}
                           {wod.time_cap_seconds != null && (
                             <View style={S.timeCap}>
                               <Clock color={theme.textMuted} size={12} />
                               <Text style={S.timeCapText}>
-                                Cap {Math.floor(wod.time_cap_seconds / 60)} min
+                                {t('whiteboard.cap', { min: Math.floor(wod.time_cap_seconds / 60) })}
                               </Text>
                             </View>
                           )}
@@ -894,10 +898,10 @@ export default function WhiteboardScreen() {
                                 activeOpacity={0.7}
                                 accessibilityRole="checkbox"
                                 accessibilityState={{ checked: isDone, disabled: hasScore }}
-                                accessibilityLabel={isDone ? 'Réalisé' : 'Marquer comme réalisé'}
+                                accessibilityLabel={isDone ? t('whiteboard.done') : t('whiteboard.markDone')}
                               >
                                 {isDone && (
-                                  <Text style={S.checkboxLabel}>{hasScore ? 'Scoré' : 'Réalisé'}</Text>
+                                  <Text style={S.checkboxLabel}>{hasScore ? t('whiteboard.scored') : t('whiteboard.done')}</Text>
                                 )}
                                 <View style={[S.checkbox, isDone && S.checkboxChecked]}>
                                   {isDone && <Check color="#fff" size={14} strokeWidth={3} />}
@@ -918,7 +922,7 @@ export default function WhiteboardScreen() {
                           activeOpacity={0.7}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Text style={S.wodCardActionText}>Voir détails & score</Text>
+                          <Text style={S.wodCardActionText}>{t('whiteboard.seeDetails')}</Text>
                           <ChevronRight color={theme.accent} size={14} />
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -927,7 +931,7 @@ export default function WhiteboardScreen() {
                           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           activeOpacity={0.8}
                           accessibilityRole="button"
-                          accessibilityLabel="Lancer le chrono"
+                          accessibilityLabel={t('whiteboard.launchTimer')}
                         >
                           <TimerIcon color={theme.accent} size={16} />
                         </TouchableOpacity>
@@ -940,7 +944,7 @@ export default function WhiteboardScreen() {
           ) : (
             <View style={S.noWodCard}>
               <Text style={S.noWodEmoji}>📋</Text>
-              <Text style={S.noWodText}>Pas de WOD publié ce jour</Text>
+              <Text style={S.noWodText}>{t('whiteboard.noWod')}</Text>
             </View>
           )}
 
@@ -949,7 +953,7 @@ export default function WhiteboardScreen() {
             <View style={{ marginTop: 20 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <Sparkles color={theme.accent} size={16} />
-                <Text style={[S.sectionTitle, { marginBottom: 0 }]}>Mes séances perso</Text>
+                <Text style={[S.sectionTitle, { marginBottom: 0 }]}>{t('whiteboard.myPersonalSessions')}</Text>
               </View>
               <View style={S.dayGroup}>
                 {personalWODs.map(wod => (
@@ -964,7 +968,7 @@ export default function WhiteboardScreen() {
                       {wod.time_cap_seconds != null && (
                         <View style={S.timeCap}>
                           <Clock color={theme.textMuted} size={12} />
-                          <Text style={S.timeCapText}>Cap {Math.floor(wod.time_cap_seconds / 60)} min</Text>
+                          <Text style={S.timeCapText}>{t('whiteboard.cap', { min: Math.floor(wod.time_cap_seconds / 60) })}</Text>
                         </View>
                       )}
                     </View>
@@ -972,7 +976,7 @@ export default function WhiteboardScreen() {
                     {wod.description ? <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text> : null}
                     <View style={S.wodCardFooter}>
                       <View style={S.wodCardAction}>
-                        <Text style={S.wodCardActionText}>Modifier</Text>
+                        <Text style={S.wodCardActionText}>{t('whiteboard.edit')}</Text>
                         <ChevronRight color={theme.accent} size={14} />
                       </View>
                       <TouchableOpacity
@@ -1014,7 +1018,7 @@ export default function WhiteboardScreen() {
                         {entry.wod.time_cap_seconds != null && (
                           <View style={S.timeCap}>
                             <Clock color={theme.textMuted} size={12} />
-                            <Text style={S.timeCapText}>Cap {Math.floor(entry.wod.time_cap_seconds / 60)} min</Text>
+                            <Text style={S.timeCapText}>{t('whiteboard.cap', { min: Math.floor(entry.wod.time_cap_seconds / 60) })}</Text>
                           </View>
                         )}
                       </View>
@@ -1040,7 +1044,7 @@ export default function WhiteboardScreen() {
           <View style={S.timerModalCard}>
             <View style={S.timerModalHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={S.timerModalTitle}>Lancer le chrono</Text>
+                <Text style={S.timerModalTitle}>{t('whiteboard.launchTimer')}</Text>
                 {timerModalWod && (
                   <Text style={S.timerModalSubtitle} numberOfLines={1}>{timerModalWod.title}</Text>
                 )}
@@ -1058,7 +1062,7 @@ export default function WhiteboardScreen() {
             )}
             {renderEmomPicker()}
 
-            <Text style={S.timerModalLabel}>Compte à rebours</Text>
+            <Text style={S.timerModalLabel}>{t('whiteboard.countdown')}</Text>
             <View style={S.timerModalCountdownRow}>
               {[0, 3, 5, 10].map(v => (
                 <TouchableOpacity
@@ -1081,7 +1085,7 @@ export default function WhiteboardScreen() {
                 activeOpacity={0.85}
               >
                 <CameraOff color={theme.text} size={18} />
-                <Text style={S.timerModalBtnSecondaryText}>Sans caméra</Text>
+                <Text style={S.timerModalBtnSecondaryText}>{t('whiteboard.withoutCamera')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => timerModalWod && launchTimerFromWod(timerModalWod, true)}
@@ -1089,7 +1093,7 @@ export default function WhiteboardScreen() {
                 activeOpacity={0.85}
               >
                 <Camera color="#fff" size={18} />
-                <Text style={S.timerModalBtnPrimaryText}>Avec caméra</Text>
+                <Text style={S.timerModalBtnPrimaryText}>{t('whiteboard.withCamera')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1100,7 +1104,7 @@ export default function WhiteboardScreen() {
       <Modal visible={membersModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMembersModal(false)}>
         <View style={S.membersContainer}>
           <View style={S.membersHeader}>
-            <Text style={S.membersTitle}>Membres · {currentBox.name}</Text>
+            <Text style={S.membersTitle}>{t('whiteboard.membersTitle', { name: currentBox.name })}</Text>
             <TouchableOpacity onPress={() => setMembersModal(false)} style={S.membersClose}>
               <X color={theme.textSecondary} size={22} />
             </TouchableOpacity>
@@ -1130,7 +1134,7 @@ export default function WhiteboardScreen() {
                   <ChevronRight color={theme.textMuted} size={14} />
                 </TouchableOpacity>
               )}
-              ListEmptyComponent={<Text style={S.emptyText}>Aucun membre trouvé.</Text>}
+              ListEmptyComponent={<Text style={S.emptyText}>{t('whiteboard.noMembers')}</Text>}
             />
           )}
         </View>
