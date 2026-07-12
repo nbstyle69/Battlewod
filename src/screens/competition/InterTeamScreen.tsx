@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { useTranslation } from 'react-i18next';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterTeam'>;
 type Route = RouteProp<CompetitionStackParamList, 'InterTeam'>;
@@ -36,6 +37,7 @@ export default function InterTeamScreen() {
   const { competitionId, teamSize } = route.params;
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
 
   const [team,        setTeam]        = useState<any>(null);
@@ -56,19 +58,19 @@ export default function InterTeamScreen() {
   const load = useCallback(async () => {
     if (!user) return;
     try {
-    const { data: t } = await supabase
+    const { data: existingTeam } = await supabase
       .from('inter_teams')
       .select('*')
       .eq('competition_id', competitionId)
       .or(`captain_id.eq.${user.id}`)
       .maybeSingle();
 
-    if (t) {
-      setTeam(t);
+    if (existingTeam) {
+      setTeam(existingTeam);
       const { data: m } = await supabase
         .from('inter_team_members')
         .select('*, profile:profiles!user_id(username, level, avatar_url)')
-        .eq('team_id', t.id);
+        .eq('team_id', existingTeam.id);
       setMembers((m ?? []).map((x: any) => ({
         id: x.id,
         user_id: x.user_id,
@@ -101,19 +103,19 @@ export default function InterTeamScreen() {
 
   async function handleCreateTeam() {
     if (!user) return;
-    if (!teamName.trim()) { Alert.alert('Nom requis', 'Donne un nom à ton équipe.'); return; }
+    if (!teamName.trim()) { Alert.alert(t('interTeam.nameRequired'), t('interTeam.nameRequiredMsg')); return; }
     setSaving(true);
-    const { data: t, error } = await supabase.from('inter_teams').insert({
+    const { data: newTeam, error } = await supabase.from('inter_teams').insert({
       competition_id: competitionId,
       name: teamName.trim(),
       captain_id: user.id,
       box_id: currentBox?.id ?? null,
     }).select('*').single();
-    if (error) { Alert.alert('Erreur', error.message); setSaving(false); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); setSaving(false); return; }
 
     await supabase.from('inter_registrations').upsert({
       competition_id: competitionId,
-      team_id: t.id,
+      team_id: newTeam.id,
       athlete_id: null,
       box_id: currentBox?.id ?? null,
     });
@@ -184,7 +186,7 @@ export default function InterTeamScreen() {
     if (!team) return;
     const accepted = members.filter(m => m.status === 'accepted').length + 1; // +1 for captain
     if (accepted >= teamSize) {
-      Alert.alert('Équipe complète', `Cette équipe est limitée à ${teamSize} membres.`);
+      Alert.alert(t('interTeam.teamFull'), t('interTeam.teamFullMsg', { n: teamSize }));
       return;
     }
     setInviting(targetUserId);
@@ -193,16 +195,16 @@ export default function InterTeamScreen() {
       user_id: targetUserId,
       status: 'pending',
     });
-    if (error) Alert.alert('Erreur', error.code === '23505' ? 'Déjà invité.' : error.message);
+    if (error) Alert.alert(t('common.error'), error.code === '23505' ? t('interTeam.alreadyInvited') : error.message);
     else { await load(); setSearchResults([]); setSearchQuery(''); }
     setInviting(null);
   }
 
   async function handleRemoveMember(memberId: string) {
-    Alert.alert('Retirer', 'Retirer ce membre de l\'équipe ?', [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('interTeam.remove'), t('interTeam.removeConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Retirer', style: 'destructive',
+        text: t('interTeam.remove'), style: 'destructive',
         onPress: async () => {
           await supabase.from('inter_team_members').delete().eq('id', memberId);
           await load();
@@ -250,9 +252,9 @@ export default function InterTeamScreen() {
             <Users size={18} color={theme.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={S.headerTitle}>{team ? team.name : 'Mon équipe'}</Text>
+            <Text style={S.headerTitle}>{team ? team.name : t('interTeam.myTeam')}</Text>
             <Text style={S.headerSub}>
-              {team ? `${acceptedCount}/${teamSize} membres` : `Équipe de ${teamSize}`}
+              {team ? t('interTeam.membersCount', { count: acceptedCount, max: teamSize }) : t('interTeam.teamOf', { n: teamSize })}
             </Text>
           </View>
         </View>
@@ -264,10 +266,10 @@ export default function InterTeamScreen() {
             <View style={S.inviteCard}>
               <View style={S.inviteHeader}>
                 <Users size={22} color={theme.accent} />
-                <Text style={S.inviteTitle}>Invitation reçue</Text>
+                <Text style={S.inviteTitle}>{t('interTeam.inviteReceived')}</Text>
               </View>
               <Text style={S.inviteTeamName}>« {myInvite.team?.name ?? '—'} »</Text>
-              <Text style={S.inviteSub}>Tu es invité à rejoindre cette équipe.</Text>
+              <Text style={S.inviteSub}>{t('interTeam.inviteSub')}</Text>
               <View style={S.inviteActions}>
                 <TouchableOpacity
                   style={[S.answerBtn, { backgroundColor: `${theme.success}20`, borderColor: `${theme.success}40` }]}
@@ -275,7 +277,7 @@ export default function InterTeamScreen() {
                   disabled={saving}
                 >
                   <CheckCircle2 size={16} color={theme.success} />
-                  <Text style={[S.answerBtnText, { color: theme.success }]}>Accepter</Text>
+                  <Text style={[S.answerBtnText, { color: theme.success }]}>{t('interTeam.accept')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[S.answerBtn, { backgroundColor: `${theme.error}15`, borderColor: `${theme.error}30` }]}
@@ -283,7 +285,7 @@ export default function InterTeamScreen() {
                   disabled={saving}
                 >
                   <XCircle size={16} color={theme.error} />
-                  <Text style={[S.answerBtnText, { color: theme.error }]}>Refuser</Text>
+                  <Text style={[S.answerBtnText, { color: theme.error }]}>{t('interTeam.decline')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -292,8 +294,8 @@ export default function InterTeamScreen() {
           {/* ── No team: create form ── */}
           {!team && (!myInvite || myInvite.status === 'declined') && (
             <View style={S.createCard}>
-              <Text style={S.sectionLabel}>Créer mon équipe</Text>
-              <Text style={S.sectionHint}>Tu seras le capitaine. Invite ensuite des athlètes de ta box.</Text>
+              <Text style={S.sectionLabel}>{t('interTeam.createTeam')}</Text>
+              <Text style={S.sectionHint}>{t('interTeam.createHint')}</Text>
               <View style={S.inputRow}>
                 <View style={S.inputWrapper}>
                   <Shield size={15} color={theme.textMuted} />
@@ -301,7 +303,7 @@ export default function InterTeamScreen() {
                     style={S.input}
                     value={teamName}
                     onChangeText={setTeamName}
-                    placeholder="Nom de l'équipe"
+                    placeholder={t('interTeam.teamNamePlaceholder')}
                     placeholderTextColor={theme.textMuted}
                   />
                 </View>
@@ -310,7 +312,7 @@ export default function InterTeamScreen() {
                   onPress={handleCreateTeam}
                   disabled={saving}
                 >
-                  {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={S.createBtnText}>Créer</Text>}
+                  {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={S.createBtnText}>{t('interTeam.create')}</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -322,10 +324,10 @@ export default function InterTeamScreen() {
               {/* Roster */}
               <View style={S.section}>
                 <View style={S.sectionRow}>
-                  <Text style={S.sectionLabel}>Membres ({acceptedCount}/{teamSize})</Text>
+                  <Text style={S.sectionLabel}>{t('interTeam.membersTitle', { count: acceptedCount, max: teamSize })}</Text>
                   {acceptedCount < teamSize && (
                     <View style={[S.chip, { backgroundColor: `${theme.accent}15` }]}>
-                      <Text style={[S.chipText, { color: theme.accent }]}>{teamSize - acceptedCount} place{teamSize - acceptedCount > 1 ? 's' : ''} libre{teamSize - acceptedCount > 1 ? 's' : ''}</Text>
+                      <Text style={[S.chipText, { color: theme.accent }]}>{t('interTeam.freeSlots', { count: teamSize - acceptedCount })}</Text>
                     </View>
                   )}
                 </View>
@@ -334,12 +336,12 @@ export default function InterTeamScreen() {
                 <View style={S.memberRow}>
                   <UserAvatar uri={user?.avatar_url} name={user?.username ?? '?'} size={34} borderRadius={10} backgroundColor={`${theme.accent}20`} textColor={theme.accent} fontSize={13} />
                   <View style={{ flex: 1 }}>
-                    <Text style={S.memberName}>{user?.username ?? '—'} {isCaptain ? '(moi)' : ''}</Text>
+                    <Text style={S.memberName}>{user?.username ?? '—'} {isCaptain ? t('interTeam.me') : ''}</Text>
                     <Text style={S.memberLevel}>{user?.level ?? ''}</Text>
                   </View>
                   <View style={[S.statusBadge, { backgroundColor: `${theme.accent}20` }]}>
                     <Crown size={10} color={theme.accent} />
-                    <Text style={[S.statusText, { color: theme.accent }]}>Capitaine</Text>
+                    <Text style={[S.statusText, { color: theme.accent }]}>{t('interTeam.captain')}</Text>
                   </View>
                 </View>
 
@@ -358,7 +360,7 @@ export default function InterTeamScreen() {
                         <Text style={[S.statusText, {
                           color: m.status === 'accepted' ? theme.success : m.status === 'declined' ? theme.error : theme.gold,
                         }]}>
-                          {m.status === 'accepted' ? '✓ Accepté' : m.status === 'declined' ? '✗ Refusé' : '⏳ En attente'}
+                          {m.status === 'accepted' ? t('interTeam.accepted') : m.status === 'declined' ? t('interTeam.declined') : t('interTeam.pending')}
                         </Text>
                       </View>
                       {isCaptain && (
@@ -374,11 +376,11 @@ export default function InterTeamScreen() {
               {/* Invite */}
               {isCaptain && acceptedCount < teamSize && (
                 <View style={S.section}>
-                  <Text style={S.sectionLabel}>Inviter un athlète</Text>
-                  <Text style={S.sectionHint}>Sélectionne un membre de ta box pour l'inviter dans l'équipe.</Text>
+                  <Text style={S.sectionLabel}>{t('interTeam.inviteAthlete')}</Text>
+                  <Text style={S.sectionHint}>{t('interTeam.inviteAthleteHint')}</Text>
                   <TouchableOpacity style={S.openMembersBtn} onPress={openMembersModal}>
                     <Users size={16} color="#fff" />
-                    <Text style={S.openMembersBtnText}>Voir les membres de la box</Text>
+                    <Text style={S.openMembersBtnText}>{t('interTeam.seeBoxMembers')}</Text>
                     <ChevronRight size={16} color="#fff" />
                   </TouchableOpacity>
                 </View>
@@ -390,7 +392,7 @@ export default function InterTeamScreen() {
                   {/* Modal header */}
                   <View style={S.modalHeader}>
                     <View style={{ flex: 1 }}>
-                      <Text style={S.modalTitle}>Membres · {currentBox?.name ?? 'Athlètes'}</Text>
+                      <Text style={S.modalTitle}>{t('interTeam.membersModalTitle', { name: currentBox?.name ?? t('interTeam.athletes') })}</Text>
                     </View>
                     <TouchableOpacity onPress={() => setShowMembersModal(false)} style={S.modalClose}>
                       <X size={20} color={theme.text} />
@@ -404,7 +406,7 @@ export default function InterTeamScreen() {
                       style={[S.input, { flex: 1 }]}
                       value={memberSearch}
                       onChangeText={setMemberSearch}
-                      placeholder="Rechercher par pseudo..."
+                      placeholder={t('interTeam.searchByUsername')}
                       placeholderTextColor={theme.textMuted}
                       autoFocus
                     />
@@ -422,7 +424,7 @@ export default function InterTeamScreen() {
                       ListEmptyComponent={
                         <View style={{ alignItems: 'center', marginTop: 60 }}>
                           <Users size={40} color={theme.textMuted} />
-                          <Text style={{ color: theme.textMuted, marginTop: 12, fontWeight: '600' }}>Aucun membre trouvé</Text>
+                          <Text style={{ color: theme.textMuted, marginTop: 12, fontWeight: '600' }}>{t('interTeam.noMemberFound')}</Text>
                         </View>
                       }
                       renderItem={({ item, index }) => (
@@ -435,7 +437,7 @@ export default function InterTeamScreen() {
                             <Text style={S.memberName}>{item.username}</Text>
                             <Text style={S.memberLevel}>{item.level?.toUpperCase() ?? ''}</Text>
                           </View>
-                          <Text style={S.modalElo}>{item.elo ?? 1000} ELO</Text>
+                          <Text style={S.modalElo}>{t('interTeam.eloValue', { elo: item.elo ?? 1000 })}</Text>
                           <TouchableOpacity
                             style={[S.inviteBtn, inviting === item.id && { opacity: 0.5 }]}
                             onPress={async () => {
@@ -446,7 +448,7 @@ export default function InterTeamScreen() {
                           >
                             {inviting === item.id
                               ? <ActivityIndicator color="#fff" size="small" />
-                              : <><UserPlus size={13} color="#fff" /><Text style={S.inviteBtnText}>Inviter</Text></>
+                              : <><UserPlus size={13} color="#fff" /><Text style={S.inviteBtnText}>{t('interTeam.invite')}</Text></>
                             }
                           </TouchableOpacity>
                         </View>
@@ -461,7 +463,7 @@ export default function InterTeamScreen() {
                 <View style={[S.infoBox, { borderColor: `${theme.success}30`, backgroundColor: `${theme.success}10` }]}>
                   <CheckCircle2 size={18} color={theme.success} />
                   <Text style={[S.infoText, { color: theme.success }]}>
-                    Équipe au complet ! Rendez-vous dans l'onglet WODs pour soumettre vos scores.
+                    {t('interTeam.teamComplete')}
                   </Text>
                 </View>
               )}

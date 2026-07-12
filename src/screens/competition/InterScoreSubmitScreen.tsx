@@ -12,16 +12,10 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 import { trackInterCompScoreSubmit } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { useTranslation } from 'react-i18next';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterScoreSubmit'>;
 type Route = RouteProp<CompetitionStackParamList, 'InterScoreSubmit'>;
-
-const SCORING_PLACEHOLDER: Record<string, string> = {
-  reps:        'Ex : 147 reps',
-  time:        'Ex : 12:34 (mm:ss)',
-  weight:      'Ex : 102.5 (kg)',
-  rounds_reps: 'Ex : 5+12 (rounds+reps)',
-};
 
 export default function InterScoreSubmitScreen() {
   const navigation = useNavigation<Nav>();
@@ -29,6 +23,13 @@ export default function InterScoreSubmitScreen() {
   const { competitionId, wodId, wodTitle, wodDescription, timeCap, scoringType, existingScore } = route.params;
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
+  const SCORING_PLACEHOLDER: Record<string, string> = {
+    reps:        t('interScore.phReps'),
+    time:        t('interScore.phTime'),
+    weight:      t('interScore.phWeight'),
+    rounds_reps: t('interScore.phRoundsReps'),
+  };
   const S = createStyles(theme);
 
   const [scoreValue,  setScoreValue]  = useState(existingScore?.score_value?.toString() ?? '');
@@ -40,14 +41,14 @@ export default function InterScoreSubmitScreen() {
     if (!user) return;
     const trimmed = scoreValue.trim();
     if (!trimmed) {
-      Alert.alert('Score requis', 'Entre ton score avant de soumettre.');
+      Alert.alert(t('interScore.scoreRequired'), t('interScore.scoreRequiredMsg'));
       return;
     }
 
     // Validate video URL if provided
     const trimmedVideo = videoUrl.trim();
     if (trimmedVideo && !/^https?:\/\/.+/i.test(trimmedVideo)) {
-      Alert.alert('Lien vidéo invalide', 'Le lien vidéo doit commencer par http:// ou https://');
+      Alert.alert(t('interScore.invalidVideo'), t('interScore.invalidVideoMsg'));
       return;
     }
 
@@ -72,15 +73,15 @@ export default function InterScoreSubmitScreen() {
 
     setSubmitting(false);
     if (error) {
-      if (error.code === '23505') Alert.alert('Déjà soumis', 'Tu as déjà un score pour ce WOD.');
-      else Alert.alert('Erreur', error.message);
+      if (error.code === '23505') Alert.alert(t('interScore.alreadySubmitted'), t('interScore.alreadySubmittedMsg'));
+      else Alert.alert(t('common.error'), error.message);
       return;
     }
     trackInterCompScoreSubmit(competitionId, scoringType, !!trimmedVideo);
     Alert.alert(
-      'Score soumis ! ✓',
-      'Ton score est en attente de validation par le Super Admin.',
-      [{ text: 'OK', onPress: () => navigation.goBack() }],
+      t('interScore.submittedTitle'),
+      t('interScore.submittedMsg'),
+      [{ text: t('common.ok'), onPress: () => navigation.goBack() }],
     );
   }
 
@@ -111,7 +112,7 @@ export default function InterScoreSubmitScreen() {
             <ChevronRight size={22} color={theme.textMuted} style={{ transform: [{ rotate: '180deg' }] }} />
           </TouchableOpacity>
           <View>
-            <Text style={S.headerTitle}>Soumettre mon score</Text>
+            <Text style={S.headerTitle}>{t('interScore.title')}</Text>
             <Text style={S.headerSub}>{wodTitle}</Text>
           </View>
         </View>
@@ -131,7 +132,7 @@ export default function InterScoreSubmitScreen() {
               {timeCap && (
                 <View style={S.chip}>
                   <Clock size={10} color={theme.textMuted} />
-                  <Text style={S.chipText}>{timeCap} min cap</Text>
+                  <Text style={S.chipText}>{t('interScore.minCap', { n: timeCap })}</Text>
                 </View>
               )}
               <View style={S.chip}>
@@ -142,27 +143,27 @@ export default function InterScoreSubmitScreen() {
 
           {/* Launch timer */}
           <View style={S.section}>
-            <Text style={S.sectionLabel}>Étape 1 — Enregistre ta performance</Text>
+            <Text style={S.sectionLabel}>{t('interScore.step1')}</Text>
             <TouchableOpacity style={S.timerBtn} activeOpacity={0.85} onPress={handleLaunchTimer}>
               <Timer size={20} color="#fff" />
               <View>
-                <Text style={S.timerBtnTitle}>Lancer le Timer + Caméra</Text>
-                <Text style={S.timerBtnSub}>Enregistre ta performance avec chrono superposé</Text>
+                <Text style={S.timerBtnTitle}>{t('interScore.launchTimerCamera')}</Text>
+                <Text style={S.timerBtnSub}>{t('interScore.launchTimerCameraSub')}</Text>
               </View>
             </TouchableOpacity>
-            <Text style={S.orText}>— ou entre directement ton score ci-dessous —</Text>
+            <Text style={S.orText}>{t('interScore.orEnterBelow')}</Text>
           </View>
 
           {/* Score input */}
           <View style={S.section}>
-            <Text style={S.sectionLabel}>Étape 2 — Ton score *</Text>
+            <Text style={S.sectionLabel}>{t('interScore.step2')}</Text>
             <View style={S.inputWrapper}>
               <Trophy size={16} color={theme.textMuted} />
               <TextInput
                 style={S.input}
                 value={scoreValue}
                 onChangeText={setScoreValue}
-                placeholder={SCORING_PLACEHOLDER[scoringType] ?? 'Entre ton score'}
+                placeholder={SCORING_PLACEHOLDER[scoringType] ?? t('interScore.enterScore')}
                 placeholderTextColor={theme.textMuted}
                 autoCapitalize="none"
               />
@@ -171,8 +172,8 @@ export default function InterScoreSubmitScreen() {
 
           {/* Video URL */}
           <View style={S.section}>
-            <Text style={S.sectionLabel}>Étape 3 — Preuve vidéo (optionnel)</Text>
-            <Text style={S.sectionHint}>Lien YouTube de ta performance enregistrée</Text>
+            <Text style={S.sectionLabel}>{t('interScore.step3')}</Text>
+            <Text style={S.sectionHint}>{t('interScore.step3Hint')}</Text>
             <View style={S.inputWrapper}>
               <Video size={16} color={theme.textMuted} />
               <TextInput
@@ -189,12 +190,12 @@ export default function InterScoreSubmitScreen() {
 
           {/* Notes */}
           <View style={S.section}>
-            <Text style={S.sectionLabel}>Notes / commentaire (optionnel)</Text>
+            <Text style={S.sectionLabel}>{t('interScore.notes')}</Text>
             <TextInput
               style={[S.inputWrapper, { height: 80, alignItems: 'flex-start', paddingTop: 12 }]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Ex : scaled, substitution muscle-up..."
+              placeholder={t('interScore.notesPlaceholder')}
               placeholderTextColor={theme.textMuted}
               multiline
               textAlignVertical="top"
@@ -204,9 +205,9 @@ export default function InterScoreSubmitScreen() {
           {/* Info */}
           <View style={S.infoBox}>
             <Text style={S.infoText}>
-              Ton score sera soumis avec le statut{' '}
-              <Text style={{ fontWeight: '700', color: theme.accent }}>En attente</Text>.
-              {'\n'}Le Super Admin le validera ou rejettera avec un motif.
+              {t('interScore.infoPrefix')}{' '}
+              <Text style={{ fontWeight: '700', color: theme.accent }}>{t('interScore.pending')}</Text>.
+              {'\n'}{t('interScore.infoSuffix')}
             </Text>
           </View>
 
@@ -222,7 +223,7 @@ export default function InterScoreSubmitScreen() {
               : <>
                 <Send size={18} color="#fff" />
                 <Text style={S.submitBtnText}>
-                  {existingScore ? 'Mettre à jour mon score' : 'Soumettre mon score'}
+                  {existingScore ? t('interScore.update') : t('interScore.title')}
                 </Text>
               </>
             }

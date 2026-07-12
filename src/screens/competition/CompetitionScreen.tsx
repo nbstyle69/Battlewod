@@ -14,10 +14,9 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'CompetitionList'>;
-
-const TABS = ['Tournois', 'Mini-Tournoi', 'Compétition Physique', 'Inter-box'];
 
 
 
@@ -51,6 +50,8 @@ export default function CompetitionScreen() {
   const route = useRoute<RouteProp<CompetitionStackParamList, 'CompetitionList'>>();
   const { theme } = useTheme();
   const { currentBox } = useAuth();
+  const { t } = useTranslation();
+  const TABS = [t('competition.tabTournaments'), t('competition.tabMini'), t('competition.tabPhysical'), t('competition.tabInter')];
   const S = createStyles(theme);
   const [activeTab,    setActiveTab]    = useState(route.params?.initialTab ?? 0);
   const [tournaments,  setTournaments]  = useState<Tournament[]>([]);
@@ -155,8 +156,8 @@ export default function CompetitionScreen() {
       user_id: user.id,
     });
     if (error) {
-      if (error.code === '23505') Alert.alert('Déjà inscrit', 'Tu participes déjà.');
-      else Alert.alert('Erreur', error.message);
+      if (error.code === '23505') Alert.alert(t('competition.alreadyJoined'), t('competition.alreadyParticipating'));
+      else Alert.alert(t('common.error'), error.message);
       return;
     }
     loadMiniTournaments();
@@ -164,7 +165,7 @@ export default function CompetitionScreen() {
 
   function timeLeft(endsAt: string): string {
     const diff = new Date(endsAt).getTime() - Date.now();
-    if (diff <= 0) return 'Terminé';
+    if (diff <= 0) return t('competition.finished');
     const h = Math.floor(diff / 3600000);
     const m = Math.floor((diff % 3600000) / 60000);
     return `${h}h${String(m).padStart(2, '0')}`;
@@ -175,8 +176,8 @@ export default function CompetitionScreen() {
       <GlassBackground />
       <View style={S.header}>
         <View>
-          <Text style={S.headerTitle}>Compétitions</Text>
-          <Text style={S.headerSub}>Bats-toi. Grimpe. Domine.</Text>
+          <Text style={S.headerTitle}>{t('competition.title')}</Text>
+          <Text style={S.headerSub}>{t('competition.subtitle')}</Text>
         </View>
       </View>
 
@@ -195,57 +196,57 @@ export default function CompetitionScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
         {activeTab === 0 && (
           <>
-            <Text style={S.sectionTitle}>Tournois disponibles</Text>
+            <Text style={S.sectionTitle}>{t('competition.availableTournaments')}</Text>
             {tLoading ? (
               <ActivityIndicator color={theme.accent} style={{ marginTop: 32 }} />
             ) : tournaments.length === 0 ? (
               <View style={S.emptyBox}>
                 <Text style={S.emptyEmoji}>🏆</Text>
-                <Text style={S.emptyText}>Aucun tournoi ouvert pour l'instant.</Text>
+                <Text style={S.emptyText}>{t('competition.noTournament')}</Text>
               </View>
             ) : (
-              tournaments.map(t => {
-                const participants = participantCounts[t.id] ?? 0;
-                const pct = t.max_participants > 0 ? (participants / t.max_participants) * 100 : 0;
-                const levelColor = LevelColors[t.level as keyof typeof LevelColors] ?? theme.accent;
+              tournaments.map(tour => {
+                const participants = participantCounts[tour.id] ?? 0;
+                const pct = tour.max_participants > 0 ? (participants / tour.max_participants) * 100 : 0;
+                const levelColor = LevelColors[tour.level as keyof typeof LevelColors] ?? theme.accent;
                 return (
                   <TouchableOpacity
-                    key={t.id}
+                    key={tour.id}
                     style={S.tournamentCard}
-                    onPress={() => navigation.navigate('Tournament', { tournamentId: t.id })}
+                    onPress={() => navigation.navigate('Tournament', { tournamentId: tour.id })}
                     activeOpacity={0.8}
                   >
                     <View style={S.tHeader}>
-                      <Text style={S.tName}>{t.name}</Text>
+                      <Text style={S.tName}>{tour.name}</Text>
                       <View style={[
                         S.tStatus,
-                        { backgroundColor: t.status === 'active' ? `${theme.success}20` : `${theme.accent}20` },
+                        { backgroundColor: tour.status === 'active' ? `${theme.success}20` : `${theme.accent}20` },
                       ]}>
                         <Text style={[
                           S.tStatusText,
-                          { color: t.status === 'active' ? theme.success : theme.accent },
+                          { color: tour.status === 'active' ? theme.success : theme.accent },
                         ]}>
-                          {t.status === 'active' ? '🔴 Live' : '🟢 Ouvert'}
+                          {tour.status === 'active' ? t('competition.live') : t('competition.open')}
                         </Text>
                       </View>
                     </View>
-                    {myRegistered[t.id] && (
+                    {myRegistered[tour.id] && (
                       <View style={S.regBadge}>
                         <CheckCircle color={theme.success} size={13} />
-                        <Text style={S.regBadgeText}>Inscrit</Text>
+                        <Text style={S.regBadgeText}>{t('competition.registered')}</Text>
                       </View>
                     )}
                     <View style={S.tInfo}>
                       <View style={S.tInfoItem}>
                         <Users color={theme.textMuted} size={14} />
-                        <Text style={S.tInfoText}>{participants}/{t.max_participants}</Text>
+                        <Text style={S.tInfoText}>{participants}/{tour.max_participants}</Text>
                       </View>
                       <View style={[S.levelPill, { backgroundColor: `${levelColor}20` }]}>
                         <Text style={[S.levelPillText, { color: levelColor }]}>
-                          {(t.level ?? 'RX').toUpperCase()}
+                          {(tour.level ?? 'RX').toUpperCase()}
                         </Text>
                       </View>
-                      {t.prize ? <Text style={S.tPrize}>{t.prize}</Text> : null}
+                      {tour.prize ? <Text style={S.tPrize}>{tour.prize}</Text> : null}
                     </View>
                     <View style={S.progressBar}>
                       <View style={[S.progressFill, { width: `${pct}%` as any }]} />
@@ -261,7 +262,7 @@ export default function CompetitionScreen() {
           <>
             <View style={S.miniInfo}>
               <Zap color={theme.gold} size={16} />
-              <Text style={S.miniInfoText}>5 athlètes max • Mini-tournoi flash • Système ELO</Text>
+              <Text style={S.miniInfoText}>{t('competition.miniInfo')}</Text>
             </View>
 
             <TouchableOpacity
@@ -270,22 +271,23 @@ export default function CompetitionScreen() {
               onPress={() => navigation.navigate('DailyTournaments')}
             >
                 <Plus color="#fff" size={20} />
-                <Text style={S.createText}>Créer un Daily Battle</Text>
+                <Text style={S.createText}>{t('competition.createDaily')}</Text>
             </TouchableOpacity>
 
-            <Text style={S.sectionTitle}>Ouverts maintenant</Text>
+            <Text style={S.sectionTitle}>{t('competition.openNow')}</Text>
             {miniLoading ? (
               <ActivityIndicator color={theme.accent} style={{ marginTop: 32 }} />
             ) : miniTournaments.length === 0 ? (
               <View style={S.emptyBox}>
                 <Text style={S.emptyEmoji}>⚡</Text>
-                <Text style={S.emptyText}>Aucun mini-tournoi en cours.{"\n"}Crée le premier !</Text>
+                <Text style={S.emptyText}>{t('competition.noMini')}</Text>
               </View>
             ) : (
               miniTournaments.map(m => {
                 const levelColor = LevelColors[m.level] ?? theme.textMuted;
                 const isFull = m.participant_count >= m.max_players;
                 const remaining = timeLeft(m.ends_at);
+                const isFinished = new Date(m.ends_at).getTime() - Date.now() <= 0;
                 return (
                   <TouchableOpacity
                     key={m.id}
@@ -301,7 +303,7 @@ export default function CompetitionScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6 }}>par {m.creator_name} • {m.wod_type}</Text>
+                    <Text style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6 }}>{t('competition.byCreator', { name: m.creator_name, type: m.wod_type })}</Text>
                     <View style={S.miniFooter}>
                       <View style={S.miniParticipants}>
                         {Array.from({ length: m.max_players }).map((_, i) => (
@@ -316,8 +318,8 @@ export default function CompetitionScreen() {
                         <Text style={S.miniParticipantsText}>{m.participant_count}/{m.max_players}</Text>
                       </View>
                       <View style={S.miniTime}>
-                        <Flame color={remaining === 'Terminé' ? theme.error : theme.accent} size={13} />
-                        <Text style={[S.miniTimeText, remaining === 'Terminé' && { color: theme.error }]}>{remaining}</Text>
+                        <Flame color={isFinished ? theme.error : theme.accent} size={13} />
+                        <Text style={[S.miniTimeText, isFinished && { color: theme.error }]}>{remaining}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                         <Trophy color={theme.gold} size={12} />
@@ -330,11 +332,11 @@ export default function CompetitionScreen() {
                         style={S.joinButton}
                         onPress={(e) => { e.stopPropagation(); handleJoinMini(m.id); }}
                       >
-                        <Text style={S.joinButtonText}>REJOINDRE</Text>
+                        <Text style={S.joinButtonText}>{t('competition.join')}</Text>
                       </TouchableOpacity>
                     ) : m.has_joined ? (
                       <View style={[S.joinButton, { backgroundColor: `${theme.accent}15` }]}>
-                        <Text style={[S.joinButtonText, { color: theme.accent }]}>INSCRIT ✓</Text>
+                        <Text style={[S.joinButtonText, { color: theme.accent }]}>{t('competition.joined')}</Text>
                       </View>
                     ) : null}
                   </TouchableOpacity>
@@ -348,7 +350,7 @@ export default function CompetitionScreen() {
                 onPress={() => navigation.navigate('DailyTournaments')}
                 activeOpacity={0.7}
               >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.accent }}>Voir tous les mini-tournois →</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.accent }}>{t('competition.seeAllMini')}</Text>
               </TouchableOpacity>
             )}
           </>
@@ -364,8 +366,8 @@ export default function CompetitionScreen() {
                 <Zap color="#8B5CF6" size={22} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={S.physModeTitle}>Qualification en Ligne</Text>
-                <Text style={S.physModeDesc}>WODs avec caméra · Score en ligne</Text>
+                <Text style={S.physModeTitle}>{t('competition.onlineQualif')}</Text>
+                <Text style={S.physModeDesc}>{t('competition.onlineQualifDesc')}</Text>
               </View>
               <ChevronRight color={theme.textMuted} size={18} />
             </TouchableOpacity>
@@ -379,8 +381,8 @@ export default function CompetitionScreen() {
                 <Info color="#3B82F6" size={22} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={S.physModeTitle}>Sans Qualification</Text>
-                <Text style={S.physModeDesc}>Événements · Inscription externe</Text>
+                <Text style={S.physModeTitle}>{t('competition.noQualif')}</Text>
+                <Text style={S.physModeDesc}>{t('competition.noQualifDesc')}</Text>
               </View>
               <ChevronRight color={theme.textMuted} size={18} />
             </TouchableOpacity>
@@ -395,11 +397,11 @@ export default function CompetitionScreen() {
               onPress={() => navigation.navigate('InterCompetitionList')}
             >
               <Globe2 color="#fff" size={20} />
-              <Text style={S.createText}>Voir les compétitions inter-box</Text>
+              <Text style={S.createText}>{t('competition.seeInterBox')}</Text>
             </TouchableOpacity>
             <View style={[S.physInfoBox, { borderColor: '#C9A22725', backgroundColor: '#C9A22710' }]}>
-              <Text style={[S.physInfoTitle, { color: '#C9A227' }]}>🌍 Compétitions Inter-box</Text>
-              <Text style={S.physInfoText}>{"Affronte des athlètes de toutes les box.\n3 WODs révélés progressivement. Soumets tes scores avec preuve vidéo. Le Super Admin valide les résultats."}</Text>
+              <Text style={[S.physInfoTitle, { color: '#C9A227' }]}>{t('competition.interBoxTitle')}</Text>
+              <Text style={S.physInfoText}>{t('competition.interBoxInfo')}</Text>
             </View>
           </>
         )}

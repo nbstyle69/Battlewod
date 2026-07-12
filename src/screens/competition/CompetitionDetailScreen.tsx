@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'CompetitionDetail'>;
@@ -22,9 +23,10 @@ type Props = {
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const { competition } = route.params;
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
   const [tab, setTab] = useState(0);
-  const TABS = ['Infos', 'WODs', 'Participants'];
+  const TABS = [t('compDetail.tabInfos'), t('compDetail.tabWods'), t('compDetail.tabParticipants')];
 
   interface Participant {
     athlete_id: string;
@@ -51,7 +53,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
       const mapped: Participant[] = (data ?? []).map((row: any) => ({
         athlete_id: row.athlete_id,
-        username: row.profiles?.username ?? 'Inconnu',
+        username: row.profiles?.username ?? t('compDetail.unknown'),
         avatar_url: row.profiles?.avatar_url ?? null,
         elo: row.profiles?.elo ?? 1000,
         score: row.score ?? 0,
@@ -91,7 +93,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           <Text style={S.headerTitle} numberOfLines={1}>{competition.name}</Text>
           <View style={[S.statusPill, { backgroundColor: competition.status === 'open' ? `${theme.success}20` : `${theme.warning}20` }]}>
             <Text style={[S.statusText, { color: competition.status === 'open' ? theme.success : theme.warning }]}>
-              {competition.status === 'open' ? 'Inscriptions ouvertes' : competition.status === 'active' ? 'En cours' : 'Terminé'}
+              {competition.status === 'open' ? t('compDetail.registrationOpen') : competition.status === 'active' ? t('compDetail.inProgress') : t('compDetail.finished')}
             </Text>
           </View>
         </View>
@@ -100,9 +102,9 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
       {/* Tabs */}
       <View style={S.tabs}>
-        {TABS.map((t, i) => (
-          <TouchableOpacity key={t} onPress={() => setTab(i)} style={[S.tab, tab === i && S.tabActive]}>
-            <Text style={[S.tabText, tab === i && S.tabTextActive]}>{t}</Text>
+        {TABS.map((label, i) => (
+          <TouchableOpacity key={label} onPress={() => setTab(i)} style={[S.tab, tab === i && S.tabActive]}>
+            <Text style={[S.tabText, tab === i && S.tabTextActive]}>{label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -131,30 +133,25 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
             {/* Dates */}
             <View style={S.infoCard}>
-              <Text style={S.infoCardTitle}>Dates & Inscriptions</Text>
+              <Text style={S.infoCardTitle}>{t('compDetail.datesRegistrations')}</Text>
               <View style={S.infoRow}>
                 <Calendar color={theme.accent} size={16} />
-                <Text style={S.infoRowText}>Début : {competition.startDate}</Text>
+                <Text style={S.infoRowText}>{t('compDetail.start', { date: competition.startDate })}</Text>
               </View>
               <View style={S.infoRow}>
                 <Calendar color={theme.textMuted} size={16} />
-                <Text style={S.infoRowText}>Fin : {competition.endDate}</Text>
+                <Text style={S.infoRowText}>{t('compDetail.end', { date: competition.endDate })}</Text>
               </View>
               <View style={S.infoRow}>
                 <Users color={theme.success} size={16} />
-                <Text style={S.infoRowText}>{competition.participants}/{competition.maxParticipants} participants</Text>
+                <Text style={S.infoRowText}>{t('compDetail.participantsCount', { count: competition.participants, max: competition.maxParticipants })}</Text>
               </View>
             </View>
 
             {/* Règles */}
             <View style={S.infoCard}>
-              <Text style={S.infoCardTitle}>Règlement</Text>
-              {[
-                'Tous les WODs doivent être filmés',
-                'Score soumis dans les 24h après le WOD',
-                'Validation par un admin ou juge désigné',
-                'Résultats publiés sur le leaderboard en direct',
-              ].map((rule, i) => (
+              <Text style={S.infoCardTitle}>{t('compDetail.rules')}</Text>
+              {(t('compDetail.rulesList', { returnObjects: true }) as string[]).map((rule, i) => (
                 <View key={i} style={S.ruleRow}>
                   <View style={S.ruleDot} />
                   <Text style={S.ruleText}>{rule}</Text>
@@ -166,7 +163,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             {competition.status === 'open' && (
               <TouchableOpacity style={S.registerBtn} activeOpacity={0.85}>
                 <Zap color="#fff" size={18} />
-                <Text style={S.registerBtnText}>S'inscrire à la compétition</Text>
+                <Text style={S.registerBtnText}>{t('compDetail.register')}</Text>
               </TouchableOpacity>
             )}
           </>
@@ -174,19 +171,19 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
         {tab === 1 && (
           <>
-            <Text style={S.sectionTitle}>WODs de la compétition</Text>
+            <Text style={S.sectionTitle}>{t('compDetail.competitionWods')}</Text>
             {competition.wods?.map((wod: any, i: number) => (
               <View key={i} style={S.wodCard}>
                 <View style={S.wodHeader}>
                   <View style={S.wodIndexCircle}>
-                    <Text style={S.wodIndex}>WOD {i + 1}</Text>
+                    <Text style={S.wodIndex}>{t('compDetail.wodN', { n: i + 1 })}</Text>
                   </View>
                   <View style={S.wodTypeBadge}>
                     <Text style={S.wodTypeText}>{wod.type}</Text>
                   </View>
                   <View style={S.wodDuration}>
                     <Clock color={theme.textMuted} size={12} />
-                    <Text style={S.wodDurationText}>{wod.duration} min</Text>
+                    <Text style={S.wodDurationText}>{t('compDetail.minutes', { n: wod.duration })}</Text>
                   </View>
                 </View>
                 <Text style={S.wodTitle}>{wod.title}</Text>
@@ -195,14 +192,14 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
                 {wod.hasTimer && (
                   <TouchableOpacity style={S.timerBtn} onPress={() => handleLaunchTimer(wod)} activeOpacity={0.85}>
                     <Timer color="#fff" size={15} />
-                    <Text style={S.timerBtnText}>Lancer le minuteur vidéo</Text>
+                    <Text style={S.timerBtnText}>{t('compDetail.launchVideoTimer')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
             ))}
             {(!competition.wods || competition.wods.length === 0) && (
               <View style={S.emptyState}>
-                <Text style={S.emptyText}>Les WODs seront publiés prochainement.</Text>
+                <Text style={S.emptyText}>{t('compDetail.wodsSoon')}</Text>
               </View>
             )}
           </>
@@ -210,12 +207,12 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
         {tab === 2 && (
           <>
-            <Text style={S.sectionTitle}>Participants ({participants.length})</Text>
+            <Text style={S.sectionTitle}>{t('compDetail.participantsTitle', { count: participants.length })}</Text>
             {loadingParticipants ? (
               <ActivityIndicator color={theme.accent} style={{ marginTop: 24 }} />
             ) : participants.length === 0 ? (
               <View style={S.emptyState}>
-                <Text style={S.emptyText}>Aucun participant pour le moment.</Text>
+                <Text style={S.emptyText}>{t('compDetail.noParticipant')}</Text>
               </View>
             ) : (
               participants.map((p, i) => (
@@ -234,9 +231,9 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={S.participantName}>{p.username}</Text>
-                    <Text style={S.participantElo}>ELO {p.elo}</Text>
+                    <Text style={S.participantElo}>{t('compDetail.elo', { elo: p.elo })}</Text>
                   </View>
-                  <Text style={S.participantScore}>{p.score > 0 ? `${p.score} pts` : '—'}</Text>
+                  <Text style={S.participantScore}>{p.score > 0 ? t('compDetail.points', { n: p.score }) : '—'}</Text>
                 </View>
               ))
             )}
