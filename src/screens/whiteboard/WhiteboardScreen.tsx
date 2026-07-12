@@ -773,6 +773,16 @@ export default function WhiteboardScreen() {
             <Text style={S.membersBtnText}>Actualités</Text>
           </TouchableOpacity>
         </View>
+        <View style={[S.headerBtns, { marginTop: 8 }]}>
+          <TouchableOpacity
+            style={[S.membersBtn, { flex: 1 }]}
+            onPress={() => navigation.navigate('BoxRanking')}
+            activeOpacity={0.8}
+          >
+            <Trophy size={16} color={theme.accent} />
+            <Text style={S.membersBtnText}>Classement de la box</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <WeekDayPicker
