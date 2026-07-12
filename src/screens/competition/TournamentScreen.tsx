@@ -28,6 +28,9 @@ import { trackTournamentJoin } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
 import TournamentBracketView from './TournamentBracketView';
 import TournamentDivisionsView from './TournamentDivisionsView';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import i18n from '../../i18n';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'Tournament'>;
 type Route = RouteProp<CompetitionStackParamList, 'Tournament'>;
@@ -37,14 +40,14 @@ function wodStatusColor(status: string, theme: AppTheme) {
   if (status === 'closed')  return theme.textMuted;
   return theme.warning;
 }
-function wodStatusLabel(status: string) {
-  if (status === 'active')  return 'En cours';
-  if (status === 'closed')  return 'Terminé';
-  return 'À venir';
+function wodStatusLabel(status: string, t: TFunction) {
+  if (status === 'active')  return t('tournament.statusActive');
+  if (status === 'closed')  return t('tournament.statusClosed');
+  return t('tournament.statusUpcoming');
 }
-const BRACKET_STAGE_LABELS = ['Finale', 'Demi-finale', 'Quart de finale', '8e de finale', '16e de finale', '32e de finale'];
-function bracketStageLabel(stage: number) {
-  return BRACKET_STAGE_LABELS[stage] ?? `Étape ${stage}`;
+function bracketStageLabel(stage: number, t: TFunction) {
+  const labels = t('tournament.bracketStages', { returnObjects: true }) as string[];
+  return labels[stage] ?? t('tournament.stageN', { n: stage });
 }
 
 export default function TournamentScreen() {
@@ -54,6 +57,7 @@ export default function TournamentScreen() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'box_owner';
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
 
   const [activeTab,    setActiveTab]    = useState<'infos' | 'wods' | 'scores' | 'participants' | 'validate' | 'bracket' | 'divisions'>('infos');
@@ -74,7 +78,7 @@ export default function TournamentScreen() {
 
   const load = useCallback(async () => {
     const isAdminUser = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'box_owner';
-    const [{ data: t }, { data: tw }, { data: tp }, { data: ms }, { data: as_ }, { data: vs }, { data: myReg }] = await Promise.all([
+    const [{ data: tourData }, { data: tw }, { data: tp }, { data: ms }, { data: as_ }, { data: vs }, { data: myReg }] = await Promise.all([
       supabase.from('tournaments').select('*').eq('id', tournamentId).single(),
       supabase.from('tournament_wods').select('*').eq('tournament_id', tournamentId).order('order_index'),
       supabase.rpc('get_tournament_participants', { p_tournament_id: tournamentId }),
@@ -91,10 +95,10 @@ export default function TournamentScreen() {
         .eq('athlete_id', user.id)
         .maybeSingle() : { data: null },
     ]);
-    setTournament(t);
+    setTournament(tourData);
     // For league_div tournaments, only show WODs from the current season.
     const allWods = (tw ?? []) as any[];
-    const t_ = t as any;
+    const t_ = tourData as any;
     const filteredWods = (t_?.format === 'league_div')
       ? allWods.filter(w => (w.season_number ?? 1) === (t_?.current_season ?? 1))
       : allWods;
@@ -139,7 +143,7 @@ export default function TournamentScreen() {
     setWodValidatedScores(vs ?? []);
 
     // ── Divisions (league_div only) ─────────────────────────────────────
-    if ((t as any)?.format === 'league_div') {
+    if ((tourData as any)?.format === 'league_div') {
       const { data: divs } = await supabase
         .from('tournament_divisions')
         .select('*')
@@ -181,7 +185,7 @@ export default function TournamentScreen() {
       const { error } = await supabase.from('tournament_participants')
         .insert({ tournament_id: tournamentId, athlete_id: user.id, score: 0 });
       if (error && error.code !== '23505') {
-        Alert.alert('Erreur inscription', error.message);
+        Alert.alert(t('tournament.registerError'), error.message);
         return;
       }
       setIsRegistered(true);
@@ -205,7 +209,7 @@ export default function TournamentScreen() {
       );
     } catch (e: any) {
       captureError(e, { screen: 'Tournament', action: 'register' });
-      Alert.alert('Erreur', e?.message ?? 'Inscription impossible');
+      Alert.alert(t('common.error'), e?.message ?? t('tournament.registerImpossible'));
     } finally {
       setRegistering(false);
     }
@@ -234,8 +238,8 @@ export default function TournamentScreen() {
       const videoUrl = String((score as any)?.video_url ?? '').trim();
       if (!videoUrl) {
         Alert.alert(
-          'Preuve vidéo requise',
-          "Ce tournoi exige une preuve vidéo. Impossible de valider un score sans lien vidéo — demande à l'athlète de soumettre sa vidéo, ou rejette le score.",
+          t('tournament.videoRequiredTitle'),
+          t('tournament.videoRequiredMsg'),
         );
         return;
       }
@@ -244,7 +248,7 @@ export default function TournamentScreen() {
     const { error } = await supabase.from('tournament_scores')
       .update({ status: 'validated', validated_at: new Date().toISOString() })
       .eq('id', scoreId);
-    if (error) { Alert.alert('Erreur', error.message); setProcessing(null); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); setProcessing(null); return; }
     const updated = allScores.map(s => s.id === scoreId ? { ...s, status: 'validated' as const } : s);
     setAllScores(updated);
     const validated = updated.filter(s => s.status === 'validated');
@@ -258,7 +262,7 @@ export default function TournamentScreen() {
     const { error } = await supabase.from('tournament_scores')
       .update({ status: 'rejected' })
       .eq('id', scoreId);
-    if (error) { Alert.alert('Erreur', error.message); setProcessing(null); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); setProcessing(null); return; }
     setAllScores(prev => prev.map(s => s.id === scoreId ? { ...s, status: 'rejected' as const } : s));
     setProcessing(null);
   }
@@ -266,17 +270,17 @@ export default function TournamentScreen() {
   async function handleKick(athleteId: string, username: string) {
     if (!isAdmin) return;
     Alert.alert(
-      'Exclure le participant',
-      `Exclure ${username} du tournoi ?`,
+      t('tournament.kickTitle'),
+      t('tournament.kickMsg', { username }),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Exclure', style: 'destructive', onPress: async () => {
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('tournament.kick'), style: 'destructive', onPress: async () => {
           const { error } = await supabase
             .from('tournament_participants')
             .delete()
             .eq('tournament_id', tournamentId)
             .eq('athlete_id', athleteId);
-          if (error) { Alert.alert('Erreur', error.message); return; }
+          if (error) { Alert.alert(t('common.error'), error.message); return; }
           load();
         }},
       ]
@@ -286,17 +290,17 @@ export default function TournamentScreen() {
   async function handleLeave() {
     if (!user) return;
     Alert.alert(
-      'Quitter le tournoi',
-      'Es-tu sûr(e) de vouloir te désinscrire de ce tournoi ?',
+      t('tournament.leaveTitle'),
+      t('tournament.leaveMsg'),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Quitter', style: 'destructive', onPress: async () => {
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('tournament.leave'), style: 'destructive', onPress: async () => {
           const { error } = await supabase
             .from('tournament_participants')
             .delete()
             .eq('tournament_id', tournamentId)
             .eq('athlete_id', user.id);
-          if (error) { Alert.alert('Erreur', error.message); return; }
+          if (error) { Alert.alert(t('common.error'), error.message); return; }
           setIsRegistered(false);
           load();
         }},
@@ -323,7 +327,7 @@ export default function TournamentScreen() {
     <View style={S.loadingContainer}><ActivityIndicator size="large" color={theme.accent} /></View>
   );
   if (!tournament) return (
-    <View style={S.loadingContainer}><Text style={S.errorText}>Tournoi introuvable.</Text></View>
+    <View style={S.loadingContainer}><Text style={S.errorText}>{t('tournament.notFound')}</Text></View>
   );
 
   const levelColor  = LevelColors[tournament.level as AthleteLevel] ?? theme.accent;
@@ -339,7 +343,7 @@ export default function TournamentScreen() {
           <ChevronLeft color="rgba(255,255,255,0.7)" size={24} />
         </TouchableOpacity>
         <View style={S.headerInfo}>
-          <TouchableOpacity onPress={() => Share.share({ message: `${tournament?.name ?? 'Tournoi'} — Inscris-toi sur AthleX ! athlex://tournament/${tournamentId}` })} style={{ position: 'absolute', right: 0, top: 0, padding: 4 }}>
+          <TouchableOpacity onPress={() => Share.share({ message: t('tournament.shareMessage', { name: tournament?.name ?? t('tournament.defaultName'), id: tournamentId }) })} style={{ position: 'absolute', right: 0, top: 0, padding: 4 }}>
             <Share2 color="rgba(255,255,255,0.7)" size={20} />
           </TouchableOpacity>
           <Text style={S.headerTitle} numberOfLines={1}>{tournament.name}</Text>
@@ -357,7 +361,7 @@ export default function TournamentScreen() {
                 color: tournament.status === 'open' ? theme.success
                   : tournament.status === 'active' ? theme.accent : theme.textMuted,
               }]}>
-                {tournament.status === 'open' ? 'Inscriptions' : tournament.status === 'active' ? 'En cours' : 'Terminé'}
+                {tournament.status === 'open' ? t('tournament.badgeOpen') : tournament.status === 'active' ? t('tournament.statusActive') : t('tournament.statusClosed')}
               </Text>
             </View>
           </View>
@@ -381,18 +385,18 @@ export default function TournamentScreen() {
               <View style={[S.myStatusPill, { backgroundColor: `${theme.success}22`, borderColor: `${theme.success}55` }]}>
                 <CheckCircle color={theme.success} size={15} />
                 <Text style={[S.myStatusText, { color: theme.success }]}>
-                  {myScores.length > 0 ? 'Inscrit · score soumis' : 'Tu es inscrit'}
+                  {myScores.length > 0 ? t('tournament.registeredScoreSubmitted') : t('tournament.youAreRegistered')}
                 </Text>
               </View>
             ) : isFull ? (
               <View style={[S.myStatusPill, { backgroundColor: `${theme.error}22`, borderColor: `${theme.error}55` }]}>
                 <Lock color={theme.error} size={15} />
-                <Text style={[S.myStatusText, { color: theme.error }]}>Tournoi complet</Text>
+                <Text style={[S.myStatusText, { color: theme.error }]}>{t('tournament.full')}</Text>
               </View>
             ) : tournament.status === 'open' ? (
               <View style={[S.myStatusPill, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.2)' }]}>
                 <Zap color="rgba(255,255,255,0.85)" size={15} />
-                <Text style={[S.myStatusText, { color: 'rgba(255,255,255,0.85)' }]}>Tu n'es pas encore inscrit</Text>
+                <Text style={[S.myStatusText, { color: 'rgba(255,255,255,0.85)' }]}>{t('tournament.notYetRegistered')}</Text>
               </View>
             ) : null
           )}
@@ -418,13 +422,13 @@ export default function TournamentScreen() {
                 <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}
                   style={[S.tab, activeTab === tab && S.tabActive]}>
                   <Text style={[S.tabText, activeTab === tab && S.tabTextActive]} numberOfLines={1}>
-                    {tab === 'infos'       ? 'Infos'
-                      : tab === 'wods'       ? `WODs (${wods.length})`
-                      : tab === 'participants'? `Participants (${participants.length})`
-                      : tab === 'bracket'    ? 'Bracket'
-                      : tab === 'validate'   ? `⚖️ Valider${pendingCount > 0 ? ` (${pendingCount})` : ''}`
-                      : tournament?.format === 'league_div' ? 'Divisions'
-                      : 'Classement'}
+                    {tab === 'infos'       ? t('tournament.tabInfos')
+                      : tab === 'wods'       ? t('tournament.tabWods', { count: wods.length })
+                      : tab === 'participants'? t('tournament.tabParticipants', { count: participants.length })
+                      : tab === 'bracket'    ? t('tournament.tabBracket')
+                      : tab === 'validate'   ? `⚖️ ${t('tournament.tabValidate')}${pendingCount > 0 ? ` (${pendingCount})` : ''}`
+                      : tournament?.format === 'league_div' ? t('tournament.tabDivisions')
+                      : t('tournament.tabStandings')}
                   </Text>
                 </TouchableOpacity>
               );
@@ -444,23 +448,23 @@ export default function TournamentScreen() {
               const isBracket = fmt === 'bracket' || fmt === 'swiss';
               const isLeague  = fmt === 'league_div';
               const steps = [
-                { key: 'register', emoji: '📝', label: 'Inscription' },
-                { key: 'wod',      emoji: isBracket ? '⚔️' : '🏋️', label: isBracket ? 'Affronte' : 'WODs' },
-                { key: 'score',    emoji: '⏱️', label: 'Score' },
-                { key: 'rank',     emoji: isLeague ? '🔱' : '🏆', label: isLeague ? 'Divisions' : 'Classement' },
+                { key: 'register', emoji: '📝', label: t('tournament.stepRegister') },
+                { key: 'wod',      emoji: isBracket ? '⚔️' : '🏋️', label: isBracket ? t('tournament.stepFight') : t('tournament.stepWods') },
+                { key: 'score',    emoji: '⏱️', label: t('tournament.stepScore') },
+                { key: 'rank',     emoji: isLeague ? '🔱' : '🏆', label: isLeague ? t('tournament.tabDivisions') : t('tournament.tabStandings') },
               ];
               // Current step: 0 = à inscrire, 1 = faire les WODs, 2 = score soumis (suivre le classement)
               const currentIndex = !isRegistered ? 0 : (myScores.length === 0 ? 1 : 2);
               const hint = !isRegistered
-                ? (tournament.status === 'open' ? 'Inscris-toi pour participer.' : 'Les inscriptions sont fermées.')
+                ? (tournament.status === 'open' ? t('tournament.hintRegister') : t('tournament.hintClosed'))
                 : myScores.length === 0
-                  ? (isBracket ? 'Tu es inscrit. Va dans l\'onglet Bracket pour voir ton adversaire, puis soumets ton score.'
-                    : 'Tu es inscrit. Lance les WODs actifs et soumets ton score.')
-                  : (isLeague ? 'Score soumis ! Suis ta position dans ta division.'
-                    : 'Score soumis ! Suis ta progression dans le classement.');
+                  ? (isBracket ? t('tournament.hintBracket')
+                    : t('tournament.hintWods'))
+                  : (isLeague ? t('tournament.hintLeagueDone')
+                    : t('tournament.hintDone'));
               return (
                 <View style={S.card}>
-                  <Text style={S.cardLabel}>COMMENT ÇA MARCHE</Text>
+                  <Text style={S.cardLabel}>{t('tournament.howItWorks')}</Text>
                   <View style={S.stepperRow}>
                     {steps.map((st, i) => {
                       const done   = i < currentIndex;
@@ -497,7 +501,7 @@ export default function TournamentScreen() {
 
             {tournament.description ? (
               <View style={S.card}>
-                <Text style={S.cardLabel}>À PROPOS</Text>
+                <Text style={S.cardLabel}>{t('tournament.about')}</Text>
                 <Text style={S.descText}>{tournament.description}</Text>
               </View>
             ) : null}
@@ -505,29 +509,23 @@ export default function TournamentScreen() {
             {/* Format banner */}
             {(tournament.format === 'bracket' || tournament.format === 'swiss' || tournament.format === 'league_div') && (
               <View style={[S.card, { borderColor: '#A855F740', borderWidth: 1, backgroundColor: 'rgba(168,85,247,0.06)' }]}>
-                <Text style={[S.cardLabel, { color: '#A855F7' }]}>FORMAT</Text>
+                <Text style={[S.cardLabel, { color: '#A855F7' }]}>{t('tournament.format')}</Text>
                 <Text style={[S.descText, { fontWeight: '900' }]}>
-                  {tournament.format === 'bracket' ? '🏆 Bracket — Élimination directe' :
-                   tournament.format === 'swiss'   ? '🏆 Swiss — Double élimination (WB + LB)' :
-                                                     '🏆 Ligue avec divisions — Promotion/relégation'}
+                  {tournament.format === 'bracket' ? t('tournament.formatBracket') :
+                   tournament.format === 'swiss'   ? t('tournament.formatSwiss') :
+                                                     t('tournament.formatLeagueDiv')}
                 </Text>
                 {tournament.require_video_proof && (
                   <Text style={[S.ruleText, { color: '#F59E0B', marginTop: 8 }]}>
-                    📹 Preuve vidéo obligatoire pour la validation des scores.
+                    {t('tournament.videoProofRequired')}
                   </Text>
                 )}
               </View>
             )}
 
             <View style={S.card}>
-              <Text style={S.cardLabel}>RÈGLEMENT</Text>
-              {['📹 Chaque WOD doit être filmé intégralement',
-                '⏱ Score à soumettre dans les 24h après le WOD',
-                '🔗 Lien YouTube requis pour valider le score',
-                '⚖️ Validation par un admin avant publication',
-                '🏆 Classement mis à jour après chaque validation',
-                '⚡ ELO distribué à la clôture du tournoi',
-              ].map((rule, i) => (
+              <Text style={S.cardLabel}>{t('tournament.rules')}</Text>
+              {(t('tournament.rulesList', { returnObjects: true }) as string[]).map((rule, i) => (
                 <Text key={i} style={S.ruleText}>{rule}</Text>
               ))}
             </View>
@@ -537,18 +535,18 @@ export default function TournamentScreen() {
                 disabled={registering} activeOpacity={0.85}>
                 {registering
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? 'Rejoindre la league' : "S'inscrire au tournoi"}</Text></>}
+                  : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? t('tournament.joinLeague') : t('tournament.registerToTournament')}</Text></>}
               </TouchableOpacity>
             )}
             {isRegistered && (
               <View style={S.registeredBlock}>
                 <View style={S.registeredBadge}>
                   <CheckCircle color={theme.success} size={20} />
-                  <Text style={S.registeredText}>Tu participes à ce tournoi ✓</Text>
+                  <Text style={S.registeredText}>{t('tournament.youParticipate')}</Text>
                 </View>
                 {tournament.status === 'open' && (
                   <TouchableOpacity style={S.leaveBtn} onPress={handleLeave} activeOpacity={0.8}>
-                    <Text style={S.leaveBtnText}>Se désinscrire</Text>
+                    <Text style={S.leaveBtnText}>{t('tournament.unregister')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -556,7 +554,7 @@ export default function TournamentScreen() {
             {isFull && !isRegistered && (
               <View style={[S.registeredBadge, { backgroundColor: `${theme.error}15`, borderColor: `${theme.error}30` }]}>
                 <Lock color={theme.error} size={18} />
-                <Text style={[S.registeredText, { color: theme.error }]}>Tournoi complet</Text>
+                <Text style={[S.registeredText, { color: theme.error }]}>{t('tournament.full')}</Text>
               </View>
             )}
           </>
@@ -568,8 +566,8 @@ export default function TournamentScreen() {
             {wods.length === 0 ? (
               <View style={S.emptyState}>
                 <Text style={S.emptyEmoji}>🏋️</Text>
-                <Text style={S.emptyTitle}>WODs à venir</Text>
-                <Text style={S.emptyText}>Les WODs seront publiés prochainement.</Text>
+                <Text style={S.emptyTitle}>{t('tournament.wodsUpcoming')}</Text>
+                <Text style={S.emptyText}>{t('tournament.wodsSoon')}</Text>
               </View>
             ) : wods.map((wod, i) => {
               const myScore = myScores.find(s => s.tournament_wod_id === wod.id);
@@ -584,7 +582,7 @@ export default function TournamentScreen() {
                     <View style={S.wodTypeBadge}><Text style={S.wodTypeText}>{wod.type}</Text></View>
                     {(tournament.format === 'bracket' || tournament.format === 'swiss') && (wod as any).bracket_stage != null && (
                       <View style={S.wodStageBadge}>
-                        <Text style={S.wodStageText}>{bracketStageLabel((wod as any).bracket_stage)}</Text>
+                        <Text style={S.wodStageText}>{bracketStageLabel((wod as any).bracket_stage, t)}</Text>
                       </View>
                     )}
                     {tournament.format === 'league_div' && (() => {
@@ -592,18 +590,18 @@ export default function TournamentScreen() {
                       return (
                         <View style={d ? S.wodDivBadge : S.wodGenBadge}>
                           <Text style={d ? S.wodDivText : S.wodGenText}>
-                            {d ? `🔱 D${d.level} · ${d.name}` : '🌐 Général'}
+                            {d ? `🔱 D${d.level} · ${d.name}` : t('tournament.generalTab')}
                           </Text>
                         </View>
                       );
                     })()}
                     <View style={S.wodDurationRow}>
                       <Clock color={theme.textMuted} size={12} />
-                      <Text style={S.wodDurationText}>{wod.duration_minutes} min</Text>
+                      <Text style={S.wodDurationText}>{t('tournament.minutes', { n: wod.duration_minutes })}</Text>
                     </View>
                     <View style={[S.wodStatusPill, { backgroundColor: `${statusColor}15` }]}>
                       <Text style={[S.wodStatusText, { color: statusColor }]}>
-                        {wodStatusLabel(wod.status)}
+                        {wodStatusLabel(wod.status, t)}
                       </Text>
                     </View>
                   </View>
@@ -623,17 +621,17 @@ export default function TournamentScreen() {
                   {wod.status === 'active' && (
                     <View style={S.deadlineRow}>
                       <Clock color={theme.warning} size={13} />
-                      <Text style={S.deadlineText}>Délai de soumission : {wod.deadline_hours}h</Text>
+                      <Text style={S.deadlineText}>{t('tournament.submissionDeadline', { h: wod.deadline_hours })}</Text>
                     </View>
                   )}
                   {myScore && (
                     <View style={S.myScoreBadge}>
                       <CheckCircle color={theme.success} size={16} />
                       <View style={{ flex: 1 }}>
-                        <Text style={S.myScoreValue}>Score soumis : {myScore.score_value}</Text>
+                        <Text style={S.myScoreValue}>{t('tournament.scoreSubmitted', { value: myScore.score_value })}</Text>
                         <Text style={S.myScoreStatus}>
-                          {myScore.status === 'pending' ? '⏳ En attente de validation'
-                            : myScore.status === 'validated' ? '✅ Validé' : '❌ Rejeté'}
+                          {myScore.status === 'pending' ? t('tournament.pendingValidation')
+                            : myScore.status === 'validated' ? t('tournament.validatedEmoji') : t('tournament.rejectedEmoji')}
                         </Text>
                         {(myScore as any).admin_message ? (
                           <View style={S.adminMsgBox}>
@@ -647,19 +645,19 @@ export default function TournamentScreen() {
                   {canDo && (
                     <TouchableOpacity style={[S.wodActionBtn, S.wodActionBtnInner]} onPress={() => goToWOD(wod)} activeOpacity={0.85}>
                       <Timer color="#fff" size={16} />
-                      <Text style={S.wodActionBtnText}>Lancer le WOD</Text>
+                      <Text style={S.wodActionBtnText}>{t('tournament.launchWod')}</Text>
                     </TouchableOpacity>
                   )}
                   {!isRegistered && wod.status === 'active' && (
                     <TouchableOpacity style={S.wodLockedBtn} onPress={() => setActiveTab('infos')} activeOpacity={0.8}>
                       <Lock color={theme.textMuted} size={14} />
-                      <Text style={S.wodLockedText}>Inscription requise</Text>
+                      <Text style={S.wodLockedText}>{t('tournament.registrationRequired')}</Text>
                     </TouchableOpacity>
                   )}
                   {myScore?.status === 'rejected' && (
                     <TouchableOpacity style={[S.wodActionBtn, S.wodActionBtnRejected]} onPress={() => goToWOD(wod)} activeOpacity={0.85}>
                       <Timer color="#fff" size={16} />
-                      <Text style={S.wodActionBtnText}>Soumettre à nouveau</Text>
+                      <Text style={S.wodActionBtnText}>{t('tournament.submitAgain')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -674,20 +672,20 @@ export default function TournamentScreen() {
             {isAdmin && (
               <View style={S.adminBanner}>
                 <Shield color={theme.accent} size={14} />
-                <Text style={S.adminBannerText}>Mode admin — tu peux exclure des participants</Text>
+                <Text style={S.adminBannerText}>{t('tournament.adminBanner')}</Text>
               </View>
             )}
             {participants.length === 0 ? (
               <View style={S.emptyState}>
                 <Text style={S.emptyEmoji}>👥</Text>
-                <Text style={S.emptyTitle}>Aucun inscrit</Text>
-                <Text style={S.emptyText}>Les inscriptions apparaîtront ici.</Text>
+                <Text style={S.emptyTitle}>{t('tournament.noParticipants')}</Text>
+                <Text style={S.emptyText}>{t('tournament.registrationsHere')}</Text>
               </View>
             ) : participants.map((p: any, i: number) => {
               const isMe = user?.id === p.athlete_id;
               const boxName = p.profile?.box_members?.[0]?.box?.name ?? null;
               const regDate = p.created_at
-                ? new Date(p.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                ? new Date(p.created_at).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
                 : '—';
               const levelColor = LevelColors[p.profile?.level as AthleteLevel] ?? theme.textMuted;
               return (
@@ -700,7 +698,7 @@ export default function TournamentScreen() {
                   <View style={S.partInfo}>
                     <View style={S.partNameRow}>
                       <Text style={[S.partName, isMe && { color: theme.accent }]}>
-                        {p.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
+                        {p.profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                       </Text>
                       {p.profile?.level && (
                         <View style={[S.partLevelBadge, { backgroundColor: `${levelColor}20` }]}>
@@ -718,7 +716,7 @@ export default function TournamentScreen() {
                         <Text style={S.partMetaText}>{boxName}</Text></>
                       )}
                     </View>
-                    <Text style={S.partDate}>Inscrit le {regDate}</Text>
+                    <Text style={S.partDate}>{t('tournament.registeredOn', { date: regDate })}</Text>
                   </View>
                   {isAdmin && !isMe && (
                     <TouchableOpacity style={S.kickBtn}
@@ -754,13 +752,13 @@ export default function TournamentScreen() {
                 ...wods.map((_: any, i: number) => `wod_${i}`),
               ] as string[]).map(tab => {
                 let label = '';
-                if (tab === 'general') label = '🏆 Général';
+                if (tab === 'general') label = t('tournament.generalRankTab');
                 else if (tab.startsWith('div_')) {
                   const d = divisions.find((dd: any) => `div_${dd.id}` === tab);
                   label = d ? `🔱 D${d.level} · ${d.name}` : '';
                 } else {
                   const idx = parseInt(tab.split('_')[1]);
-                  label = `WOD ${idx + 1} — ${wods[idx]?.title ?? ''}`;
+                  label = t('tournament.wodRankTab', { n: idx + 1, title: wods[idx]?.title ?? '' });
                 }
                 return (
                   <TouchableOpacity key={tab} onPress={() => setRankTab(tab)}
@@ -778,8 +776,8 @@ export default function TournamentScreen() {
               participants.length === 0 ? (
                 <View style={S.emptyState}>
                   <Text style={S.emptyEmoji}>🏆</Text>
-                  <Text style={S.emptyTitle}>Classement vide</Text>
-                  <Text style={S.emptyText}>Les scores apparaîtront ici dès les premières validations.</Text>
+                  <Text style={S.emptyTitle}>{t('tournament.emptyStandings')}</Text>
+                  <Text style={S.emptyText}>{t('tournament.emptyStandingsSub')}</Text>
                 </View>
               ) : participants
                   .slice()
@@ -807,7 +805,7 @@ export default function TournamentScreen() {
                     <View style={S.rankInfo}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <Text style={[S.rankName, isMe && { color: theme.accent }]}>
-                          {p.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
+                          {p.profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                         </Text>
                         {myDiv && (
                           <View style={S.divBadge}>
@@ -835,15 +833,15 @@ export default function TournamentScreen() {
               return (
                 <View key={div.id}>
                   <View style={S.wodRankHeader}>
-                    <Text style={S.wodRankHeaderText}>🔱 Division {div.level} — {div.name}</Text>
+                    <Text style={S.wodRankHeaderText}>{t('tournament.divisionHeader', { level: div.level, name: div.name })}</Text>
                     <Text style={S.divSubInfo}>
-                      {ranked.length}/{div.max_members} · {div.promote_count > 0 ? `↑${div.promote_count} promus` : ''} {div.relegate_count > 0 ? `· ↓${div.relegate_count} relégués` : ''}
+                      {ranked.length}/{div.max_members} · {div.promote_count > 0 ? t('tournament.promotedCount', { n: div.promote_count }) : ''} {div.relegate_count > 0 ? t('tournament.relegatedCount', { n: div.relegate_count }) : ''}
                     </Text>
                   </View>
                   {ranked.length === 0 ? (
                     <View style={S.emptyState}>
                       <Text style={S.emptyEmoji}>👥</Text>
-                      <Text style={S.emptyTitle}>Division vide</Text>
+                      <Text style={S.emptyTitle}>{t('tournament.emptyDivision')}</Text>
                     </View>
                   ) : ranked.map((m: any, i: number) => {
                     const isMe = user?.id === m.athlete_id;
@@ -868,16 +866,16 @@ export default function TournamentScreen() {
                         <View style={S.rankInfo}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <Text style={[S.rankName, isMe && { color: theme.accent }]}>
-                              {m.profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
+                              {m.profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                             </Text>
                             {isPromoted && (
                               <View style={[S.divBadge, { backgroundColor: `${theme.success}20`, borderColor: `${theme.success}40` }]}>
-                                <Text style={[S.divBadgeText, { color: theme.success }]}>↑ Promu</Text>
+                                <Text style={[S.divBadgeText, { color: theme.success }]}>{t('tournament.promoted')}</Text>
                               </View>
                             )}
                             {isRelegated && (
                               <View style={[S.divBadge, { backgroundColor: `${theme.error}20`, borderColor: `${theme.error}40` }]}>
-                                <Text style={[S.divBadgeText, { color: theme.error }]}>↓ Relégué</Text>
+                                <Text style={[S.divBadgeText, { color: theme.error }]}>{t('tournament.relegated')}</Text>
                               </View>
                             )}
                           </View>
@@ -900,12 +898,12 @@ export default function TournamentScreen() {
               return (
                 <View key={wod.id}>
                   <View style={S.wodRankHeader}>
-                    <Text style={S.wodRankHeaderText}>WOD {idx + 1} — {wod.title}</Text>
+                    <Text style={S.wodRankHeaderText}>{t('tournament.wodRankTab', { n: idx + 1, title: wod.title })}</Text>
                   </View>
                   {wodScores.length === 0 ? (
                     <View style={S.emptyState}>
                       <Text style={S.emptyEmoji}>📋</Text>
-                      <Text style={S.emptyTitle}>Aucun score validé</Text>
+                      <Text style={S.emptyTitle}>{t('tournament.noValidatedScore')}</Text>
                     </View>
                   ) : wodScores.map((s: any, i: number) => {
                     const profile = participants.find((p: any) => p.athlete_id === s.athlete_id)?.profile;
@@ -928,7 +926,7 @@ export default function TournamentScreen() {
                         />
                         <View style={S.rankInfo}>
                           <Text style={[S.rankName, isMe && { color: theme.accent }]}>
-                            {profile?.username ?? '?'}{isMe ? ' (toi)' : ''}
+                            {profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                           </Text>
                         </View>
                         <Text style={S.rankScore}>{s.score_value}</Text>
@@ -951,24 +949,24 @@ export default function TournamentScreen() {
                 const validated = allScores.filter(s => s.status === 'validated');
                 await recalcLeaderboard(wods, validated);
                 await load();
-                Alert.alert('✅', 'Classement recalculé.');
+                Alert.alert('✅', t('tournament.leaderboardRecalculated'));
               }}
               activeOpacity={0.8}>
               <RotateCcw color={theme.accent} size={13} />
-              <Text style={S.recalcBtnText}>Recalculer le classement</Text>
+              <Text style={S.recalcBtnText}>{t('tournament.recalcLeaderboard')}</Text>
             </TouchableOpacity>
 
             {allScores.length === 0 ? (
               <View style={S.emptyState}>
                 <Text style={S.emptyEmoji}>📋</Text>
-                <Text style={S.emptyTitle}>Aucun score soumis</Text>
-                <Text style={S.emptyText}>Les scores des athlètes apparaîtront ici.</Text>
+                <Text style={S.emptyTitle}>{t('tournament.noScoreSubmitted')}</Text>
+                <Text style={S.emptyText}>{t('tournament.athleteScoresHere')}</Text>
               </View>
             ) : allScores.map(score => {
               const statusColor = score.status === 'validated' ? theme.success
                 : score.status === 'rejected' ? theme.error : theme.warning;
-              const statusLabel = score.status === 'validated' ? '✅ Validé'
-                : score.status === 'rejected' ? '❌ Rejeté' : '⏳ En attente';
+              const statusLabel = score.status === 'validated' ? t('tournament.validatedEmoji')
+                : score.status === 'rejected' ? t('tournament.rejectedEmoji') : t('tournament.pendingEmoji');
               const isProcessing = processing === score.id;
               return (
                 <View key={score.id} style={S.scoreCard}>
@@ -1008,7 +1006,7 @@ export default function TournamentScreen() {
                         activeOpacity={0.8}>
                         {isProcessing
                           ? <ActivityIndicator size="small" color={theme.error} />
-                          : <><XCircle color={theme.error} size={14} /><Text style={[S.scoreBtnText, { color: theme.error }]}>Rejeter</Text></>}
+                          : <><XCircle color={theme.error} size={14} /><Text style={[S.scoreBtnText, { color: theme.error }]}>{t('tournament.reject')}</Text></>}
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[S.scoreBtn, S.scoreBtnValidate]}
@@ -1017,7 +1015,7 @@ export default function TournamentScreen() {
                         activeOpacity={0.8}>
                         {isProcessing
                           ? <ActivityIndicator size="small" color={theme.success} />
-                          : <><CheckCircle color={theme.success} size={14} /><Text style={[S.scoreBtnText, { color: theme.success }]}>Valider</Text></>}
+                          : <><CheckCircle color={theme.success} size={14} /><Text style={[S.scoreBtnText, { color: theme.success }]}>{t('tournament.validate')}</Text></>}
                       </TouchableOpacity>
                     </View>
                   )}

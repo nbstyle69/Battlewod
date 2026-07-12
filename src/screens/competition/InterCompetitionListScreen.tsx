@@ -12,17 +12,13 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'InterCompetitionList'>;
 
-const FORMAT_LABEL: Record<string, string> = {
-  league: 'Ligue', bracket: 'Élimination', pool: 'Poules', swiss: 'Suisse',
-};
 const STATUS_COLOR: Record<string, string> = {
   open: '#22C55E', active: '#C9A227', closed: '#6B7280',
-};
-const STATUS_LABEL: Record<string, string> = {
-  open: 'Inscriptions ouvertes', active: 'En cours', closed: 'Terminé',
 };
 
 interface InterComp {
@@ -44,6 +40,15 @@ export default function InterCompetitionListScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
+  const FORMAT_LABEL: Record<string, string> = {
+    league: t('interComp.formatLeague'), bracket: t('interComp.formatBracket'),
+    pool: t('interComp.formatPool'), swiss: t('interComp.formatSwiss'),
+  };
+  const STATUS_LABEL: Record<string, string> = {
+    open: t('interComp.statusOpen'), active: t('interComp.statusActive'), closed: t('interComp.statusClosed'),
+  };
   const S = createStyles(theme);
 
   const [comps, setComps] = useState<InterComp[]>([]);
@@ -86,8 +91,8 @@ export default function InterCompetitionListScreen() {
           <ChevronRight size={22} color={theme.textMuted} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
         <View>
-          <Text style={S.headerTitle}>Compétitions Inter-box</Text>
-          <Text style={S.headerSub}>Affronte les meilleurs de toutes les box</Text>
+          <Text style={S.headerTitle}>{t('interComp.title')}</Text>
+          <Text style={S.headerSub}>{t('interComp.subtitle')}</Text>
         </View>
       </View>
 
@@ -102,8 +107,8 @@ export default function InterCompetitionListScreen() {
           {comps.length === 0 ? (
             <View style={S.empty}>
               <Globe2 size={48} color={theme.textMuted} />
-              <Text style={S.emptyTitle}>Aucune compétition disponible</Text>
-              <Text style={S.emptyText}>Les prochaines compétitions inter-box apparaîtront ici.</Text>
+              <Text style={S.emptyTitle}>{t('interComp.noCompetition')}</Text>
+              <Text style={S.emptyText}>{t('interComp.noCompetitionHint')}</Text>
             </View>
           ) : (
             comps.map(c => {
@@ -133,7 +138,7 @@ export default function InterCompetitionListScreen() {
                         </View>
                         <View style={[S.badge, { backgroundColor: theme.surface }]}>
                           <Text style={[S.badgeText, { color: theme.textMuted }]}>
-                            {c.type === 'individual' ? 'Individuel' : `Équipe ×${c.team_size}`}
+                            {c.type === 'individual' ? t('interComp.individual') : t('interComp.team', { n: c.team_size })}
                           </Text>
                         </View>
                       </View>
@@ -148,18 +153,18 @@ export default function InterCompetitionListScreen() {
                     <View style={S.footerItem}>
                       <Users size={12} color={theme.textMuted} />
                       <Text style={S.footerText}>
-                        {c.reg_count}{c.max_participants ? `/${c.max_participants}` : ''} inscrits
+                        {t('interComp.registered', { count: `${c.reg_count}${c.max_participants ? `/${c.max_participants}` : ''}` })}
                       </Text>
                     </View>
                     {c.starts_at && (
                       <View style={S.footerItem}>
                         <Calendar size={12} color={theme.textMuted} />
-                        <Text style={S.footerText}>{new Date(c.starts_at).toLocaleDateString('fr-FR')}</Text>
+                        <Text style={S.footerText}>{new Date(c.starts_at).toLocaleDateString(dateLocale)}</Text>
                       </View>
                     )}
                     {c.my_registration && (
                       <View style={[S.badge, { backgroundColor: `${theme.accent}20` }]}>
-                        <Text style={[S.badgeText, { color: theme.accent }]}>✓ Inscrit</Text>
+                        <Text style={[S.badgeText, { color: theme.accent }]}>{t('interComp.registeredBadge')}</Text>
                       </View>
                     )}
                     <ChevronRight size={16} color={theme.textMuted} style={{ marginLeft: 'auto' as any }} />

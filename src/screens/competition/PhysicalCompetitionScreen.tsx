@@ -14,6 +14,7 @@ import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList, TimerType } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'PhysicalCompetition'>;
 
@@ -70,6 +71,7 @@ const MODE_COLORS: Record<string, string> = {
 
 export default function PhysicalCompetitionScreen() {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<CompetitionStackParamList, 'PhysicalCompetition'>>();
   const modeFilter = route.params.mode;
@@ -173,7 +175,7 @@ export default function PhysicalCompetitionScreen() {
               ) : null}
             </View>
           </View>
-          <TouchableOpacity onPress={() => Share.share({ message: `${selected.name} — Découvre cette compétition sur AthleX ! athlex://inter/${selected.id}` })} style={{ padding: 4 }}>
+          <TouchableOpacity onPress={() => Share.share({ message: t('phys.shareMessage', { name: selected.name, id: selected.id }) })} style={{ padding: 4 }}>
             <Share2 color={theme.text} size={20} />
           </TouchableOpacity>
           {selected.logo_url ? (
@@ -186,12 +188,12 @@ export default function PhysicalCompetitionScreen() {
           <View style={[S.modeBadge, { backgroundColor: `${modeColor}20` }]}>
             {isQualif ? <Zap color={modeColor} size={11} /> : <Info color={modeColor} size={11} />}
             <Text style={[S.modeBadgeTxt, { color: modeColor }]}>
-              {isQualif ? 'Qualification en ligne' : 'Sans qualification'}
+              {isQualif ? t('phys.qualifBadge') : t('phys.noQualifBadge')}
             </Text>
           </View>
           <View style={[S.modeBadge, { backgroundColor: `${theme.textMuted}15` }]}>
             <Text style={[S.modeBadgeTxt, { color: theme.textMuted }]}>
-              {selected.format === 'team' ? 'Équipe' : 'Individuel'}
+              {selected.format === 'team' ? t('phys.team') : t('phys.individual')}
             </Text>
           </View>
           {selected.price ? (
@@ -216,7 +218,7 @@ export default function PhysicalCompetitionScreen() {
             activeOpacity={0.85}
           >
             <ExternalLink color="#fff" size={16} />
-            <Text style={S.registerBtnTxt}>S'INSCRIRE À L'ÉVÉNEMENT</Text>
+            <Text style={S.registerBtnTxt}>{t('phys.registerEvent')}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -229,7 +231,7 @@ export default function PhysicalCompetitionScreen() {
             <View style={S.emptyBox}>
               <Text style={S.emptyEmoji}>{isQualif ? '🏋️' : '📋'}</Text>
               <Text style={S.emptyText}>
-                {isQualif ? 'Les WODs seront bientôt disponibles.' : 'Aucun WOD renseigné pour cette compétition.'}
+                {isQualif ? t('phys.wodsSoon') : t('phys.noWod')}
               </Text>
             </View>
           }
@@ -248,15 +250,15 @@ export default function PhysicalCompetitionScreen() {
                 <View style={[S.timerBadge, { backgroundColor: `${modeColor}20` }]}>
                   <Clock color={modeColor} size={11} />
                   <Text style={[S.timerBadgeTxt, { color: modeColor }]}>
-                    {TIMER_TYPES.find(t => t.key === wod.timer_type)?.label ?? wod.timer_type}
+                    {TIMER_TYPES.find(tt => tt.key === wod.timer_type)?.label ?? wod.timer_type}
                     {' · '}
-                    {Math.round((wod.total_seconds || 0) / 60)} min
+                    {t('phys.minutes', { n: Math.round((wod.total_seconds || 0) / 60) })}
                   </Text>
                 </View>
                 {wod.with_camera && (
                   <View style={[S.timerBadge, { backgroundColor: '#EF444420' }]}>
                     <Video color="#EF4444" size={11} />
-                    <Text style={[S.timerBadgeTxt, { color: '#EF4444' }]}>Caméra</Text>
+                    <Text style={[S.timerBadgeTxt, { color: '#EF4444' }]}>{t('phys.camera')}</Text>
                   </View>
                 )}
               </View>
@@ -269,13 +271,13 @@ export default function PhysicalCompetitionScreen() {
                   <View style={[S.launchBtn, { backgroundColor: theme.textMuted + '30' }]}>
                     <Clock color={theme.textMuted} size={15} />
                     <Text style={[S.launchBtnTxt, { color: theme.textMuted }]}>
-                      {before ? `Disponible le ${selected.start_date}` : 'Période terminée'}
+                      {before ? t('phys.availableOn', { date: selected.start_date }) : t('phys.periodEnded')}
                     </Text>
                   </View>
                 ) : (
                   <TouchableOpacity style={[S.launchBtn, { backgroundColor: modeColor }]} onPress={() => launchWOD(wod, selected)} activeOpacity={0.85}>
                     <Play color="#fff" size={15} />
-                    <Text style={S.launchBtnTxt}>LANCER CE WOD</Text>
+                    <Text style={S.launchBtnTxt}>{t('phys.launchWod')}</Text>
                   </TouchableOpacity>
                 );
               })()}
@@ -311,10 +313,10 @@ export default function PhysicalCompetitionScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={S.headerTitle}>
-            {isQualifList ? 'Qualification en Ligne' : 'Sans Qualification'}
+            {isQualifList ? t('phys.qualifTitle') : t('phys.noQualifTitle')}
           </Text>
           <Text style={S.headerSub}>
-            {isQualifList ? 'WODs avec caméra · Score en ligne' : 'Événements · Inscription externe'}
+            {isQualifList ? t('phys.qualifSub') : t('phys.noQualifSub')}
           </Text>
         </View>
       </View>
@@ -323,7 +325,7 @@ export default function PhysicalCompetitionScreen() {
         <Search color={theme.textMuted} size={16} />
         <TextInput
           style={S.searchInput}
-          placeholder="Rechercher une compétition..."
+          placeholder={t('phys.searchPlaceholder')}
           placeholderTextColor={theme.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -333,9 +335,9 @@ export default function PhysicalCompetitionScreen() {
 
       <View style={S.filterRow}>
         {[
-          { key: 'all',        label: 'Tout' },
-          { key: 'individual', label: 'Individuel' },
-          { key: 'team',       label: 'Équipe' },
+          { key: 'all',        label: t('phys.filterAll') },
+          { key: 'individual', label: t('phys.individual') },
+          { key: 'team',       label: t('phys.team') },
         ].map(f => (
           <TouchableOpacity
             key={f.key}
@@ -352,7 +354,7 @@ export default function PhysicalCompetitionScreen() {
           activeOpacity={0.7}
         >
           <DollarSign size={12} color={filterPrice ? '#fff' : theme.textMuted} />
-          <Text style={[S.filterChipTxt, filterPrice && S.filterChipTxtActive]}>Prix</Text>
+          <Text style={[S.filterChipTxt, filterPrice && S.filterChipTxtActive]}>{t('phys.filterPrice')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -370,8 +372,8 @@ export default function PhysicalCompetitionScreen() {
               <Text style={S.emptyEmoji}>{isQualifList ? '�️' : '📋'}</Text>
               <Text style={S.emptyText}>
                 {isQualifList
-                  ? 'Aucune compétition avec qualification en ligne disponible.'
-                  : 'Aucune compétition informative disponible.'}
+                  ? t('phys.emptyQualif')
+                  : t('phys.emptyInfo')}
               </Text>
             </View>
           }
@@ -388,7 +390,7 @@ export default function PhysicalCompetitionScreen() {
                     <View style={[S.compBadges]}>
                       <View style={[S.statusBadge, { backgroundColor: `${STATUS_COLORS[comp.status]}20` }]}>
                         <Text style={[S.statusTxt, { color: STATUS_COLORS[comp.status] }]}>
-                          {comp.status === 'open' ? '🟢 Ouvert' : comp.status === 'active' ? '🔴 Live' : '⚫ Fermé'}
+                          {comp.status === 'open' ? t('phys.statusOpen') : comp.status === 'active' ? t('phys.statusLive') : t('phys.statusClosed')}
                         </Text>
                       </View>
                     </View>
@@ -408,7 +410,7 @@ export default function PhysicalCompetitionScreen() {
                       <Zap color={modeColor} size={12} />
                     )}
                     <Text style={[S.metaTxt, { color: modeColor }]}>
-                      {isQualifList ? 'Voir les WODs' : 'Voir les détails'}
+                      {isQualifList ? t('phys.seeWods') : t('phys.seeDetails')}
                     </Text>
                   </View>
                   <ChevronRight color={theme.textMuted} size={16} />

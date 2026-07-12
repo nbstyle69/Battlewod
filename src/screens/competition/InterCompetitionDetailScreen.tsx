@@ -17,15 +17,13 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 import { trackInterCompRegister, trackInterCompScoreSubmit } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
 type Route = RouteProp<CompetitionStackParamList, 'InterCompetitionDetail'>;
 
 type Tab = 'Infos' | 'WODs' | 'Inscription' | 'Classement' | 'Bracket' | 'Ligue' | 'Poules' | 'Suisse';
-
-const FORMAT_LABEL: Record<string, string> = {
-  league: 'Ligue', bracket: 'Élimination', pool: 'Poules', swiss: 'Suisse',
-};
 
 export default function InterCompetitionDetailScreen() {
   const navigation = useNavigation<Nav>();
@@ -33,7 +31,26 @@ export default function InterCompetitionDetailScreen() {
   const { competitionId } = route.params;
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
+  const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
+
+  const FORMAT_LABEL: Record<string, string> = {
+    league: t('interComp.formatLeague'),
+    bracket: t('interComp.formatBracket'),
+    pool: t('interComp.formatPool'),
+    swiss: t('interComp.formatSwiss'),
+  };
+  const TAB_LABEL: Record<Tab, string> = {
+    Infos: t('interDetail.tabInfos'),
+    WODs: t('interDetail.tabWods'),
+    Inscription: t('interDetail.tabRegistration'),
+    Classement: t('interDetail.tabStandings'),
+    Bracket: t('interComp.formatBracket'),
+    Ligue: t('interComp.formatLeague'),
+    Poules: t('interComp.formatPool'),
+    Suisse: t('interComp.formatSwiss'),
+  };
 
   const [tab, setTab] = useState<Tab>('Infos');
   const [comp, setComp]               = useState<any>(null);
@@ -208,7 +225,7 @@ export default function InterCompetitionDetailScreen() {
       box_id: null,
     });
     if (error) {
-      Alert.alert('Erreur', error.code === '23505' ? 'Tu es déjà inscrit.' : error.message);
+      Alert.alert(t('common.error'), error.code === '23505' ? t('interDetail.alreadyRegistered') : error.message);
     } else {
       trackInterCompRegister(competitionId, comp?.format ?? 'unknown');
       await load();
@@ -218,10 +235,10 @@ export default function InterCompetitionDetailScreen() {
 
   async function handleUnregister() {
     if (!myReg) return;
-    Alert.alert('Se désinscrire', 'Es-tu sûr de vouloir te désinscrire ?', [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('interDetail.unregister'), t('interDetail.unregisterConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Confirmer', style: 'destructive',
+        text: t('common.confirm'), style: 'destructive',
         onPress: async () => {
           await supabase.from('inter_registrations').delete().eq('id', myReg.id);
           await load();
@@ -243,7 +260,7 @@ export default function InterCompetitionDetailScreen() {
   if (!comp) return (
     <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
       <GlassBackground />
-      <Text style={{ color: theme.textMuted }}>Compétition introuvable.</Text>
+      <Text style={{ color: theme.textMuted }}>{t('interDetail.notFound')}</Text>
     </View>
   );
 
@@ -263,7 +280,7 @@ export default function InterCompetitionDetailScreen() {
         <View style={{ flex: 1 }}>
           <Text style={S.headerTitle} numberOfLines={1}>{comp.title}</Text>
           <Text style={S.headerSub}>
-            {FORMAT_LABEL[comp.format] ?? comp.format} · {comp.type === 'individual' ? 'Individuel' : `Équipe ×${comp.team_size}`}
+            {FORMAT_LABEL[comp.format] ?? comp.format} · {comp.type === 'individual' ? t('interComp.individual') : t('interComp.team', { n: comp.team_size })}
           </Text>
         </View>
       </View>
@@ -277,9 +294,9 @@ export default function InterCompetitionDetailScreen() {
           ...(comp?.format === 'league' ? ['Ligue' as Tab] : []),
           ...(comp?.format === 'pool' ? ['Poules' as Tab] : []),
           'Classement',
-        ] as Tab[]).map(t => (
-          <TouchableOpacity key={t} style={[S.tabItem, tab === t && S.tabActive]} onPress={() => setTab(t)}>
-            <Text style={[S.tabText, tab === t && S.tabTextActive]}>{t}</Text>
+        ] as Tab[]).map(tabKey => (
+          <TouchableOpacity key={tabKey} style={[S.tabItem, tab === tabKey && S.tabActive]} onPress={() => setTab(tabKey)}>
+            <Text style={[S.tabText, tab === tabKey && S.tabTextActive]}>{TAB_LABEL[tabKey]}</Text>
           </TouchableOpacity>
         ))}
         </ScrollView>
@@ -296,20 +313,20 @@ export default function InterCompetitionDetailScreen() {
           <View style={{ gap: 16 }}>
             {comp.description ? (
               <View style={S.infoCard}>
-                <Text style={S.infoLabel}>À propos</Text>
+                <Text style={S.infoLabel}>{t('interDetail.about')}</Text>
                 <Text style={S.infoText}>{comp.description}</Text>
               </View>
             ) : null}
 
             <View style={S.infoCard}>
-              <Text style={S.infoLabel}>Détails</Text>
+              <Text style={S.infoLabel}>{t('interDetail.details')}</Text>
               <View style={{ gap: 10, marginTop: 4 }}>
                 {[
-                  { icon: Trophy,   label: 'Format',    val: FORMAT_LABEL[comp.format] ?? comp.format },
-                  { icon: Users,    label: 'Type',      val: comp.type === 'individual' ? 'Individuel' : `Équipe de ${comp.team_size}` },
-                  { icon: Users,    label: 'Inscrits',  val: comp.max_participants ? `${myReg ? '✓ ' : ''}/ ${comp.max_participants} max` : 'Illimité' },
-                  { icon: Calendar, label: 'Début',     val: comp.starts_at ? new Date(comp.starts_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
-                  { icon: Calendar, label: 'Fin',       val: comp.ends_at   ? new Date(comp.ends_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
+                  { icon: Trophy,   label: t('interDetail.format'),    val: FORMAT_LABEL[comp.format] ?? comp.format },
+                  { icon: Users,    label: t('interDetail.type'),      val: comp.type === 'individual' ? t('interComp.individual') : t('interDetail.teamOf', { n: comp.team_size }) },
+                  { icon: Users,    label: t('interDetail.registered'),  val: comp.max_participants ? `${myReg ? '✓ ' : ''}/ ${comp.max_participants} max` : t('interDetail.unlimited') },
+                  { icon: Calendar, label: t('interDetail.start'),     val: comp.starts_at ? new Date(comp.starts_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
+                  { icon: Calendar, label: t('interDetail.end'),       val: comp.ends_at   ? new Date(comp.ends_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
                 ].map(({ icon: Icon, label, val }) => (
                   <View key={label} style={S.detailRow}>
                     <Icon size={14} color={theme.textMuted} />
@@ -322,7 +339,7 @@ export default function InterCompetitionDetailScreen() {
 
             {comp.rules ? (
               <View style={S.infoCard}>
-                <Text style={S.infoLabel}>Règlement</Text>
+                <Text style={S.infoLabel}>{t('interDetail.rules')}</Text>
                 <Text style={S.infoText}>{comp.rules}</Text>
               </View>
             ) : null}
@@ -335,7 +352,7 @@ export default function InterCompetitionDetailScreen() {
             {wods.length === 0 ? (
               <View style={S.empty}>
                 <Dumbbell size={40} color={theme.textMuted} />
-                <Text style={S.emptyText}>Les WODs seront révélés prochainement.</Text>
+                <Text style={S.emptyText}>{t('interDetail.wodsSoon')}</Text>
               </View>
             ) : (
               wods.map(w => {
@@ -349,11 +366,11 @@ export default function InterCompetitionDetailScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[S.wodTitle, !revealed && { color: theme.textMuted }]}>
-                          {revealed ? w.title : `WOD ${w.order_index} — Non révélé`}
+                          {revealed ? w.title : t('interDetail.wodNotRevealed', { n: w.order_index })}
                         </Text>
                         {!revealed && w.revealed_at ? (
                           <Text style={S.wodRevealDate}>
-                            Révélé le {new Date(w.revealed_at).toLocaleString('fr-FR')}
+                            {t('interDetail.revealedOn', { date: new Date(w.revealed_at).toLocaleString(dateLocale) })}
                           </Text>
                         ) : null}
                       </View>
@@ -369,7 +386,7 @@ export default function InterCompetitionDetailScreen() {
                         {w.time_cap ? (
                           <View style={S.metaChip}>
                             <Clock size={11} color={theme.textMuted} />
-                            <Text style={S.metaChipText}>{w.time_cap} min cap</Text>
+                            <Text style={S.metaChipText}>{t('interDetail.minCap', { n: w.time_cap })}</Text>
                           </View>
                         ) : null}
                         <View style={S.metaChip}>
@@ -386,7 +403,7 @@ export default function InterCompetitionDetailScreen() {
                             {myScore.score_display ?? myScore.score_value}
                           </Text>
                           <Text style={[S.scoreChipStatus, { color: myScore.status === 'validated' ? theme.success : myScore.status === 'rejected' ? theme.error : theme.textMuted }]}>
-                            {myScore.status === 'validated' ? '✓ Validé' : myScore.status === 'rejected' ? '✗ Rejeté' : '⏳ En attente'}
+                            {myScore.status === 'validated' ? t('interDetail.validated') : myScore.status === 'rejected' ? t('interDetail.rejected') : t('interDetail.pending')}
                           </Text>
                         </View>
                       ) : comp.status !== 'closed' ? (
@@ -404,7 +421,7 @@ export default function InterCompetitionDetailScreen() {
                           })}
                         >
                           <Trophy size={15} color="#fff" />
-                          <Text style={S.submitBtnText}>Soumettre mon score</Text>
+                          <Text style={S.submitBtnText}>{t('interDetail.submitScore')}</Text>
                         </TouchableOpacity>
                       ) : null
                     )}
@@ -425,16 +442,16 @@ export default function InterCompetitionDetailScreen() {
                   <View style={S.registeredCard}>
                     <CheckCircle2 size={28} color={theme.success} />
                     <View style={{ flex: 1 }}>
-                      <Text style={S.registeredTitle}>Équipe « {myTeam.name} »</Text>
-                      <Text style={S.registeredSub}>Tu es capitaine de cette équipe.</Text>
+                      <Text style={S.registeredTitle}>{t('interDetail.teamNamed', { name: myTeam.name })}</Text>
+                      <Text style={S.registeredSub}>{t('interDetail.youAreCaptain')}</Text>
                     </View>
                   </View>
                 ) : myReg ? (
                   <View style={S.registeredCard}>
                     <CheckCircle2 size={28} color={theme.success} />
                     <View style={{ flex: 1 }}>
-                      <Text style={S.registeredTitle}>Tu es dans une équipe !</Text>
-                      <Text style={S.registeredSub}>Consulte l'onglet WODs pour soumettre tes scores.</Text>
+                      <Text style={S.registeredTitle}>{t('interDetail.inATeam')}</Text>
+                      <Text style={S.registeredSub}>{t('interDetail.checkWodsTab')}</Text>
                     </View>
                   </View>
                 ) : null}
@@ -445,7 +462,7 @@ export default function InterCompetitionDetailScreen() {
                     onPress={() => navigation.navigate('InterTeam', { competitionId, teamSize: comp.team_size })}
                   >
                     <UserPlus size={18} color="#fff" />
-                    <Text style={S.registerBtnText}>{myTeam ? 'Gérer mon équipe' : 'Créer / rejoindre une équipe'}</Text>
+                    <Text style={S.registerBtnText}>{myTeam ? t('interDetail.manageTeam') : t('interDetail.createJoinTeam')}</Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -455,8 +472,8 @@ export default function InterCompetitionDetailScreen() {
                 <View style={S.registeredCard}>
                   <CheckCircle2 size={28} color={theme.success} />
                   <View style={{ flex: 1 }}>
-                    <Text style={S.registeredTitle}>Tu es inscrit !</Text>
-                    <Text style={S.registeredSub}>Consulte l'onglet WODs pour soumettre tes scores.</Text>
+                    <Text style={S.registeredTitle}>{t('interDetail.youAreRegistered')}</Text>
+                    <Text style={S.registeredSub}>{t('interDetail.checkWodsTab')}</Text>
                   </View>
                 </View>
               ) : canRegister ? (
@@ -465,28 +482,22 @@ export default function InterCompetitionDetailScreen() {
                     ? <ActivityIndicator color="#fff" />
                     : <>
                       <Globe2 size={18} color="#fff" />
-                      <Text style={S.registerBtnText}>S'inscrire à cette compétition</Text>
+                      <Text style={S.registerBtnText}>{t('interDetail.registerToComp')}</Text>
                     </>
                   }
                 </TouchableOpacity>
               ) : (
                 <View style={S.closedBox}>
                   <XCircle size={28} color={theme.textMuted} />
-                  <Text style={S.closedText}>Les inscriptions sont fermées.</Text>
+                  <Text style={S.closedText}>{t('interDetail.registrationsClosed')}</Text>
                 </View>
               )
             )}
 
             <View style={S.infoCard}>
-              <Text style={S.infoLabel}>Comment ça marche</Text>
+              <Text style={S.infoLabel}>{t('interDetail.howItWorks')}</Text>
               <View style={{ gap: 8, marginTop: 4 }}>
-                {[
-                  '1. Inscris-toi ci-dessus',
-                  '2. Les 3 WODs seront révélés progressivement',
-                  '3. Lance le timer, filme ta performance',
-                  '4. Soumets ton score + vidéo YouTube',
-                  '5. Le Super Admin valide — le classement se met à jour',
-                ].map(step => (
+                {(t('interDetail.howSteps', { returnObjects: true }) as string[]).map(step => (
                   <Text key={step} style={S.infoText}>{step}</Text>
                 ))}
               </View>
@@ -494,7 +505,7 @@ export default function InterCompetitionDetailScreen() {
 
             {myReg && comp.status !== 'closed' && (
               <TouchableOpacity style={S.unregisterBtn} activeOpacity={0.8} onPress={handleUnregister}>
-                <Text style={S.unregisterBtnText}>Se désinscrire</Text>
+                <Text style={S.unregisterBtnText}>{t('interDetail.unregister')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -506,7 +517,7 @@ export default function InterCompetitionDetailScreen() {
             {bracketMatches.length === 0 ? (
               <View style={S.empty}>
                 <GitBranch size={40} color={theme.textMuted} />
-                <Text style={S.emptyText}>Le bracket n'a pas encore été généré.</Text>
+                <Text style={S.emptyText}>{t('interDetail.bracketNotGenerated')}</Text>
               </View>
             ) : (
               Object.entries(
@@ -516,7 +527,7 @@ export default function InterCompetitionDetailScreen() {
                 }, {})
               ).sort(([a], [b]) => Number(a) - Number(b)).map(([round, matches]) => (
                 <View key={round} style={S.infoCard}>
-                  <Text style={S.infoLabel}>Round {round}</Text>
+                  <Text style={S.infoLabel}>{t('interDetail.round', { n: round })}</Text>
                   {(matches as any[]).map((match: any) => {
                     const isMyMatch = user && (match.participant1_id === user.id || match.participant2_id === user.id);
                     const iWon = match.winner_id === user?.id;
@@ -548,12 +559,12 @@ export default function InterCompetitionDetailScreen() {
                         </View>
                         {match.status === 'completed' && (
                           <Text style={{ fontSize: 11, color: theme.success, textAlign: 'center', marginTop: 6, fontWeight: '700' }}>
-                            Gagnant : {match.winner_id === match.participant1_id ? match.p1_username : match.p2_username}
+                            {t('interDetail.winner', { name: match.winner_id === match.participant1_id ? match.p1_username : match.p2_username })}
                           </Text>
                         )}
                         {match.status === 'bye' && (
                           <Text style={{ fontSize: 11, color: theme.textMuted, textAlign: 'center', marginTop: 4, fontStyle: 'italic' }}>
-                            BYE — avance automatiquement
+                            {t('interDetail.byeAdvance')}
                           </Text>
                         )}
                         {isMyMatch && match.status === 'pending' && comp.status !== 'closed' && (
@@ -562,7 +573,7 @@ export default function InterCompetitionDetailScreen() {
                             activeOpacity={0.8}
                             onPress={() => {
                               const matchWod = wods.find(w => w.id === match.wod_id) ?? wods[0];
-                              if (!matchWod) { Alert.alert('Aucun WOD', 'Aucun WOD assigné à ce match.'); return; }
+                              if (!matchWod) { Alert.alert(t('interDetail.noWodTitle'), t('interDetail.noWodMsg')); return; }
                               navigation.navigate('InterScoreSubmit', {
                                 competitionId,
                                 wodId: matchWod.id,
@@ -575,7 +586,7 @@ export default function InterCompetitionDetailScreen() {
                             }}
                           >
                             <Trophy size={15} color="#fff" />
-                            <Text style={S.submitBtnText}>Soumettre mon score</Text>
+                            <Text style={S.submitBtnText}>{t('interDetail.submitScore')}</Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -592,9 +603,9 @@ export default function InterCompetitionDetailScreen() {
           <View style={{ gap: 16 }}>
             {/* League standings */}
             <View style={S.infoCard}>
-              <Text style={S.infoLabel}>Classement Ligue</Text>
+              <Text style={S.infoLabel}>{t('interDetail.leagueStandings')}</Text>
               {leagueStandings.length === 0 ? (
-                <Text style={S.infoText}>Aucun classement disponible — les points seront calculés après chaque journée.</Text>
+                <Text style={S.infoText}>{t('interDetail.noLeagueStandings')}</Text>
               ) : (
                 leagueStandings.map((s: any, i: number) => (
                   <View key={s.id} style={[S.rankRow, s.athlete_id === user?.id && { backgroundColor: `${theme.accent}10` }]}>
@@ -605,11 +616,11 @@ export default function InterCompetitionDetailScreen() {
                     </Text>
                     <View style={{ flex: 1 }}>
                       <Text style={[S.rankName, s.athlete_id === user?.id && { color: theme.accent }]}>
-                        {s.username ?? '—'}{s.athlete_id === user?.id ? ' (moi)' : ''}
+                        {s.username ?? '—'}{s.athlete_id === user?.id ? t('interDetail.meSuffix') : ''}
                       </Text>
-                      <Text style={S.rankBox}>{s.wins}V · {s.podiums}P · {s.rounds_played} journées</Text>
+                      <Text style={S.rankBox}>{t('interDetail.leagueRecord', { wins: s.wins, podiums: s.podiums, rounds: s.rounds_played })}</Text>
                     </View>
-                    <Text style={S.rankScore}>{s.total_points} pts</Text>
+                    <Text style={S.rankScore}>{t('interDetail.points', { n: s.total_points })}</Text>
                   </View>
                 ))
               )}
@@ -617,9 +628,9 @@ export default function InterCompetitionDetailScreen() {
 
             {/* League rounds */}
             <View style={S.infoCard}>
-              <Text style={S.infoLabel}>Journées ({leagueRounds.length})</Text>
+              <Text style={S.infoLabel}>{t('interDetail.rounds', { count: leagueRounds.length })}</Text>
               {leagueRounds.length === 0 ? (
-                <Text style={S.infoText}>Aucune journée programmée.</Text>
+                <Text style={S.infoText}>{t('interDetail.noRounds')}</Text>
               ) : (
                 leagueRounds.map((r: any) => {
                   const roundWod = wods.find(w => w.id === r.wod_id);
@@ -627,7 +638,7 @@ export default function InterCompetitionDetailScreen() {
                     <View key={r.id} style={[S.leagueRoundCard]}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
-                          {r.title ?? `Journée ${r.round_number}`}
+                          {r.title ?? t('interDetail.roundDay', { n: r.round_number })}
                         </Text>
                         <View style={[S.leagueStatusBadge, {
                           backgroundColor: r.status === 'completed' ? `${theme.success}20` : `${theme.accent}20`,
@@ -635,13 +646,13 @@ export default function InterCompetitionDetailScreen() {
                           <Text style={[S.leagueStatusText, {
                             color: r.status === 'completed' ? theme.success : theme.accent,
                           }]}>
-                            {r.status === 'completed' ? 'Terminé' : r.status === 'active' ? 'En cours' : 'À venir'}
+                            {r.status === 'completed' ? t('interDetail.statusCompleted') : r.status === 'active' ? t('interDetail.statusActive') : t('interDetail.statusUpcoming')}
                           </Text>
                         </View>
                       </View>
                       {roundWod && (
                         <Text style={{ fontSize: 12, color: theme.textMuted, marginTop: 4 }}>
-                          WOD : {roundWod.title}
+                          {t('interDetail.wodLabel', { title: roundWod.title })}
                         </Text>
                       )}
                     </View>
@@ -658,7 +669,7 @@ export default function InterCompetitionDetailScreen() {
             {poolGroups.length === 0 ? (
               <View style={S.empty}>
                 <Users size={40} color={theme.textMuted} />
-                <Text style={S.emptyText}>Les poules n'ont pas encore été générées.</Text>
+                <Text style={S.emptyText}>{t('interDetail.poolsNotGenerated')}</Text>
               </View>
             ) : (
               poolGroups.map((group: any) => {
@@ -668,7 +679,7 @@ export default function InterCompetitionDetailScreen() {
                 return (
                   <View key={group.id} style={[S.infoCard, myGroup && { borderColor: theme.accent, borderWidth: 1.5 }]}>
                     <Text style={S.infoLabel}>
-                      {group.group_name}{myGroup ? ' (ma poule)' : ''}
+                      {group.group_name}{myGroup ? t('interDetail.myPoolSuffix') : ''}
                     </Text>
                     {/* Group standings */}
                     {members.map((m: any, i: number) => (
@@ -680,18 +691,18 @@ export default function InterCompetitionDetailScreen() {
                         </Text>
                         <View style={{ flex: 1 }}>
                           <Text style={[S.rankName, m.athlete_id === user?.id && { color: theme.accent }]}>
-                            {m.username ?? '—'}{m.athlete_id === user?.id ? ' (moi)' : ''}
+                            {m.username ?? '—'}{m.athlete_id === user?.id ? t('interDetail.meSuffix') : ''}
                           </Text>
-                          <Text style={S.rankBox}>{m.wins}V {m.draws}N {m.losses}D · Diff: {m.score_for - m.score_against > 0 ? '+' : ''}{m.score_for - m.score_against}</Text>
+                          <Text style={S.rankBox}>{t('interDetail.poolRecord', { wins: m.wins, draws: m.draws, losses: m.losses, diff: `${m.score_for - m.score_against > 0 ? '+' : ''}${m.score_for - m.score_against}` })}</Text>
                         </View>
-                        <Text style={S.rankScore}>{m.points} pts</Text>
+                        <Text style={S.rankScore}>{t('interDetail.points', { n: m.points })}</Text>
                       </View>
                     ))}
 
                     {/* Group matches */}
                     <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 10 }}>
                       <Text style={{ fontSize: 11, fontWeight: '800', color: theme.textMuted, marginBottom: 6 }}>
-                        MATCHS ({matches.filter((m: any) => m.status === 'completed').length}/{matches.length})
+                        {t('interDetail.matches', { done: matches.filter((m: any) => m.status === 'completed').length, total: matches.length })}
                       </Text>
                       {matches.map((match: any) => {
                         const isMyMatch = user && (match.athlete1_id === user.id || match.athlete2_id === user.id);
@@ -705,7 +716,7 @@ export default function InterCompetitionDetailScreen() {
                               {match.a1_username}
                             </Text>
                             <Text style={S.poolMatchScore}>
-                              {match.status === 'completed' ? `${match.score1} - ${match.score2}` : 'vs'}
+                              {match.status === 'completed' ? `${match.score1} - ${match.score2}` : t('interDetail.vs')}
                             </Text>
                             <Text style={[
                               S.poolMatchPlayer,
@@ -731,14 +742,14 @@ export default function InterCompetitionDetailScreen() {
             {swissStandings.length === 0 && swissRounds.length === 0 ? (
               <View style={S.empty}>
                 <Swords size={40} color={theme.textMuted} />
-                <Text style={S.emptyText}>Le système suisse n'a pas encore démarré.</Text>
+                <Text style={S.emptyText}>{t('interDetail.swissNotStarted')}</Text>
               </View>
             ) : (
               <>
                 {/* Standings */}
                 {swissStandings.length > 0 && (
                   <View style={S.infoCard}>
-                    <Text style={S.infoLabel}>Classement</Text>
+                    <Text style={S.infoLabel}>{t('interDetail.standings')}</Text>
                     {swissStandings.map((st: any, i: number) => (
                       <View key={st.id} style={[S.rankRow, st.athlete_id === user?.id && { backgroundColor: `${theme.accent}10` }]}>
                         <Text style={[S.rankNum, {
@@ -748,11 +759,11 @@ export default function InterCompetitionDetailScreen() {
                         </Text>
                         <View style={{ flex: 1 }}>
                           <Text style={[S.rankName, st.athlete_id === user?.id && { color: theme.accent }]}>
-                            {st.username}{st.athlete_id === user?.id ? ' (moi)' : ''}
+                            {st.username}{st.athlete_id === user?.id ? t('interDetail.meSuffix') : ''}
                           </Text>
-                          <Text style={S.rankBox}>{st.wins}V {st.draws}N {st.losses}D · Buchholz: {st.buchholz}</Text>
+                          <Text style={S.rankBox}>{t('interDetail.swissRecord', { wins: st.wins, draws: st.draws, losses: st.losses, buchholz: st.buchholz })}</Text>
                         </View>
-                        <Text style={S.rankScore}>{st.points} pts</Text>
+                        <Text style={S.rankScore}>{t('interDetail.points', { n: st.points })}</Text>
                       </View>
                     ))}
                   </View>
@@ -767,9 +778,9 @@ export default function InterCompetitionDetailScreen() {
                   return (
                     <View key={round.id} style={[S.infoCard, myPairing && { borderColor: theme.accent, borderWidth: 1.5 }]}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={S.infoLabel}>Round {round.round_number}</Text>
+                        <Text style={S.infoLabel}>{t('interDetail.round', { n: round.round_number })}</Text>
                         <Text style={{ fontSize: 11, color: round.status === 'completed' ? theme.success : theme.textMuted }}>
-                          {round.status === 'completed' ? 'Terminé' : 'En cours'}
+                          {round.status === 'completed' ? t('interDetail.statusCompleted') : t('interDetail.statusActive')}
                         </Text>
                       </View>
                       {roundPairings.map((pairing: any) => {
@@ -785,7 +796,7 @@ export default function InterCompetitionDetailScreen() {
                             </Text>
                             <Text style={S.poolMatchScore}>
                               {pairing.status === 'bye' ? 'BYE' :
-                               pairing.status === 'completed' ? `${pairing.score1} - ${pairing.score2}` : 'vs'}
+                               pairing.status === 'completed' ? `${pairing.score1} - ${pairing.score2}` : t('interDetail.vs')}
                             </Text>
                             <Text style={[
                               S.poolMatchPlayer,
@@ -811,7 +822,7 @@ export default function InterCompetitionDetailScreen() {
             {wods.length === 0 ? (
               <View style={S.empty}>
                 <Trophy size={40} color={theme.textMuted} />
-                <Text style={S.emptyText}>Aucun WOD disponible.</Text>
+                <Text style={S.emptyText}>{t('interDetail.noWodAvailable')}</Text>
               </View>
             ) : wods.filter(w => isRevealed(w)).map(w => {
               const ws = standings.filter(s => s.wod_id === w.id);
@@ -824,7 +835,7 @@ export default function InterCompetitionDetailScreen() {
                     <Text style={S.rankTitle}>{w.title}</Text>
                   </View>
                   {ws.length === 0 ? (
-                    <Text style={S.noScores}>Aucun score validé pour ce WOD.</Text>
+                    <Text style={S.noScores}>{t('interDetail.noValidatedScore')}</Text>
                   ) : (
                     ws.map(s => (
                       <View key={s.athlete_id ?? s.team_id}
@@ -836,9 +847,9 @@ export default function InterCompetitionDetailScreen() {
                         </Text>
                         <View style={{ flex: 1 }}>
                           <Text style={[S.rankName, s.athlete_id === user?.id && { color: theme.accent }]}>
-                            {s.username ?? '—'}{s.athlete_id === user?.id ? ' (moi)' : ''}
+                            {s.username ?? '—'}{s.athlete_id === user?.id ? t('interDetail.meSuffix') : ''}
                           </Text>
-                          <Text style={S.rankBox}>{s.box_name ?? 'Box inconnue'}</Text>
+                          <Text style={S.rankBox}>{s.box_name ?? t('interDetail.unknownBox')}</Text>
                         </View>
                         <Text style={S.rankScore}>{s.score_display ?? s.score_value}</Text>
                       </View>
@@ -850,7 +861,7 @@ export default function InterCompetitionDetailScreen() {
             {wods.filter(w => isRevealed(w)).length === 0 && (
               <View style={S.empty}>
                 <Trophy size={40} color={theme.textMuted} />
-                <Text style={S.emptyText}>Le classement sera visible une fois les WODs révélés.</Text>
+                <Text style={S.emptyText}>{t('interDetail.standingsAfterReveal')}</Text>
               </View>
             )}
           </View>

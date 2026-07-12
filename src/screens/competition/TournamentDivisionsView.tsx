@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-nat
 import { Layers, ArrowUp, ArrowDown } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 type Division = {
   id: string;
@@ -30,6 +31,7 @@ interface Props {
 
 export default function TournamentDivisionsView({ tournamentId, currentUserId }: Props) {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
   const [loading, setLoading] = useState(true);
   const [divisions, setDivisions] = useState<Division[]>([]);
@@ -77,7 +79,7 @@ export default function TournamentDivisionsView({ tournamentId, currentUserId }:
     return (
       <View style={S.center}>
         <Layers color={theme.textMuted} size={32} />
-        <Text style={S.empty}>Aucune division configurée pour ce tournoi.</Text>
+        <Text style={S.empty}>{t('divisions.noDivision')}</Text>
       </View>
     );
   }
@@ -98,15 +100,15 @@ export default function TournamentDivisionsView({ tournamentId, currentUserId }:
               <View style={{ flex: 1 }}>
                 <Text style={S.divName}>{d.name}</Text>
                 <Text style={S.divMeta}>
-                  {rows.length} / {d.max_members} athlètes
-                  {!isFirst && d.promote_count > 0 ? `  ·  ↑ ${d.promote_count} promus` : ''}
-                  {!isLast && d.relegate_count > 0 ? `  ·  ↓ ${d.relegate_count} relégués` : ''}
+                  {t('divisions.athleteCount', { count: rows.length, max: d.max_members })}
+                  {!isFirst && d.promote_count > 0 ? t('divisions.promoted', { n: d.promote_count }) : ''}
+                  {!isLast && d.relegate_count > 0 ? t('divisions.relegated', { n: d.relegate_count }) : ''}
                 </Text>
               </View>
             </View>
 
             {rows.length === 0 ? (
-              <Text style={S.divEmpty}>Aucun athlète.</Text>
+              <Text style={S.divEmpty}>{t('divisions.noAthlete')}</Text>
             ) : rows.map((m, rIdx) => {
               const p = profiles[m.athlete_id];
               const isMe = currentUserId && m.athlete_id === currentUserId;
@@ -119,10 +121,10 @@ export default function TournamentDivisionsView({ tournamentId, currentUserId }:
                     <Text style={[S.username, isMe && S.usernameMe]} numberOfLines={1}>
                       {p?.username ?? '—'}
                     </Text>
-                    {willPromote && <View style={[S.tag, { backgroundColor: 'rgba(34,197,94,0.15)' }]}><ArrowUp color="#22C55E" size={9} /><Text style={[S.tagTxt, { color: '#22C55E' }]}>PROMU</Text></View>}
-                    {willRelegate && <View style={[S.tag, { backgroundColor: 'rgba(239,68,68,0.15)' }]}><ArrowDown color="#EF4444" size={9} /><Text style={[S.tagTxt, { color: '#EF4444' }]}>RELÉG.</Text></View>}
+                    {willPromote && <View style={[S.tag, { backgroundColor: 'rgba(34,197,94,0.15)' }]}><ArrowUp color="#22C55E" size={9} /><Text style={[S.tagTxt, { color: '#22C55E' }]}>{t('divisions.promoTag')}</Text></View>}
+                    {willRelegate && <View style={[S.tag, { backgroundColor: 'rgba(239,68,68,0.15)' }]}><ArrowDown color="#EF4444" size={9} /><Text style={[S.tagTxt, { color: '#EF4444' }]}>{t('divisions.relegTag')}</Text></View>}
                   </View>
-                  <Text style={S.points}>{m.points} pts</Text>
+                  <Text style={S.points}>{t('divisions.points', { n: m.points })}</Text>
                 </View>
               );
             })}

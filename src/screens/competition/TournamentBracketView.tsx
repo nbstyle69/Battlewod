@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-nat
 import { Crown, GitBranch, Trophy } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 type Match = {
   id: string;
@@ -28,6 +29,7 @@ interface Props {
 
 export default function TournamentBracketView({ tournamentId, format, currentUserId }: Props) {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
   const [loading, setLoading] = useState(true);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -97,7 +99,7 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
     return (
       <View style={S.center}>
         <GitBranch color={theme.textMuted} size={32} />
-        <Text style={S.empty}>Le bracket sera généré par l'organisateur après les inscriptions.</Text>
+        <Text style={S.empty}>{t('bracket.notGenerated')}</Text>
       </View>
     );
   }
@@ -132,14 +134,14 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={S.sectionTitle}><Crown color="#F5C518" size={14} />  {format === 'swiss' ? 'Winner Bracket' : 'Bracket'}</Text>
+      <Text style={S.sectionTitle}><Crown color="#F5C518" size={14} />  {format === 'swiss' ? t('bracket.winnerBracket') : t('bracket.bracket')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {wbRounds.map(r => {
             const wodName = wodNameForRound(r);
             return (
               <View key={`wb-${r}`} style={S.column}>
-                <Text style={S.colTitle}>Round {r}</Text>
+                <Text style={S.colTitle}>{t('bracket.round', { n: r })}</Text>
                 {wodName ? (
                   <View style={S.wodPill}><Text style={S.wodPillText} numberOfLines={1}>🏋️ {wodName}</Text></View>
                 ) : null}
@@ -152,12 +154,12 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
 
       {format === 'swiss' && lbRounds.length > 0 && (
         <>
-          <Text style={S.sectionTitle}>Loser Bracket</Text>
+          <Text style={S.sectionTitle}>{t('bracket.loserBracket')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               {lbRounds.map(r => (
                 <View key={`lb-${r}`} style={S.column}>
-                  <Text style={S.colTitle}>LB Round {r}</Text>
+                  <Text style={S.colTitle}>{t('bracket.lbRound', { n: r })}</Text>
                   {grouped.lb[r].map(m => <MatchBox key={m.id} m={m} />)}
                 </View>
               ))}
@@ -168,7 +170,7 @@ export default function TournamentBracketView({ tournamentId, format, currentUse
 
       {format === 'swiss' && grouped.gf && (
         <>
-          <Text style={[S.sectionTitle, { color: '#F5C518' }]}><Trophy color="#F5C518" size={14} />  Grande finale</Text>
+          <Text style={[S.sectionTitle, { color: '#F5C518' }]}><Trophy color="#F5C518" size={14} />  {t('bracket.grandFinal')}</Text>
           <View style={[S.column, { width: 220 }]}>
             <MatchBox m={grouped.gf} />
           </View>

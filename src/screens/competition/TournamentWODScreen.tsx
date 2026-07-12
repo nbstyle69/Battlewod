@@ -16,14 +16,15 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { useTranslation } from 'react-i18next';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'TournamentWOD'>;
 type Route = RouteProp<CompetitionStackParamList, 'TournamentWOD'>;
 
 const YOUTUBE_REGEX = /(youtube\.com\/(watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/)/;
 
-function formatCountdown(ms: number, theme: AppTheme): { text: string; color: string } {
-  if (ms <= 0) return { text: 'DÉLAI EXPIRÉ', color: theme.error };
+function formatCountdown(ms: number, theme: AppTheme, expiredLabel: string): { text: string; color: string } {
+  if (ms <= 0) return { text: expiredLabel, color: theme.error };
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
@@ -39,6 +40,7 @@ export default function TournamentWODScreen() {
   const { tournamentId, tournamentName, wod, existingScore } = route.params;
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const S = createStyles(theme);
   const scrollPadBottom = insets.bottom + 90;
@@ -77,10 +79,10 @@ export default function TournamentWODScreen() {
   }
 
   async function handleSubmit() {
-    if (!scoreValue.trim()) { Alert.alert('Erreur', 'Saisis ton score avant de soumettre.'); return; }
-    if (!urlValid)           { Alert.alert('Erreur', 'Le lien YouTube est invalide.'); return; }
-    if (remainingMs <= 0)    { Alert.alert('Délai expiré', 'Tu ne peux plus soumettre de score pour ce WOD.'); return; }
-    if (!user)               { Alert.alert('Erreur', 'Utilisateur non connecté.'); return; }
+    if (!scoreValue.trim()) { Alert.alert(t('common.error'), t('tourWod.errNoScore')); return; }
+    if (!urlValid)           { Alert.alert(t('common.error'), t('tourWod.errBadUrl')); return; }
+    if (remainingMs <= 0)    { Alert.alert(t('tourWod.deadlineExpiredTitle'), t('tourWod.errExpired')); return; }
+    if (!user)               { Alert.alert(t('common.error'), t('tourWod.errNoUser')); return; }
 
     setSubmitting(true);
     const payload = {
@@ -105,7 +107,7 @@ export default function TournamentWODScreen() {
     }
 
     setSubmitting(false);
-    if (error) { Alert.alert('Erreur', error.message); return; }
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
     if (intervalRef.current) clearInterval(intervalRef.current);
     setPhase('success');
   }
@@ -149,33 +151,33 @@ export default function TournamentWODScreen() {
     });
   }
 
-  const countdown = formatCountdown(remainingMs, theme);
+  const countdown = formatCountdown(remainingMs, theme, t('tourWod.deadlineExpired'));
 
   // ══ PHASE : SUCCESS ═══════════════════════════════════════════════════════
   if (phase === 'success') return (
     <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.successContainer}>
       <CheckCircle color={theme.success} size={72} />
-      <Text style={S.successTitle}>Score soumis !</Text>
-      <Text style={S.successSub}>Ton score est en attente de validation par un admin.</Text>
+      <Text style={S.successTitle}>{t('tourWod.successTitle')}</Text>
+      <Text style={S.successSub}>{t('tourWod.successSub')}</Text>
       <View style={S.successCard}>
-        <Text style={S.successLabel}>WOD</Text>
+        <Text style={S.successLabel}>{t('tourWod.wod')}</Text>
         <Text style={S.successValue}>{wod.title}</Text>
-        <Text style={[S.successLabel, { marginTop: 12 }]}>SCORE</Text>
+        <Text style={[S.successLabel, { marginTop: 12 }]}>{t('tourWod.score')}</Text>
         <Text style={S.successValue}>{scoreValue}</Text>
         {tiebreakValue ? (
           <>
-            <Text style={[S.successLabel, { marginTop: 12 }]}>TIE-BREAK</Text>
-            <Text style={S.successValue}>{tiebreakValue} reps</Text>
+            <Text style={[S.successLabel, { marginTop: 12 }]}>{t('tourWod.tiebreak')}</Text>
+            <Text style={S.successValue}>{t('tourWod.reps', { n: tiebreakValue })}</Text>
           </>
         ) : null}
         <View style={S.successYtRow}>
           <Youtube color="#FF0000" size={16} />
-          <Text style={S.successYtText}>Lien YouTube soumis ✓</Text>
+          <Text style={S.successYtText}>{t('tourWod.ytSubmitted')}</Text>
         </View>
       </View>
       <TouchableOpacity style={S.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
         <LinearGradient colors={[theme.accent, theme.secondary ?? theme.accent]} style={S.backBtnInner}>
-          <Text style={S.backBtnText}>RETOUR AU TOURNOI</Text>
+          <Text style={S.backBtnText}>{t('tourWod.backToTournament')}</Text>
         </LinearGradient>
       </TouchableOpacity>
     </LinearGradient>
@@ -196,7 +198,7 @@ export default function TournamentWODScreen() {
             <View style={S.typeBadge}><Text style={S.typeBadgeText}>{wod.type}</Text></View>
             <View style={S.durationBadge}>
               <Clock color="rgba(255,255,255,0.4)" size={12} />
-              <Text style={S.durationText}>{wod.duration_minutes} min</Text>
+              <Text style={S.durationText}>{t('tourWod.minutes', { n: wod.duration_minutes })}</Text>
             </View>
             <View style={S.scoringBadge}>
               <Zap color={theme.gold} size={12} />
@@ -209,14 +211,14 @@ export default function TournamentWODScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[S.content, { paddingBottom: scrollPadBottom }]}>
         {wod.description ? (
           <View style={S.card}>
-            <Text style={S.cardLabel}>DESCRIPTION</Text>
+            <Text style={S.cardLabel}>{t('tourWod.description')}</Text>
             <Text style={S.descText}>{wod.description}</Text>
           </View>
         ) : null}
 
         {Array.isArray(wod.movements) && wod.movements.length > 0 && (
           <View style={S.card}>
-            <Text style={S.cardLabel}>MOUVEMENTS</Text>
+            <Text style={S.cardLabel}>{t('tourWod.movements')}</Text>
             {wod.movements.map((m, i) => (
               <View key={i} style={S.movRow}>
                 <View style={[S.movDot, { backgroundColor: theme.accent }]} />
@@ -227,23 +229,23 @@ export default function TournamentWODScreen() {
         )}
 
         <View style={S.card}>
-          <Text style={S.cardLabel}>RÈGLES DE FILMAGE</Text>
-          {['📷 Caméra stable, angle fixe, corps entier visible',
-            '🏋️ Chaque répétition clairement identifiable',
-            '⏱ Timer visible à l\'écran pendant l\'effort',
-            `🔗 Upload YouTube requis dans les ${wod.deadline_hours}h`,
-            '🔒 Vidéo non répertoriée acceptée',
+          <Text style={S.cardLabel}>{t('tourWod.filmingRules')}</Text>
+          {[t('tourWod.rule1'),
+            t('tourWod.rule2'),
+            t('tourWod.rule3'),
+            t('tourWod.rule4', { h: wod.deadline_hours }),
+            t('tourWod.rule5'),
           ].map((r, i) => <Text key={i} style={S.ruleText}>{r}</Text>)}
         </View>
 
         {existingScore && (
           <View style={[S.card, { borderColor: `${theme.warning}40` }]}>
-            <Text style={S.cardLabel}>TON SCORE PRÉCÉDENT</Text>
+            <Text style={S.cardLabel}>{t('tourWod.prevScore')}</Text>
             <Text style={S.prevScore}>{existingScore.score_value}</Text>
             {existingScore.video_url ? (
               <TouchableOpacity style={S.ytPrevBtn} onPress={() => Linking.openURL(existingScore.video_url!)}>
                 <Youtube color="#FF0000" size={16} />
-                <Text style={S.ytPrevText}>Voir la vidéo soumise</Text>
+                <Text style={S.ytPrevText}>{t('tourWod.seeSubmittedVideo')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -253,19 +255,19 @@ export default function TournamentWODScreen() {
           <View style={S.warningRow}>
             <AlertTriangle color={theme.warning} size={16} />
             <Text style={S.warningText}>
-              Le chrono de {wod.deadline_hours}h démarre dès que tu passes en mode soumission.
+              {t('tourWod.countdownWarning', { h: wod.deadline_hours })}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity style={[S.actionBtn, S.actionBtnInner, { backgroundColor: 'rgba(239,68,68,0.25)', borderColor: 'rgba(239,68,68,0.8)' }]} onPress={launchTimer} activeOpacity={0.85}>
           <Play color="#fff" size={18} />
-          <Text style={S.actionBtnText}>Lancer le WOD avec caméra</Text>
+          <Text style={S.actionBtnText}>{t('tourWod.launchWithCamera')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[S.actionBtn, S.actionBtnInner]} onPress={() => { startCountdown(); setPhase('submit'); }} activeOpacity={0.85}>
           <FileText color="#fff" size={18} />
-          <Text style={S.actionBtnText}>Soumettre mon score</Text>
+          <Text style={S.actionBtnText}>{t('tourWod.submitScore')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -296,15 +298,15 @@ export default function TournamentWODScreen() {
 
         <View style={S.card}>
           <Text style={S.cardLabel}>
-            {wod.type === 'For Time' ? '⏱ TON TEMPS FINAL' : '🔢 TON SCORE FINAL'}
+            {wod.type === 'For Time' ? t('tourWod.finalTime') : t('tourWod.finalScore')}
           </Text>
           <TextInput
             style={S.scoreInput}
             value={scoreValue}
             onChangeText={setScoreValue}
             placeholder={
-              wod.type === 'For Time' ? 'ex: 12:45' :
-              wod.type === 'AMRAP'    ? 'ex: 8 rounds + 15 reps' : 'ex: 185'
+              wod.type === 'For Time' ? t('tourWod.phTime') :
+              wod.type === 'AMRAP'    ? t('tourWod.phAmrap') : t('tourWod.phDefault')
             }
             placeholderTextColor={theme.textMuted}
             autoCapitalize="none"
@@ -312,22 +314,22 @@ export default function TournamentWODScreen() {
         </View>
 
         <View style={S.card}>
-          <Text style={S.cardLabel}>🔗 TIE-BREAK (optionnel)</Text>
+          <Text style={S.cardLabel}>{t('tourWod.tiebreakLabel')}</Text>
           <Text style={S.cardHint}>
-            Reps du dernier mouvement réalisé — départage en cas d'ex-aequo.
+            {t('tourWod.tiebreakHint')}
           </Text>
           <TextInput
             style={[S.scoreInput, { fontSize: 16 }]}
             value={tiebreakValue}
             onChangeText={setTiebreakValue}
-            placeholder="ex: 15"
+            placeholder={t('tourWod.phTiebreak')}
             placeholderTextColor={theme.textMuted}
             keyboardType="numeric"
           />
         </View>
 
         <View style={S.card}>
-          <Text style={S.cardLabel}>� LIEN YOUTUBE (obligatoire)</Text>
+          <Text style={S.cardLabel}>{t('tourWod.youtubeLabel')}</Text>
           <View style={S.ytRow}>
             <Youtube color={urlValid ? theme.success : '#FF0000'} size={20} />
             <TextInput
@@ -341,31 +343,30 @@ export default function TournamentWODScreen() {
             />
           </View>
           {youtubeUrl.length > 0 && !urlValid && (
-            <Text style={S.urlError}>Lien YouTube invalide. Formats acceptés : youtube.com/watch?v=, youtube.com/shorts/ ou youtu.be/</Text>
+            <Text style={S.urlError}>{t('tourWod.urlError')}</Text>
           )}
           <TouchableOpacity onPress={() => setShowYtHelp(true)} style={S.ytHelpLink}>
             <Info color={theme.accent} size={13} />
-            <Text style={S.ytHelpText}>Comment uploader sur YouTube ?</Text>
+            <Text style={S.ytHelpText}>{t('tourWod.howToUpload')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={S.card}>
-          <Text style={S.cardLabel}>📝 NOTES (optionnel)</Text>
+          <Text style={S.cardLabel}>{t('tourWod.notesLabel')}</Text>
           <TextInput
             style={[S.scoreInput, { height: 80, textAlignVertical: 'top', fontSize: 13 }]}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Conditions, blessures, commentaires..."
+            placeholder={t('tourWod.notesPlaceholder')}
             placeholderTextColor={theme.textMuted}
             multiline
           />
         </View>
 
         <View style={[S.card, { backgroundColor: `${theme.warning}08`, borderColor: `${theme.warning}30` }]}>
-          <Text style={S.cardLabel}>⚖️ CODE D'HONNEUR</Text>
+          <Text style={S.cardLabel}>{t('tourWod.honorLabel')}</Text>
           <Text style={S.honorText}>
-            En soumettant ce score, je certifie avoir respecté tous les standards de mouvement,
-            que ma vidéo est complète et authentique, et que le score déclaré est exact.
+            {t('tourWod.honorText')}
           </Text>
         </View>
 
@@ -377,7 +378,7 @@ export default function TournamentWODScreen() {
           {submitting
             ? <ActivityIndicator color="#fff" size="small" />
             : <Text style={S.actionBtnText}>
-                {remainingMs <= 0 ? 'DÉLAI EXPIRÉ' : 'SOUMETTRE MON SCORE'}
+                {remainingMs <= 0 ? t('tourWod.deadlineExpired') : t('tourWod.submitScoreCta')}
               </Text>}
         </TouchableOpacity>
 
@@ -388,22 +389,16 @@ export default function TournamentWODScreen() {
       <Modal visible={showYtHelp} animationType="slide" transparent onRequestClose={() => setShowYtHelp(false)}>
         <View style={S.modalOverlay}>
           <View style={S.modalSheet}>
-            <Text style={S.modalTitle}>Uploader sur YouTube</Text>
-            {['1. Ouvre l\'app YouTube sur ton téléphone',
-              '2. Appuie sur le "+" en bas de l\'écran',
-              '3. Sélectionne "Importer une vidéo"',
-              '4. Choisis ta vidéo dans la galerie',
-              '5. Titre : ex "AthleX – Fran 23/03/2026"',
-              '6. Visibilité : "Non répertoriée" (recommandé)',
-              '7. Copie le lien et colle-le ici',
-            ].map((step, i) => <Text key={i} style={S.modalStep}>{step}</Text>)}
+            <Text style={S.modalTitle}>{t('tourWod.uploadModalTitle')}</Text>
+            {(t('tourWod.uploadSteps', { returnObjects: true }) as string[])
+              .map((step, i) => <Text key={i} style={S.modalStep}>{step}</Text>)}
             <TouchableOpacity style={S.ytStudioBtn}
               onPress={() => Linking.openURL('https://studio.youtube.com')}>
               <Youtube color="#FF0000" size={18} />
-              <Text style={S.ytStudioText}>Ouvrir YouTube Studio</Text>
+              <Text style={S.ytStudioText}>{t('tourWod.openYtStudio')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={S.modalClose} onPress={() => setShowYtHelp(false)}>
-              <Text style={S.modalCloseTxt}>Fermer</Text>
+              <Text style={S.modalCloseTxt}>{t('tourWod.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>
