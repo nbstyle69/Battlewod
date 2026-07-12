@@ -1,0 +1,74 @@
+// Stable storage helpers for personal records (PR) kept in profiles.personal_records.
+//
+// Storage keys used to be prefixed with the (hardcoded) category display label,
+// e.g. `Haltérophilie_Back Squat`. That coupled the DB keys to a human label:
+// renaming a category in code would orphan every PR already saved under the old
+// label. We now key on a stable, language-agnostic slug (`weightlifting_…`) and
+// keep a read-time fallback to the legacy prefixes so pre-migration data still
+// resolves. The one-off migration rewrites existing keys to the new slugs.
+
+export const PR_CATEGORY_SLUGS = ['weightlifting', 'gymnastics', 'benchmarks', 'cardio'] as const;
+export type PrCategorySlug = (typeof PR_CATEGORY_SLUGS)[number];
+
+// Legacy label prefix -> stable slug (drives both read fallback and migration).
+export const LEGACY_PREFIX_TO_SLUG: Record<string, PrCategorySlug> = {
+  'Haltérophilie': 'weightlifting',
+  'Gymnastics': 'gymnastics',
+  'Benchmarks CrossFit': 'benchmarks',
+  'Cardio & Endurance': 'cardio',
+};
+
+const SLUG_TO_LEGACY_PREFIX: Record<PrCategorySlug, string> = Object.fromEntries(
+  Object.entries(LEGACY_PREFIX_TO_SLUG).map(([label, slug]) => [slug, label]),
+) as Record<PrCategorySlug, string>;
+
+export function prKey(slug: PrCategorySlug, movement: string): string {
+  return `${slug}_${movement}`;
+}
+
+export function prDateKey(slug: PrCategorySlug, movement: string): string {
+  return `${slug}_${movement}_date`;
+}
+
+// Reads a PR value tolerating both the new slug key and the legacy label key.
+export function readPr(
+  records: Record<string, string> | undefined,
+  slug: PrCategorySlug,
+  movement: string,
+): string | undefined {
+  if (!records) return undefined;
+  const modern = records[prKey(slug, movement)];
+  if (modern !== undefined) return modern;
+  return records[`${SLUG_TO_LEGACY_PREFIX[slug]}_${movement}`];
+}
+
+export function readPrDate(
+  records: Record<string, string> | undefined,
+  slug: PrCategorySlug,
+  movement: string,
+): string | undefined {
+  if (!records) return undefined;
+  const modern = records[prDateKey(slug, movement)];
+  if (modern !== undefined) return modern;
+  return records[`${SLUG_TO_LEGACY_PREFIX[slug]}_${movement}_date`];
+}
+
+// Rewrites legacy label-prefixed keys to stable slug keys and drops the
+// `_featured_badges` slot (moved to its own column). Idempotent: already-slugged
+// keys pass through untouched. Modern keys win over legacy ones on collision.
+export function normalizePrRecords(raw: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  const rewritten: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key === '_featured_badges') continue;
+    if (typeof value !== 'string') continue;
+    const legacyPrefix = Object.keys(LEGACY_PREFIX_TO_SLUG).find(p => key.startsWith(`${p}_`));
+    if (legacyPrefix) {
+      const slug = LEGACY_PREFIX_TO_SLUG[legacyPrefix];
+      rewritten[`${slug}_${key.slice(legacyPrefix.length + 1)}`] = value;
+    } else {
+      out[key] = value;
+    }
+  }
+  return { ...rewritten, ...out };
+}

@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassBackground from '../../components/glass/GlassBackground';
 import GlassCard from '../../components/glass/GlassCard';
+import { prKey, readPr } from '../profile/prStorage';
 
 const STORAGE_KEY = '@athlex:1rm_calc';
 
@@ -103,9 +104,9 @@ export default function OneRMCalculatorScreen() {
 
   const savedPRs = PR_MOVEMENTS
     .map(name => {
-      const key = `Haltérophilie_${name}`;
-      const val = prData[key];
-      const num = parseFloat(val ?? '');
+      const key = prKey('weightlifting', name);
+      const val = readPr(prData, 'weightlifting', name) ?? '';
+      const num = parseFloat(val);
       return { name, key, value: val, num };
     })
     .filter(pr => pr.value && !isNaN(pr.num) && pr.num > 0);
