@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { CalendarClock, ChevronLeft, ChevronRight, Users, Check, Clock, Timer, X, CalendarCheck } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
@@ -76,6 +77,7 @@ function minutesUntilSlot(scheduled_date: string, start_time: string): number {
 export default function ReservationScreen() {
   const { user, currentBox } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const S = createStyles(theme);
 
@@ -191,22 +193,22 @@ export default function ReservationScreen() {
     if (item.my_status) {
       if (minsLeft < CANCEL_CUTOFF_MIN) {
         Alert.alert(
-          'Trop tard',
-          `La désinscription n'est plus possible moins de ${CANCEL_CUTOFF_MIN} minutes avant le cours.`,
+          t('reservation.tooLateTitle'),
+          t('reservation.cancelTooLate', { min: CANCEL_CUTOFF_MIN }),
         );
         setBooking(null);
         return;
       }
       const label = item.my_status === 'confirmed'
-        ? 'Annuler ta réservation ? Ta place sera libérée et le premier en liste d\'attente sera inscrit.'
-        : 'Quitter la liste d\'attente ?';
+        ? t('reservation.cancelConfirmed')
+        : t('reservation.leaveWaitlistConfirm');
       Alert.alert(
-        item.my_status === 'confirmed' ? 'Annuler la réservation' : 'Quitter la liste d\'attente',
+        item.my_status === 'confirmed' ? t('reservation.cancelReservationTitle') : t('reservation.leaveWaitlistTitle'),
         label,
         [
-          { text: 'Non', style: 'cancel', onPress: () => setBooking(null) },
+          { text: t('common.no'), style: 'cancel', onPress: () => setBooking(null) },
           {
-            text: 'Oui',
+            text: t('common.yes'),
             style: 'destructive',
             onPress: async () => {
               const { error } = await supabase
@@ -214,7 +216,7 @@ export default function ReservationScreen() {
                 .delete()
                 .eq('schedule_id', item.id)
                 .eq('member_id', user.id);
-              if (error) Alert.alert('Erreur', error.message);
+              if (error) Alert.alert(t('common.error'), error.message);
               setBooking(null);
               load();
             },
@@ -224,8 +226,8 @@ export default function ReservationScreen() {
     } else {
       if (minsLeft < REGISTER_CUTOFF_MIN) {
         Alert.alert(
-          'Trop tard',
-          `L'inscription n'est plus possible moins de ${REGISTER_CUTOFF_MIN} minutes avant le cours.`,
+          t('reservation.tooLateTitle'),
+          t('reservation.registerTooLate', { min: REGISTER_CUTOFF_MIN }),
         );
         setBooking(null);
         return;
@@ -239,8 +241,8 @@ export default function ReservationScreen() {
         const wl = limitData as { allowed: boolean; max: number; used: number } | null;
         if (wl && !wl.allowed) {
           Alert.alert(
-            'Limite atteinte',
-            `Tu as utilis\u00e9 tes ${wl.max} s\u00e9ance(s) cette semaine (${wl.used}/${wl.max}). Contacte ton coach pour changer de contrat.`,
+            t('reservation.limitReachedTitle'),
+            t('reservation.limitReachedBody', { max: wl.max, used: wl.used }),
           );
           setBooking(null);
           return;
@@ -255,8 +257,8 @@ export default function ReservationScreen() {
         const dl = dailyData as { allowed: boolean } | null;
         if (dl && !dl.allowed) {
           Alert.alert(
-            'Limite journalière',
-            'Tu as déjà réservé un créneau ce jour. Ton abonnement permet 1 séance par jour.',
+            t('reservation.dailyLimitTitle'),
+            t('reservation.dailyLimitBody'),
           );
           setBooking(null);
           return;
@@ -272,9 +274,9 @@ export default function ReservationScreen() {
           schedule_id: item.id, member_id: user.id, box_id: currentBox.id,
           status: wantsWaiting ? 'waiting' : 'confirmed',
         }).select('status').single();
-        if (error) { Alert.alert('Erreur', error.message); }
+        if (error) { Alert.alert(t('common.error'), error.message); }
         else if (data?.status === 'waiting') {
-          Alert.alert('Liste d\'attente', 'Le créneau était complet — tu es sur liste d\'attente. Tu seras inscrit(e) automatiquement si une place se libère.');
+          Alert.alert(t('reservation.waitlistTitle'), t('reservation.waitlistDowngrade'));
         }
         setBooking(null);
         load();
@@ -282,11 +284,11 @@ export default function ReservationScreen() {
 
       if (wantsWaiting) {
         Alert.alert(
-          'Créneau complet',
-          `Tu vas être ajouté(e) en liste d'attente (#${item.waiting_count + 1}). Tu seras inscrit(e) automatiquement si une place se libère.`,
+          t('reservation.slotFullTitle'),
+          t('reservation.slotFullBody', { pos: item.waiting_count + 1 }),
           [
-            { text: 'Annuler', style: 'cancel', onPress: () => setBooking(null) },
-            { text: 'Rejoindre la liste', onPress: insertReservation },
+            { text: t('common.cancel'), style: 'cancel', onPress: () => setBooking(null) },
+            { text: t('reservation.joinWaitlist'), onPress: insertReservation },
           ]
         );
         return;
@@ -302,8 +304,8 @@ export default function ReservationScreen() {
       <View style={S.emptyContainer}>
         <GlassBackground />
         <CalendarClock color={theme.textMuted} size={48} strokeWidth={1.5} />
-        <Text style={S.emptyTitle}>Pas de box associée</Text>
-        <Text style={S.emptySubtitle}>Rejoins une box pour voir les créneaux disponibles.</Text>
+        <Text style={S.emptyTitle}>{t('reservation.noBoxTitle')}</Text>
+        <Text style={S.emptySubtitle}>{t('reservation.noBoxSubtitle')}</Text>
       </View>
     );
   }
@@ -317,7 +319,7 @@ export default function ReservationScreen() {
             <ChevronLeft color={theme.text} size={22} />
           </TouchableOpacity>
           <View>
-            <Text style={S.headerTitle}>Réservation</Text>
+            <Text style={S.headerTitle}>{t('reservation.title')}</Text>
             <Text style={S.headerSub}>{currentBox.name}</Text>
           </View>
         </View>
@@ -329,7 +331,7 @@ export default function ReservationScreen() {
         activeOpacity={0.8}
       >
         <CalendarCheck size={16} color={theme.accent} />
-        <Text style={S.myResBtnText}>Mes réservations</Text>
+        <Text style={S.myResBtnText}>{t('reservation.myReservations')}</Text>
         <ChevronRight size={16} color={theme.accent} />
       </TouchableOpacity>
 
@@ -368,7 +370,7 @@ export default function ReservationScreen() {
                 {/* Schedule slots */}
                 {dayItems.length === 0 ? (
                   <View style={S.noSlots}>
-                    <Text style={S.noSlotsText}>Aucun cours ce jour</Text>
+                    <Text style={S.noSlotsText}>{t('reservation.noClassToday')}</Text>
                   </View>
                 ) : (
                   dayItems.map(item => {
@@ -421,13 +423,15 @@ export default function ReservationScreen() {
                           {!isPast && !item.my_status && (
                             <Text style={[S.spotsLabel, isFull && { color: theme.error }]}>
                               {isFull
-                                ? `Complet${item.waiting_count > 0 ? ` · ${item.waiting_count} en attente` : ''}`
-                                : `${item.available_spots} place${item.available_spots > 1 ? 's' : ''} dispo`}
+                                ? (item.waiting_count > 0
+                                    ? t('reservation.fullWithWaiting', { count: item.waiting_count })
+                                    : t('reservation.full'))
+                                : t('reservation.spotsAvailable', { count: item.available_spots })}
                             </Text>
                           )}
                           {isWaiting && (
                             <Text style={S.waitingPositionLabel}>
-                              #{item.my_waiting_position} en liste d'attente
+                              {t('reservation.waitingPosition', { pos: item.my_waiting_position })}
                             </Text>
                           )}
 
@@ -455,12 +459,12 @@ export default function ReservationScreen() {
                                 {isBusy
                                   ? '…'
                                   : item.my_status === 'confirmed'
-                                    ? 'Réservé'
+                                    ? t('reservation.booked')
                                     : isWaiting
-                                      ? `Attente #${item.my_waiting_position}`
+                                      ? t('reservation.waitingShort', { pos: item.my_waiting_position })
                                       : isFull
-                                        ? 'File d\'attente'
-                                        : 'Réserver'}
+                                        ? t('reservation.queue')
+                                        : t('reservation.book')}
                               </Text>
                             </TouchableOpacity>
                           )}
@@ -474,8 +478,8 @@ export default function ReservationScreen() {
               {dayItems.length === 0 && (
                 <View style={S.emptyWeek}>
                   <CalendarClock color={theme.textMuted} size={40} strokeWidth={1.5} />
-                  <Text style={S.emptyWeekTitle}>Aucun créneau ce jour</Text>
-                  <Text style={S.emptyWeekSub}>Ton coach n'a pas encore publié de cours.</Text>
+                  <Text style={S.emptyWeekTitle}>{t('reservation.emptyTitle')}</Text>
+                  <Text style={S.emptyWeekSub}>{t('reservation.emptySubtitle')}</Text>
                 </View>
               )}
             </ScrollView>
@@ -506,7 +510,7 @@ export default function ReservationScreen() {
             ) : participants.length === 0 ? (
               <View style={{ alignItems: 'center', paddingVertical: 40 }}>
                 <Users color={theme.textMuted} size={32} />
-                <Text style={[S.modalSubtitle, { marginTop: 12 }]}>Aucun inscrit</Text>
+                <Text style={[S.modalSubtitle, { marginTop: 12 }]}>{t('reservation.noParticipants')}</Text>
               </View>
             ) : (
               <FlatList
@@ -529,10 +533,10 @@ export default function ReservationScreen() {
                       />
                       <View style={{ flex: 1 }}>
                         <Text style={[S.participantName, isMe && { color: theme.accent }]}>
-                          {p.username}{isMe ? ' (toi)' : ''}
+                          {p.username}{isMe ? ` ${t('reservation.you')}` : ''}
                         </Text>
                         <Text style={S.participantStatus}>
-                          {isConfirmed ? 'Inscrit' : `Attente #${participants.filter(x => x.status === 'waiting').indexOf(p) + 1}`}
+                          {isConfirmed ? t('reservation.registered') : t('reservation.waitingShort', { pos: participants.filter(x => x.status === 'waiting').indexOf(p) + 1 })}
                         </Text>
                       </View>
                       <View style={[S.participantDot, { backgroundColor: isConfirmed ? theme.accent : '#f59e0b' }]} />
@@ -548,7 +552,7 @@ export default function ReservationScreen() {
                 onPress={() => { setDetailItem(null); toggleBooking(detailItem); }}
                 size="md"
               >
-                Réserver ce créneau
+                {t('reservation.bookThisSlot')}
               </EmeraldCTAButton>
             )}
             {detailItem && detailItem.my_status && (
@@ -557,7 +561,7 @@ export default function ReservationScreen() {
                 onPress={() => { setDetailItem(null); toggleBooking(detailItem); }}
               >
                 <Text style={[S.modalActionBtnText, { color: '#ef4444' }]}>
-                  {detailItem.my_status === 'confirmed' ? 'Se désinscrire' : "Quitter la file d'attente"}
+                  {detailItem.my_status === 'confirmed' ? t('reservation.unsubscribe') : t('reservation.leaveWaitlist')}
                 </Text>
               </TouchableOpacity>
             )}

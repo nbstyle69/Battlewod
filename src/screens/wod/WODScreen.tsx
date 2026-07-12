@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { Zap, Clock, ChevronRight, Filter, Sparkles } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/designTokens';
@@ -60,6 +61,7 @@ const MOCK_WODS: WOD[] = [
 export default function WODScreen() {
   const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const S = createStyles(theme);
   const [selectedLevel, setSelectedLevel] = useState<AthleteLevel | 'all'>('all');
 
@@ -73,8 +75,8 @@ export default function WODScreen() {
       <View style={S.header}>
         <View style={S.headerRow}>
           <View>
-            <Text style={S.headerTitle}>WOD</Text>
-            <Text style={S.headerSubtitle}>Workouts of the Day</Text>
+            <Text style={S.headerTitle}>{t('wod.title')}</Text>
+            <Text style={S.headerSubtitle}>{t('wod.subtitle')}</Text>
           </View>
           <TouchableOpacity
             style={S.generateButton}
@@ -82,7 +84,7 @@ export default function WODScreen() {
             activeOpacity={0.8}
           >
             <Sparkles color="#fff" size={18} />
-            <Text style={S.generateText}>Générer</Text>
+            <Text style={S.generateText}>{t('wod.generate')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -93,7 +95,7 @@ export default function WODScreen() {
             onPress={() => setSelectedLevel('all')}
             style={[S.filterChip, selectedLevel === 'all' && S.filterChipActive]}
           >
-            <Text style={[S.filterText, selectedLevel === 'all' && S.filterTextActive]}>Tous</Text>
+            <Text style={[S.filterText, selectedLevel === 'all' && S.filterTextActive]}>{t('wod.all')}</Text>
           </TouchableOpacity>
           {LEVELS.map((l) => (
             <TouchableOpacity
