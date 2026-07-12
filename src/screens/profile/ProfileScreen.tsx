@@ -3,9 +3,9 @@ import { useFocusQuery } from '../../hooks/useFocusQuery';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Image, Share, Switch, Linking,
+  Image, Share, Switch, Linking, RefreshControl,
 } from 'react-native';
-import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen } from 'lucide-react-native';
+import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen, Search } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
@@ -122,6 +122,7 @@ export default function ProfileScreen() {
   const S = useMemo(() => createStyles(theme), [theme]);
   const [activeTab, setActiveTab]   = useState(0);
   const [expandedPR, setExpandedPR] = useState<string | null>('Haltérophilie');
+  const [prSearch, setPrSearch]     = useState('');
 
   // ── Referral code
   const [referralCode, setReferralCode] = useState<string>('');
@@ -240,7 +241,7 @@ export default function ProfileScreen() {
     setJoiningProg(false);
   }
 
-  const { data: profileData } = useFocusQuery(
+  const { data: profileData, refetch, isFetching } = useFocusQuery(
     ['profile', user?.id],
     async () => {
       if (!user) return null;
@@ -630,9 +631,29 @@ export default function ProfileScreen() {
         ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={S.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={isFetching}
+            onRefresh={() => refetch()}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        }
+      >
         {activeTab === 0 && (
           <>
+            {(user?.total_matches ?? 0) === 0 && (
+              <View style={S.emptyBanner}>
+                <Trophy color={theme.textMuted} size={22} />
+                <View style={{ flex: 1 }}>
+                  <Text style={S.emptyBannerTitle}>{t('profile.stats.emptyTitle')}</Text>
+                  <Text style={S.emptyBannerSub}>{t('profile.stats.emptySub')}</Text>
+                </View>
+              </View>
+            )}
             <View style={S.gridRow}>
               {[
                 { label: t('profile.stats.totalMatches'), value: user?.total_matches ?? 0, icon: Zap },
@@ -653,30 +674,57 @@ export default function ProfileScreen() {
           </>
         )}
 
-        {activeTab === 1 && (
+        {activeTab === 1 && (() => {
+          const q = prSearch.trim().toLowerCase();
+          const searching = q.length > 0;
+          const filtered = PR_CATEGORIES
+            .map(cat => ({ cat, items: searching ? cat.items.filter(pr => pr.movement.toLowerCase().includes(q)) : cat.items }))
+            .filter(({ items }) => !searching || items.length > 0);
+          return (
           <>
-            {PR_CATEGORIES.map((cat) => {
-              const isOpen = expandedPR === cat.label;
+            <View style={S.prSearchRow}>
+              <Search color={theme.textMuted} size={16} />
+              <TextInput
+                style={S.prSearchInput}
+                value={prSearch}
+                onChangeText={setPrSearch}
+                placeholder={t('profile.pr.searchPlaceholder')}
+                placeholderTextColor={theme.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {prSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setPrSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X color={theme.textMuted} size={16} />
+                </TouchableOpacity>
+              )}
+            </View>
+            {searching && filtered.length === 0 && (
+              <Text style={S.prNoResults}>{t('profile.pr.noResults', { query: prSearch.trim() })}</Text>
+            )}
+            {filtered.map(({ cat, items }) => {
+              const isOpen = searching || expandedPR === cat.label;
               return (  
                 <View key={cat.label} style={S.prCategory}>
                   <TouchableOpacity
                     style={S.prCategoryHeader}
-                    onPress={() => setExpandedPR(isOpen ? null : cat.label)}
-                    activeOpacity={0.7}
+                    onPress={() => !searching && setExpandedPR(isOpen ? null : cat.label)}
+                    activeOpacity={searching ? 1 : 0.7}
                   >
                     <Text style={S.prCategoryIcon}>{cat.icon}</Text>
                     <Text style={S.prCategoryLabel}>{t(`profile.pr.categories.${cat.titleKey}`)}</Text>
-                    <Text style={S.prCategoryCount}>{t('profile.pr.recordsCount', { count: cat.items.length })}</Text>
+                    <Text style={S.prCategoryCount}>{t('profile.pr.recordsCount', { count: items.length })}</Text>
                     <ChevronRight
                       color={theme.textMuted} size={16}
                       style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
                     />
                   </TouchableOpacity>
-                  {isOpen && cat.items.map((pr, i) => {
+                  {isOpen && items.map((pr, i) => {
                     const key = `${cat.label}_${pr.movement}`;
                     const isEditingThis = editingPR === key;
                     return (
-                      <View key={i} style={[S.prRow, i === cat.items.length - 1 && { borderBottomWidth: 0 }]}>
+                      <View key={i} style={[S.prRow, i === items.length - 1 && { borderBottomWidth: 0 }]}>
                         <View style={{ flex: 1 }}>
                           <Text style={S.prMovement}>{pr.movement}</Text>
                           <Text style={S.prDate}>
@@ -723,7 +771,8 @@ export default function ProfileScreen() {
               );
             })}
           </>
-        )}
+          );
+        })()}
 
         {activeTab === 2 && (
           <>
@@ -1293,6 +1342,23 @@ function createStyles(t: AppTheme) {
   },
   gridValue: { fontSize: 22, fontWeight: '900', color: t.text },
   gridLabel: { fontSize: 10, color: t.textMuted, fontWeight: '600', textAlign: 'center' },
+  emptyBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: isDark ? t.surface : t.card, borderRadius: 14,
+    padding: 14, marginBottom: 14,
+    borderWidth: 1, borderColor: t.border,
+    ...cardShadow,
+  },
+  emptyBannerTitle: { fontSize: 13, fontWeight: '800', color: t.text },
+  emptyBannerSub: { fontSize: 11, color: t.textMuted, marginTop: 2, lineHeight: 15 },
+  prSearchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: isDark ? t.surface : t.card, borderRadius: 12,
+    paddingHorizontal: 12, marginBottom: 12,
+    borderWidth: 1, borderColor: t.border,
+  },
+  prSearchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: t.text },
+  prNoResults: { fontSize: 13, color: t.textMuted, textAlign: 'center', paddingVertical: 24 },
   prCategory: {
     backgroundColor: isDark ? t.card : t.card, borderRadius: 14,
     borderWidth: 1, borderColor: t.border, marginBottom: 10, overflow: 'hidden',

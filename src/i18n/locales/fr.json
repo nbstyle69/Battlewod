@@ -756,7 +756,9 @@
       "winRate": "Win Rate",
       "currentStreak": "Série actuelle",
       "badgesEarned": "Badges obtenus",
-      "wodsDone": "WODs effectués"
+      "wodsDone": "WODs effectués",
+      "emptyTitle": "Pas encore de compétition",
+      "emptySub": "Participe à un tournoi ou soumets le score d'un WOD pour voir tes stats grimper."
     },
     "elo": {
       "toward": "Vers {{level}}",
@@ -765,6 +767,8 @@
     },
     "pr": {
       "recordsCount": "{{count}} records",
+      "searchPlaceholder": "Rechercher un mouvement…",
+      "noResults": "Aucun mouvement pour « {{query}} »",
       "categories": {
         "weightlifting": "Haltérophilie",
         "gymnastics": "Gymnastique",
