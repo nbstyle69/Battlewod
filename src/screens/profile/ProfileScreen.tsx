@@ -15,6 +15,8 @@ import { captureError } from '../../lib/sentry';
 import { WEB_URL } from '../../lib/urls';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import i18n, { setLanguage } from '../../i18n';
 import { LevelColors } from '../../theme/designTokens';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
@@ -109,6 +111,7 @@ const BADGE_CATEGORY_MAP: Record<string, string> = {
 const CATEGORY_ORDER = ['activity', 'tournament', 'wod', 'elo', 'Classement', 'social'];
 
 export default function ProfileScreen() {
+  const { t } = useTranslation();
   const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser, myBoxes, switchBox } = useAuth();
   const { theme, mode, toggleTheme } = useTheme();
   const navigation = useNavigation<Nav>();
@@ -1083,16 +1086,16 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               activeOpacity={0.8}
             >
               <View style={S.themeRow}>
-                <Text style={S.compteCardTitle}>CGU & Confidentialité</Text>
+                <Text style={S.compteCardTitle}>{t('profile.legal')}</Text>
                 <ChevronRight color={theme.textMuted} size={16} />
               </View>
             </TouchableOpacity>
 
             {/* ── Apparence ───────────────────────────── */}
             <View style={S.compteCard}>
-              <Text style={S.compteCardTitle}>Apparence</Text>
+              <Text style={S.compteCardTitle}>{t('profile.appearance')}</Text>
               <View style={S.themeRow}>
-                <Text style={S.themeLabel}>{mode === 'dark' ? '🌙 Mode sombre' : '☀️ Mode clair'}</Text>
+                <Text style={S.themeLabel}>{mode === 'dark' ? `🌙 ${t('profile.darkMode')}` : `☀️ ${t('profile.lightMode')}`}</Text>
                 <Switch
                   value={mode === 'dark'}
                   onValueChange={toggleTheme}
@@ -1103,6 +1106,31 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               </View>
             </View>
 
+            {/* ── Langue ──────────────────────────────── */}
+            <View style={S.compteCard}>
+              <Text style={S.compteCardTitle}>{t('profile.language')}</Text>
+              <View style={[S.themeRow, { gap: 10 }]}>
+                {(['fr', 'en'] as const).map(lng => {
+                  const active = i18n.language === lng;
+                  return (
+                    <TouchableOpacity
+                      key={lng}
+                      onPress={() => setLanguage(lng)}
+                      activeOpacity={0.8}
+                      style={[
+                        S.langBtn,
+                        { borderColor: active ? theme.accent : theme.border, backgroundColor: active ? theme.ctaBg : 'transparent' },
+                      ]}
+                    >
+                      <Text style={[S.langBtnText, { color: active ? theme.accent : theme.textMuted }]}>
+                        {lng === 'fr' ? '🇫🇷 Français' : '🇬🇧 English'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
             {/* ── Utilisateurs bloqués ──────────────────── */}
             <TouchableOpacity
               style={S.compteCard}
@@ -1110,7 +1138,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               activeOpacity={0.8}
             >
               <View style={S.themeRow}>
-                <Text style={S.compteCardTitle}>Utilisateurs bloqués</Text>
+                <Text style={S.compteCardTitle}>{t('profile.blockedUsers')}</Text>
                 <ChevronRight color={theme.textMuted} size={16} />
               </View>
             </TouchableOpacity>
@@ -1124,7 +1152,7 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
               <View style={S.themeRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Bell color={theme.text} size={18} />
-                  <Text style={S.themeLabel}>Notifications</Text>
+                  <Text style={S.themeLabel}>{t('profile.notifications')}</Text>
                 </View>
                 <ChevronRight color={theme.textMuted} size={16} />
               </View>
@@ -1132,9 +1160,9 @@ const roleColor = roleColors[user?.role ?? 'athlete'];
 
             {/* ── Referral code ────────────────────────── */}
             <View style={S.compteCard}>
-              <Text style={S.compteCardTitle}>Mon code de parrainage</Text>
+              <Text style={S.compteCardTitle}>{t('profile.referralCode')}</Text>
               <Text style={S.referralDesc}>
-                Partage ce code pour inviter des amis et gagner des récompenses.
+                {t('profile.referralDesc')}
               </Text>
               {referralCode ? (
                 <View style={S.referralBox}>
@@ -1379,6 +1407,8 @@ function createStyles(t: AppTheme) {
   editIconText: { fontSize: 12, fontWeight: '700', color: t.accent },
   themeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   themeLabel: { fontSize: 14, fontWeight: '600', color: t.text },
+  langBtn: { flex: 1, borderWidth: 1.5, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  langBtnText: { fontSize: 14, fontWeight: '700' },
 
   boxRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   boxName: { fontSize: 15, fontWeight: '700', color: t.text },

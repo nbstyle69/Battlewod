@@ -18,6 +18,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Image, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
 import OnboardingTutorialScreen, { ONBOARDING_KEY } from '../screens/onboarding/OnboardingTutorialScreen';
 import InteractiveTour from '../components/InteractiveTour';
 import { BO_TOUR_STEPS } from '../components/InteractiveTour';
@@ -718,6 +719,7 @@ function CoachTabs() {
 }
 
 function MainTabs() {
+  const { t } = useTranslation();
   const { theme, mode } = useTheme();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
@@ -765,15 +767,15 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: 'Compete' }}
+      <Tab.Screen name="Competitions" component={CompetitionNavigator} options={{ tabBarLabel: t('tabs.competition') }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Competitions', { screen: 'CompetitionList' }) })} />
-      <Tab.Screen name="Explorer"     component={ExplorerNavigator}     options={{ tabBarLabel: 'Explorer' }}
+      <Tab.Screen name="Explorer"     component={ExplorerNavigator}     options={{ tabBarLabel: t('tabs.explorer') }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Explorer', { screen: 'ExplorerMain' }) })} />
-      <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: 'Accueil' }}
+      <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: t('tabs.home') }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Home', { screen: 'HomeList' }) })} />
-      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: 'Ma Box' }}
+      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: t('tabs.myBox') }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Whiteboard', { screen: 'WhiteboardMain' }) })} />
-      <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: 'Résa' }}
+      <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: t('tabs.reservation') }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Reservation', { screen: 'ReservationMain' }) })} />
     </Tab.Navigator>
   );

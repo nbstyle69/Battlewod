@@ -8,6 +8,7 @@ import { ChevronLeft, Mail, CheckCircle } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import { AuthStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
@@ -15,6 +16,7 @@ import { spacing, borderRadius, typography, shadows } from '../../theme/designTo
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'> };
 
 export default function ForgotPasswordScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const { resetPassword } = useAuth();
   const { theme, mode } = useTheme();
   const S = createStyles(theme);
@@ -27,13 +29,13 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
   async function handleReset() {
     const trimmed = email.trim();
-    if (!trimmed) { Alert.alert('Erreur', 'Saisis ton adresse email'); return; }
-    if (!EMAIL_REGEX.test(trimmed)) { Alert.alert('Erreur', 'Adresse email invalide (vérifie qu\'il n\'y a pas d\'espace)'); return; }
+    if (!trimmed) { Alert.alert(t('common.error'), t('forgot.enterEmail')); return; }
+    if (!EMAIL_REGEX.test(trimmed)) { Alert.alert(t('common.error'), t('forgot.invalidEmail')); return; }
     setLoading(true);
     const { error } = await resetPassword(trimmed);
     setLoading(false);
     if (error) {
-      Alert.alert('Erreur', error);
+      Alert.alert(t('common.error'), error);
     } else {
       setSent(true);
     }
@@ -47,7 +49,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
           <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
             <ChevronLeft color={theme.textSecondary} size={24} />
-            <Text style={S.backText}>Retour</Text>
+            <Text style={S.backText}>{t('common.back')}</Text>
           </TouchableOpacity>
 
           {sent ? (
@@ -55,17 +57,17 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               <View style={S.successIcon}>
                 <CheckCircle color={theme.accent} size={52} strokeWidth={1.5} />
               </View>
-              <Text style={S.title}>Email envoyé !</Text>
+              <Text style={S.title}>{t('forgot.sentTitle')}</Text>
               <Text style={S.subtitle}>
-                Un lien de réinitialisation a été envoyé à{'\n'}
+                {t('forgot.sentSubtitle')}{'\n'}
                 <Text style={S.emailHighlight}>{email.trim()}</Text>
               </Text>
               <Text style={S.hint}>
-                Vérifie ta boîte mail (et tes spams). Clique sur le lien pour choisir un nouveau mot de passe.
+                {t('forgot.sentHint')}
               </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')} activeOpacity={0.8}>
                 <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
-                  <Text style={S.buttonText}>RETOUR À LA CONNEXION</Text>
+                  <Text style={S.buttonText}>{t('forgot.backToLogin')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -74,13 +76,13 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               <View style={S.iconRow}>
                 <Mail color={theme.accent} size={36} strokeWidth={1.5} />
               </View>
-              <Text style={S.title}>Mot de passe oublié</Text>
+              <Text style={S.title}>{t('forgot.title')}</Text>
               <Text style={S.subtitle}>
-                Saisis ton email et on t'envoie un lien pour réinitialiser ton mot de passe.
+                {t('forgot.subtitle')}
               </Text>
 
               <View style={S.inputContainer}>
-                <Text style={S.label}>Email</Text>
+                <Text style={S.label}>{t('auth.email')}</Text>
                 <TextInput
                   style={S.input}
                   placeholder="ton@email.com"
@@ -99,7 +101,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
                 <LinearGradient colors={[theme.accent, theme.accentDark]} style={S.button}>
                   {loading
                     ? <ActivityIndicator color="#fff" />
-                    : <Text style={S.buttonText}>ENVOYER LE LIEN</Text>}
+                    : <Text style={S.buttonText}>{t('forgot.sendLink')}</Text>}
                 </LinearGradient>
               </TouchableOpacity>
             </View>

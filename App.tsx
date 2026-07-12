@@ -18,6 +18,8 @@ import AppNavigator from './src/navigation';
 import ForceUpdateGate from './src/components/ForceUpdateGate';
 import { ToastProvider } from './src/components/Toast';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { I18nextProvider } from 'react-i18next';
+import i18n, { initLanguage } from './src/i18n';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +76,11 @@ class ErrorBoundary extends React.Component<
 (Text as any).defaultProps.style = [{ fontFamily: 'Inter_400Regular' }];
 
 function App() {
+  const [langReady, setLangReady] = React.useState(false);
+  useEffect(() => {
+    initLanguage().finally(() => setLangReady(true));
+  }, []);
+
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -101,11 +108,12 @@ function App() {
     };
   }, []);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || !langReady) return null;
 
   return (
     <ErrorBoundary>
       <ForceUpdateGate>
+        <I18nextProvider i18n={i18n}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <AuthProvider>
@@ -117,6 +125,7 @@ function App() {
             </AuthProvider>
           </ThemeProvider>
         </QueryClientProvider>
+        </I18nextProvider>
       </ForceUpdateGate>
     </ErrorBoundary>
   );

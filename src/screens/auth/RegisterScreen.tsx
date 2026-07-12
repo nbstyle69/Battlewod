@@ -9,6 +9,7 @@ import GlassBackground from '../../components/glass/GlassBackground';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import { AuthStackParamList } from '../../navigation';
 import { Gender } from '../../types';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
@@ -17,6 +18,7 @@ import { OWNER_ONBOARDING_URL } from '../../lib/urls';
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'> };
 
 export default function RegisterScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const { signUp } = useAuth();
   const { theme, mode } = useTheme();
   const S = createStyles(theme);
@@ -29,9 +31,9 @@ export default function RegisterScreen({ navigation }: Props) {
   const [acceptedCGU, setAcceptedCGU] = useState(false);
 
   async function handleRegister() {
-    if (!email || !password || !username) { Alert.alert('Erreur', 'Remplis tous les champs'); return; }
-    if (password.length < 6) { Alert.alert('Erreur', 'Mot de passe trop court (6 caractères min)'); return; }
-    if (!acceptedCGU) { Alert.alert('CGU requises', 'Tu dois accepter les Conditions Générales d\'Utilisation pour t\'inscrire.'); return; }
+    if (!email || !password || !username) { Alert.alert(t('common.error'), t('auth.fillAllFields')); return; }
+    if (password.length < 6) { Alert.alert(t('common.error'), t('auth.passwordTooShort')); return; }
+    if (!acceptedCGU) { Alert.alert(t('auth.cguRequiredTitle'), t('auth.cguRequiredBody')); return; }
     setLoading(true);
     const requestedUsername = username.trim();
     const { error, finalUsername } = await signUp(email.trim(), password, requestedUsername, 'inter', gender);
@@ -50,7 +52,7 @@ export default function RegisterScreen({ navigation }: Props) {
         [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
       );
     } else if (error) {
-      Alert.alert('Inscription impossible', error);
+      Alert.alert(t('auth.registerFailed'), error);
     } else if (pseudoChanged) {
       Alert.alert('Pseudo modifié', `Le pseudo « ${requestedUsername} » était déjà pris, le tien est devenu « ${finalUsername} ». Tu peux le changer plus tard dans ton profil.`);
     }
@@ -63,7 +65,7 @@ export default function RegisterScreen({ navigation }: Props) {
         <ScrollView contentContainerStyle={S.container} keyboardShouldPersistTaps="handled">
           <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
             <ChevronLeft color={theme.textSecondary} size={24} />
-            <Text style={S.backText}>Retour</Text>
+            <Text style={S.backText}>{t('common.back')}</Text>
           </TouchableOpacity>
 
           <View style={S.logoContainer}>
@@ -75,10 +77,10 @@ export default function RegisterScreen({ navigation }: Props) {
           </View>
 
           <View style={S.form}>
-            <Text style={S.title}>Créer un compte</Text>
+            <Text style={S.title}>{t('auth.registerTitle')}</Text>
 
             <View style={S.inputContainer}>
-              <Text style={S.label}>Pseudo</Text>
+              <Text style={S.label}>{t('auth.username')}</Text>
               <TextInput
                 style={S.input}
                 placeholder="TonPseudo"
@@ -93,7 +95,7 @@ export default function RegisterScreen({ navigation }: Props) {
             </View>
 
             <View style={S.inputContainer}>
-              <Text style={S.label}>Email</Text>
+              <Text style={S.label}>{t('auth.email')}</Text>
               <TextInput
                 style={S.input}
                 placeholder="ton@email.com"
@@ -109,7 +111,7 @@ export default function RegisterScreen({ navigation }: Props) {
             </View>
 
             <View style={S.inputContainer}>
-              <Text style={S.label}>Mot de passe</Text>
+              <Text style={S.label}>{t('auth.password')}</Text>
               <View style={{ position: 'relative' }}>
                 <TextInput
                   style={[S.input, { paddingRight: 48 }]}
@@ -136,7 +138,7 @@ export default function RegisterScreen({ navigation }: Props) {
             </View>
 
             <View style={S.inputContainer}>
-              <Text style={S.label}>Genre</Text>
+              <Text style={S.label}>{t('auth.gender')}</Text>
               <View style={S.roleRow}>
                 <TouchableOpacity
                   style={[S.roleCard, gender === 'male' && S.roleCardActive]}
@@ -144,7 +146,7 @@ export default function RegisterScreen({ navigation }: Props) {
                   activeOpacity={0.8}
                 >
                   <Text style={{ fontSize: 22 }}>♂</Text>
-                  <Text style={[S.roleLabel, gender === 'male' && S.roleLabelActive]}>Homme</Text>
+                  <Text style={[S.roleLabel, gender === 'male' && S.roleLabelActive]}>{t('auth.male')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[S.roleCard, gender === 'female' && S.roleCardActive]}
@@ -152,7 +154,7 @@ export default function RegisterScreen({ navigation }: Props) {
                   activeOpacity={0.8}
                 >
                   <Text style={{ fontSize: 22 }}>♀</Text>
-                  <Text style={[S.roleLabel, gender === 'female' && S.roleLabelActive]}>Femme</Text>
+                  <Text style={[S.roleLabel, gender === 'female' && S.roleLabelActive]}>{t('auth.female')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -163,8 +165,8 @@ export default function RegisterScreen({ navigation }: Props) {
                 {acceptedCGU && <View style={S.cguChecked} />}
               </TouchableOpacity>
               <Text style={S.cguText}>
-                J'accepte les{' '}
-                <Text style={S.cguLink} onPress={() => navigation.navigate('Legal' as never)}>CGU et la Politique de Confidentialité</Text>
+                {t('auth.acceptPrefix')}{' '}
+                <Text style={S.cguLink} onPress={() => navigation.navigate('Legal' as never)}>{t('auth.cguLink')}</Text>
               </Text>
             </View>
 
@@ -172,7 +174,7 @@ export default function RegisterScreen({ navigation }: Props) {
               style={[S.button, { backgroundColor: theme.ctaBg, borderWidth: 2, borderColor: theme.ctaBorder }, !acceptedCGU && { opacity: 0.5 }]}>
               {loading
                 ? <ActivityIndicator color="#fff" />
-                : <Text style={S.buttonText}>REJOINDRE LA BATAILLE</Text>}
+                : <Text style={S.buttonText}>{t('auth.joinBattle')}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -183,8 +185,8 @@ export default function RegisterScreen({ navigation }: Props) {
               accessibilityLabel="Créer un compte gérant de box sur athlex.app"
             >
               <Text style={S.ownerText}>
-                Vous gérez une box ?{' '}
-                <Text style={S.ownerLink}>Créez votre compte sur athlex.app</Text>
+                {t('auth.ownerPrompt')}{' '}
+                <Text style={S.ownerLink}>{t('auth.ownerLink')}</Text>
               </Text>
             </TouchableOpacity>
           </View>
