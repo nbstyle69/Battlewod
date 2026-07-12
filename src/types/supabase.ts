@@ -3506,6 +3506,7 @@ export type Database = {
           created_at: string | null
           elo: number
           email: string
+          featured_badges: string[]
           full_name: string | null
           gender: string | null
           id: string
@@ -3532,6 +3533,7 @@ export type Database = {
           created_at?: string | null
           elo?: number
           email: string
+          featured_badges?: string[]
           full_name?: string | null
           gender?: string | null
           id: string
@@ -3558,6 +3560,7 @@ export type Database = {
           created_at?: string | null
           elo?: number
           email?: string
+          featured_badges?: string[]
           full_name?: string | null
           gender?: string | null
           id?: string
