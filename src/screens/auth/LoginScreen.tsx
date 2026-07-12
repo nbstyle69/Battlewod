@@ -97,7 +97,7 @@ export default function LoginScreen({ navigation }: Props) {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8} accessibilityLabel="Se connecter" accessibilityRole="button"
-              style={[S.button, { backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)' }]}>
+              style={[S.button, { backgroundColor: theme.ctaBg, borderWidth: 2, borderColor: theme.ctaBorder }]}>
               {loading
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={S.buttonText}>SE CONNECTER</Text>}

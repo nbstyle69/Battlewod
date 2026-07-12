@@ -174,7 +174,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     flex: 1,
   },
   highlightBox: {
-    backgroundColor: 'rgba(16,185,129,0.15)',
+    backgroundColor: `${t.accent}26`,
     borderWidth: 2,
     borderColor: t.accent,
   },

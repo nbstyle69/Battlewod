@@ -18,9 +18,10 @@ type ThemePalette = {
 function usePalette(): ThemePalette {
   const { theme } = useTheme();
   const isDark = theme.mode === 'dark';
+  // Dark mode keeps the emerald look; light mode uses a gray/silver (argenté) palette.
   const gradient: [string, string, string] = isDark
     ? ['#022c22', '#0d1f17', '#14532d']
-    : ['#ecfdf5', '#f0fdf4', '#d1fae5'];
+    : ['#f8fafc', '#f1f5f9', '#e2e8f0'];
   const blobColors = isDark
     ? {
         b1: 'rgba(16,185,129,0.30)',
@@ -29,10 +30,10 @@ function usePalette(): ThemePalette {
         b4: 'rgba(110,231,183,0.20)',
       }
     : {
-        b1: 'rgba(16,185,129,0.50)',
-        b2: 'rgba(5,150,105,0.40)',
-        b3: 'rgba(52,211,153,0.40)',
-        b4: 'rgba(110,231,183,0.35)',
+        b1: 'rgba(148,163,184,0.45)',
+        b2: 'rgba(100,116,139,0.35)',
+        b3: 'rgba(203,213,225,0.45)',
+        b4: 'rgba(148,163,184,0.30)',
       };
   return { gradient, blobColors };
 }

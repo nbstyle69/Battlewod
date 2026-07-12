@@ -169,7 +169,7 @@ export default function RegisterScreen({ navigation }: Props) {
             </View>
 
             <TouchableOpacity onPress={handleRegister} disabled={loading || !acceptedCGU} activeOpacity={0.8} accessibilityLabel="Créer un compte" accessibilityRole="button"
-              style={[S.button, { backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)' }, !acceptedCGU && { opacity: 0.5 }]}>
+              style={[S.button, { backgroundColor: theme.ctaBg, borderWidth: 2, borderColor: theme.ctaBorder }, !acceptedCGU && { opacity: 0.5 }]}>
               {loading
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={S.buttonText}>REJOINDRE LA BATAILLE</Text>}
