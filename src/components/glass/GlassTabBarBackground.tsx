@@ -24,7 +24,7 @@ export default function GlassTabBarBackground() {
           pointerEvents="none"
           style={{
             position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-            backgroundColor: 'rgba(16,185,129,0.25)',
+            backgroundColor: dark ? 'rgba(16,185,129,0.25)' : 'rgba(148,163,184,0.30)',
           }}
         />
       </View>
@@ -43,7 +43,7 @@ export default function GlassTabBarBackground() {
         pointerEvents="none"
         style={[
           StyleSheet.absoluteFill,
-          { backgroundColor: dark ? 'rgba(10,15,13,0.55)' : 'rgba(236,253,245,0.35)' },
+          { backgroundColor: dark ? 'rgba(10,15,13,0.55)' : 'rgba(241,245,249,0.35)' },
         ]}
       />
       {/* Top border highlight (emerald glow line) */}
@@ -51,7 +51,7 @@ export default function GlassTabBarBackground() {
         pointerEvents="none"
         style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-          backgroundColor: 'rgba(16,185,129,0.30)',
+          backgroundColor: dark ? 'rgba(16,185,129,0.30)' : 'rgba(148,163,184,0.35)',
         }}
       />
       {/* Subtle inner highlight strip */}

@@ -440,8 +440,8 @@ function createStyles(theme: AppTheme) {
   createGradient: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 14, padding: 16, gap: 8,
-    backgroundColor: 'rgba(16,185,129,0.25)',
-    borderWidth: 2, borderColor: 'rgba(16,185,129,0.8)',
+    backgroundColor: theme.ctaBg,
+    borderWidth: 2, borderColor: theme.ctaBorder,
   },
   createText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   vsAvatar: {

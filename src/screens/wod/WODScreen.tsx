@@ -168,7 +168,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 28, fontWeight: '900', color: theme.text },
   headerSubtitle: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
-  generateButton: { borderRadius: 12, backgroundColor: 'rgba(16,185,129,0.25)', borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 6 },
+  generateButton: { borderRadius: 12, backgroundColor: theme.ctaBg, borderWidth: 1.5, borderColor: theme.ctaBorder, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 6 },
   generateGradient: {},
   generateText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   filterRow: { paddingTop: 12 },

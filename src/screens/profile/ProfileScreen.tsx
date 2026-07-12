@@ -1391,8 +1391,8 @@ function createStyles(t: AppTheme) {
   noBoxText: { fontSize: 13, color: t.textMuted },
   joinBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: 'rgba(16,185,129,0.25)', borderRadius: 14, padding: 14,
-    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.8)',
+    gap: 8, backgroundColor: t.ctaBg, borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: t.ctaBorder,
   },
   joinBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   leaveBtn: {

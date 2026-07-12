@@ -379,8 +379,8 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={homeDataLoading}
             onRefresh={refetchHome}
-            tintColor="#10b981"
-            colors={['#10b981']}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
           />
         }
       >
@@ -505,8 +505,8 @@ export default function HomeScreen() {
                   return (
                     <View key={i} style={S.weekCol}>
                       <View style={{ alignItems: 'center', gap: 2 }}>
-                        {hRes > 0 && <View style={[S.weekBar, { height: hRes, backgroundColor: '#10b981' }]} />}
-                        {hWod > 0 && <View style={[S.weekBar, { height: hWod, backgroundColor: isToday ? '#34d399' : (isDark ? '#f9fafb' : '#111827') }]} />}
+                        {hRes > 0 && <View style={[S.weekBar, { height: hRes, backgroundColor: theme.accent }]} />}
+                        {hWod > 0 && <View style={[S.weekBar, { height: hWod, backgroundColor: isToday ? theme.accentLight : (isDark ? '#f9fafb' : '#111827') }]} />}
                         {!hasActivity && <View style={[S.weekBar, { height: 4, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]} />}
                       </View>
                       <Text style={[S.weekDayTxt, isToday && { fontWeight: '900', color: isDark ? '#f9fafb' : '#111827' }]}>{day}</Text>
@@ -522,7 +522,7 @@ export default function HomeScreen() {
                     <Text style={S.legendText}>WODs</Text>
                   </View>
                   <View style={S.legendItem}>
-                    <View style={[S.legendDot, { backgroundColor: '#10b981' }]} />
+                    <View style={[S.legendDot, { backgroundColor: theme.accent }]} />
                     <Text style={S.legendText}>Réservations</Text>
                   </View>
                 </View>
@@ -566,7 +566,7 @@ export default function HomeScreen() {
               <GlassCard radius={18}>
                 <View style={S.toolRow}>
                   <GlassIconBox size={48} variant="emerald" radius={14}>
-                    <t.icon color="#10b981" size={22} />
+                    <t.icon color={theme.accent} size={22} />
                   </GlassIconBox>
                   <View style={{ flex: 1 }}>
                     <Text style={S.toolLabel}>{t.label}</Text>
@@ -603,10 +603,10 @@ export default function HomeScreen() {
                           </GlassIconBox>
                         )}
                         <View style={{ flex: 1 }}>
-                          <Text style={[S.boxPickerName, isActive && { color: '#10b981' }]}>{entry.box.name}</Text>
+                          <Text style={[S.boxPickerName, isActive && { color: theme.accent }]}>{entry.box.name}</Text>
                           <Text style={S.boxPickerRole}>{entry.role === 'owner' ? 'Propriétaire' : entry.role === 'coach' ? 'Coach' : 'Membre'}</Text>
                         </View>
-                        {isActive && <Check size={18} color="#10b981" />}
+                        {isActive && <Check size={18} color={theme.accent} />}
                       </TouchableOpacity>
                     );
                   })}
@@ -676,7 +676,7 @@ export default function HomeScreen() {
                       {item.logo_url ? (
                         <Image source={{ uri: item.logo_url }} style={{ width: 72, height: 72, borderRadius: 12 }} resizeMode="contain" />
                       ) : (
-                        <GlassIconBox size={72} radius={16}><Trophy color="#10b981" size={32} /></GlassIconBox>
+                        <GlassIconBox size={72} radius={16}><Trophy color={theme.accent} size={32} /></GlassIconBox>
                       )}
                       <Text numberOfLines={2} style={S.compPhysName}>{item.name}</Text>
                     </View>
@@ -706,7 +706,7 @@ export default function HomeScreen() {
                   <GlassCard radius={16} style={{ width: 170 }}>
                     <View style={S.compInner}>
                       <View style={S.compBadgeRow}>
-                        <View style={[S.compDot, { backgroundColor: comp.status === 'open' ? '#10b981' : '#9ca3af' }]} />
+                        <View style={[S.compDot, { backgroundColor: comp.status === 'open' ? theme.accent : '#9ca3af' }]} />
                         <Text style={S.compStatus}>{comp.status === 'open' ? 'Ouvert' : comp.status === 'active' ? 'En cours' : 'Terminé'}</Text>
                       </View>
                       <Text style={S.compName} numberOfLines={2}>{comp.name}</Text>
@@ -877,19 +877,19 @@ function createStyles(t: AppTheme) {
       position: 'absolute', bottom: 100, left: 16, right: 16, zIndex: 99,
     },
     badgePopupCard: {
-      backgroundColor: isDark ? 'rgba(10,20,15,0.97)' : 'rgba(240,255,248,0.97)',
+      backgroundColor: isDark ? 'rgba(10,20,15,0.97)' : 'rgba(241,245,249,0.97)',
       borderRadius: 20, padding: 16,
-      borderWidth: 1.5, borderColor: '#10b981',
-      shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12,
+      borderWidth: 1.5, borderColor: t.accent,
+      shadowColor: t.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12,
       elevation: 10,
     },
     badgePopupIconRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 },
     badgePopupIcon: { fontSize: 44 },
-    badgePopupHeader: { fontSize: 10, fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 },
+    badgePopupHeader: { fontSize: 10, fontWeight: '800', color: t.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 },
     badgePopupTitle: { fontSize: 16, fontWeight: '900', color: t.text, marginBottom: 2 },
     badgePopupDesc: { fontSize: 12, color: t.textSecondary, lineHeight: 16 },
     badgeProgressTrack: { height: 3, backgroundColor: t.surface, borderRadius: 2, overflow: 'hidden' },
-    badgeProgressFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 2 },
+    badgeProgressFill: { height: '100%', backgroundColor: t.accent, borderRadius: 2 },
 
     // Box picker modal
     boxPickerOverlay: { flex: 1, backgroundColor: t.modalBackdrop, justifyContent: 'flex-end', paddingBottom: spacing.xl },

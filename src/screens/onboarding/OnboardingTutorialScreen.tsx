@@ -215,6 +215,9 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
   const { user, joinBox, skipBox, currentBox } = useAuth();
   const isLoggedIn = !!user;
   const S = createStyles(theme);
+  // The welcome/badge slides use the app brand accent (emerald in dark, silver in light).
+  const slideColor = (raw?: string) =>
+    raw === '#059669' || raw === '#10b981' ? theme.accent : (raw ?? theme.accent);
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -352,8 +355,8 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
               <View style={S.slide}>
                 <Animated.View style={[S.slideContent, { opacity, transform: [{ translateY }] }]}>
                   {/* Icon with parallax */}
-                  <Animated.View style={[S.iconCircle, { backgroundColor: item.color + '18', transform: [{ translateX: iconTranslateX }] }]}>
-                    <SlideIcon type={item.icon} color={item.color} badgeScale={item.icon === 'badge' ? badgeScale : undefined} />
+                  <Animated.View style={[S.iconCircle, { backgroundColor: slideColor(item.color) + '18', transform: [{ translateX: iconTranslateX }] }]}>
+                    <SlideIcon type={item.icon} color={slideColor(item.color)} badgeScale={item.icon === 'badge' ? badgeScale : undefined} />
                   </Animated.View>
                   <Text style={S.title}>{item.title}</Text>
                   <Text style={S.description}>{item.description}</Text>
@@ -423,7 +426,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
             return (
               <Animated.View
                 key={i}
-                style={[S.dot, { width: dotWidth, opacity: dotOpacity, backgroundColor: SLIDES[currentIndex]?.color ?? '#059669' }]}
+                style={[S.dot, { width: dotWidth, opacity: dotOpacity, backgroundColor: slideColor(SLIDES[currentIndex]?.color) }]}
               />
             );
           })}
@@ -432,7 +435,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
         {/* CTA Button — hidden on box slide when logged in (buttons are inline) */}
         {(!isBoxSlide || !isLoggedIn) && (
           <TouchableOpacity
-            style={[S.ctaBtn, { backgroundColor: SLIDES[currentIndex]?.color ?? '#059669' }]}
+            style={[S.ctaBtn, { backgroundColor: slideColor(SLIDES[currentIndex]?.color) }]}
             onPress={handleNext}
             activeOpacity={0.85}
           >

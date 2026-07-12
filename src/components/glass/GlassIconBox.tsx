@@ -22,11 +22,11 @@ export default function GlassIconBox({ size = 56, variant = 'default', children,
 
   const overlayColor =
     variant === 'emerald'
-      ? (isDark ? 'rgba(16,185,129,0.18)' : 'rgba(16,185,129,0.14)')
+      ? `${theme.accent}${isDark ? '2E' : '24'}`
       : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.40)');
   const borderColor =
     variant === 'emerald'
-      ? (isDark ? 'rgba(16,185,129,0.35)' : 'rgba(16,185,129,0.30)')
+      ? `${theme.accent}${isDark ? '59' : '4D'}`
       : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)');
   const reflectionColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)';
 

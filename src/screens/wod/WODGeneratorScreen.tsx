@@ -2017,9 +2017,9 @@ export default function WODGeneratorScreen() {
             marginVertical: 16,
             marginHorizontal: 20,
             borderRadius: 16,
-            backgroundColor: sport === 'functional' ? 'rgba(16,185,129,0.25)' : 'rgba(249,115,22,0.25)',
+            backgroundColor: sport === 'functional' ? theme.ctaBg : 'rgba(249,115,22,0.25)',
             borderWidth: 2,
-            borderColor: sport === 'functional' ? 'rgba(16,185,129,0.8)' : 'rgba(249,115,22,0.8)',
+            borderColor: sport === 'functional' ? theme.ctaBorder : 'rgba(249,115,22,0.8)',
             paddingVertical: 18,
             paddingHorizontal: 28,
             opacity: loading ? 0.6 : 1,
@@ -2468,9 +2468,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   startButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 14, padding: 16, gap: 8,
-    backgroundColor: 'rgba(16,185,129,0.25)',
+    backgroundColor: theme.ctaBg,
     borderWidth: 2,
-    borderColor: 'rgba(16,185,129,0.8)',
+    borderColor: theme.ctaBorder,
   },
   startButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
   progBtn: {
