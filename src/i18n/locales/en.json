@@ -756,7 +756,9 @@
       "winRate": "Win rate",
       "currentStreak": "Current streak",
       "badgesEarned": "Badges earned",
-      "wodsDone": "WODs done"
+      "wodsDone": "WODs done",
+      "emptyTitle": "No competition yet",
+      "emptySub": "Join a tournament or submit a WOD score to start climbing the stats."
     },
     "elo": {
       "toward": "Toward {{level}}",
@@ -765,6 +767,8 @@
     },
     "pr": {
       "recordsCount": "{{count}} records",
+      "searchPlaceholder": "Search a movement…",
+      "noResults": "No movement for \"{{query}}\"",
       "categories": {
         "weightlifting": "Weightlifting",
         "gymnastics": "Gymnastics",
