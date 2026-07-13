@@ -2409,14 +2409,14 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
   },
   chipSelected: { backgroundColor: `${theme.accent}25`, borderColor: theme.accent },
-  chipText: { fontSize: 13, color: theme.textSecondary, fontWeight: '600' },
+  chipText: { fontSize: 13, color: theme.text, fontWeight: '600' },
   equipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   equipChip: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10,
     borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card,
   },
   equipChipActive: { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
-  equipText: { fontSize: 12, color: theme.textSecondary, fontWeight: '500' },
+  equipText: { fontSize: 12, color: theme.text, fontWeight: '500' },
   generateBtn: { marginVertical: 8 },
   sportRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   sportCard: {
