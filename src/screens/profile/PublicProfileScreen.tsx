@@ -75,8 +75,16 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
       .single();
     setProfile(data as PublicUser);
     setLoading(false);
-    // Load featured badges from personal_records
-    const keys: string[] = (data as any)?.personal_records?._featured_badges ?? [];
+    // Featured badges moved to a dedicated column; fall back to the legacy
+    // personal_records._featured_badges slot for profiles not yet migrated.
+    const { data: featuredData } = await supabase
+      .from('profiles')
+      .select('featured_badges')
+      .eq('id', userId)
+      .maybeSingle();
+    const keys: string[] = featuredData?.featured_badges?.length
+      ? featuredData.featured_badges
+      : ((data as any)?.personal_records?._featured_badges ?? []);
     if (keys.length > 0) {
       const catalog = await getBadgesCatalog();
       setFeaturedBadges(catalog.filter(b => keys.includes(b.badge_key)));

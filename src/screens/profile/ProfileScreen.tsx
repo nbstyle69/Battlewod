@@ -24,6 +24,7 @@ import { HomeStackParamList } from '../../navigation';
 import { Program } from '../../types';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { prKey, normalizePrRecords, PrCategorySlug } from './prStorage';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
@@ -121,8 +122,11 @@ export default function ProfileScreen() {
   const navigation = useNavigation<Nav>();
   const S = useMemo(() => createStyles(theme), [theme]);
   const [activeTab, setActiveTab]   = useState(0);
-  const [expandedPR, setExpandedPR] = useState<string | null>('Haltérophilie');
+  const [expandedPR, setExpandedPR] = useState<string | null>('weightlifting');
   const [prSearch, setPrSearch]     = useState('');
+  // Whether profiles.featured_badges (dedicated column) exists yet. Until the
+  // migration is applied we transparently fall back to the legacy JSON slot.
+  const [featuredColumn, setFeaturedColumn] = useState(false);
 
   // ── Referral code
   const [referralCode, setReferralCode] = useState<string>('');
@@ -245,13 +249,15 @@ export default function ProfileScreen() {
     ['profile', user?.id],
     async () => {
       if (!user) return null;
-      const [wodCountRes, prRes, badgesRes, earnedRes, streakRes, friendsRes] = await Promise.all([
+      const [wodCountRes, prRes, badgesRes, earnedRes, streakRes, friendsRes, featuredRes] = await Promise.all([
         supabase.from('wod_scores').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('profiles').select('personal_records').eq('id', user.id).single(),
         getBadgesCatalog(),
         getEarnedBadges(user.id),
         getStreak(user.id, currentBox?.id),
         supabase.from('friendships').select('requester_id, addressee_id, requester:profiles!requester_id(id, username, level, avatar_url), addressee:profiles!addressee_id(id, username, level, avatar_url)').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status', 'accepted'),
+        // Dedicated column; errors (data null) if the migration hasn't run yet.
+        supabase.from('profiles').select('featured_badges').eq('id', user.id).maybeSingle(),
       ]);
       return {
         wodCount: wodCountRes.count ?? 0,
@@ -260,6 +266,8 @@ export default function ProfileScreen() {
         earnedBadges: earnedRes,
         streak: streakRes,
         friends: friendsRes.data,
+        featuredColumnAvailable: !featuredRes.error,
+        featuredBadgesCol: (featuredRes.data?.featured_badges as string[] | null) ?? null,
       };
     },
     { enabled: !!user },
@@ -269,10 +277,17 @@ export default function ProfileScreen() {
     if (!profileData) return;
     setWodCount(profileData.wodCount);
     if (profileData.prValues && typeof profileData.prValues === 'object') {
-      const prs = profileData.prValues as Record<string, string | string[]>;
-      const { _featured_badges, ...rest } = prs as any;
-      setPrValues(prev => ({ ...prev, ...(rest as Record<string, string>) }));
-      if (Array.isArray(_featured_badges)) setFeaturedBadges(_featured_badges);
+      const prs = profileData.prValues as Record<string, unknown>;
+      setPrValues(prev => ({ ...prev, ...normalizePrRecords(prs) }));
+      const legacyFeatured = Array.isArray(prs._featured_badges) ? (prs._featured_badges as string[]) : null;
+      setFeaturedColumn(profileData.featuredColumnAvailable);
+      if (profileData.featuredColumnAvailable) {
+        // Prefer the dedicated column; fall back to legacy JSON right after migration.
+        if (profileData.featuredBadgesCol && profileData.featuredBadgesCol.length) setFeaturedBadges(profileData.featuredBadgesCol);
+        else if (legacyFeatured) setFeaturedBadges(legacyFeatured);
+      } else if (legacyFeatured) {
+        setFeaturedBadges(legacyFeatured);
+      }
     }
     setBadgesCatalog(profileData.badgesCatalog);
     setEarnedBadges(profileData.earnedBadges);
@@ -293,7 +308,10 @@ export default function ProfileScreen() {
 
   async function savePRs(updated: Record<string, string>) {
     if (!user) return;
-    await supabase.from('profiles').update({ personal_records: { ...updated, _featured_badges: featuredBadges } }).eq('id', user.id);
+    // Post-migration: PRs and featured badges live in separate storage. Pre-migration:
+    // keep persisting the featured badges alongside the PRs so we don't drop them.
+    const records = featuredColumn ? updated : { ...updated, _featured_badges: featuredBadges };
+    await supabase.from('profiles').update({ personal_records: records }).eq('id', user.id);
   }
 
   async function toggleFeaturedBadge(badgeKey: string) {
@@ -306,7 +324,11 @@ export default function ProfileScreen() {
       next = [...featuredBadges, badgeKey];
     }
     setFeaturedBadges(next);
-    await supabase.from('profiles').update({ personal_records: { ...prValues, _featured_badges: next } }).eq('id', user.id);
+    if (featuredColumn) {
+      await supabase.from('profiles').update({ featured_badges: next }).eq('id', user.id);
+    } else {
+      await supabase.from('profiles').update({ personal_records: { ...prValues, _featured_badges: next } }).eq('id', user.id);
+    }
   }
 
   async function loadReferralCode() {
@@ -704,12 +726,12 @@ export default function ProfileScreen() {
               <Text style={S.prNoResults}>{t('profile.pr.noResults', { query: prSearch.trim() })}</Text>
             )}
             {filtered.map(({ cat, items }) => {
-              const isOpen = searching || expandedPR === cat.label;
+              const isOpen = searching || expandedPR === cat.titleKey;
               return (  
-                <View key={cat.label} style={S.prCategory}>
+                <View key={cat.titleKey} style={S.prCategory}>
                   <TouchableOpacity
                     style={S.prCategoryHeader}
-                    onPress={() => !searching && setExpandedPR(isOpen ? null : cat.label)}
+                    onPress={() => !searching && setExpandedPR(isOpen ? null : cat.titleKey)}
                     activeOpacity={searching ? 1 : 0.7}
                   >
                     <Text style={S.prCategoryIcon}>{cat.icon}</Text>
@@ -721,7 +743,7 @@ export default function ProfileScreen() {
                     />
                   </TouchableOpacity>
                   {isOpen && items.map((pr, i) => {
-                    const key = `${cat.label}_${pr.movement}`;
+                    const key = prKey(cat.titleKey as PrCategorySlug, pr.movement);
                     const isEditingThis = editingPR === key;
                     return (
                       <View key={i} style={[S.prRow, i === items.length - 1 && { borderBottomWidth: 0 }]}>
