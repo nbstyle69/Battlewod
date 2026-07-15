@@ -1470,5 +1470,24 @@
     "athleteScoresHere": "Athlete scores will appear here.",
     "reject": "Reject",
     "validate": "Validate"
+  },
+  "tour": {
+    "next": "Next",
+    "skip": "Skip tour",
+    "finish": "Done",
+    "sectionHome": "On the home screen",
+    "sectionNav": "The navigation bar",
+    "steps": [
+      { "label": "ELO", "description": "Your progression from your box's daily WOD and from competitions inside the app." },
+      { "label": "Friends", "description": "Find and browse your friends list." },
+      { "label": "Leaderboard", "description": "Check out the different rankings." },
+      { "label": "Video Timer", "description": "A timer with video recording — perfect for online qualifiers." },
+      { "label": "WOD Generator", "description": "We suggest WODs based on what you want!" },
+      { "label": "1RM Calculator", "description": "Find the load matching a % of your exercise." },
+      { "label": "Competition", "description": "Here you'll find the available competitions." },
+      { "label": "Explore", "description": "Info about boxes and partners." },
+      { "label": "My box", "description": "You'll find your booked classes here." },
+      { "label": "Bookings", "description": "Book the classes at your gym." }
+    ]
   }
 }

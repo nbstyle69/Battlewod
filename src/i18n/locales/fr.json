@@ -1470,5 +1470,24 @@
     "athleteScoresHere": "Les scores des athlètes apparaîtront ici.",
     "reject": "Rejeter",
     "validate": "Valider"
+  },
+  "tour": {
+    "next": "Suivant",
+    "skip": "Passer le tour",
+    "finish": "Terminer",
+    "sectionHome": "Sur l'accueil",
+    "sectionNav": "La barre de navigation",
+    "steps": [
+      { "label": "L'ELO", "description": "Ta progression en participant au WOD du jour de ta box et lors des compétitions au sein de l'application." },
+      { "label": "Amis", "description": "Retrouve et consulte ta liste d'amis." },
+      { "label": "Classement", "description": "Consulte les différents classements." },
+      { "label": "Minuteur Vidéo", "description": "Un chronomètre à disposition avec enregistrement vidéo — idéal pour les qualifications en ligne." },
+      { "label": "Générateur de WOD", "description": "On te propose des WODs selon tes envies !" },
+      { "label": "Calculateur 1RM", "description": "Pour trouver la charge correspondant à un % de ton exercice." },
+      { "label": "Compétition", "description": "Ici tu retrouveras les différentes compétitions disponibles." },
+      { "label": "Explorer", "description": "Des informations concernant les box et les partenaires." },
+      { "label": "Ma box", "description": "Tu retrouveras tes cours inscrits ici." },
+      { "label": "Réservations", "description": "Tu pourras t'inscrire aux cours de ta salle." }
+    ]
   }
 }
