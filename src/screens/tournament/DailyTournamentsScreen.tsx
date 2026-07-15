@@ -261,6 +261,7 @@ export default function DailyTournamentsScreen() {
 
   return (
     <View style={S.screen}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
