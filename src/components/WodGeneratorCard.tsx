@@ -1626,7 +1626,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       <TouchableOpacity style={s.progBtn} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
         <BookOpen color={theme.accent} size={16} />
         <Text style={s.progBtnTxt}>Programmation</Text>
-        <ChevronRight color={'rgba(255,255,255,0.8)'} size={14} />
+        <ChevronRight color={theme.textSecondary} size={14} />
       </TouchableOpacity>
 
       {/* Sport selector */}
@@ -1667,7 +1667,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         {DURATIONS.map(d => (
           <TouchableOpacity key={d} onPress={() => setDuration(d)} activeOpacity={0.7}
             style={[s.chip, duration === d && s.chipSel]}>
-            <Clock color={duration === d ? theme.accent : 'rgba(255,255,255,0.8)'} size={12} />
+            <Clock color={duration === d ? theme.accent : theme.textSecondary} size={12} />
             <Text style={[s.chipTxt, duration === d && s.chipTxtSel]}>{d} min</Text>
           </TouchableOpacity>
         ))}
@@ -1704,12 +1704,12 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           paddingVertical: 12,
           marginVertical: 8,
           borderRadius: 12,
-          backgroundColor: 'rgba(255,255,255,0.05)',
+          backgroundColor: theme.card,
           borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.15)',
+          borderColor: theme.border,
         }}>
-        <ChevronRight color={'rgba(255,255,255,0.7)'} size={16} style={{ transform: [{ rotate: showAdvanced ? '90deg' : '0deg' }] }} />
-        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '700', marginLeft: 8 }}>
+        <ChevronRight color={theme.textSecondary} size={16} style={{ transform: [{ rotate: showAdvanced ? '90deg' : '0deg' }] }} />
+        <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginLeft: 8 }}>
           {showAdvanced ? '▼ Masquer les options' : '▶ Options avancées'}
         </Text>
       </TouchableOpacity>
@@ -1724,7 +1724,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             return (
             <TouchableOpacity key={f} disabled={disabled} onPress={() => setFormat(f)} activeOpacity={0.7}
               style={[s.chip, format === f && s.chipSel, disabled && { opacity: 0.35 }]}>
-              {f === 'Solo' ? <User color={format === f ? theme.accent : 'rgba(255,255,255,0.8)'} size={13} /> : <Users color={format === f ? theme.accent : 'rgba(255,255,255,0.8)'} size={13} />}
+              {f === 'Solo' ? <User color={format === f ? theme.accent : theme.textSecondary} size={13} /> : <Users color={format === f ? theme.accent : theme.textSecondary} size={13} />}
               <Text style={[s.chipTxt, format === f && s.chipTxtSel]}>{f}</Text>
             </TouchableOpacity>
             );
@@ -1773,7 +1773,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
         {HYROX_DURATIONS.map(d => (
           <TouchableOpacity key={d} onPress={() => setHyroxDur(d)} activeOpacity={0.7}
             style={[s.chip, hyroxDur === d && s.chipHybrid]}>
-            <Clock color={hyroxDur === d ? HYROX_ORANGE : 'rgba(255,255,255,0.8)'} size={12} />
+            <Clock color={hyroxDur === d ? HYROX_ORANGE : theme.textSecondary} size={12} />
             <Text style={[s.chipTxt, hyroxDur === d && { color: HYROX_ORANGE, fontWeight: '900' }]}>{d} min</Text>
           </TouchableOpacity>
         ))}
@@ -1812,12 +1812,12 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
           paddingVertical: 12,
           marginVertical: 8,
           borderRadius: 12,
-          backgroundColor: 'rgba(255,255,255,0.05)',
+          backgroundColor: theme.card,
           borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.15)',
+          borderColor: theme.border,
         }}>
-        <ChevronRight color={'rgba(255,255,255,0.7)'} size={16} style={{ transform: [{ rotate: showAdvanced ? '90deg' : '0deg' }] }} />
-        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '700', marginLeft: 8 }}>
+        <ChevronRight color={theme.textSecondary} size={16} style={{ transform: [{ rotate: showAdvanced ? '90deg' : '0deg' }] }} />
+        <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginLeft: 8 }}>
           {showAdvanced ? '▼ Masquer les options' : '▶ Options avancées'}
         </Text>
       </TouchableOpacity>
@@ -2237,7 +2237,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   wrapper: { paddingHorizontal: 16, marginTop: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   sectionTitle: { fontSize: 17, fontWeight: '900', color: t.text, letterSpacing: -0.2 },
-  optLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.9)', letterSpacing: 1.2, marginBottom: 6 },
+  optLabel: { fontSize: 10, fontWeight: '800', color: t.textSecondary, letterSpacing: 1.2, marginBottom: 6 },
   chipScroll: { marginHorizontal: -16 },
   chipRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, marginBottom: 14, flexWrap: 'wrap' },
   chipScrollContent: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingBottom: 14 },
@@ -2247,7 +2247,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     backgroundColor: t.card, borderWidth: 1, borderColor: t.border,
   },
   chipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
-  chipTxt: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  chipTxt: { fontSize: 12, fontWeight: '700', color: t.text },
   chipTxtSel: { color: t.accent, fontWeight: '900' },
   eqGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
   eqChip: {
@@ -2255,7 +2255,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     backgroundColor: t.card, borderWidth: 1, borderColor: t.border,
   },
   eqChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
-  eqTxt: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  eqTxt: { fontSize: 11, fontWeight: '700', color: t.text },
   eqTxtSel: { color: t.accent, fontWeight: '900' },
   quickAccessRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   quickAccessBtn: {
