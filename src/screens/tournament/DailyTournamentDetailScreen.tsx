@@ -21,6 +21,7 @@ import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { formatScoreValue } from '../../utils/scoreFormat';
+import { getScaledMovements } from '../../utils/wodScaling';
 
 import { trackDailyTournamentJoin, trackDailyTournamentScoreSubmit } from '../../lib/analytics';
 import { HomeStackParamList, TimerType } from '../../navigation';
@@ -49,6 +50,7 @@ interface TournamentDetail {
   duration: number;
   level: string;
   movements: string;
+  movements_scaled?: string | null;
   scoring: string | null;
   score_mode: string;
   max_players: number;
@@ -88,6 +90,7 @@ export default function DailyTournamentDetailScreen() {
   const [timeSec, setTimeSec] = useState('');
   const secRef = useRef<TextInput>(null);
   const [scoreRx, setScoreRx] = useState(true);
+  const [boardTab, setBoardTab] = useState<'rx' | 'scaled'>('rx');
   const [scoreNotes, setScoreNotes] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -396,6 +399,7 @@ export default function DailyTournamentDetailScreen() {
   if (loading || !tournament) {
     return (
       <View style={[S.screen, S.center]}>
+        <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -415,6 +419,10 @@ export default function DailyTournamentDetailScreen() {
         : (b.score_value ?? 0) - (a.score_value ?? 0));
   const rxRanked = rankGroup(true);
   const scaledRanked = rankGroup(false);
+
+  const scaledMovements = tournament.movements_scaled || getScaledMovements(tournament.wod_name, tournament.movements);
+  const shownMovements = !isOfficial || boardTab === 'rx' ? tournament.movements : scaledMovements;
+  const shownRanked = boardTab === 'rx' ? rxRanked : scaledRanked;
 
   function renderPlayerRow(p: Participant, rank: number | null, isMe: boolean) {
     const pLevelColor = LevelColors[p.level] ?? theme.textMuted;
@@ -509,6 +517,7 @@ export default function DailyTournamentDetailScreen() {
 
   return (
     <View style={S.screen}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
@@ -572,12 +581,42 @@ export default function DailyTournamentDetailScreen() {
           </View>
         )}
 
+        {/* RX / Scaled segmented control (official WODs) */}
+        {isOfficial && (
+          <View style={S.segment}>
+            <TouchableOpacity
+              style={[S.segmentBtn, boardTab === 'rx' && S.segmentBtnSel]}
+              onPress={() => setBoardTab('rx')}
+              activeOpacity={0.85}
+            >
+              <Text style={[S.segmentTxt, boardTab === 'rx' && S.segmentTxtSel]}>RX</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.segmentBtn, boardTab === 'scaled' && S.segmentBtnSel]}
+              onPress={() => setBoardTab('scaled')}
+              activeOpacity={0.85}
+            >
+              <Text style={[S.segmentTxt, boardTab === 'scaled' && S.segmentTxtSel]}>Scaled</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* WOD content */}
         <View style={S.wodCard}>
-          <Text style={S.wodTitle}>{tournament.wod_name}</Text>
-          {tournament.movements.split('\n').map((line, i) => (
+          <View style={S.wodTitleRow}>
+            <Text style={S.wodTitle}>{tournament.wod_name}</Text>
+            {isOfficial && (
+              <View style={[S.wodVariantTag, { backgroundColor: `${theme.accent}15` }]}>
+                <Text style={[S.wodVariantTxt, { color: theme.accent }]}>{boardTab === 'rx' ? 'RX' : 'SCALED'}</Text>
+              </View>
+            )}
+          </View>
+          {shownMovements.split('\n').map((line, i) => (
             <Text key={i} style={line.startsWith('  ') ? S.wodLine : S.wodHeader}>{line}</Text>
           ))}
+          {isOfficial && boardTab === 'scaled' && (
+            <Text style={S.wodScaledHint}>Version allégée — adapte encore les charges à ton niveau si besoin.</Text>
+          )}
           {tournament.scoring && (
             <View style={S.scoringRow}>
               <Zap color={theme.gold} size={12} />
@@ -589,17 +628,11 @@ export default function DailyTournamentDetailScreen() {
         {/* Leaderboard */}
         {isOfficial ? (
           <>
-            <Text style={S.sectionTitle}>Classement RX ({rxRanked.length})</Text>
-            {rxRanked.length === 0 ? (
-              <Text style={S.noParticipants}>Aucun score RX pour le moment.</Text>
+            <Text style={S.sectionTitle}>Classement {boardTab === 'rx' ? 'RX' : 'Scaled'} ({shownRanked.length})</Text>
+            {shownRanked.length === 0 ? (
+              <Text style={S.noParticipants}>Aucun score {boardTab === 'rx' ? 'RX' : 'Scaled'} pour le moment.</Text>
             ) : (
-              rxRanked.map((p, i) => renderPlayerRow(p, i + 1, p.user_id === user?.id))
-            )}
-            <Text style={[S.sectionTitle, { marginTop: 18 }]}>Classement Scaled ({scaledRanked.length})</Text>
-            {scaledRanked.length === 0 ? (
-              <Text style={S.noParticipants}>Aucun score Scaled pour le moment.</Text>
-            ) : (
-              scaledRanked.map((p, i) => renderPlayerRow(p, i + 1, p.user_id === user?.id))
+              shownRanked.map((p, i) => renderPlayerRow(p, i + 1, p.user_id === user?.id))
             )}
           </>
         ) : (
@@ -625,7 +658,7 @@ export default function DailyTournamentDetailScreen() {
                     <Play color="#fff" size={16} />
                     <Text style={S.actionBtnTxt}>Lancer le WOD</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={S.secondaryBtn} onPress={() => setScoreModal(true)} activeOpacity={0.85}>
+                  <TouchableOpacity style={S.secondaryBtn} onPress={() => { setScoreRx(boardTab === 'rx'); setScoreModal(true); }} activeOpacity={0.85}>
                     <Edit3 color={theme.accent} size={16} />
                     <Text style={S.secondaryBtnTxt}>Entrer mon score manuellement</Text>
                   </TouchableOpacity>
@@ -843,7 +876,19 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     backgroundColor: t.card, borderRadius: 14, padding: 14,
     borderWidth: 1, borderColor: t.border, gap: 4,
   },
-  wodTitle: { fontSize: 18, fontWeight: '900', color: t.text, marginBottom: 4 },
+  wodTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  wodTitle: { fontSize: 18, fontWeight: '900', color: t.text },
+  wodVariantTag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  wodVariantTxt: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  wodScaledHint: { fontSize: 11, fontStyle: 'italic', color: t.textMuted, marginTop: 6 },
+  segment: {
+    flexDirection: 'row', gap: 6, backgroundColor: t.surface,
+    borderRadius: 12, padding: 4, borderWidth: 1, borderColor: t.border,
+  },
+  segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9 },
+  segmentBtnSel: { backgroundColor: t.accent },
+  segmentTxt: { fontSize: 13, fontWeight: '800', color: t.textMuted },
+  segmentTxtSel: { color: '#fff', fontWeight: '900' },
   wodHeader: { fontSize: 12, fontWeight: '800', color: t.textSecondary },
   wodLine: { fontSize: 13, fontWeight: '600', color: t.text },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },

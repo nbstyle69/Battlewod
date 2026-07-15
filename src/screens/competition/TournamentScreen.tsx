@@ -499,6 +499,34 @@ export default function TournamentScreen() {
               );
             })()}
 
+            {canRegister && (
+              <TouchableOpacity style={[S.registerBtn, S.registerBtnInner, registering && { opacity: 0.6 }]} onPress={handleRegister}
+                disabled={registering} activeOpacity={0.85}>
+                {registering
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? t('tournament.joinLeague') : t('tournament.registerToTournament')}</Text></>}
+              </TouchableOpacity>
+            )}
+            {isRegistered && (
+              <View style={S.registeredBlock}>
+                <View style={S.registeredBadge}>
+                  <CheckCircle color={theme.success} size={20} />
+                  <Text style={S.registeredText}>{t('tournament.youParticipate')}</Text>
+                </View>
+                {tournament.status === 'open' && (
+                  <TouchableOpacity style={S.leaveBtn} onPress={handleLeave} activeOpacity={0.8}>
+                    <Text style={S.leaveBtnText}>{t('tournament.unregister')}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            {isFull && !isRegistered && (
+              <View style={[S.registeredBadge, { backgroundColor: `${theme.error}15`, borderColor: `${theme.error}30` }]}>
+                <Lock color={theme.error} size={18} />
+                <Text style={[S.registeredText, { color: theme.error }]}>{t('tournament.full')}</Text>
+              </View>
+            )}
+
             {tournament.description ? (
               <View style={S.card}>
                 <Text style={S.cardLabel}>{t('tournament.about')}</Text>
@@ -529,34 +557,6 @@ export default function TournamentScreen() {
                 <Text key={i} style={S.ruleText}>{rule}</Text>
               ))}
             </View>
-
-            {canRegister && (
-              <TouchableOpacity style={[S.registerBtn, S.registerBtnInner, registering && { opacity: 0.6 }]} onPress={handleRegister}
-                disabled={registering} activeOpacity={0.85}>
-                {registering
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? t('tournament.joinLeague') : t('tournament.registerToTournament')}</Text></>}
-              </TouchableOpacity>
-            )}
-            {isRegistered && (
-              <View style={S.registeredBlock}>
-                <View style={S.registeredBadge}>
-                  <CheckCircle color={theme.success} size={20} />
-                  <Text style={S.registeredText}>{t('tournament.youParticipate')}</Text>
-                </View>
-                {tournament.status === 'open' && (
-                  <TouchableOpacity style={S.leaveBtn} onPress={handleLeave} activeOpacity={0.8}>
-                    <Text style={S.leaveBtnText}>{t('tournament.unregister')}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            {isFull && !isRegistered && (
-              <View style={[S.registeredBadge, { backgroundColor: `${theme.error}15`, borderColor: `${theme.error}30` }]}>
-                <Lock color={theme.error} size={18} />
-                <Text style={[S.registeredText, { color: theme.error }]}>{t('tournament.full')}</Text>
-              </View>
-            )}
           </>
         )}
 
