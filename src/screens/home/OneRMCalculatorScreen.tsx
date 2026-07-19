@@ -231,7 +231,7 @@ export default function OneRMCalculatorScreen() {
               <View style={[S.pctBadge, { borderColor: z.color }]}>
                 <Text style={[S.pctTxt, { color: z.color }]}>{z.pct}%</Text>
               </View>
-              <Text style={[S.loadTxt, { flex: 1, color: load ? '#fff' : theme.textMuted }]}>
+              <Text style={[S.loadTxt, { flex: 1, color: load ? theme.text : theme.textMuted }]}>
                 {load != null ? `${load} ${unit}` : '—'}
               </Text>
               <Text style={[S.zoneTxt, { flex: 1.5, color: z.color }]}>{z.zone}</Text>
@@ -308,7 +308,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   pctTxt: { fontSize: 12, fontWeight: '900' },
   loadTxt: { fontSize: 13, fontWeight: '800' },
   zoneTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
-  repsTxt: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  repsTxt: { fontSize: 11, fontWeight: '600', color: theme.textSecondary },
   footer: { marginTop: 20, paddingHorizontal: 4 },
   footerTxt: { fontSize: 11, color: theme.textMuted, lineHeight: 18, textAlign: 'center' },
   prSection: { marginTop: 20, marginBottom: 0 },
