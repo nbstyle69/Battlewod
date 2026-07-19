@@ -178,7 +178,8 @@ export default function BOTournamentScreen() {
 
     const pointsMap: Record<string, number> = {};
     wods.forEach(wod => {
-      const ranked = rankWodScores(allScores as TournamentScore[], wod.type);
+      const wodScores = (allScores as TournamentScore[]).filter(sc => sc.tournament_wod_id === wod.id);
+      const ranked = rankWodScores(wodScores, wod.type);
       ranked.forEach(rs => {
         pointsMap[rs.athlete_id] = (pointsMap[rs.athlete_id] ?? 0) + rs.cfPoints;
       });
