@@ -194,7 +194,7 @@ final class OverlayRenderer {
     //  BOTTOM ROW — AthleX logo (left) | Timer (center) | Timestamp (right)
     //  All elements vertically centered on the same row
     // ════════════════════════════════════════════
-    let safeBottom: CGFloat = isLandscape ? 40 * scale : 140 * scale
+    let safeBottom: CGFloat = isLandscape ? 40 * scale : 92 * scale
 
     // Row height driven by the timer (largest element)
     let timerFontSize: CGFloat = isLandscape ? 140 * scale : 180 * scale
