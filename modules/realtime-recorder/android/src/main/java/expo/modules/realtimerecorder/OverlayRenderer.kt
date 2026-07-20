@@ -184,7 +184,7 @@ class OverlayRenderer(private val context: Context) {
     //  BOTTOM ROW — AthleX logo (left) | Timer (center) | Timestamp (right)
     //  All elements vertically centered on the same row
     // ════════════════════════════════════════════
-    val safeBottom = if (isLandscape) 40f * scale else 140f * scale
+    val safeBottom = if (isLandscape) 40f * scale else 92f * scale
 
     // Row height driven by the timer (largest element)
     val timerFontSize = if (isLandscape) 140f * scale else 180f * scale

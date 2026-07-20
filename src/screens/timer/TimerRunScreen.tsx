@@ -157,7 +157,7 @@ const DIGIT_COLORS = [
 ];
 
 // ─── ARC clock (SVG) ─────────────────────────────────────────────────────────
-function ArcTimer({ time, progress, color, fontSize, strokeColor, landscape, customSize }: { time: string; progress: number; color: string; fontSize?: number; strokeColor?: string; landscape?: boolean; customSize?: number }) {
+function ArcTimer({ time, progress, color, fontSize, strokeColor, landscape, customSize, flat }: { time: string; progress: number; color: string; fontSize?: number; strokeColor?: string; landscape?: boolean; customSize?: number; flat?: boolean }) {
   const { width: aw, height: ah } = useWindowDimensions();
   const size = customSize ?? (landscape ? Math.min(ah * 0.85, aw * 0.5) : Math.min(aw, ah) * 0.86);
   const r    = size / 2 - 18;
@@ -176,7 +176,7 @@ function ArcTimer({ time, progress, color, fontSize, strokeColor, landscape, cus
           strokeLinecap="round" strokeDasharray={`${circ} ${circ}`} strokeDashoffset={dash} />
       </Svg>
       <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
-        textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 22, fontVariant: ['tabular-nums'] }}>
+        textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: flat ? 0 : 22, fontVariant: ['tabular-nums'] }}>
         {time}
       </Text>
     </View>
@@ -184,7 +184,7 @@ function ArcTimer({ time, progress, color, fontSize, strokeColor, landscape, cus
 }
 
 // ─── BAR clock ──────────────────────────────────────────────────────────────
-function BarTimer({ time, progress, color, fontSize, strokeColor, landscape }: { time: string; progress: number; color: string; fontSize: number; strokeColor?: string; landscape?: boolean }) {
+function BarTimer({ time, progress, color, fontSize, strokeColor, landscape, flat }: { time: string; progress: number; color: string; fontSize: number; strokeColor?: string; landscape?: boolean; flat?: boolean }) {
   const { width: bw, height: bh } = useWindowDimensions();
   const isLandscapeBar = bw > bh;
   const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
@@ -196,7 +196,7 @@ function BarTimer({ time, progress, color, fontSize, strokeColor, landscape }: {
         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%` as `${number}%`, backgroundColor: sc, borderRadius: 9 }} />
       </View>
       <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
-        textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 18, fontVariant: ['tabular-nums'] }}>
+        textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: flat ? 0 : 18, fontVariant: ['tabular-nums'] }}>
         {time}
       </Text>
     </View>
@@ -204,12 +204,12 @@ function BarTimer({ time, progress, color, fontSize, strokeColor, landscape }: {
 }
 
 // ─── DIGITS clock ───────────────────────────────────────────────────────────
-function DigitsTimer({ time, color, fontSize, landscape }: { time: string; color: string; fontSize: number; landscape?: boolean }) {
+function DigitsTimer({ time, color, fontSize, landscape, flat }: { time: string; color: string; fontSize: number; landscape?: boolean; flat?: boolean }) {
   const { height: dh } = useWindowDimensions();
   const fs = landscape ? Math.max(fontSize, Math.round(dh * 0.4)) : fontSize;
   return (
     <Text style={{ fontSize: fs, fontWeight: '200', color, letterSpacing: -2,
-      textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 22, fontVariant: ['tabular-nums'] }}>
+      textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: flat ? 0 : 22, fontVariant: ['tabular-nums'] }}>
       {time}
     </Text>
   );
@@ -1712,9 +1712,10 @@ export default function TimerRunScreen() {
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={handleClose} style={[styles.closeResultBtn, { width: '100%', alignItems: 'center',
-                  backgroundColor: bgLum > 128 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)',
-                  borderColor: bgLum > 128 ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)' }]} activeOpacity={0.8}>
-                  <Text style={[styles.closeResultText, { color: onBg1 }]}>Fermer</Text>
+                  borderRadius: 16, paddingVertical: 12,
+                  backgroundColor: withCamera ? 'rgba(255,255,255,0.15)' : (bgLum > 128 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)'),
+                  borderColor: withCamera ? 'rgba(255,255,255,0.25)' : (bgLum > 128 ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)') }]} activeOpacity={0.8}>
+                  <Text style={[styles.closeResultText, { color: withCamera ? '#FFFFFF' : onBg1 }]}>Fermer</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1874,20 +1875,15 @@ export default function TimerRunScreen() {
               ) : (
                 /* ── AVEC CAMÉRA : layout centré classique ── */
                 <>
-                  {phase === 'countdown' && countdownVal > 0 && (
-                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
-                      <Text style={[styles.phaseLabelGiant, { fontSize: 22, marginBottom: 4, color: '#FFFFFF' }]}>PRÉPARER</Text>
-                      <Text style={[styles.countdownBig, { color: '#FFFFFF', textShadowColor: '#FFFFFF', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 18 }]}>{countdownVal}</Text>
-                    </View>
-                  )}
-                  {phase !== 'countdown' && camState >= 1 && (
+                  {/* Countdown handled once by the top-level camCdOverlay (avoids a duplicate PRÉPARER/number) */}
+                  {phase !== 'countdown' && (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                       {!!phaseLabel && phase === 'running' && (
-                        <Text style={[styles.phaseLabelGiant, { fontSize: 18, marginBottom: 2, color: ensureContrast(phaseColor, currentBg), textShadowColor: phaseColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>{phaseLabel}</Text>
+                        <Text style={[styles.phaseLabelGiant, { fontSize: 18, marginBottom: 2, color: ensureContrast(phaseColor, currentBg) }]}>{phaseLabel}</Text>
                       )}
-                      {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color="#FFFFFF" fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />}
-                      {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color="#FFFFFF" fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape />}
-                      {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color="#FFFFFF" fontSize={displayOpts.fontSize} landscape />}
+                      {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color="#FFFFFF" fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape flat />}
+                      {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color="#FFFFFF" fontSize={displayOpts.fontSize} strokeColor={phaseColor} landscape flat />}
+                      {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color="#FFFFFF" fontSize={displayOpts.fontSize} landscape flat />}
                       {hasRounds && phase === 'running' && !seqPausing && (
                         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4, letterSpacing: 2 }}>ROUND {currentRound} / {currentRound + roundsLeft}</Text>
                       )}
@@ -2090,12 +2086,11 @@ export default function TimerRunScreen() {
                 {phase !== 'countdown' && (
                   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
                     {!!phaseLabel && phase === 'running' && (
-                      <Text style={[styles.phaseLabelGiant, { fontSize: 22, marginBottom: 10, color: phaseColor,
-                        textShadowColor: phaseColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>{phaseLabel}</Text>
+                      <Text style={[styles.phaseLabelGiant, { fontSize: 22, marginBottom: 10, color: phaseColor }]}>{phaseLabel}</Text>
                     )}
-                    {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color="#FFFFFF" fontSize={displayOpts.fontSize} strokeColor={phaseColor} />}
-                    {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color="#FFFFFF" fontSize={displayOpts.fontSize} strokeColor={phaseColor} />}
-                    {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color="#FFFFFF" fontSize={displayOpts.fontSize} />}
+                    {displayOpts.clockStyle === 'arc' && <ArcTimer time={mainTime} progress={arcProgress} color="#FFFFFF" fontSize={displayOpts.fontSize} strokeColor={phaseColor} flat />}
+                    {displayOpts.clockStyle === 'bar' && <BarTimer time={mainTime} progress={arcProgress} color="#FFFFFF" fontSize={displayOpts.fontSize} strokeColor={phaseColor} flat />}
+                    {displayOpts.clockStyle === 'digits' && <DigitsTimer time={mainTime} color="#FFFFFF" fontSize={displayOpts.fontSize} flat />}
                     {hasRounds && phase === 'running' && !seqPausing && (
                       <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 15, marginTop: 12, letterSpacing: 2, fontWeight: '700' }}>ROUND {currentRound} / {currentRound + roundsLeft}</Text>
                     )}
@@ -2182,20 +2177,18 @@ export default function TimerRunScreen() {
         <View style={[StyleSheet.absoluteFill, styles.cameraDim]} />
         {renderContent()}
         {/* Overlay décompte — top-level pour éviter z-index/elevation Android */}
-        {phase === 'countdown' && countdownVal > 0 && (
-          <View style={[StyleSheet.absoluteFill, styles.camCdOverlay]} pointerEvents="none">
+        {phase === 'countdown' && countdownVal > 0 && (() => {
+          const cdSize = isLandscape ? Math.min(winH * 0.5, SW * 0.42) : SW * 0.55;
+          return (
+          <View style={[StyleSheet.absoluteFill, styles.camCdOverlay, isLandscape && { paddingBottom: 90 }]} pointerEvents="none">
             <Text style={[styles.phaseLabelGiant, { color: '#FFFFFF', marginBottom: 16,
-              textShadowColor: '#FFFFFF', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 }]}>PRÉPARER</Text>
-            <View style={[styles.camCdCircle, { borderColor: 'rgba(255,255,255,0.5)' }]}>
-              <Text style={[styles.camCdNum, {
-                color: '#FFFFFF',
-                textShadowColor: '#FFFFFF',
-                textShadowOffset: { width: 0, height: 0 },
-                textShadowRadius: 18,
-              }]}>{countdownVal}</Text>
+              textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }]}>PRÉPARER</Text>
+            <View style={[styles.camCdCircle, { width: cdSize, height: cdSize, borderRadius: cdSize / 2, borderColor: 'rgba(255,255,255,0.5)' }]}>
+              <Text style={[styles.camCdNum, { fontSize: cdSize * 0.5, color: '#FFFFFF' }]}>{countdownVal}</Text>
             </View>
           </View>
-        )}
+          );
+        })()}
         {renderYTModal()}
       </View>
     );
