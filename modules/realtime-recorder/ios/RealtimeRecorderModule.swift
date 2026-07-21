@@ -248,16 +248,9 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
   // MARK: Recording
 
   func startRecording(url: URL) throws {
-    // Reassert audio session before each recording to guarantee mic is active
-    let audioSession = AVAudioSession.sharedInstance()
-    do {
-      try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers])
-      try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-      try audioSession.overrideOutputAudioPort(.speaker)
-      print("[RealtimeRecorder] Audio session reasserted for recording")
-    } catch {
-      print("[RealtimeRecorder] Audio session reassert error: \(error)")
-    }
+    // The audio session is already configured (with .mixWithOthers) when the capture
+    // session is set up. Re-activating it here would interrupt the user's music at the
+    // moment recording starts, so we intentionally do NOT touch the session again.
 
     try? FileManager.default.removeItem(at: url)
     self.outputURL = url
