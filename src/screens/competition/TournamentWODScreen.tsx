@@ -135,7 +135,7 @@ export default function TournamentWODScreen() {
     const workTime = (wod as any).work_seconds ?? 40;
     const restTime = (wod as any).rest_seconds ?? 20;
 
-    (navigation as any).navigate('TimerRun', {
+    navigation.navigate('TimerRun', {
       timerType,
       countdown:     10,
       totalSeconds:  timerType === 'amrap' ? durSeconds : 0,

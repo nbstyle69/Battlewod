@@ -75,7 +75,7 @@ export default function PhysicalCompetitionScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<CompetitionStackParamList, 'PhysicalCompetition'>>();
   const modeFilter = route.params.mode;
-  const selectedId = (route.params as any).selectedId as string | undefined;
+  const selectedId = route.params?.selectedId;
   const S = createStyles(theme);
 
   const [competitions, setCompetitions] = useState<PhysComp[]>([]);

@@ -6,12 +6,13 @@ import {
 import { supabase } from '../../lib/supabase';
 import { BoxWODType } from '../../types';
 import { Sparkles, ChevronLeft, Clock, Zap, RefreshCw, History, Heart, BookOpen, ChevronRight } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WODStackParamList } from '../../navigation';
+import { WODStackParamList, MainTabParamList } from '../../navigation';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { incrementCounter } from '../../services/gamification';
@@ -1559,7 +1560,10 @@ function _legacyGenerateWOD(level: AthleteLevel, duration: number, type: WODType
 }
 
 export default function WODGeneratorScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<WODStackParamList>>();
+  const navigation = useNavigation<CompositeNavigationProp<
+    NativeStackNavigationProp<WODStackParamList>,
+    BottomTabNavigationProp<MainTabParamList>
+  >>();
   const { theme } = useTheme();
   const { t } = useTranslation();
   const { user, currentBox } = useAuth();
@@ -1604,7 +1608,7 @@ export default function WODGeneratorScreen() {
       title: generatedHyrox?.title,
     });
     setShowTimerModal(false);
-    (navigation as any).navigate('TimerRun', params);
+    navigation.navigate('TimerRun', params);
   }
 
   function toISO(d: Date) {
@@ -1734,7 +1738,7 @@ export default function WODGeneratorScreen() {
 
         {/* Programmation button */}
         <GlassCard radius={12} variant="emerald" style={{ marginBottom: 16 }}>
-          <TouchableOpacity style={S.progBtnInner} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
+          <TouchableOpacity style={S.progBtnInner} onPress={() => navigation.navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
             <BookOpen color={theme.accent} size={16} />
             <Text style={S.progBtnTxt}>{t('wodGenerator.programming')}</Text>
             <ChevronRight color={theme.textMuted} size={14} />

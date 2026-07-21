@@ -30,7 +30,7 @@ export default function BoxDirectoryMapScreen() {
   const route = useRoute<Route>();
   const s = createStyles(theme);
 
-  const boxes: Box[] = (route.params as any)?.boxes ?? [];
+  const boxes: Box[] = (route.params?.boxes ?? []) as Box[];
   const [selected, setSelected] = useState<Box | null>(null);
   const mapRef = useRef<any>(null);
 
