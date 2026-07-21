@@ -45,7 +45,7 @@ export default function BOPaywallScreen() {
         .select('status')
         .eq('box_id', currentBox.id)
         .maybeSingle();
-      return !!data && (data as any).status === 'active';
+      return !!data && data.status === 'active';
     }).finally(() => {
       refreshSubscription();
       setLoading(false);

@@ -38,11 +38,11 @@ export default function BOBoxInfoScreen({ navigation }: any) {
           .eq('id', currentBox.id)
           .single();
         if (data) {
-          setName((data as any).name ?? '');
-          setAddress((data as any).address ?? '');
-          setWebsiteUrl((data as any).website_url ?? '');
-          setContactEmail((data as any).contact_email ?? '');
-          setLogoUrl((data as any).logo_url ?? null);
+          setName(data.name ?? '');
+          setAddress(data.address ?? '');
+          setWebsiteUrl(data.website_url ?? '');
+          setContactEmail(data.contact_email ?? '');
+          setLogoUrl(data.logo_url ?? null);
         }
       } catch (e) {
         captureError(e, { screen: 'BOBoxInfo', action: 'load' });

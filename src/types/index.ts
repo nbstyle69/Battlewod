@@ -163,6 +163,7 @@ export interface BoxWOD {
   block_name?: string;
   video_url?: string;
   is_published: boolean;
+  publish_at?: string | null;
   leaderboard_enabled?: boolean;
   sort_order?: number;
   emom_interval_minutes?: number;

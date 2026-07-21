@@ -120,8 +120,8 @@ export default function BOWODsScreen({ navigation }: any) {
     setNotes(wod.notes ?? '');
     setBlockName(wod.block_name ?? '');
     setPublished(wod.is_published);
-    if ((wod as any).publish_at) {
-      const pa = new Date((wod as any).publish_at);
+    if (wod.publish_at) {
+      const pa = new Date(wod.publish_at);
       setPublishMode('scheduled');
       setPublishHour(String(pa.getHours()).padStart(2, '0'));
       setPublishMin(String(pa.getMinutes()).padStart(2, '0'));
@@ -372,9 +372,9 @@ export default function BOWODsScreen({ navigation }: any) {
                             <Text style={S.wodRowType}>{(wod.wod_type ?? 'WOD').toUpperCase()}</Text>
                             <Text style={S.wodRowTitle}>{wod.title}</Text>
                             {!wod.is_published && <Text style={S.draftTag}>{t('bo.wods.draft')}</Text>}
-                            {wod.is_published && (wod as any).publish_at && new Date((wod as any).publish_at) > new Date() && (
+                            {wod.is_published && wod.publish_at && new Date(wod.publish_at) > new Date() && (
                               <Text style={[S.draftTag, { color: theme.accent }]}>
-                                {t('bo.wods.scheduledAt', { time: new Date((wod as any).publish_at).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' }) })}
+                                {t('bo.wods.scheduledAt', { time: new Date(wod.publish_at).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' }) })}
                               </Text>
                             )}
                           </View>

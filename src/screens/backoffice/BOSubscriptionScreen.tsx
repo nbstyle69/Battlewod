@@ -51,7 +51,7 @@ export default function BOSubscriptionScreen({ navigation }: any) {
         .select('status')
         .eq('box_id', currentBox.id)
         .maybeSingle();
-      return !!data && (data as any).status !== currentStatus;
+      return !!data && data.status !== currentStatus;
     }).finally(() => {
       refreshSubscription();
       setLoadingCheckout(false);
