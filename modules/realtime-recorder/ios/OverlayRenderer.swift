@@ -28,10 +28,12 @@ final class OverlayRenderer {
   private var cachedCompLogoUrl: String = ""
   private var compLogoLoading = false
   private var dsDigitalFont: UIFont?
+  private var oswaldFont: UIFont?
 
   init() {
     loadAthlexLogo()
     loadDSDigitalFont()
+    loadOswaldFont()
   }
 
   // MARK: - Logo loading
@@ -71,6 +73,29 @@ final class OverlayRenderer {
       dsDigitalFont = font
     } else {
       print("[OverlayRenderer] DS-Digital font not available after registration")
+    }
+  }
+
+  private func loadOswaldFont() {
+    let bundleName = "RealtimeRecorderResources"
+    guard let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
+          let resBundle = Bundle(url: bundleURL),
+          let fontURL = resBundle.url(forResource: "Oswald-Bold", withExtension: "ttf") else {
+      print("[OverlayRenderer] Oswald-Bold.ttf not found in resource bundle")
+      return
+    }
+    var errorRef: Unmanaged<CFError>?
+    CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &errorRef)
+    if let err = errorRef?.takeRetainedValue() {
+      let desc = CFErrorGetDomain(err) as String
+      if !desc.contains("already registered") {
+        print("[OverlayRenderer] Oswald font registration error: \(err)")
+      }
+    }
+    if let font = UIFont(name: "Oswald-Bold", size: 40) {
+      oswaldFont = font
+    } else {
+      print("[OverlayRenderer] Oswald-Bold font not available after registration")
     }
   }
 
@@ -201,15 +226,26 @@ final class OverlayRenderer {
     let timerH: CGFloat = isLandscape ? 170 * scale : 220 * scale
     let rowCenterY = size.height - safeBottom - timerH / 2
 
-    // ─── 4. AthleX logo (bottom-left, vertically centered) ───
-    let atlLogoH: CGFloat = isLandscape ? 120 * scale : 160 * scale
+    // ─── 4. AthleX mark (-20%) + « AthleX » wordmark below (bottom-left) ───
+    let atlLogoH: CGFloat = (isLandscape ? 120 * scale : 160 * scale) * 0.8
     if let atlImg = cachedAthlexLogo {
       let atlLogoW = atlLogoH * (atlImg.size.width / atlImg.size.height)
-      let logoY = rowCenterY - atlLogoH / 2
-      let logoRect = CGRect(x: margin, y: logoY, width: atlLogoW, height: atlLogoH)
+      let wordSize: CGFloat = atlLogoH * 0.32
+      let wordH: CGFloat = wordSize * 1.25
+      let gap: CGFloat = 6 * scale
+      let groupH = atlLogoH + gap + wordH
+      let groupTop = rowCenterY - groupH / 2
+      let logoRect = CGRect(x: margin, y: groupTop, width: atlLogoW, height: atlLogoH)
       UIGraphicsPushContext(context)
       atlImg.draw(in: logoRect)
       UIGraphicsPopContext()
+      // Wordmark centered under the mark, Oswald bold uppercase w/ letter spacing (landing typo)
+      let wordPad: CGFloat = 24 * scale
+      drawText(context: context, text: "ATHLEX",
+               rect: CGRect(x: margin - wordPad, y: groupTop + atlLogoH + gap,
+                            width: atlLogoW + wordPad * 2, height: wordH),
+               fontSize: wordSize, bold: true, color: .white, alignment: .center,
+               shadow: true, oswald: true, tracking: wordSize * 0.12)
     }
 
     // ─── 5. Timer display (center, x2 size) ───
@@ -246,10 +282,14 @@ final class OverlayRenderer {
     weight: UIFont.Weight? = nil,
     shadow: Bool = false,
     monospace: Bool = false,
-    dsDigital: Bool = false
+    dsDigital: Bool = false,
+    oswald: Bool = false,
+    tracking: CGFloat = 0
   ) {
     let font: UIFont
-    if dsDigital, let dsFont = dsDigitalFont?.withSize(fontSize) {
+    if oswald, let osFont = oswaldFont?.withSize(fontSize) {
+      font = osFont
+    } else if dsDigital, let dsFont = dsDigitalFont?.withSize(fontSize) {
       font = dsFont
     } else if monospace {
       font = UIFont.monospacedDigitSystemFont(ofSize: fontSize, weight: weight ?? (bold ? .bold : .regular))
@@ -268,6 +308,10 @@ final class OverlayRenderer {
       .foregroundColor: color,
       .paragraphStyle: paragraphStyle,
     ]
+
+    if tracking != 0 {
+      attributes[.kern] = tracking
+    }
 
     if shadow {
       let s = NSShadow()
