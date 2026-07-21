@@ -700,13 +700,16 @@ export default function TimerRunScreen() {
     async function setup() {
       try {
         if (withCamera) {
-          // Avec caméra : mode enregistrement, ne pas laisser le micro ducker nos bips.
+          // Avec caméra : on enregistre le micro TOUT en laissant la musique de
+          // l'utilisateur (Spotify, etc.) continuer. iOS mixe (la catégorie native
+          // .playAndRecord ajoute .mixWithOthers) ; Android ducke brièvement sur nos bips.
           await Audio.setAudioModeAsync({
             allowsRecordingIOS: true,
             playsInSilentModeIOS: true,
             staysActiveInBackground: false,
-            interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-            shouldDuckAndroid: false,
+            interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+            interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+            shouldDuckAndroid: true,
             playThroughEarpieceAndroid: false,
           });
         } else {
