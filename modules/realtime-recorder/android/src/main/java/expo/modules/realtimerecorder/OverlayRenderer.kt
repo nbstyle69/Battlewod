@@ -31,6 +31,7 @@ class OverlayRenderer(private val context: Context) {
   @Volatile private var cachedCompLogoUrl: String = ""
   @Volatile private var compLogoLoading = false
   private var dsDigitalTypeface: Typeface? = null
+  private var oswaldTypeface: Typeface? = null
 
   // Pre-allocated objects to avoid GC pressure on every frame
   private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
@@ -40,6 +41,7 @@ class OverlayRenderer(private val context: Context) {
   init {
     loadAthlexLogo()
     loadDSDigitalFont()
+    loadOswaldFont()
   }
 
   // MARK: - Resource loading
@@ -65,6 +67,14 @@ class OverlayRenderer(private val context: Context) {
       dsDigitalTypeface = Typeface.createFromAsset(context.assets, "realtime-recorder/DS-Digital.ttf")
     } catch (e: Exception) {
       dsDigitalTypeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+    }
+  }
+
+  private fun loadOswaldFont() {
+    try {
+      oswaldTypeface = Typeface.createFromAsset(context.assets, "realtime-recorder/Oswald-Bold.ttf")
+    } catch (e: Exception) {
+      oswaldTypeface = Typeface.DEFAULT_BOLD
     }
   }
 
@@ -191,13 +201,27 @@ class OverlayRenderer(private val context: Context) {
     val timerH = if (isLandscape) 170f * scale else 220f * scale
     val rowCenterY = height - safeBottom - timerH / 2f
 
-    // ─── 4. AthleX logo (bottom-left, vertically centered) ───
-    val atlLogoH = if (isLandscape) 120f * scale else 160f * scale
+    // ─── 4. AthleX mark (-20%) + « AthleX » wordmark below (bottom-left) ───
+    val atlLogoH = (if (isLandscape) 120f * scale else 160f * scale) * 0.8f
     cachedAthlexLogo?.let { atlImg ->
       val atlLogoW = atlLogoH * (atlImg.width.toFloat() / atlImg.height.toFloat())
-      val logoY = rowCenterY - atlLogoH / 2f
-      val logoRect = RectF(margin, logoY, margin + atlLogoW, logoY + atlLogoH)
+      val wordSize = atlLogoH * 0.32f
+      val wordH = wordSize * 1.25f
+      val gap = 6f * scale
+      val groupH = atlLogoH + gap + wordH
+      val groupTop = rowCenterY - groupH / 2f
+      val logoRect = RectF(margin, groupTop, margin + atlLogoW, groupTop + atlLogoH)
       canvas.drawBitmap(atlImg, null, logoRect, bitmapPaint)
+      // Wordmark centered under the mark, Oswald bold uppercase w/ letter spacing (landing typo)
+      val wordPad = 24f * scale
+      drawText(
+        canvas, "ATHLEX",
+        RectF(margin - wordPad, groupTop + atlLogoH + gap,
+              margin + atlLogoW + wordPad, groupTop + atlLogoH + gap + wordH),
+        fontSize = wordSize, bold = true, color = Color.WHITE,
+        alignment = Layout.Alignment.ALIGN_CENTER,
+        shadow = true, oswald = true, letterSpacing = 0.12f
+      )
     }
 
     // ─── 5. Timer display (center, x2 size) ───
@@ -235,13 +259,17 @@ class OverlayRenderer(private val context: Context) {
     alignment: Layout.Alignment,
     shadow: Boolean = false,
     monospace: Boolean = false,
-    dsDigital: Boolean = false
+    dsDigital: Boolean = false,
+    oswald: Boolean = false,
+    letterSpacing: Float = 0f
   ) {
     textPaint.reset()
     textPaint.isAntiAlias = true
     textPaint.color = color
     textPaint.textSize = fontSize
+    textPaint.letterSpacing = letterSpacing
     textPaint.typeface = when {
+      oswald -> oswaldTypeface ?: Typeface.DEFAULT_BOLD
       dsDigital -> dsDigitalTypeface ?: Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
       monospace -> Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
       bold -> Typeface.DEFAULT_BOLD
