@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, Share } from 'react-native';
 import { Sparkles, RefreshCw, Zap, Clock, Users, User, ArrowLeft, Bookmark, Heart, Check, X, History, BookOpen, ChevronRight, Share2 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { LevelColors } from '../theme/designTokens';
 import { useTheme, AppTheme } from '../context/ThemeContext';
-import { HomeStackParamList, TimerType } from '../navigation';
+import { HomeStackParamList, MainTabParamList, TimerType } from '../navigation';
 import { AthleteLevel, BoxWODType } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -66,7 +67,10 @@ const HYROX_VEST_OPTIONS: { key: HyVest; label: string }[] = [
   { key: 'off', label: 'Sans gilet' }, { key: 'on', label: 'Avec gilet' }, { key: 'optional', label: 'Optionnel' },
 ];
 
-type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<HomeStackParamList, 'HomeList'>,
+  BottomTabNavigationProp<MainTabParamList>
+>;
 type WODType = 'For Time' | 'AMRAP' | 'EMOM' | 'Tabata' | 'Max Reps' | 'Chipper' | 'Ladder' | 'Couplet' | 'Death By';
 const UI_WOD_TYPES: WODType[] = ['For Time', 'AMRAP', 'EMOM', 'Tabata', 'Max Reps'];
 type LK = AthleteLevel;
@@ -1623,7 +1627,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       </View>
 
       {/* Programmation button */}
-      <TouchableOpacity style={s.progBtn} onPress={() => (navigation as any).navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
+      <TouchableOpacity style={s.progBtn} onPress={() => navigation.navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
         <BookOpen color={theme.accent} size={16} />
         <Text style={s.progBtnTxt}>Programmation</Text>
         <ChevronRight color={theme.textSecondary} size={14} />

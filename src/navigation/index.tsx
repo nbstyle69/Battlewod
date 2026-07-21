@@ -322,7 +322,7 @@ export type WODStackParamList = {
 
 export type CompetitionStackParamList = {
   CompetitionList: { initialTab?: number } | undefined;
-  PhysicalCompetition: { mode: 'qualification' | 'info' };
+  PhysicalCompetition: { mode: 'qualification' | 'info'; selectedId?: string };
   DailyTournaments: undefined;
   DailyTournamentDetail: { tournamentId: string };
   TimerRun: {

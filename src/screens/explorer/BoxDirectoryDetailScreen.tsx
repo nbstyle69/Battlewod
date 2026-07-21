@@ -37,7 +37,7 @@ export default function BoxDirectoryDetailScreen() {
   const route = useRoute<Route>();
   const s = createStyles(theme);
 
-  const boxId = (route.params as any)?.boxId;
+  const boxId = route.params?.boxId;
   const [box, setBox] = useState<Box | null>(null);
   const [memberCount, setMemberCount] = useState(0);
   const [loading, setLoading] = useState(true);

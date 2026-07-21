@@ -30,7 +30,7 @@ export default function PartnerDetailScreen() {
   const route = useRoute<Route>();
   const s = createStyles(theme);
 
-  const partnerId = (route.params as any)?.partnerId;
+  const partnerId = route.params?.partnerId;
   const [partner, setPartner] = useState<Partner | null>(null);
   const [loading, setLoading] = useState(true);
 

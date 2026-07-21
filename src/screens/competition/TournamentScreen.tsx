@@ -310,7 +310,7 @@ export default function TournamentScreen() {
 
   function goToWOD(wod: TournamentWOD) {
     const existing = myScores.find(s => s.tournament_wod_id === wod.id) ?? null;
-    (navigation as any).navigate('TournamentWOD', {
+    navigation.navigate('TournamentWOD', {
       tournamentId,
       tournamentName: tournament?.name ?? '',
       wod,
