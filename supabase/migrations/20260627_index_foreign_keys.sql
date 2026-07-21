@@ -1,0 +1,123 @@
+-- Perf hardening (audit P2): add covering B-tree indexes on foreign-key columns.
+--
+-- Postgres does NOT auto-create an index on the referencing side of a FK. Without
+-- one, joins on the FK, filters by the FK, and (importantly) parent-row deletes /
+-- updates that must scan children for ON DELETE/UPDATE actions all do sequential
+-- scans. This adds a covering index on every single-column FK that lacked one.
+--
+-- Idempotent (IF NOT EXISTS) and additive: no data or behavior change.
+
+BEGIN;
+
+CREATE INDEX IF NOT EXISTS idx_app_changelog_created_by ON public.app_changelog (created_by);
+CREATE INDEX IF NOT EXISTS idx_box_article_comments_user_id ON public.box_article_comments (user_id);
+CREATE INDEX IF NOT EXISTS idx_box_article_likes_user_id ON public.box_article_likes (user_id);
+CREATE INDEX IF NOT EXISTS idx_box_articles_author_id ON public.box_articles (author_id);
+CREATE INDEX IF NOT EXISTS idx_box_members_member_id ON public.box_members (member_id);
+CREATE INDEX IF NOT EXISTS idx_box_members_plan_id ON public.box_members (plan_id);
+CREATE INDEX IF NOT EXISTS idx_box_messages_box_id ON public.box_messages (box_id);
+CREATE INDEX IF NOT EXISTS idx_box_messages_target_group_id ON public.box_messages (target_group_id);
+CREATE INDEX IF NOT EXISTS idx_box_notifications_created_by ON public.box_notifications (created_by);
+CREATE INDEX IF NOT EXISTS idx_box_wods_created_by ON public.box_wods (created_by);
+CREATE INDEX IF NOT EXISTS idx_boxes_owner_id ON public.boxes (owner_id);
+CREATE INDEX IF NOT EXISTS idx_changelog_reads_changelog_id ON public.changelog_reads (changelog_id);
+CREATE INDEX IF NOT EXISTS idx_class_reservations_box_id ON public.class_reservations (box_id);
+CREATE INDEX IF NOT EXISTS idx_class_reservations_credit_id ON public.class_reservations (credit_id);
+CREATE INDEX IF NOT EXISTS idx_class_reservations_member_id ON public.class_reservations (member_id);
+CREATE INDEX IF NOT EXISTS idx_class_schedules_box_id ON public.class_schedules (box_id);
+CREATE INDEX IF NOT EXISTS idx_competition_participants_member_id ON public.competition_participants (member_id);
+CREATE INDEX IF NOT EXISTS idx_competition_scores_competition_id ON public.competition_scores (competition_id);
+CREATE INDEX IF NOT EXISTS idx_competition_scores_member_id ON public.competition_scores (member_id);
+CREATE INDEX IF NOT EXISTS idx_competition_scores_wod_id ON public.competition_scores (wod_id);
+CREATE INDEX IF NOT EXISTS idx_competitions_box_id ON public.competitions (box_id);
+CREATE INDEX IF NOT EXISTS idx_competitions_created_by ON public.competitions (created_by);
+CREATE INDEX IF NOT EXISTS idx_daily_tournament_scores_contested_by ON public.daily_tournament_scores (contested_by);
+CREATE INDEX IF NOT EXISTS idx_daily_tournament_scores_user_id ON public.daily_tournament_scores (user_id);
+CREATE INDEX IF NOT EXISTS idx_elo_history_box_id ON public.elo_history (box_id);
+CREATE INDEX IF NOT EXISTS idx_event_registrations_member_id ON public.event_registrations (member_id);
+CREATE INDEX IF NOT EXISTS idx_events_box_id ON public.events (box_id);
+CREATE INDEX IF NOT EXISTS idx_events_created_by ON public.events (created_by);
+CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver_id ON public.friend_requests (receiver_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee_id ON public.friendships (addressee_id);
+CREATE INDEX IF NOT EXISTS idx_inter_bracket_matches_loser_id ON public.inter_bracket_matches (loser_id);
+CREATE INDEX IF NOT EXISTS idx_inter_bracket_matches_participant1_id ON public.inter_bracket_matches (participant1_id);
+CREATE INDEX IF NOT EXISTS idx_inter_bracket_matches_participant2_id ON public.inter_bracket_matches (participant2_id);
+CREATE INDEX IF NOT EXISTS idx_inter_bracket_matches_winner_id ON public.inter_bracket_matches (winner_id);
+CREATE INDEX IF NOT EXISTS idx_inter_bracket_matches_wod_id ON public.inter_bracket_matches (wod_id);
+CREATE INDEX IF NOT EXISTS idx_inter_competition_wods_competition_id ON public.inter_competition_wods (competition_id);
+CREATE INDEX IF NOT EXISTS idx_inter_competitions_created_by ON public.inter_competitions (created_by);
+CREATE INDEX IF NOT EXISTS idx_inter_league_rounds_wod_id ON public.inter_league_rounds (wod_id);
+CREATE INDEX IF NOT EXISTS idx_inter_league_standings_athlete_id ON public.inter_league_standings (athlete_id);
+CREATE INDEX IF NOT EXISTS idx_inter_league_standings_team_id ON public.inter_league_standings (team_id);
+CREATE INDEX IF NOT EXISTS idx_inter_pool_matches_athlete1_id ON public.inter_pool_matches (athlete1_id);
+CREATE INDEX IF NOT EXISTS idx_inter_pool_matches_athlete2_id ON public.inter_pool_matches (athlete2_id);
+CREATE INDEX IF NOT EXISTS idx_inter_pool_matches_winner_id ON public.inter_pool_matches (winner_id);
+CREATE INDEX IF NOT EXISTS idx_inter_pool_matches_wod_id ON public.inter_pool_matches (wod_id);
+CREATE INDEX IF NOT EXISTS idx_inter_pool_members_athlete_id ON public.inter_pool_members (athlete_id);
+CREATE INDEX IF NOT EXISTS idx_inter_registrations_athlete_id ON public.inter_registrations (athlete_id);
+CREATE INDEX IF NOT EXISTS idx_inter_registrations_box_id ON public.inter_registrations (box_id);
+CREATE INDEX IF NOT EXISTS idx_inter_registrations_team_id ON public.inter_registrations (team_id);
+CREATE INDEX IF NOT EXISTS idx_inter_scores_athlete_id ON public.inter_scores (athlete_id);
+CREATE INDEX IF NOT EXISTS idx_inter_scores_reviewed_by ON public.inter_scores (reviewed_by);
+CREATE INDEX IF NOT EXISTS idx_inter_scores_team_id ON public.inter_scores (team_id);
+CREATE INDEX IF NOT EXISTS idx_inter_scores_wod_id ON public.inter_scores (wod_id);
+CREATE INDEX IF NOT EXISTS idx_inter_swiss_pairings_athlete1_id ON public.inter_swiss_pairings (athlete1_id);
+CREATE INDEX IF NOT EXISTS idx_inter_swiss_pairings_athlete2_id ON public.inter_swiss_pairings (athlete2_id);
+CREATE INDEX IF NOT EXISTS idx_inter_swiss_pairings_competition_id ON public.inter_swiss_pairings (competition_id);
+CREATE INDEX IF NOT EXISTS idx_inter_swiss_pairings_winner_id ON public.inter_swiss_pairings (winner_id);
+CREATE INDEX IF NOT EXISTS idx_inter_swiss_pairings_wod_id ON public.inter_swiss_pairings (wod_id);
+CREATE INDEX IF NOT EXISTS idx_inter_swiss_standings_athlete_id ON public.inter_swiss_standings (athlete_id);
+CREATE INDEX IF NOT EXISTS idx_inter_team_members_user_id ON public.inter_team_members (user_id);
+CREATE INDEX IF NOT EXISTS idx_inter_teams_box_id ON public.inter_teams (box_id);
+CREATE INDEX IF NOT EXISTS idx_inter_teams_captain_id ON public.inter_teams (captain_id);
+CREATE INDEX IF NOT EXISTS idx_inter_teams_competition_id ON public.inter_teams (competition_id);
+CREATE INDEX IF NOT EXISTS idx_matches_athlete1_id ON public.matches (athlete1_id);
+CREATE INDEX IF NOT EXISTS idx_matches_athlete2_id ON public.matches (athlete2_id);
+CREATE INDEX IF NOT EXISTS idx_matches_winner_id ON public.matches (winner_id);
+CREATE INDEX IF NOT EXISTS idx_matches_wod_id ON public.matches (wod_id);
+CREATE INDEX IF NOT EXISTS idx_member_class_credits_box_id ON public.member_class_credits (box_id);
+CREATE INDEX IF NOT EXISTS idx_member_class_credits_plan_id ON public.member_class_credits (plan_id);
+CREATE INDEX IF NOT EXISTS idx_membership_plan_groups_group_id ON public.membership_plan_groups (group_id);
+CREATE INDEX IF NOT EXISTS idx_message_groups_box_id ON public.message_groups (box_id);
+CREATE INDEX IF NOT EXISTS idx_message_groups_created_by ON public.message_groups (created_by);
+CREATE INDEX IF NOT EXISTS idx_message_reactions_member_id ON public.message_reactions (member_id);
+CREATE INDEX IF NOT EXISTS idx_message_replies_box_id ON public.message_replies (box_id);
+CREATE INDEX IF NOT EXISTS idx_message_replies_parent_message_id ON public.message_replies (parent_message_id);
+CREATE INDEX IF NOT EXISTS idx_message_replies_sender_id ON public.message_replies (sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_box_id ON public.messages (box_id);
+CREATE INDEX IF NOT EXISTS idx_messages_group_id ON public.messages (group_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON public.messages (receiver_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON public.messages (sender_id);
+CREATE INDEX IF NOT EXISTS idx_mini_tournaments_created_by ON public.mini_tournaments (created_by);
+CREATE INDEX IF NOT EXISTS idx_mini_tournaments_wod_id ON public.mini_tournaments (wod_id);
+CREATE INDEX IF NOT EXISTS idx_physical_competitions_created_by ON public.physical_competitions (created_by);
+CREATE INDEX IF NOT EXISTS idx_physical_wods_competition_id ON public.physical_wods (competition_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_referred_by ON public.profiles (referred_by);
+CREATE INDEX IF NOT EXISTS idx_program_scores_user_id ON public.program_scores (user_id);
+CREATE INDEX IF NOT EXISTS idx_programs_owner_id ON public.programs (owner_id);
+CREATE INDEX IF NOT EXISTS idx_reports_resolved_by ON public.reports (resolved_by);
+CREATE INDEX IF NOT EXISTS idx_schedule_templates_box_id ON public.schedule_templates (box_id);
+CREATE INDEX IF NOT EXISTS idx_score_comments_author_id ON public.score_comments (author_id);
+CREATE INDEX IF NOT EXISTS idx_score_comments_box_id ON public.score_comments (box_id);
+CREATE INDEX IF NOT EXISTS idx_score_comments_score_id ON public.score_comments (score_id);
+CREATE INDEX IF NOT EXISTS idx_score_reactions_user_id ON public.score_reactions (user_id);
+CREATE INDEX IF NOT EXISTS idx_scores_athlete_id ON public.scores (athlete_id);
+CREATE INDEX IF NOT EXISTS idx_scores_match_id ON public.scores (match_id);
+CREATE INDEX IF NOT EXISTS idx_scores_validated_by ON public.scores (validated_by);
+CREATE INDEX IF NOT EXISTS idx_scores_wod_id ON public.scores (wod_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_bracket_matches_loser_id ON public.tournament_bracket_matches (loser_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_bracket_matches_participant1_id ON public.tournament_bracket_matches (participant1_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_bracket_matches_participant2_id ON public.tournament_bracket_matches (participant2_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_bracket_matches_winner_id ON public.tournament_bracket_matches (winner_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_bracket_matches_wod_id ON public.tournament_bracket_matches (wod_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_elo_history_athlete_id ON public.tournament_elo_history (athlete_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_participants_athlete_id ON public.tournament_participants (athlete_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_scores_validated_by ON public.tournament_scores (validated_by);
+CREATE INDEX IF NOT EXISTS idx_tournament_season_history_division_id ON public.tournament_season_history (division_id);
+CREATE INDEX IF NOT EXISTS idx_tournaments_box_id ON public.tournaments (box_id);
+CREATE INDEX IF NOT EXISTS idx_tournaments_created_by ON public.tournaments (created_by);
+CREATE INDEX IF NOT EXISTS idx_wod_scores_box_id ON public.wod_scores (box_id);
+CREATE INDEX IF NOT EXISTS idx_wod_scores_member_id ON public.wod_scores (member_id);
+CREATE INDEX IF NOT EXISTS idx_wods_created_by ON public.wods (created_by);
+
+COMMIT;
