@@ -156,7 +156,7 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       // Configure audio session BEFORE capture session to ensure iOS locks the correct audio route
       let audioSession = AVAudioSession.sharedInstance()
       do {
-        try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
+        try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers])
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         try audioSession.overrideOutputAudioPort(.speaker)
         print("[RealtimeRecorder] Audio session configured (videoRecording mode)")
@@ -248,7 +248,7 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     // Reassert audio session before each recording to guarantee mic is active
     let audioSession = AVAudioSession.sharedInstance()
     do {
-      try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
+      try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers])
       try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
       try audioSession.overrideOutputAudioPort(.speaker)
       print("[RealtimeRecorder] Audio session reasserted for recording")
