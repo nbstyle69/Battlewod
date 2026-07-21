@@ -1824,9 +1824,9 @@ export default function TimerRunScreen() {
                     )}
                   </View>
 
-                  {/* FLOATING PLAY/STOP — right side */}
-                  <View style={{ position: 'absolute', right: 18, top: 0, bottom: 0,
-                    justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                  {/* FLOATING PLAY/STOP — bottom-right corner */}
+                  <View style={{ position: 'absolute', right: 18, bottom: 20,
+                    alignItems: 'center', gap: 8 }}>
                     <TouchableOpacity
                       style={[styles.newBigPlayBtn, mainBtnStop && styles.newBigPlayBtnStop,
                         { width: 70, height: 70, borderRadius: 35,
