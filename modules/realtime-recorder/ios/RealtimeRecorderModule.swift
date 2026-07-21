@@ -165,6 +165,9 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       }
 
       let session = AVCaptureSession()
+      // Keep our own audio session (with .mixWithOthers) — otherwise AVCaptureSession
+      // reconfigures it when the mic input is added and interrupts the user's music.
+      session.automaticallyConfiguresApplicationAudioSession = false
       session.beginConfiguration()
       session.sessionPreset = .hd1920x1080
 
