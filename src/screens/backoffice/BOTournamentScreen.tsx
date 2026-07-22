@@ -25,6 +25,7 @@ import {
   rankWodScores, cfPoints,
   normalizeMovement, formatDateTime,
 } from '../../utils/tournamentUtils';
+import { computeCompletedMovements } from '../../utils/movementParser';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function StatusPill({ status, theme: th }: { status: string; theme: AppTheme }) {
@@ -202,14 +203,19 @@ export default function BOTournamentScreen() {
         }).eq('id', score.id);
         if (error) { Alert.alert(t('common.error'), error.message); return; }
 
-        // Update movement rep counts + badges
+        // Update movement rep counts + badges.
+        // Reps are scaled by the athlete's actual score (e.g. an AMRAP score of 250
+        // distributes across the round structure), not the per-line reps of one round.
         const movements: string[] = (score.tw as any)?.movements ?? [];
+        const wodType: string = (score.tw as any)?.type ?? '';
+        const scoreNumeric = parseFloat(score.score_value) || 0;
+        const scoreType = wodType === 'For Time' ? 'time' : 'reps';
+        const completed = computeCompletedMovements(movements, wodType, scoreNumeric, scoreType);
         const newBadges: string[] = [];
-        for (const movement of movements) {
-          const match = movement.match(/^(\d+)\s+(.+)$/);
-          if (!match) continue;
-          const reps = parseInt(match[1]);
-          const { key, label } = normalizeMovement(match[2]);
+        for (const entry of completed) {
+          const reps = entry.reps;
+          if (!reps || reps <= 0) continue;
+          const { key, label } = normalizeMovement(entry.name);
 
           const { data: existing } = await supabase.from('movement_rep_counts')
             .select('id, total_reps').eq('athlete_id', score.athlete_id).eq('movement_key', key).maybeSingle();

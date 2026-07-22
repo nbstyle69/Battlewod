@@ -27,20 +27,23 @@ export function parseMovementLine(line: string): MovementEntry | null {
     return { name: distMatch[2].replace(/\s*\(.*\)/, '').trim(), reps: 1 };
   }
 
-  // Standard: "12 Thrusters (43 kg)" or "15 Cal Assault Bike"
-  const stdMatch = trimmed.match(/^(\d+)\s+(.+)/);
+  // Standard: "12 Thrusters (43 kg)", "15 Cal Assault Bike",
+  // and tolerant of "7 reps — Sumo Deadlift @ 42.5/30 kg" (leading "reps"/"—", "@ kg").
+  const stdMatch = trimmed.match(/^(\d+)\s*(?:reps?|x)?\s*[—–\-:]?\s*(.+)/i);
   if (stdMatch) {
     const reps = parseInt(stdMatch[1], 10);
     let rest = stdMatch[2];
-    // Extract weight
+    // Extract weight: "(43 kg)" or "@ 42.5" / "@ 42.5/30 kg" (take the first number)
     let weight_kg: number | undefined;
-    const weightMatch = rest.match(/\((\d+(?:\.\d+)?)\s*kg\)/);
-    if (weightMatch) {
-      weight_kg = parseFloat(weightMatch[1]);
-      rest = rest.replace(/\s*\(\d+(?:\.\d+)?\s*kg\)/, '');
+    const weightParen = rest.match(/\((\d+(?:\.\d+)?)\s*kg\)/i);
+    const weightAt = rest.match(/@\s*(\d+(?:\.\d+)?)/);
+    if (weightParen) {
+      weight_kg = parseFloat(weightParen[1]);
+    } else if (weightAt) {
+      weight_kg = parseFloat(weightAt[1]);
     }
-    // Remove scale info in parentheses
-    rest = rest.replace(/\s*\(.*\)/, '').trim();
+    // Remove parenthetical info (weight/scale) and trailing "@ ..." load
+    rest = rest.replace(/\s*\([^)]*\)/g, '').replace(/\s*@.*$/, '').trim();
     if (isNaN(reps) || reps <= 0 || !rest) return null;
     return { name: rest, reps, weight_kg };
   }

@@ -38,6 +38,27 @@ describe('parseMovementLine', () => {
       const result = parseMovementLine('21 KB Swings (Russian)');
       expect(result!.name).toBe('KB Swings');
     });
+
+    it('tolerates a "reps —" separator (legacy back-office format)', () => {
+      const result = parseMovementLine('7 reps — Sumo Deadlift High Pull');
+      expect(result).not.toBeNull();
+      expect(result!.reps).toBe(7);
+      expect(result!.name).toBe('Sumo Deadlift High Pull');
+    });
+
+    it('extracts weight from "@ kg" and dual Rx/Scaled loads', () => {
+      const result = parseMovementLine('7 reps — Sumo Deadlift High Pull @ 42.5/30 kg');
+      expect(result!.reps).toBe(7);
+      expect(result!.name).toBe('Sumo Deadlift High Pull');
+      expect(result!.weight_kg).toBe(42.5);
+    });
+
+    it('parses the serialized picker format', () => {
+      const result = parseMovementLine('21 Thrusters (43 kg)');
+      expect(result!.reps).toBe(21);
+      expect(result!.name).toBe('Thrusters');
+      expect(result!.weight_kg).toBe(43);
+    });
   });
 
   describe('headers and non-movement lines', () => {
