@@ -17,6 +17,9 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { useTranslation } from 'react-i18next';
+import {
+  isRepsScoredType, repsPerRoundFromMovements, roundsRepsToTotal, amrapTotalToRoundsReps,
+} from '../../utils/tournamentUtils';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'TournamentWOD'>;
 type Route = RouteProp<CompetitionStackParamList, 'TournamentWOD'>;
@@ -54,6 +57,26 @@ export default function TournamentWODScreen() {
   const [submitting,    setSubmitting]    = useState(false);
   const [showYtHelp,    setShowYtHelp]    = useState(false);
 
+  // ── AMRAP / Max Reps: structured "rounds + reps" OR "total reps" entry ──
+  // Both modes converge to the same stored total-rep count so ranking stays
+  // coherent regardless of how the athlete typed the result.
+  const isRepsScore  = isRepsScoredType(wod.type);
+  const repsPerRound = wod.reps_per_round ?? repsPerRoundFromMovements(wod.movements);
+  const canUseRounds = isRepsScore && repsPerRound > 0;
+  const [scoreMode,      setScoreMode]      = useState<'rounds' | 'reps'>(
+    canUseRounds && !existingScore ? 'rounds' : 'reps',
+  );
+  const [roundsInput,    setRoundsInput]    = useState('');
+  const [partialReps,    setPartialReps]    = useState('');
+  const [totalRepsInput, setTotalRepsInput] = useState(
+    isRepsScore ? (existingScore?.score_value ?? '') : '',
+  );
+  const computedTotal = isRepsScore
+    ? (scoreMode === 'rounds'
+        ? roundsRepsToTotal(parseInt(roundsInput || '0', 10) || 0, parseInt(partialReps || '0', 10) || 0, repsPerRound)
+        : (parseInt(totalRepsInput || '0', 10) || 0))
+    : 0;
+
   const deadlineHours = (wod.deadline_hours && wod.deadline_hours > 0) ? wod.deadline_hours : 24;
   const deadlineMsRef = useRef<number>(Date.now() + deadlineHours * 3600 * 1000);
   const [remainingMs, setRemainingMs] = useState(deadlineHours * 3600 * 1000);
@@ -79,7 +102,11 @@ export default function TournamentWODScreen() {
   }
 
   async function handleSubmit() {
-    if (!scoreValue.trim()) { Alert.alert(t('common.error'), t('tourWod.errNoScore')); return; }
+    // For AMRAP/Max Reps we store the normalized TOTAL rep count; other types
+    // keep the free-form value (time, load, …).
+    const finalScore = isRepsScore ? String(computedTotal) : scoreValue.trim();
+    const missingScore = isRepsScore ? computedTotal <= 0 : !scoreValue.trim();
+    if (missingScore)        { Alert.alert(t('common.error'), t('tourWod.errNoScore')); return; }
     if (!urlValid)           { Alert.alert(t('common.error'), t('tourWod.errBadUrl')); return; }
     if (remainingMs <= 0)    { Alert.alert(t('tourWod.deadlineExpiredTitle'), t('tourWod.errExpired')); return; }
     if (!user)               { Alert.alert(t('common.error'), t('tourWod.errNoUser')); return; }
@@ -89,7 +116,7 @@ export default function TournamentWODScreen() {
       tournament_id:     tournamentId,
       tournament_wod_id: wod.id,
       athlete_id:        user.id,
-      score_value:       scoreValue.trim(),
+      score_value:       finalScore,
       tiebreak_value:    tiebreakValue ? parseFloat(tiebreakValue) : null,
       video_url:         youtubeUrl.trim(),
       notes:             notes.trim() || null,
@@ -108,6 +135,7 @@ export default function TournamentWODScreen() {
 
     setSubmitting(false);
     if (error) { Alert.alert(t('common.error'), error.message); return; }
+    if (isRepsScore) setScoreValue(finalScore);
     if (intervalRef.current) clearInterval(intervalRef.current);
     setPhase('success');
   }
@@ -300,17 +328,99 @@ export default function TournamentWODScreen() {
           <Text style={S.cardLabel}>
             {wod.type === 'For Time' ? t('tourWod.finalTime') : t('tourWod.finalScore')}
           </Text>
-          <TextInput
-            style={S.scoreInput}
-            value={scoreValue}
-            onChangeText={setScoreValue}
-            placeholder={
-              wod.type === 'For Time' ? t('tourWod.phTime') :
-              wod.type === 'AMRAP'    ? t('tourWod.phAmrap') : t('tourWod.phDefault')
-            }
-            placeholderTextColor={theme.textMuted}
-            autoCapitalize="none"
-          />
+
+          {isRepsScore ? (
+            <>
+              {canUseRounds && (
+                <View style={S.modeRow}>
+                  <TouchableOpacity
+                    style={[S.modeBtn, scoreMode === 'rounds' && S.modeBtnActive]}
+                    onPress={() => setScoreMode('rounds')}
+                  >
+                    <Text style={[S.modeBtnText, scoreMode === 'rounds' && S.modeBtnTextActive]}>
+                      {t('tourWod.modeRounds')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[S.modeBtn, scoreMode === 'reps' && S.modeBtnActive]}
+                    onPress={() => setScoreMode('reps')}
+                  >
+                    <Text style={[S.modeBtnText, scoreMode === 'reps' && S.modeBtnTextActive]}>
+                      {t('tourWod.modeTotalReps')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {canUseRounds && scoreMode === 'rounds' ? (
+                <View style={S.repsRow}>
+                  <View style={S.repsCol}>
+                    <Text style={S.repsFieldLabel}>{t('tourWod.roundsField')}</Text>
+                    <TextInput
+                      style={S.scoreInput}
+                      value={roundsInput}
+                      onChangeText={v => setRoundsInput(v.replace(/[^0-9]/g, ''))}
+                      placeholder="0"
+                      placeholderTextColor={theme.textMuted}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                  <View style={S.repsCol}>
+                    <Text style={S.repsFieldLabel}>{t('tourWod.partialRepsField')}</Text>
+                    <TextInput
+                      style={S.scoreInput}
+                      value={partialReps}
+                      onChangeText={v => setPartialReps(v.replace(/[^0-9]/g, ''))}
+                      placeholder="0"
+                      placeholderTextColor={theme.textMuted}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <Text style={S.repsFieldLabel}>{t('tourWod.totalRepsField')}</Text>
+                  <TextInput
+                    style={S.scoreInput}
+                    value={totalRepsInput}
+                    onChangeText={v => setTotalRepsInput(v.replace(/[^0-9]/g, ''))}
+                    placeholder={t('tourWod.phDefault')}
+                    placeholderTextColor={theme.textMuted}
+                    keyboardType="number-pad"
+                  />
+                </>
+              )}
+
+              {repsPerRound > 0 && (
+                <Text style={S.recapPerRound}>
+                  {t('tourWod.perRoundInfo', { reps: repsPerRound })}
+                  {Array.isArray(wod.movements) && wod.movements.length > 0
+                    ? `  ·  ${wod.movements.join(' / ')}`
+                    : ''}
+                </Text>
+              )}
+              <Text style={S.recapTotal}>
+                {repsPerRound > 0
+                  ? t('tourWod.scoreRecapRounds', {
+                      total: computedTotal,
+                      ...amrapTotalToRoundsReps(computedTotal, repsPerRound),
+                    })
+                  : t('tourWod.scoreRecap', { total: computedTotal })}
+              </Text>
+              <Text style={S.cardHint}>{t('tourWod.repsHelp')}</Text>
+            </>
+          ) : (
+            <TextInput
+              style={S.scoreInput}
+              value={scoreValue}
+              onChangeText={setScoreValue}
+              placeholder={
+                wod.type === 'For Time' ? t('tourWod.phTime') : t('tourWod.phDefault')
+              }
+              placeholderTextColor={theme.textMuted}
+              autoCapitalize="none"
+            />
+          )}
         </View>
 
         <View style={S.card}>
@@ -438,6 +548,16 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   ytPrevBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   ytPrevText: { fontSize: 13, color: '#FF0000', fontWeight: '600' },
   scoreInput: { backgroundColor: theme.surface, borderRadius: 12, padding: 14, fontSize: 18, fontWeight: '900', color: theme.text, borderWidth: 1, borderColor: theme.border },
+  modeRow:   { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  modeBtn:   { flex: 1, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface, alignItems: 'center' },
+  modeBtnActive: { borderColor: theme.accent, backgroundColor: `${theme.accent}18` },
+  modeBtnText:   { fontSize: 13, fontWeight: '700', color: theme.textMuted },
+  modeBtnTextActive: { color: theme.accent },
+  repsRow:   { flexDirection: 'row', gap: 10 },
+  repsCol:   { flex: 1 },
+  repsFieldLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
+  recapPerRound:  { fontSize: 12, color: theme.textMuted, marginTop: 10, lineHeight: 17 },
+  recapTotal:     { fontSize: 16, fontWeight: '900', color: theme.accent, marginTop: 6 },
   ytRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.surface, borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: theme.border },
   ytInput:    { flex: 1, padding: 14, fontSize: 13, color: theme.text },
   urlError:   { fontSize: 12, color: theme.error },

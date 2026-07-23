@@ -385,6 +385,7 @@ export type CompetitionStackParamList = {
       rounds?: number | null;
       work_seconds?: number | null;
       rest_seconds?: number | null;
+      reps_per_round?: number | null;
     };
     existingScore: {
       tournament_wod_id: string;

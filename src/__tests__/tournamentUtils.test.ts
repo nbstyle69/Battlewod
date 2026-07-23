@@ -4,6 +4,11 @@ import {
   normalizeMovement,
   rankWodScores,
   formatDate,
+  isRepsScoredType,
+  repsPerRoundFromMovements,
+  amrapTotalToRoundsReps,
+  roundsRepsToTotal,
+  formatAmrapScore,
 } from '../utils/tournamentUtils';
 import type { TournamentScore } from '../utils/tournamentUtils';
 
@@ -191,5 +196,57 @@ describe('formatDate', () => {
   it('does not throw for invalid input', () => {
     expect(() => formatDate('not-a-date')).not.toThrow();
     expect(typeof formatDate('not-a-date')).toBe('string');
+  });
+});
+
+describe('AMRAP / Max Reps score normalization', () => {
+  const wod = ['10 Thruster (43/30 kg)', '12 Pull-ups', '15 Box jump'];
+
+  it('detects reps-scored WOD types', () => {
+    expect(isRepsScoredType('AMRAP')).toBe(true);
+    expect(isRepsScoredType('Max Reps')).toBe(true);
+    expect(isRepsScoredType('For Time')).toBe(false);
+    expect(isRepsScoredType(null)).toBe(false);
+  });
+
+  it('sums reps per round from movements', () => {
+    expect(repsPerRoundFromMovements(wod)).toBe(37);
+    expect(repsPerRoundFromMovements([])).toBe(0);
+    expect(repsPerRoundFromMovements(null)).toBe(0);
+  });
+
+  it('gives the SAME stored total whether entered as "1 round" or "37 reps"', () => {
+    const viaRounds = roundsRepsToTotal(1, 0, 37); // "1 round"
+    const viaTotal  = 37;                          // "37 reps"
+    expect(viaRounds).toBe(viaTotal);
+  });
+
+  it('converts total reps <-> rounds+reps consistently', () => {
+    expect(roundsRepsToTotal(3, 12, 37)).toBe(123);
+    expect(amrapTotalToRoundsReps(123, 37)).toEqual({ rounds: 3, reps: 12 });
+  });
+
+  it('falls back to raw total when reps-per-round is unknown', () => {
+    expect(amrapTotalToRoundsReps(50, 0)).toEqual({ rounds: 0, reps: 50 });
+    expect(formatAmrapScore(50, 0)).toBe('50 reps');
+  });
+
+  it('formats the recap label', () => {
+    expect(formatAmrapScore(123, 37)).toBe('123 reps (3 tours + 12)');
+    expect(formatAmrapScore(37, 37)).toBe('37 reps (1 tour)');
+  });
+
+  it('ranks equivalent submissions equally (both stored as total reps)', () => {
+    const scores: TournamentScore[] = [
+      makeScore({ athlete_id: 'a', score_value: '37', status: 'validated' }),   // "1 round"
+      makeScore({ athlete_id: 'b', score_value: '37', status: 'validated' }),   // "37 reps"
+      makeScore({ athlete_id: 'c', score_value: '123', status: 'validated' }),  // "3 rounds + 12"
+    ];
+    const ranked = rankWodScores(scores, 'AMRAP');
+    const c = ranked.find(r => r.athlete_id === 'c')!;
+    const a = ranked.find(r => r.athlete_id === 'a')!;
+    const b = ranked.find(r => r.athlete_id === 'b')!;
+    expect(c.rank).toBe(1);          // highest total wins for AMRAP
+    expect(a.rank).toBe(b.rank);     // equal totals -> equal rank
   });
 });

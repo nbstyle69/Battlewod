@@ -76,6 +76,57 @@ export interface TournamentWOD {
   rounds: number | null;
   work_seconds: number | null;
   rest_seconds: number | null;
+  reps_per_round: number | null;
+}
+
+// ── AMRAP / Max Reps score helpers ────────────────────────────────────────
+// Score for these WODs is normalized to a TOTAL rep count so ranking stays
+// coherent whether the athlete entered "rounds + reps" or a raw total.
+// reps_per_round converts between the two representations. Mirrors
+// TheHub/lib/movements.ts.
+
+export function isRepsScoredType(type: string | null | undefined): boolean {
+  const t = (type ?? '').toLowerCase();
+  return t === 'amrap' || t === 'max reps';
+}
+
+// Leading rep count of one movement line ("10 Thruster (43/30 kg)" -> 10).
+function repsFromMovementLine(line: string): number | null {
+  const s = (line ?? '').trim().replace(/\((?:[^)]*)\)/g, '').replace(/@.*$/, '').trim();
+  const m = s.match(/^(\d+)\s*(?:reps?|x)?\s*[—\-:]?\s*(.+)$/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+export function repsPerRoundFromMovements(movements: string[] | null | undefined): number {
+  if (!Array.isArray(movements)) return 0;
+  return movements.reduce((acc, line) => acc + (repsFromMovementLine(line) ?? 0), 0);
+}
+
+export function amrapTotalToRoundsReps(
+  total: number,
+  repsPerRound: number,
+): { rounds: number; reps: number } {
+  if (!repsPerRound || repsPerRound <= 0) return { rounds: 0, reps: total };
+  return { rounds: Math.floor(total / repsPerRound), reps: total % repsPerRound };
+}
+
+export function roundsRepsToTotal(
+  rounds: number,
+  reps: number,
+  repsPerRound: number,
+): number {
+  return Math.max(0, Math.round(rounds)) * Math.max(0, repsPerRound) + Math.max(0, Math.round(reps));
+}
+
+// "123 reps (3 tours + 12)" — or just "123 reps" when reps_per_round is unknown.
+export function formatAmrapScore(
+  total: number,
+  repsPerRound: number | null | undefined,
+): string {
+  const repsLabel = `${total} reps`;
+  if (!repsPerRound || repsPerRound <= 0) return repsLabel;
+  const { rounds, reps } = amrapTotalToRoundsReps(total, repsPerRound);
+  return `${repsLabel} (${rounds} tour${rounds > 1 ? 's' : ''}${reps > 0 ? ` + ${reps}` : ''})`;
 }
 
 export interface TournamentScore {
