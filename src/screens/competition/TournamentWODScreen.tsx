@@ -17,6 +17,10 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { useTranslation } from 'react-i18next';
+import {
+  isRepsScoredType, isTimeScoredType, repsPerRoundFromMovements, formatScoreDisplay,
+} from '../../utils/tournamentUtils';
+import ScoreEntryFields, { ScoreKind } from '../../components/score/ScoreEntryFields';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'TournamentWOD'>;
 type Route = RouteProp<CompetitionStackParamList, 'TournamentWOD'>;
@@ -46,13 +50,22 @@ export default function TournamentWODScreen() {
   const scrollPadBottom = insets.bottom + 90;
 
   const [phase,         setPhase]         = useState<'detail' | 'submit' | 'success'>('detail');
-  const [scoreValue,    setScoreValue]    = useState(existingScore?.score_value ?? '');
   const [youtubeUrl,    setYoutubeUrl]    = useState(existingScore?.video_url ?? '');
   const [tiebreakValue, setTiebreakValue] = useState('');
   const [notes,         setNotes]         = useState('');
   const [urlValid,      setUrlValid]      = useState(YOUTUBE_REGEX.test(existingScore?.video_url ?? ''));
   const [submitting,    setSubmitting]    = useState(false);
   const [showYtHelp,    setShowYtHelp]    = useState(false);
+
+  // ── Unified, coherent score entry ──
+  // For Time  -> masked "mm:ss", stored as canonical total SECONDS.
+  // AMRAP/Max Reps -> "rounds + reps" ⇄ "total reps", stored as canonical TOTAL REPS.
+  // Both converge to a single stored number so ranking stays coherent.
+  const isRepsScore  = isRepsScoredType(wod.type);
+  const repsPerRound = wod.reps_per_round ?? repsPerRoundFromMovements(wod.movements);
+  const scoreKind: ScoreKind = isRepsScore ? 'reps' : isTimeScoredType(wod.type) ? 'for-time' : 'free';
+  const [canonicalScore, setCanonicalScore] = useState(existingScore?.score_value ?? '');
+  const [scoreValid,     setScoreValid]     = useState(!!existingScore?.score_value);
 
   const deadlineHours = (wod.deadline_hours && wod.deadline_hours > 0) ? wod.deadline_hours : 24;
   const deadlineMsRef = useRef<number>(Date.now() + deadlineHours * 3600 * 1000);
@@ -79,7 +92,10 @@ export default function TournamentWODScreen() {
   }
 
   async function handleSubmit() {
-    if (!scoreValue.trim()) { Alert.alert(t('common.error'), t('tourWod.errNoScore')); return; }
+    // Canonical value: total reps (AMRAP/Max Reps), total seconds (For Time),
+    // or raw text (loads/other). Ranking consumes the canonical number.
+    const finalScore = canonicalScore.trim();
+    if (!scoreValid)         { Alert.alert(t('common.error'), t('tourWod.errNoScore')); return; }
     if (!urlValid)           { Alert.alert(t('common.error'), t('tourWod.errBadUrl')); return; }
     if (remainingMs <= 0)    { Alert.alert(t('tourWod.deadlineExpiredTitle'), t('tourWod.errExpired')); return; }
     if (!user)               { Alert.alert(t('common.error'), t('tourWod.errNoUser')); return; }
@@ -89,7 +105,7 @@ export default function TournamentWODScreen() {
       tournament_id:     tournamentId,
       tournament_wod_id: wod.id,
       athlete_id:        user.id,
-      score_value:       scoreValue.trim(),
+      score_value:       finalScore,
       tiebreak_value:    tiebreakValue ? parseFloat(tiebreakValue) : null,
       video_url:         youtubeUrl.trim(),
       notes:             notes.trim() || null,
@@ -163,7 +179,7 @@ export default function TournamentWODScreen() {
         <Text style={S.successLabel}>{t('tourWod.wod')}</Text>
         <Text style={S.successValue}>{wod.title}</Text>
         <Text style={[S.successLabel, { marginTop: 12 }]}>{t('tourWod.score')}</Text>
-        <Text style={S.successValue}>{scoreValue}</Text>
+        <Text style={S.successValue}>{formatScoreDisplay(canonicalScore, wod.type, repsPerRound)}</Text>
         {tiebreakValue ? (
           <>
             <Text style={[S.successLabel, { marginTop: 12 }]}>{t('tourWod.tiebreak')}</Text>
@@ -241,7 +257,7 @@ export default function TournamentWODScreen() {
         {existingScore && (
           <View style={[S.card, { borderColor: `${theme.warning}40` }]}>
             <Text style={S.cardLabel}>{t('tourWod.prevScore')}</Text>
-            <Text style={S.prevScore}>{existingScore.score_value}</Text>
+            <Text style={S.prevScore}>{formatScoreDisplay(existingScore.score_value, wod.type, repsPerRound)}</Text>
             {existingScore.video_url ? (
               <TouchableOpacity style={S.ytPrevBtn} onPress={() => Linking.openURL(existingScore.video_url!)}>
                 <Youtube color="#FF0000" size={16} />
@@ -300,16 +316,14 @@ export default function TournamentWODScreen() {
           <Text style={S.cardLabel}>
             {wod.type === 'For Time' ? t('tourWod.finalTime') : t('tourWod.finalScore')}
           </Text>
-          <TextInput
-            style={S.scoreInput}
-            value={scoreValue}
-            onChangeText={setScoreValue}
-            placeholder={
-              wod.type === 'For Time' ? t('tourWod.phTime') :
-              wod.type === 'AMRAP'    ? t('tourWod.phAmrap') : t('tourWod.phDefault')
-            }
-            placeholderTextColor={theme.textMuted}
-            autoCapitalize="none"
+
+          <ScoreEntryFields
+            kind={scoreKind}
+            movements={wod.movements}
+            repsPerRound={wod.reps_per_round}
+            initialCanonical={existingScore?.score_value ?? null}
+            freePlaceholder={t('tourWod.phDefault')}
+            onChange={(canonical, valid) => { setCanonicalScore(canonical); setScoreValid(valid); }}
           />
         </View>
 
@@ -438,6 +452,16 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   ytPrevBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   ytPrevText: { fontSize: 13, color: '#FF0000', fontWeight: '600' },
   scoreInput: { backgroundColor: theme.surface, borderRadius: 12, padding: 14, fontSize: 18, fontWeight: '900', color: theme.text, borderWidth: 1, borderColor: theme.border },
+  modeRow:   { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  modeBtn:   { flex: 1, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface, alignItems: 'center' },
+  modeBtnActive: { borderColor: theme.accent, backgroundColor: `${theme.accent}18` },
+  modeBtnText:   { fontSize: 13, fontWeight: '700', color: theme.textMuted },
+  modeBtnTextActive: { color: theme.accent },
+  repsRow:   { flexDirection: 'row', gap: 10 },
+  repsCol:   { flex: 1 },
+  repsFieldLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
+  recapPerRound:  { fontSize: 12, color: theme.textMuted, marginTop: 10, lineHeight: 17 },
+  recapTotal:     { fontSize: 16, fontWeight: '900', color: theme.accent, marginTop: 6 },
   ytRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.surface, borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: theme.border },
   ytInput:    { flex: 1, padding: 14, fontSize: 13, color: theme.text },
   urlError:   { fontSize: 12, color: theme.error },

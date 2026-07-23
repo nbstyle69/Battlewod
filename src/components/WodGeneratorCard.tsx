@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { incrementCounter, logMovementReps } from '../services/gamification';
 import { cancelTodayScoreReminder } from '../services/notifications';
 import { computeCompletedMovements } from '../utils/movementParser';
+import { maskTimeInput, timeStringToSeconds } from '../utils/tournamentUtils';
 import { captureError } from '../lib/sentry';
 import { hapticSuccess } from '../lib/haptics';
 import { useToast } from './Toast';
@@ -1517,9 +1518,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     if (!savedWodId || !user) return;
     let value = 0;
     if (scoreType === 'time') {
-      const parts = scoreInput.split(':');
-      if (parts.length === 2) value = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-      else value = parseInt(scoreInput);
+      value = timeStringToSeconds(scoreInput);
     } else {
       value = parseFloat(scoreInput);
     }
@@ -2123,11 +2122,11 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
             </Text>
             <TextInput
               style={s.modalInput}
-              placeholder={scoreType === 'time' ? '14:32' : '150'}
+              placeholder={scoreType === 'time' ? '00:00' : '150'}
               placeholderTextColor={theme.textMuted}
               value={scoreInput}
-              onChangeText={setScoreInput}
-              keyboardType={scoreType === 'time' ? 'default' : 'numeric'}
+              onChangeText={v => setScoreInput(scoreType === 'time' ? maskTimeInput(v) : v)}
+              keyboardType={scoreType === 'time' ? 'number-pad' : 'numeric'}
               autoFocus
             />
 

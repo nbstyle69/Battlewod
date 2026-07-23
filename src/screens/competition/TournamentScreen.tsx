@@ -22,7 +22,7 @@ import { CompetitionStackParamList } from '../../navigation';
 import {
   TournamentWOD, TournamentScore,
   MOVEMENT_BADGE_LEVELS, formatDate,
-  rankWodScores, cfPoints,
+  rankWodScores, cfPoints, parseScoreToNumber, formatScoreDisplay, isTimeScoredType,
 } from '../../utils/tournamentUtils';
 import { trackTournamentJoin } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
@@ -628,7 +628,7 @@ export default function TournamentScreen() {
                     <View style={S.myScoreBadge}>
                       <CheckCircle color={theme.success} size={16} />
                       <View style={{ flex: 1 }}>
-                        <Text style={S.myScoreValue}>{t('tournament.scoreSubmitted', { value: myScore.score_value })}</Text>
+                        <Text style={S.myScoreValue}>{t('tournament.scoreSubmitted', { value: formatScoreDisplay(myScore.score_value, wod.type, wod.reps_per_round) })}</Text>
                         <Text style={S.myScoreStatus}>
                           {myScore.status === 'pending' ? t('tournament.pendingValidation')
                             : myScore.status === 'validated' ? t('tournament.validatedEmoji') : t('tournament.rejectedEmoji')}
@@ -894,7 +894,11 @@ export default function TournamentScreen() {
               const wodScores = wodValidatedScores
                 .filter((s: any) => s.tournament_wod_id === wod.id)
                 .slice()
-                .sort((a: any, b: any) => parseFloat(b.score_value) - parseFloat(a.score_value));
+                .sort((a: any, b: any) => {
+                  const av = parseScoreToNumber(a.score_value, wod.type);
+                  const bv = parseScoreToNumber(b.score_value, wod.type);
+                  return isTimeScoredType(wod.type) ? av - bv : bv - av;
+                });
               return (
                 <View key={wod.id}>
                   <View style={S.wodRankHeader}>
@@ -929,7 +933,7 @@ export default function TournamentScreen() {
                             {profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                           </Text>
                         </View>
-                        <Text style={S.rankScore}>{s.score_value}</Text>
+                        <Text style={S.rankScore}>{formatScoreDisplay(s.score_value, wod.type, wod.reps_per_round)}</Text>
                       </View>
                     );
                   })}
@@ -987,7 +991,7 @@ export default function TournamentScreen() {
 
                   <View style={S.scoreValueRow}>
                     <Zap color={theme.gold} size={14} />
-                    <Text style={S.scoreValue}>{score.score_value}</Text>
+                    <Text style={S.scoreValue}>{formatScoreDisplay(score.score_value, (score as any).tw?.type, (score as any).tw?.reps_per_round)}</Text>
                     {score.tiebreak_value != null && (
                       <Text style={S.scoreTiebreak}>TB: {score.tiebreak_value}</Text>
                     )}

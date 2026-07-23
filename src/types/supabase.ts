@@ -4574,6 +4574,7 @@ export type Database = {
           movements: Json
           opens_at: string | null
           order_index: number
+          reps_per_round: number | null
           rest_seconds: number | null
           rounds: number | null
           scoring: string
@@ -4598,6 +4599,7 @@ export type Database = {
           movements?: Json
           opens_at?: string | null
           order_index?: number
+          reps_per_round?: number | null
           rest_seconds?: number | null
           rounds?: number | null
           scoring?: string
@@ -4622,6 +4624,7 @@ export type Database = {
           movements?: Json
           opens_at?: string | null
           order_index?: number
+          reps_per_round?: number | null
           rest_seconds?: number | null
           rounds?: number | null
           scoring?: string
