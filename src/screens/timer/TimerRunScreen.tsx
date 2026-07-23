@@ -1827,52 +1827,57 @@ export default function TimerRunScreen() {
                     )}
                   </View>
 
-                  {/* FLOATING PLAY/STOP — bottom-right corner */}
-                  <View style={{ position: 'absolute', right: 18, bottom: 20,
-                    alignItems: 'center', gap: 8 }}>
-                    <TouchableOpacity
-                      style={[styles.newBigPlayBtn, mainBtnStop && styles.newBigPlayBtnStop,
-                        { width: 70, height: 70, borderRadius: 35,
-                          shadowColor: mainBtnStop ? '#EF4444' : accentColor,
-                          shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 0 },
-                          borderColor: mainBtnStop ? 'rgba(239,68,68,0.6)' : `${accentColor}99` }]}
-                      onPress={
-                        phase === 'ready' ? handleStart
-                        : isYwyrSolo && phase === 'running' ? ywyrMainPress
-                        : isActive ? handleStop : handleStart
-                      }
-                      activeOpacity={0.8}
-                    >
-                      {isYwyrSolo && phase === 'running'
-                        ? (innerPhase === 'work'
-                            ? <RotateCcw color="#fff" size={24} />
-                            : <Play color="#fff" size={26} fill="#fff" />)
-                        : isActive ? <Square color="#fff" size={24} fill="#fff" /> : <Play color="#fff" size={26} fill="#fff" />}
-                    </TouchableOpacity>
-                    {phase === 'ready' && (
-                      <Text style={[styles.readyHint, { fontSize: 8, textAlign: 'center', maxWidth: 72 }]}>
-                        {'APPUIE\nPOUR\nDÉMARRER'}
-                      </Text>
-                    )}
-                    {showEndWorkBtn && (
-                      <TouchableOpacity onPress={ywyrEndWork}
-                        style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
-                        <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center' }]}>FIN DU{"\n"}TRAVAIL</Text>
-                      </TouchableOpacity>
-                    )}
-                    {showYwyrEndBtn && (
-                      <TouchableOpacity onPress={handleStop}
-                        style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6, backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.5)' }]} activeOpacity={0.8}>
-                        <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center', color: '#EF4444' }]}>TERMINER</Text>
-                      </TouchableOpacity>
-                    )}
-                    {showEndBlockBtn && (
-                      <TouchableOpacity onPress={libreEndForTimeBlock}
-                        style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
-                        <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center' }]}>FIN DU{"\n"}BLOC</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  {/* Hint + contextual buttons — float ABOVE the fixed play/stop button */}
+                  {(phase === 'ready' || showEndWorkBtn || showYwyrEndBtn || showEndBlockBtn) && (
+                    <View style={{ position: 'absolute', right: 18, bottom: 98,
+                      width: 70, alignItems: 'center', gap: 8 }}>
+                      {phase === 'ready' && (
+                        <Text style={[styles.readyHint, { fontSize: 8, textAlign: 'center', maxWidth: 72 }]}>
+                          {'APPUIE\nPOUR\nDÉMARRER'}
+                        </Text>
+                      )}
+                      {showEndWorkBtn && (
+                        <TouchableOpacity onPress={ywyrEndWork}
+                          style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
+                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center' }]}>FIN DU{"\n"}TRAVAIL</Text>
+                        </TouchableOpacity>
+                      )}
+                      {showYwyrEndBtn && (
+                        <TouchableOpacity onPress={handleStop}
+                          style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6, backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.5)' }]} activeOpacity={0.8}>
+                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center', color: '#EF4444' }]}>TERMINER</Text>
+                        </TouchableOpacity>
+                      )}
+                      {showEndBlockBtn && (
+                        <TouchableOpacity onPress={libreEndForTimeBlock}
+                          style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
+                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center' }]}>FIN DU{"\n"}BLOC</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+
+                  {/* FIXED PLAY/STOP — bottom-right corner (never moves between play↔stop) */}
+                  <TouchableOpacity
+                    style={[styles.newBigPlayBtn, mainBtnStop && styles.newBigPlayBtnStop,
+                      { position: 'absolute', right: 18, bottom: 20,
+                        width: 70, height: 70, borderRadius: 35,
+                        shadowColor: mainBtnStop ? '#EF4444' : accentColor,
+                        shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 0 },
+                        borderColor: mainBtnStop ? 'rgba(239,68,68,0.6)' : `${accentColor}99` }]}
+                    onPress={
+                      phase === 'ready' ? handleStart
+                      : isYwyrSolo && phase === 'running' ? ywyrMainPress
+                      : isActive ? handleStop : handleStart
+                    }
+                    activeOpacity={0.8}
+                  >
+                    {isYwyrSolo && phase === 'running'
+                      ? (innerPhase === 'work'
+                          ? <RotateCcw color="#fff" size={24} />
+                          : <Play color="#fff" size={26} fill="#fff" />)
+                      : isActive ? <Square color="#fff" size={24} fill="#fff" /> : <Play color="#fff" size={26} fill="#fff" />}
+                  </TouchableOpacity>
 
                 </View>
               ) : (
@@ -2057,12 +2062,15 @@ export default function TimerRunScreen() {
                           : <Play color="#fff" size={30} fill="#fff" />)
                       : isActive ? <Square color="#fff" size={28} fill="#fff" /> : <Play color="#fff" size={30} fill="#fff" />}
                   </TouchableOpacity>
-                  {phase === 'ready' && <Text style={[styles.readyHint, { color: onBg2 }]}>APPUIE POUR DÉMARRER</Text>}
-                  {showYwyrEndBtn && (
-                    <Text style={[styles.readyHint, { color: onBg2 }]}>
-                      {innerPhase === 'work' ? 'APPUIE = LANCER LE REPOS' : 'APPUIE = REPRENDRE LE TRAVAIL'}
-                    </Text>
-                  )}
+                  {/* fixed-height hint slot so the button stays put between play↔stop */}
+                  <View style={{ height: 18, justifyContent: 'center' }}>
+                    {phase === 'ready' && <Text style={[styles.readyHint, { color: onBg2 }]}>APPUIE POUR DÉMARRER</Text>}
+                    {showYwyrEndBtn && (
+                      <Text style={[styles.readyHint, { color: onBg2 }]}>
+                        {innerPhase === 'work' ? 'APPUIE = LANCER LE REPOS' : 'APPUIE = REPRENDRE LE TRAVAIL'}
+                      </Text>
+                    )}
+                  </View>
                   {showEndWorkBtn && (
                     <TouchableOpacity onPress={ywyrEndWork} style={styles.ywyrBtn} activeOpacity={0.8}>
                       <Text style={styles.ywyrBtnText}>FIN DU TRAVAIL</Text>
