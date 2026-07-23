@@ -1125,6 +1125,20 @@
     "registered": "{{count}} inscrits",
     "registeredBadge": "✓ Inscrit"
   },
+  "scoreEntry": {
+    "timeField": "Temps (mm:ss)",
+    "timeRecap": "= {{time}}",
+    "timeHelp": "Format mm:ss — les deux premiers chiffres sont les minutes, les deux derniers les secondes.",
+    "modeRounds": "Tours + reps",
+    "modeTotalReps": "Reps totaux",
+    "roundsField": "Tours complets",
+    "partialRepsField": "Reps du tour en cours",
+    "totalRepsField": "Total de reps",
+    "perRoundInfo": "1 tour = {{reps}} reps",
+    "scoreRecap": "= {{total}} reps",
+    "scoreRecapRounds": "= {{total}} reps ({{rounds}} tour(s) + {{reps}})",
+    "repsHelp": "Peu importe le mode choisi : on enregistre le total de reps pour un classement cohérent."
+  },
   "interScore": {
     "title": "Soumettre mon score",
     "update": "Mettre à jour mon score",

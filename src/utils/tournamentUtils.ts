@@ -129,6 +129,81 @@ export function formatAmrapScore(
   return `${repsLabel} (${rounds} tour${rounds > 1 ? 's' : ''}${reps > 0 ? ` + ${reps}` : ''})`;
 }
 
+// ── Time (For Time) helpers ───────────────────────────────────────────────────
+// Scores for "For Time" WODs are stored canonically as a TOTAL SECONDS number
+// (as a string in text columns) so ranking (smallest time wins) stays correct
+// regardless of how the athlete typed it. The UI always shows/edits "mm:ss".
+
+export function isTimeScoredType(type: string | null | undefined): boolean {
+  const t = (type ?? '').toLowerCase();
+  return t === 'for time' || t === 'for-time';
+}
+
+// "12:30" -> 750 ; "90" -> 90 ; "1:05:30" -> 3930. Accepts already-numeric input.
+export function timeStringToSeconds(v: string | number | null | undefined): number {
+  if (typeof v === 'number') return Math.max(0, Math.round(v));
+  const s = (v ?? '').toString().trim();
+  if (!s) return 0;
+  if (s.includes(':')) {
+    const parts = s.split(':').map(p => parseInt(p.replace(/[^0-9]/g, ''), 10) || 0);
+    return parts.reduce((acc, p) => acc * 60 + p, 0);
+  }
+  return parseInt(s.replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+// 750 -> "12:30" ; 3930 -> "1:05:30".
+export function secondsToTimeString(total: number): string {
+  const sec = Math.max(0, Math.round(total || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+// Live input mask: keeps only digits and formats them right-to-left as mm:ss
+// (or h:mm:ss) while the user types. "1234" -> "12:34", "5" -> "0:05".
+export function maskTimeInput(raw: string): string {
+  const digits = (raw ?? '').replace(/[^0-9]/g, '').slice(0, 6);
+  if (!digits) return '';
+  const groups: string[] = [];
+  let rest = digits;
+  while (rest.length > 2) {
+    groups.unshift(rest.slice(-2));
+    rest = rest.slice(0, -2);
+  }
+  groups.unshift(rest);
+  if (groups.length === 1) return `0:${groups[0].padStart(2, '0')}`;
+  return groups.map((g, i) => (i === 0 ? g : g.padStart(2, '0'))).join(':');
+}
+
+// Parse any stored score into a comparable number for ranking/ELO.
+// For Time -> total seconds; everything else -> leading numeric value.
+export function parseScoreToNumber(
+  value: string | number | null | undefined,
+  wodType: string | null | undefined,
+): number {
+  if (isTimeScoredType(wodType)) return timeStringToSeconds(value ?? 0);
+  if (typeof value === 'number') return value;
+  return parseFloat((value ?? '').toString()) || 0;
+}
+
+// Human-readable display of a stored score.
+// For Time -> "mm:ss" ; AMRAP/Max Reps -> "123 reps (3 tours + 12)".
+export function formatScoreDisplay(
+  value: string | number | null | undefined,
+  wodType: string | null | undefined,
+  repsPerRound?: number | null,
+): string {
+  const raw = (value ?? '').toString();
+  if (isTimeScoredType(wodType)) return secondsToTimeString(timeStringToSeconds(raw));
+  if (isRepsScoredType(wodType)) {
+    const n = parseFloat(raw);
+    if (!isNaN(n)) return formatAmrapScore(n, repsPerRound);
+  }
+  return raw;
+}
+
 export interface TournamentScore {
   id: string;
   athlete_id: string;
@@ -158,9 +233,9 @@ export interface RankedScore extends TournamentScore {
 export function rankWodScores(scores: TournamentScore[], wodType: string): RankedScore[] {
   const validated = scores.filter(s => s.status === 'validated');
   const sorted = [...validated].sort((a, b) => {
-    const aVal = parseFloat(a.score_value) || 0;
-    const bVal = parseFloat(b.score_value) || 0;
-    if (wodType === 'For Time') return aVal - bVal;
+    const aVal = parseScoreToNumber(a.score_value, wodType);
+    const bVal = parseScoreToNumber(b.score_value, wodType);
+    if (isTimeScoredType(wodType)) return aVal - bVal;
     return bVal - aVal;
   });
 

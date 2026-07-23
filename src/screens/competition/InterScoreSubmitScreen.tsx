@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { ChevronRight, Trophy, Timer, Video, Send, Dumbbell, Clock } from 'lucide-react-native';
+import { ChevronRight, Timer, Video, Send, Dumbbell, Clock } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +13,8 @@ import { CompetitionStackParamList } from '../../navigation';
 import { trackInterCompScoreSubmit } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { useTranslation } from 'react-i18next';
+import ScoreEntryFields, { ScoreKind } from '../../components/score/ScoreEntryFields';
+import { secondsToTimeString } from '../../utils/tournamentUtils';
 
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'InterScoreSubmit'>;
 type Route = RouteProp<CompetitionStackParamList, 'InterScoreSubmit'>;
@@ -24,23 +26,31 @@ export default function InterScoreSubmitScreen() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const { t } = useTranslation();
-  const SCORING_PLACEHOLDER: Record<string, string> = {
-    reps:        t('interScore.phReps'),
-    time:        t('interScore.phTime'),
-    weight:      t('interScore.phWeight'),
-    rounds_reps: t('interScore.phRoundsReps'),
-  };
   const S = createStyles(theme);
 
-  const [scoreValue,  setScoreValue]  = useState(existingScore?.score_value?.toString() ?? '');
+  // inter_scores.score_value is a NUMERIC column and the standings view ranks on
+  // it (time ↑, everything else ↓). We store a canonical number and keep a
+  // human-readable string in score_display.
+  const scoreKind: ScoreKind = scoringType === 'time'
+    ? 'for-time'
+    : (scoringType === 'reps' || scoringType === 'rounds_reps') ? 'reps' : 'free';
+  const [canonical,   setCanonical]   = useState(existingScore?.score_value?.toString() ?? '');
+  const [scoreValid,  setScoreValid]  = useState(existingScore?.score_value != null);
   const [videoUrl,    setVideoUrl]    = useState(existingScore?.video_url ?? '');
   const [notes,       setNotes]       = useState('');
   const [submitting,  setSubmitting]  = useState(false);
 
+  function scoreDisplay(numeric: number, raw: string): string {
+    if (scoringType === 'time') return secondsToTimeString(numeric);
+    if (scoringType === 'reps' || scoringType === 'rounds_reps') return t('scoreEntry.scoreRecap', { total: numeric }).replace(/^=\s*/, '');
+    if (scoringType === 'weight') return `${numeric} kg`;
+    return raw;
+  }
+
   async function handleSubmit() {
     if (!user) return;
-    const trimmed = scoreValue.trim();
-    if (!trimmed) {
+    const numeric = parseFloat(canonical);
+    if (!scoreValid || Number.isNaN(numeric)) {
       Alert.alert(t('interScore.scoreRequired'), t('interScore.scoreRequiredMsg'));
       return;
     }
@@ -57,8 +67,8 @@ export default function InterScoreSubmitScreen() {
       competition_id: competitionId,
       wod_id: wodId,
       athlete_id: user.id,
-      score_value: trimmed,
-      score_display: trimmed,
+      score_value: numeric,
+      score_display: scoreDisplay(numeric, canonical.trim()),
       video_url: trimmedVideo || null,
       notes: notes.trim() || null,
       status: 'pending',
@@ -157,17 +167,12 @@ export default function InterScoreSubmitScreen() {
           {/* Score input */}
           <View style={S.section}>
             <Text style={S.sectionLabel}>{t('interScore.step2')}</Text>
-            <View style={S.inputWrapper}>
-              <Trophy size={16} color={theme.textMuted} />
-              <TextInput
-                style={S.input}
-                value={scoreValue}
-                onChangeText={setScoreValue}
-                placeholder={SCORING_PLACEHOLDER[scoringType] ?? t('interScore.enterScore')}
-                placeholderTextColor={theme.textMuted}
-                autoCapitalize="none"
-              />
-            </View>
+            <ScoreEntryFields
+              kind={scoreKind}
+              initialCanonical={existingScore?.score_value?.toString() ?? null}
+              freePlaceholder={scoringType === 'weight' ? t('interScore.phWeight') : t('interScore.enterScore')}
+              onChange={(c, valid) => { setCanonical(c); setScoreValid(valid); }}
+            />
           </View>
 
           {/* Video URL */}

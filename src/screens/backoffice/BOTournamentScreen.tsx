@@ -22,7 +22,7 @@ import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import {
   TournamentScore, MOVEMENT_BADGE_LEVELS,
-  rankWodScores, cfPoints,
+  rankWodScores, cfPoints, parseScoreToNumber, formatScoreDisplay,
   normalizeMovement, formatDateTime,
 } from '../../utils/tournamentUtils';
 import { computeCompletedMovements } from '../../utils/movementParser';
@@ -195,7 +195,7 @@ export default function BOTournamentScreen() {
 
   // ── Validate score ────────────────────────────────────────────────────────
   async function handleValidate(score: TournamentScore) {
-    Alert.alert(t('bo.tournament.validateTitle'), `${score.profile?.username} — ${score.score_value}`, [
+    Alert.alert(t('bo.tournament.validateTitle'), `${score.profile?.username} — ${formatScoreDisplay(score.score_value, (score.tw as any)?.type, (score.tw as any)?.reps_per_round)}`, [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('bo.tournament.validate'), onPress: async () => {
         const { error } = await supabase.from('tournament_scores').update({
@@ -208,7 +208,7 @@ export default function BOTournamentScreen() {
         // distributes across the round structure), not the per-line reps of one round.
         const movements: string[] = (score.tw as any)?.movements ?? [];
         const wodType: string = (score.tw as any)?.type ?? '';
-        const scoreNumeric = parseFloat(score.score_value) || 0;
+        const scoreNumeric = parseScoreToNumber(score.score_value, wodType);
         const scoreType = wodType === 'For Time' ? 'time' : 'reps';
         const completed = computeCompletedMovements(movements, wodType, scoreNumeric, scoreType);
         const newBadges: string[] = [];
@@ -663,7 +663,7 @@ export default function BOTournamentScreen() {
                       <Text style={s.scoreWodNm} numberOfLines={1}>{score.tw?.title ?? ''} · {score.tw?.type ?? ''}</Text>
                       <View style={s.scoreCardRow}>
                         <Text style={s.scoreDate}>{formatDateTime(score.submitted_at)}</Text>
-                        <Text style={s.scoreValue}>{score.score_value}</Text>
+                        <Text style={s.scoreValue}>{formatScoreDisplay(score.score_value, score.tw?.type, (score.tw as any)?.reps_per_round)}</Text>
                       </View>
                     </View>
                     <View style={s.scoreCardRight}>
@@ -755,7 +755,7 @@ export default function BOTournamentScreen() {
         <View style={s.modalOverlay}>
           <View style={s.modalSheet}>
             <Text style={s.modalTitle}>{t('bo.tournament.rejectScore')}</Text>
-            <Text style={s.modalSub}>{rejectModal?.profile?.username} — {rejectModal?.score_value}</Text>
+            <Text style={s.modalSub}>{rejectModal?.profile?.username} — {rejectModal ? formatScoreDisplay(rejectModal.score_value, (rejectModal.tw as any)?.type, (rejectModal.tw as any)?.reps_per_round) : ''}</Text>
             <TextInput
               style={s.rejectInput}
               value={rejectReason}

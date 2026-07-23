@@ -1125,6 +1125,20 @@
     "registered": "{{count}} registered",
     "registeredBadge": "✓ Registered"
   },
+  "scoreEntry": {
+    "timeField": "Time (mm:ss)",
+    "timeRecap": "= {{time}}",
+    "timeHelp": "Format mm:ss — the first two digits are minutes, the last two are seconds.",
+    "modeRounds": "Rounds + reps",
+    "modeTotalReps": "Total reps",
+    "roundsField": "Full rounds",
+    "partialRepsField": "Reps in current round",
+    "totalRepsField": "Total reps",
+    "perRoundInfo": "1 round = {{reps}} reps",
+    "scoreRecap": "= {{total}} reps",
+    "scoreRecapRounds": "= {{total}} reps ({{rounds}} round(s) + {{reps}})",
+    "repsHelp": "Whichever mode you pick: we store the total reps for a coherent ranking."
+  },
   "interScore": {
     "title": "Submit my score",
     "update": "Update my score",
