@@ -279,23 +279,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function joinBox(inviteCode: string): Promise<{ error: string | null }> {
     if (!user) return { error: 'Non connecté' };
-    const { data: box, error: boxErr } = await supabase
+    const { data: boxId, error: joinErr } = await supabase.rpc('join_box_by_invite', {
+      p_invite_code: inviteCode,
+    });
+    if (joinErr || !boxId) {
+      return { error: joinErr?.message ?? 'Code invalide ou box introuvable' };
+    }
+
+    const { data: box } = await supabase
       .from('boxes')
       .select('*')
-      .eq('invite_code', inviteCode.toUpperCase().trim())
-      .eq('is_active', true)
+      .eq('id', boxId)
       .single();
-    if (boxErr || !box) return { error: 'Code invalide ou box introuvable' };
+    if (!box) return { error: 'Box introuvable' };
 
-    const { error: joinErr } = await supabase.from('box_members').insert({
-      box_id: box.id,
-      member_id: user.id,
-      status: 'active',
-    });
-    if (joinErr) {
-      if (joinErr.code === '23505') return { error: 'Tu as déjà rejoint cette box' };
-      return { error: joinErr.message };
-    }
     const newEntry: MyBoxEntry = { box: box as Box, role: 'member' };
     setMyBoxes(prev => [...prev, newEntry]);
     setCurrentBox(box as Box);

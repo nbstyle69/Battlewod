@@ -216,7 +216,7 @@ function selectMoves(rng: RNG, params: CFParams, n: number, exclude?: (m: MoveDe
   if (exclude) pool = pool.filter((m) => !exclude(m));
   if (pool.length === 0) pool = MOVES.filter((m) => m.equipment === null);
   if (params.intent === 'Mixed' && n >= 2) {
-    const byDomain = rng.shuffle(domains)
+    const byDomain = rng.shuffle([...domains])
       .map((d) => rng.pick(pool.filter((m) => m.domain === d)))
       .filter(Boolean) as MoveDef[];
     const extra = rng.sample(pool.filter((m) => !byDomain.includes(m)), Math.max(0, n - byDomain.length));
