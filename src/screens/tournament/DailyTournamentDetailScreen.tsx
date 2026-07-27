@@ -411,14 +411,21 @@ export default function DailyTournamentDetailScreen() {
   const isFull = !isOfficial && participants.length >= tournament.max_players;
 
   const scoreMode = tournament.score_mode ?? 'time';
+  // Unresolved contested scores don't hold a rank (mirrors the server ELO rule).
   const rankGroup = (rx: boolean) =>
     participants
-      .filter(p => p.score_value !== null && p.rx === rx)
+      .filter(p => p.score_value !== null && p.status !== 'contested' && p.rx === rx)
       .sort((a, b) => scoreMode === 'time'
         ? (a.score_value ?? 0) - (b.score_value ?? 0)
         : (b.score_value ?? 0) - (a.score_value ?? 0));
   const rxRanked = rankGroup(true);
   const scaledRanked = rankGroup(false);
+
+  // Combined RX-first ranking for the mini-tournament board, contested excluded.
+  const rankByUser = new Map<string, number>();
+  participants
+    .filter(p => p.score_value !== null && p.status !== 'contested')
+    .forEach((p, i) => rankByUser.set(p.user_id, i + 1));
 
   const scaledMovements = tournament.movements_scaled || getScaledMovements(tournament.wod_name, tournament.movements);
   const shownMovements = !isOfficial || boardTab === 'rx' ? tournament.movements : scaledMovements;
@@ -643,7 +650,7 @@ export default function DailyTournamentDetailScreen() {
             {participants.length === 0 ? (
               <Text style={S.noParticipants}>Aucun participant pour le moment.</Text>
             ) : (
-              participants.map((p, i) => renderPlayerRow(p, p.score_value !== null ? i + 1 : null, p.user_id === user?.id))
+              participants.map((p) => renderPlayerRow(p, rankByUser.get(p.user_id) ?? null, p.user_id === user?.id))
             )}
           </>
         )}
