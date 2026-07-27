@@ -5113,6 +5113,29 @@ export type Database = {
       }
     }
     Functions: {
+      get_box_billing: {
+        Args: { p_box_id: string }
+        Returns: {
+          id: string
+          member_id: string
+          amount_cents: number
+          platform_fee_cents: number
+          has_stripe_sub: boolean
+        }[]
+      }
+      get_my_membership_billing: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          box_id: string
+          amount_cents: number
+          platform_fee_cents: number
+        }[]
+      }
+      join_box_by_invite: {
+        Args: { p_invite_code: string }
+        Returns: string
+      }
       advance_bracket_round: {
         Args: { p_completed_round: number; p_tournament_id: string }
         Returns: number
