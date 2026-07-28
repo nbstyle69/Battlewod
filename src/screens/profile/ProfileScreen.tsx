@@ -28,7 +28,7 @@ import { prKey, normalizePrRecords, PrCategorySlug } from './prStorage';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
-const TAB_KEYS = ['stats', 'pr', 'badges', 'account'] as const;
+const TAB_KEYS = ['account', 'pr', 'stats', 'badges'] as const;
 
 const PR_CATEGORIES = [
   {
@@ -665,7 +665,7 @@ export default function ProfileScreen() {
           />
         }
       >
-        {activeTab === 0 && (
+        {TAB_KEYS[activeTab] === 'stats' && (
           <>
             {(user?.total_matches ?? 0) === 0 && (
               <View style={S.emptyBanner}>
@@ -696,7 +696,7 @@ export default function ProfileScreen() {
           </>
         )}
 
-        {activeTab === 1 && (() => {
+        {TAB_KEYS[activeTab] === 'pr' && (() => {
           const q = prSearch.trim().toLowerCase();
           const searching = q.length > 0;
           const filtered = PR_CATEGORIES
@@ -796,7 +796,7 @@ export default function ProfileScreen() {
           );
         })()}
 
-        {activeTab === 2 && (
+        {TAB_KEYS[activeTab] === 'badges' && (
           <>
             <View style={S.badgeSummary}>
               <Text style={S.badgeSummaryText}>
@@ -856,7 +856,7 @@ export default function ProfileScreen() {
             ))}
           </>
         )}
-        {activeTab === 3 && (
+        {TAB_KEYS[activeTab] === 'account' && (
           <View style={S.compteSection}>
 
             {/* ── Mes Boxes ─────────────────────────────────── */}

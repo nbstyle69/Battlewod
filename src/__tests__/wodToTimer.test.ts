@@ -1,4 +1,13 @@
-import { buildSeqBlockFromWOD, formatWODPreconfig, buildTimerRunParams } from '../utils/wodToTimer';
+import {
+  buildSeqBlockFromWOD,
+  formatWODPreconfig,
+  buildTimerRunParams,
+  buildFullSeqBlockFromWOD,
+  buildTimerRunParamsFromBlock,
+  formatBlockPreconfig,
+  TIMER_BLOCK_TYPES,
+} from '../utils/wodToTimer';
+import { SeqBlock } from '../navigation';
 
 type WodInput = {
   wod_type?: string | null;
@@ -248,5 +257,123 @@ describe('buildTimerRunParams', () => {
     expect(p.rounds).toBe(0);
     expect(p.workTime).toBe(0);
     expect(p.restTime).toBe(0);
+  });
+});
+
+// ── buildFullSeqBlockFromWOD (whiteboard mode-editable launcher) ────────────────
+
+describe('buildFullSeqBlockFromWOD', () => {
+  it('derives the block type from the WOD', () => {
+    expect(buildFullSeqBlockFromWOD({ wod_type: 'amrap' } as any).type).toBe('amrap');
+    expect(buildFullSeqBlockFromWOD({ wod_type: 'emom' } as any).type).toBe('emom');
+    expect(buildFullSeqBlockFromWOD({ wod_type: 'tabata' } as any).type).toBe('tabata');
+    expect(buildFullSeqBlockFromWOD({ wod_type: 'ywyr' } as any).type).toBe('ywyr');
+    expect(buildFullSeqBlockFromWOD({ wod_type: 'for-time' } as any).type).toBe('for-time');
+  });
+
+  it('falls back to for-time for non-temporized/unknown types', () => {
+    expect(buildFullSeqBlockFromWOD({ wod_type: 'strength' } as any).type).toBe('for-time');
+    expect(buildFullSeqBlockFromWOD({} as any).type).toBe('for-time');
+  });
+
+  it('seeds EVERY mode field so switching mode keeps sensible values', () => {
+    // A for-time WOD still carries usable amrap/emom/tabata seeds
+    const b = buildFullSeqBlockFromWOD({
+      wod_type: 'for-time',
+      time_cap_seconds: 900,
+      rounds: 6,
+      emom_interval_minutes: 2,
+      tabata_work_seconds: 30,
+      tabata_rest_seconds: 15,
+    } as any);
+    expect(b.type).toBe('for-time');
+    expect(b.durationMin).toBe(15); // cap
+    expect(b.emomInterval).toBe(2);
+    expect(b.emomRounds).toBe(6);
+    expect(b.workSec).toBe(30);
+    expect(b.restSec).toBe(15);
+    expect(b.tabRounds).toBe(6);
+    expect(b.emomCustomSec).toBe(90);
+  });
+
+  it('amrap durationMin defaults to 10 when no cap', () => {
+    expect(buildFullSeqBlockFromWOD({ wod_type: 'amrap' } as any).durationMin).toBe(10);
+  });
+
+  it('for-time durationMin (cap) is 0 when no cap', () => {
+    expect(buildFullSeqBlockFromWOD({ wod_type: 'for-time' } as any).durationMin).toBe(0);
+  });
+
+  it('returns a unique non-empty id', () => {
+    const a = buildFullSeqBlockFromWOD({ wod_type: 'amrap' } as any);
+    const b = buildFullSeqBlockFromWOD({ wod_type: 'amrap' } as any);
+    expect(a.id.length).toBeGreaterThan(0);
+    expect(a.id).not.toBe(b.id);
+  });
+});
+
+// ── formatBlockPreconfig ────────────────────────────────────────────────────────
+
+describe('formatBlockPreconfig', () => {
+  const base: SeqBlock = {
+    id: 'x', type: 'for-time', durationMin: 0,
+    emomInterval: 1, emomRounds: 10, emomCustomSec: 90,
+    workSec: 20, restSec: 10, tabRounds: 8, pauseSec: 0,
+  };
+
+  it('formats amrap', () => {
+    expect(formatBlockPreconfig({ ...base, type: 'amrap', durationMin: 12 })).toBe('AMRAP · 12 min');
+    expect(formatBlockPreconfig({ ...base, type: 'amrap', durationMin: 0 })).toBe('AMRAP · 10 min');
+  });
+
+  it('formats emom (fixed, E2MOM, and perso)', () => {
+    expect(formatBlockPreconfig({ ...base, type: 'emom', emomInterval: 1, emomRounds: 10 })).toBe('EMOM · 10 rounds');
+    expect(formatBlockPreconfig({ ...base, type: 'emom', emomInterval: 2, emomRounds: 8 })).toBe('E2MOM · 8 rounds');
+    expect(formatBlockPreconfig({ ...base, type: 'emom', emomInterval: 0, emomRounds: 5 })).toBe('EMOM PERSO · 5 rounds');
+  });
+
+  it('formats tabata', () => {
+    expect(formatBlockPreconfig({ ...base, type: 'tabata', workSec: 30, restSec: 15, tabRounds: 6 }))
+      .toBe('Tabata · 6 × 30/15s');
+  });
+
+  it('formats ywyr', () => {
+    expect(formatBlockPreconfig({ ...base, type: 'ywyr' })).toBe('YWYR · Your Work Your Rest');
+  });
+
+  it('formats for-time with and without cap', () => {
+    expect(formatBlockPreconfig({ ...base, type: 'for-time', durationMin: 20 })).toBe('For Time · Cap 20 min');
+    expect(formatBlockPreconfig({ ...base, type: 'for-time', durationMin: 0 })).toBe('For Time · Chrono libre');
+  });
+});
+
+// ── buildTimerRunParamsFromBlock ───────────────────────────────────────────────
+
+describe('buildTimerRunParamsFromBlock', () => {
+  const block: SeqBlock = {
+    id: 'x', type: 'tabata', durationMin: 0,
+    emomInterval: 1, emomRounds: 10, emomCustomSec: 90,
+    workSec: 25, restSec: 5, tabRounds: 8, pauseSec: 0,
+  };
+
+  it('wraps the exact block in the libre sequence', () => {
+    const p = buildTimerRunParamsFromBlock(block, 'Grace', { withCamera: true, countdown: 5 });
+    expect(p.timerType).toBe('libre');
+    expect(p.withCamera).toBe(true);
+    expect(p.countdown).toBe(5);
+    const seq = JSON.parse(p.sequence);
+    expect(seq).toHaveLength(1);
+    expect(seq[0].type).toBe('tabata');
+    expect(seq[0].workSec).toBe(25);
+    expect(seq[0].tabRounds).toBe(8);
+  });
+
+  it('trims the video title', () => {
+    const p = buildTimerRunParamsFromBlock(block, '  Grace  ', { withCamera: false, countdown: 0 });
+    expect(p.videoTitle).toBe('Grace');
+  });
+
+  it('exposes all 5 timer modes in the launcher list', () => {
+    expect(TIMER_BLOCK_TYPES.map(m => m.key)).toEqual(['for-time', 'amrap', 'emom', 'tabata', 'ywyr']);
   });
 });
