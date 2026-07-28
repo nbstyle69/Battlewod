@@ -15,7 +15,8 @@ import i18n from '../../i18n';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { hapticSuccess } from '../../lib/haptics';
-import { recordActivity } from '../../services/gamification';
+import { recordActivity, logMovementReps } from '../../services/gamification';
+import { computeCompletedMovements } from '../../utils/movementParser';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD } from '../../types';
@@ -622,6 +623,20 @@ export default function WhiteboardScreen() {
         if (error && error.code !== '23505') throw error;
         // Count as activity for streak (only once per wod thanks to unique constraint)
         try { await recordActivity(user.id, currentBox.id); } catch (_) {}
+        // Credit movement/exercise badges for the prescribed work.
+        // No score here → AMRAP is skipped (unknown rounds = 0 rep, product decision);
+        // For Time / EMOM / Tabata / Chipper credit the prescribed reps.
+        const doneWod = dayWODs.find(w => w.id === wodId);
+        if (doneWod?.description && doneWod.wod_type !== 'amrap') {
+          const lines = doneWod.description.split('\n').filter(Boolean);
+          const wodFormat = doneWod.wod_type === 'for-time' ? 'For Time'
+            : doneWod.wod_type === 'emom' ? 'EMOM'
+            : doneWod.wod_type === 'tabata' ? 'Tabata'
+            : 'For Time';
+          const completed = computeCompletedMovements(lines, wodFormat, 0, 'reps');
+          logMovementReps(user.id, completed, 'whiteboard', wodId)
+            .catch(e => captureError(e, { screen: 'Whiteboard', action: 'logMovementReps' }));
+        }
       }
     } catch (e) {
       // Revert on error
@@ -633,7 +648,7 @@ export default function WhiteboardScreen() {
       captureError(e, { screen: 'Whiteboard', action: 'toggleCompletion', wodId });
       Alert.alert(t('common.error'), t('whiteboard.updateFailed'));
     }
-  }, [user, currentBox, completedIds, scoredIds]);
+  }, [user, currentBox, completedIds, scoredIds, dayWODs]);
 
   const isStaff = boxRole === 'owner' || boxRole === 'coach' || user?.id === currentBox?.owner_id;
 
