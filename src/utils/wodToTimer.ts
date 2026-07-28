@@ -107,6 +107,92 @@ export function formatWODPreconfig(wod: WODConfigFields): string {
   }
 }
 
+/** Timer modes selectable from the whiteboard launcher (mirror TimerScreen). */
+export const TIMER_BLOCK_TYPES: { key: BlockType; label: string }[] = [
+  { key: 'for-time', label: 'FOR TIME' },
+  { key: 'amrap', label: 'AMRAP' },
+  { key: 'emom', label: 'EMOM' },
+  { key: 'tabata', label: 'TABATA' },
+  { key: 'ywyr', label: 'YWYR' },
+];
+
+const SUPPORTED_BLOCK_TYPES: BlockType[] = ['for-time', 'amrap', 'emom', 'tabata', 'ywyr'];
+
+/**
+ * Build a fully-seeded SeqBlock from a BoxWOD: every mode-specific field is
+ * populated from the WOD so the athlete can freely switch the timer mode in the
+ * launcher without losing sensible defaults. The block's `type` is derived from
+ * the WOD, defaulting to for-time for non-temporized WODs.
+ */
+export function buildFullSeqBlockFromWOD(wod: WODConfigFields): SeqBlock {
+  const rawType = (wod.wod_type ?? 'for-time') as BlockType;
+  const type: BlockType = SUPPORTED_BLOCK_TYPES.includes(rawType) ? rawType : 'for-time';
+  const capMin = wod.time_cap_seconds ? Math.max(0, Math.round(wod.time_cap_seconds / 60)) : 0;
+  const rounds = wod.rounds && wod.rounds > 0 ? wod.rounds : undefined;
+  const emomInterval = wod.emom_interval_minutes && wod.emom_interval_minutes > 0 ? wod.emom_interval_minutes : 1;
+  const tabWork = wod.tabata_work_seconds && wod.tabata_work_seconds > 0 ? wod.tabata_work_seconds : 20;
+  const tabRest = wod.tabata_rest_seconds != null && wod.tabata_rest_seconds >= 0 ? wod.tabata_rest_seconds : 10;
+
+  return {
+    id: newId(),
+    type,
+    // amrap: duration; for-time: cap (0 = ∞)
+    durationMin: type === 'amrap' ? (capMin > 0 ? capMin : 10) : capMin,
+    emomInterval,
+    emomRounds: rounds ?? (capMin > 0 ? Math.max(1, Math.floor(capMin / emomInterval)) : 10),
+    emomCustomSec: 90,
+    workSec: tabWork,
+    restSec: tabRest,
+    tabRounds: rounds ?? 8,
+    pauseSec: 0,
+  };
+}
+
+/** Human-readable summary of an edited SeqBlock, e.g. "AMRAP · 10 min". */
+export function formatBlockPreconfig(b: SeqBlock): string {
+  switch (b.type) {
+    case 'amrap':
+      return `AMRAP · ${b.durationMin > 0 ? b.durationMin : 10} min`;
+    case 'emom': {
+      const isPerso = b.emomInterval === 0;
+      const label = isPerso ? 'EMOM PERSO' : b.emomInterval === 1 ? 'EMOM' : `E${b.emomInterval}MOM`;
+      return `${label} · ${b.emomRounds} rounds`;
+    }
+    case 'tabata':
+      return `Tabata · ${b.tabRounds} × ${b.workSec}/${b.restSec}s`;
+    case 'ywyr':
+      return 'YWYR · Your Work Your Rest';
+    case 'for-time':
+    default:
+      return b.durationMin > 0 ? `For Time · Cap ${b.durationMin} min` : 'For Time · Chrono libre';
+  }
+}
+
+/**
+ * Build TimerRun params (libre mode) from an already-edited SeqBlock, so the
+ * whiteboard launcher can run any timer mode chosen by the athlete.
+ */
+export function buildTimerRunParamsFromBlock(
+  block: SeqBlock,
+  videoTitle: string,
+  opts: { withCamera: boolean; countdown: number },
+) {
+  return {
+    timerType: 'libre' as const,
+    countdown: opts.countdown,
+    totalSeconds: 0,
+    maxTime: 0,
+    interval: 0,
+    rounds: 0,
+    workTime: 0,
+    restTime: 0,
+    withCamera: opts.withCamera,
+    sequence: JSON.stringify([block]),
+    videoTitle: videoTitle.trim(),
+    withTimestamp: true,
+  };
+}
+
 /**
  * Build full TimerRun navigation params (libre mode with a single preconfigured block).
  */
