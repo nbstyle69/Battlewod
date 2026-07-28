@@ -33,9 +33,9 @@ export function parseMovementLine(line: string): MovementEntry | null {
   if (stdMatch) {
     const reps = parseInt(stdMatch[1], 10);
     let rest = stdMatch[2];
-    // Extract weight: "(43 kg)" or "@ 42.5" / "@ 42.5/30 kg" (take the first number)
+    // Extract weight: "(43 kg)" / "(43/30 kg)" or "@ 42.5" / "@ 42.5/30 kg" (take the first/men number)
     let weight_kg: number | undefined;
-    const weightParen = rest.match(/\((\d+(?:\.\d+)?)\s*kg\)/i);
+    const weightParen = rest.match(/\((\d+(?:\.\d+)?)(?:\s*\/\s*\d+(?:\.\d+)?)?\s*kg\)/i);
     const weightAt = rest.match(/@\s*(\d+(?:\.\d+)?)/);
     if (weightParen) {
       weight_kg = parseFloat(weightParen[1]);
