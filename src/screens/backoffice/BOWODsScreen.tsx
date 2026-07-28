@@ -455,12 +455,13 @@ export default function BOWODsScreen({ navigation }: any) {
               </ScrollView>
               {movements.map((line, i) => {
                 const parsed = parseMovementRow(line);
-                const showWeight = parsed.weightKg != null || isWeightedMovement(parsed.name);
-                const update = (reps: number | null, name: string, weightKg: number | null) => {
+                const showWeight = parsed.weightKg != null || parsed.weightKgWomen != null || isWeightedMovement(parsed.name);
+                const update = (reps: number | null, name: string, weightKg: number | null, weightKgWomen: number | null) => {
                   const w = showWeight ? weightKg : null;
+                  const wW = showWeight ? weightKgWomen : null;
                   const serialized = reps == null
-                    ? serializeMovement(0, name, w).replace(/^0\s*/, '').trim()
-                    : serializeMovement(reps, name, w);
+                    ? serializeMovement(0, name, w, wW).replace(/^0\s*/, '').trim()
+                    : serializeMovement(reps, name, w, wW);
                   setMovements(m => m.map((x, idx) => idx === i ? serialized : x));
                 };
                 return (
@@ -468,22 +469,30 @@ export default function BOWODsScreen({ navigation }: any) {
                     <TextInput
                       style={[S.mInput, S.moveReps]}
                       value={parsed.reps != null ? String(parsed.reps) : ''}
-                      onChangeText={txt => update(txt === '' ? null : (parseInt(txt, 10) || null), parsed.name, parsed.weightKg)}
+                      onChangeText={txt => update(txt === '' ? null : (parseInt(txt, 10) || null), parsed.name, parsed.weightKg, parsed.weightKgWomen)}
                       keyboardType="numeric" placeholder="Reps" placeholderTextColor={theme.textMuted}
                     />
                     <TextInput
                       style={[S.mInput, { flex: 1 }]}
                       value={parsed.name}
-                      onChangeText={txt => update(parsed.reps, txt, parsed.weightKg)}
+                      onChangeText={txt => update(parsed.reps, txt, parsed.weightKg, parsed.weightKgWomen)}
                       placeholder={t('bo.wods.movementNamePlaceholder')} placeholderTextColor={theme.textMuted}
                     />
                     {showWeight && (
-                      <TextInput
-                        style={[S.mInput, S.moveKg]}
-                        value={parsed.weightKg != null ? String(parsed.weightKg) : ''}
-                        onChangeText={txt => update(parsed.reps, parsed.name, txt === '' ? null : (parseFloat(txt) || null))}
-                        keyboardType="numeric" placeholder="kg" placeholderTextColor={theme.textMuted}
-                      />
+                      <>
+                        <TextInput
+                          style={[S.mInput, S.moveKg]}
+                          value={parsed.weightKg != null ? String(parsed.weightKg) : ''}
+                          onChangeText={txt => update(parsed.reps, parsed.name, txt === '' ? null : (parseFloat(txt) || null), parsed.weightKgWomen)}
+                          keyboardType="numeric" placeholder="♂ kg" placeholderTextColor={theme.textMuted}
+                        />
+                        <TextInput
+                          style={[S.mInput, S.moveKg]}
+                          value={parsed.weightKgWomen != null ? String(parsed.weightKgWomen) : ''}
+                          onChangeText={txt => update(parsed.reps, parsed.name, parsed.weightKg, txt === '' ? null : (parseFloat(txt) || null))}
+                          keyboardType="numeric" placeholder="♀ kg" placeholderTextColor={theme.textMuted}
+                        />
+                      </>
                     )}
                     <TouchableOpacity onPress={() => setMovements(m => m.filter((_, idx) => idx !== i))} style={S.moveDel}>
                       <Trash2 size={16} color={theme.textMuted} />

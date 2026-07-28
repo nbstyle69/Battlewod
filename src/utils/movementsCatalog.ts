@@ -65,33 +65,45 @@ export function isWeightedMovement(name: string): boolean {
 }
 
 // Serialize a structured movement row into a parseable line.
-//   (21, 'Thruster', 43)   -> "21 Thruster (43 kg)"
-//   (12, 'Pull-ups')       -> "12 Pull-ups"
+//   (21, 'Thruster', 43)       -> "21 Thruster (43 kg)"
+//   (21, 'Thruster', 43, 30)   -> "21 Thruster (43/30 kg)"
+//   (12, 'Pull-ups')           -> "12 Pull-ups"
 export function serializeMovement(
   reps: number,
   name: string,
   weightKg?: number | null,
+  weightKgWomen?: number | null,
 ): string {
   const base = `${reps} ${name.trim()}`.trim();
-  const w = weightKg != null && weightKg > 0 ? weightKg : null;
-  return w != null ? `${base} (${w} kg)` : base;
+  const men = weightKg != null && weightKg > 0 ? weightKg : null;
+  const women = weightKgWomen != null && weightKgWomen > 0 ? weightKgWomen : null;
+  if (men != null && women != null) return `${base} (${men}/${women} kg)`;
+  if (men != null) return `${base} (${men} kg)`;
+  if (women != null) return `${base} (${women} kg)`;
+  return base;
 }
 
 // Parse a stored movement line back into structured parts (best-effort).
+// A "men/women" pair ("43/30 kg") splits into weightKg (men) + weightKgWomen (women).
 export function parseMovementRow(line: string): {
   reps: number | null;
   name: string;
   weightKg: number | null;
+  weightKgWomen: number | null;
 } {
   let s = (line ?? '').trim();
   let weightKg: number | null = null;
+  let weightKgWomen: number | null = null;
   const num = String.raw`\d+(?:\.\d+)?`;
-  const wParen = s.match(new RegExp(String.raw`\((${num})(?:\s*\/\s*${num})?\s*kg\)`, 'i'));
-  const wAt = s.match(new RegExp(String.raw`@\s*(${num})`, 'i'));
+  const wParen = s.match(new RegExp(String.raw`\((${num})(?:\s*\/\s*(${num}))?\s*kg\)`, 'i'));
+  const wAt = s.match(new RegExp(String.raw`@\s*(${num})(?:\s*\/\s*(${num}))?`, 'i'));
   const w = wParen ?? wAt;
-  if (w) weightKg = parseFloat(w[1]);
+  if (w) {
+    weightKg = parseFloat(w[1]);
+    if (w[2] != null) weightKgWomen = parseFloat(w[2]);
+  }
   s = s.replace(/\((?:[^)]*)\)/g, '').replace(/@.*$/, '').trim();
   const m = s.match(/^(\d+)\s*(?:reps?|x)?\s*[—\-:]?\s*(.+)$/i);
-  if (m) return { reps: parseInt(m[1], 10), name: m[2].trim(), weightKg };
-  return { reps: null, name: s, weightKg };
+  if (m) return { reps: parseInt(m[1], 10), name: m[2].trim(), weightKg, weightKgWomen };
+  return { reps: null, name: s, weightKg, weightKgWomen };
 }
