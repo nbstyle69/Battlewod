@@ -15,6 +15,7 @@ import { sendWodPublishedNotification } from '../../services/notifications';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, BoxWODType } from '../../types';
 import DateField from '../../components/DateField';
+import { MOVEMENT_CATALOG, isWeightedMovement, serializeMovement, parseMovementRow } from '../../utils/movementsCatalog';
 
 const WOD_TYPES: { value: BoxWODType; labelKey: string }[] = [
   { value: 'for-time', labelKey: 'bo.wods.typeForTime' },
@@ -66,7 +67,7 @@ export default function BOWODsScreen({ navigation }: any) {
 
   // Form state
   const [title,       setTitle]       = useState('');
-  const [description, setDescription] = useState('');
+  const [movements,   setMovements]   = useState<string[]>([]);
   const [wodType,     setWodType]      = useState<BoxWODType>('amrap');
   const [date,        setDate]        = useState('');
   const [timeCap,     setTimeCap]     = useState('');
@@ -102,7 +103,7 @@ export default function BOWODsScreen({ navigation }: any) {
 
   function openCreate(selectedDate: string) {
     setEditWOD(null);
-    setTitle(''); setDescription(''); setWodType('amrap');
+    setTitle(''); setMovements([]); setWodType('amrap');
     setDate(selectedDate); setTimeCap(''); setRounds('');
     setNotes(''); setBlockName(''); setPublished(true);
     setPublishMode('now'); setPublishHour('06'); setPublishMin('00');
@@ -112,7 +113,7 @@ export default function BOWODsScreen({ navigation }: any) {
   function openEdit(wod: BoxWOD) {
     setEditWOD(wod);
     setTitle(wod.title);
-    setDescription(wod.description ?? '');
+    setMovements(wod.description ? wod.description.split('\n').map(l => l.trim()).filter(Boolean) : []);
     setWodType(wod.wod_type ?? 'amrap');
     setDate(wod.scheduled_date);
     setTimeCap(wod.time_cap_seconds ? String(Math.floor(wod.time_cap_seconds / 60)) : '');
@@ -138,7 +139,7 @@ export default function BOWODsScreen({ navigation }: any) {
       box_id: currentBox.id,
       created_by: user.id,
       title: title.trim(),
-      description: description.trim() || null,
+      description: movements.map(l => l.trim()).filter(Boolean).join('\n') || null,
       wod_type: wodType,
       scheduled_date: date,
       time_cap_seconds: timeCap ? parseInt(timeCap) * 60 : null,
@@ -440,13 +441,61 @@ export default function BOWODsScreen({ navigation }: any) {
                 ))}
               </View>
 
-              <Text style={S.mLabel}>{t('bo.wods.labelDescription')}</Text>
-              <TextInput
-                style={[S.mInput, S.mTextarea]}
-                value={description} onChangeText={setDescription}
-                placeholder={t('bo.wods.descriptionPlaceholder')}
-                placeholderTextColor={theme.textMuted} multiline
-              />
+              <Text style={S.mLabel}>{t('bo.wods.labelMovements')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={S.chipRow} contentContainerStyle={{ gap: 6 }}>
+                {MOVEMENT_CATALOG.map(mv => (
+                  <TouchableOpacity
+                    key={mv.name}
+                    style={S.catChip}
+                    onPress={() => setMovements(m => [...m, serializeMovement(0, mv.name, null).replace(/^0\s*/, '').trim()])}
+                  >
+                    <Text style={S.catChipText}>{mv.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              {movements.map((line, i) => {
+                const parsed = parseMovementRow(line);
+                const showWeight = parsed.weightKg != null || isWeightedMovement(parsed.name);
+                const update = (reps: number | null, name: string, weightKg: number | null) => {
+                  const w = showWeight ? weightKg : null;
+                  const serialized = reps == null
+                    ? serializeMovement(0, name, w).replace(/^0\s*/, '').trim()
+                    : serializeMovement(reps, name, w);
+                  setMovements(m => m.map((x, idx) => idx === i ? serialized : x));
+                };
+                return (
+                  <View key={i} style={S.moveRow}>
+                    <TextInput
+                      style={[S.mInput, S.moveReps]}
+                      value={parsed.reps != null ? String(parsed.reps) : ''}
+                      onChangeText={txt => update(txt === '' ? null : (parseInt(txt, 10) || null), parsed.name, parsed.weightKg)}
+                      keyboardType="numeric" placeholder="Reps" placeholderTextColor={theme.textMuted}
+                    />
+                    <TextInput
+                      style={[S.mInput, { flex: 1 }]}
+                      value={parsed.name}
+                      onChangeText={txt => update(parsed.reps, txt, parsed.weightKg)}
+                      placeholder={t('bo.wods.movementNamePlaceholder')} placeholderTextColor={theme.textMuted}
+                    />
+                    {showWeight && (
+                      <TextInput
+                        style={[S.mInput, S.moveKg]}
+                        value={parsed.weightKg != null ? String(parsed.weightKg) : ''}
+                        onChangeText={txt => update(parsed.reps, parsed.name, txt === '' ? null : (parseFloat(txt) || null))}
+                        keyboardType="numeric" placeholder="kg" placeholderTextColor={theme.textMuted}
+                      />
+                    )}
+                    <TouchableOpacity onPress={() => setMovements(m => m.filter((_, idx) => idx !== i))} style={S.moveDel}>
+                      <Trash2 size={16} color={theme.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+              <TouchableOpacity onPress={() => setMovements(m => [...m, ''])} style={S.moveAdd}>
+                <Plus size={14} color={theme.accent} />
+                <Text style={S.moveAddText}>{t('bo.wods.addMovement')}</Text>
+              </TouchableOpacity>
+              <Text style={S.moveHint}>{t('bo.wods.movementsHint')}</Text>
 
               <View style={S.mRow}>
                 <View style={{ flex: 1 }}>
@@ -583,6 +632,16 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   mTextarea:   { minHeight: 80, textAlignVertical: 'top' },
   mRow:        { flexDirection: 'row', gap: 10 },
+  chipRow:     { flexGrow: 0, marginBottom: 4 },
+  catChip:     { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
+  catChipText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
+  moveRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  moveReps:    { width: 60, textAlign: 'center' },
+  moveKg:      { width: 64, textAlign: 'center' },
+  moveDel:     { padding: 8 },
+  moveAdd:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: theme.border },
+  moveAddText: { fontSize: 13, fontWeight: '800', color: theme.accent },
+  moveHint:    { fontSize: 11, color: theme.textMuted, marginTop: 2 },
   typeGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   typeChip:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
   typeChipText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary },
