@@ -1085,50 +1085,56 @@ export default function WhiteboardScreen() {
           )}
 
           {/* ── Mes WODs perso (générateur) ─────────────────── */}
-          {personalWODs.length > 0 && (
-            <View style={{ marginTop: 20 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Sparkles color={theme.accent} size={16} />
-                <Text style={[S.sectionTitle, { marginBottom: 0 }]}>{t('whiteboard.myPersonalSessions')}</Text>
-              </View>
-              <View style={S.dayGroup}>
-                {personalWODs.map(wod => (
-                  <TouchableOpacity
-                    key={wod.id}
-                    style={[S.wodCard, { borderLeftWidth: 3, borderLeftColor: `${theme.accent}80` }]}
-                    onPress={() => navigation.navigate('PersonalWODForm', { wodId: wod.id, date: selectedDate })}
-                    activeOpacity={0.8}
-                  >
-                    <View style={S.wodCardTop}>
-                      <WodTypeBadge type={wod.wod_type} />
-                      {wod.time_cap_seconds != null && (
-                        <View style={S.timeCap}>
-                          <Clock color={theme.textMuted} size={12} />
-                          <Text style={S.timeCapText}>{t('whiteboard.cap', { min: Math.floor(wod.time_cap_seconds / 60) })}</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={S.wodTitle}>{wod.title}</Text>
-                    {wod.description ? <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text> : null}
-                    <View style={S.wodCardFooter}>
-                      <View style={S.wodCardAction}>
-                        <Text style={S.wodCardActionText}>{t('whiteboard.edit')}</Text>
-                        <ChevronRight color={theme.accent} size={14} />
-                      </View>
-                      <TouchableOpacity
-                        onPress={(e) => { e.stopPropagation(); openTimerModal(wod); }}
-                        style={S.timerBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        activeOpacity={0.8}
-                      >
-                        <TimerIcon color={theme.accent} size={16} />
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
+          <View style={{ marginTop: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Sparkles color={theme.accent} size={16} />
+              <Text style={[S.sectionTitle, { marginBottom: 0 }]}>{t('whiteboard.myPersonalSessions')}</Text>
             </View>
-          )}
+            <View style={S.dayGroup}>
+              {personalWODs.map(wod => (
+                <TouchableOpacity
+                  key={wod.id}
+                  style={[S.wodCard, { borderLeftWidth: 3, borderLeftColor: `${theme.accent}80` }]}
+                  onPress={() => navigation.navigate('PersonalWODForm', { wodId: wod.id, date: selectedDate })}
+                  activeOpacity={0.8}
+                >
+                  <View style={S.wodCardTop}>
+                    <WodTypeBadge type={wod.wod_type} />
+                    {wod.time_cap_seconds != null && (
+                      <View style={S.timeCap}>
+                        <Clock color={theme.textMuted} size={12} />
+                        <Text style={S.timeCapText}>{t('whiteboard.cap', { min: Math.floor(wod.time_cap_seconds / 60) })}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={S.wodTitle}>{wod.title}</Text>
+                  {wod.description ? <Text style={S.wodDesc} numberOfLines={2}>{wod.description}</Text> : null}
+                  <View style={S.wodCardFooter}>
+                    <View style={S.wodCardAction}>
+                      <Text style={S.wodCardActionText}>{t('whiteboard.edit')}</Text>
+                      <ChevronRight color={theme.accent} size={14} />
+                    </View>
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); openTimerModal(wod); }}
+                      style={S.timerBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      activeOpacity={0.8}
+                    >
+                      <TimerIcon color={theme.accent} size={16} />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={S.createWodBtn}
+                onPress={() => navigation.navigate('PersonalWODForm', { date: selectedDate })}
+                activeOpacity={0.85}
+              >
+                <Sparkles size={16} color={theme.accent} />
+                <Text style={S.createWodBtnText}>{t('whiteboard.addWod')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {/* ── Programme WODs ─────────────────────── */}
           {programWods.length > 0 && programWods.reduce<{ title: string; wods: ProgWodEntry[] }[]>((acc, entry) => {
