@@ -813,6 +813,8 @@
       "leaveBoxMsg": "Tu vas quitter « {{name}} ».",
       "noBox": "Tu n'es rattaché à aucune box.",
       "joinBox": "Rejoindre une box",
+      "manageSubscription": "Gérer mon abonnement",
+      "manageSubscriptionSub": "Ouvre le site web pour gérer ta formule, ton paiement et ta résiliation.",
       "joinBoxSub": "Entre le code d'invitation (6 caractères)",
       "noProgram": "Aucun programme rejoint.",
       "joinProgram": "Rejoindre un programme",

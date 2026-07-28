@@ -5,7 +5,7 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
   Image, Share, Switch, Linking, RefreshControl,
 } from 'react-native';
-import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen, Search } from 'lucide-react-native';
+import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen, Search, ExternalLink } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
@@ -908,6 +908,19 @@ export default function ProfileScreen() {
                 <Hash color={theme.background} size={16} />
                 <Text style={S.joinBtnText}>{t('profile.account.joinBox')}</Text>
               </TouchableOpacity>
+              {myBoxes.some(e => e.role === 'member') && (
+                <>
+                  <TouchableOpacity
+                    style={[S.manageSubBtn, { marginTop: 10 }]}
+                    onPress={() => Linking.openURL(`${WEB_URL}/compte`)}
+                    activeOpacity={0.8}
+                  >
+                    <ExternalLink color={theme.accent} size={16} />
+                    <Text style={S.manageSubBtnText}>{t('profile.account.manageSubscription')}</Text>
+                  </TouchableOpacity>
+                  <Text style={S.manageSubHint}>{t('profile.account.manageSubscriptionSub')}</Text>
+                </>
+              )}
             </View>
 
             {/* ── Mes Programmes ─────────────────────────── */}
@@ -1460,6 +1473,13 @@ function createStyles(t: AppTheme) {
     borderWidth: 1.5, borderColor: t.ctaBorder,
   },
   joinBtnText: { color: t.background, fontSize: 14, fontWeight: '700' },
+  manageSubBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: 'transparent', borderRadius: 14, padding: 13,
+    borderWidth: 1.5, borderColor: t.accent,
+  },
+  manageSubBtnText: { color: t.accent, fontSize: 14, fontWeight: '700' },
+  manageSubHint: { fontSize: 11, color: t.textMuted, marginTop: 6, textAlign: 'center' },
   leaveBtn: {
     borderWidth: 1.5, borderColor: t.border, borderRadius: 14,
     padding: 12, alignItems: 'center',

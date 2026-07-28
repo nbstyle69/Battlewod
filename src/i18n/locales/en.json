@@ -813,6 +813,8 @@
       "leaveBoxMsg": "You are about to leave “{{name}}”.",
       "noBox": "You are not linked to any box.",
       "joinBox": "Join a box",
+      "manageSubscription": "Manage my subscription",
+      "manageSubscriptionSub": "Opens the website to manage your plan, payment and cancellation.",
       "joinBoxSub": "Enter the invite code (6 characters)",
       "noProgram": "No program joined.",
       "joinProgram": "Join a program",
