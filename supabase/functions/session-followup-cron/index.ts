@@ -73,7 +73,10 @@ serve(async (req: Request) => {
     }
 
     type Push = { user_id: string; title: string; body: string; data: Record<string, unknown> };
+    // Email = complément du push (mêmes contenus, même déclenchement).
+    type Email = { user_id: string; subject: string; heading: string; body: string; cta: string };
     const pushes: Push[] = [];
+    const emails: Email[] = [];
     const setH: string[] = [];
     const setD1: string[] = [];
     const setD3: string[] = [];
@@ -84,16 +87,22 @@ serve(async (req: Request) => {
       const payload = { type: 'session_followup', followup_id: f.id, box_id: f.box_id };
 
       if (!f.reminder_h_sent && f.status === 'pending' && age >= 1 * HOUR) {
-        pushes.push({ user_id: f.member_id, title: `Comment était ta séance chez ${box} ?`,
-          body: 'Donne-nous ton avis en 10 secondes 💬', data: payload });
+        const title = `Comment était ta séance chez ${box} ?`;
+        pushes.push({ user_id: f.member_id, title, body: 'Donne-nous ton avis en 10 secondes 💬', data: payload });
+        emails.push({ user_id: f.member_id, subject: title, heading: title,
+          body: `Merci d'être venu·e chez ${box} ! Dis-nous en 10 secondes ce que tu en as pensé.`, cta: 'Laisser mon avis' });
         setH.push(f.id);
       } else if (!f.reminder_d1_sent && (f.status === 'pending' || f.status === 'responded') && age >= 24 * HOUR) {
-        pushes.push({ user_id: f.member_id, title: `On se voit pour la suite ?`,
-          body: `Réserve un créneau avec ${box} pour parler de ton abonnement.`, data: payload });
+        const title = 'On se voit pour la suite ?';
+        pushes.push({ user_id: f.member_id, title, body: `Réserve un créneau avec ${box} pour parler de ton abonnement.`, data: payload });
+        emails.push({ user_id: f.member_id, subject: title, heading: title,
+          body: `Réserve un créneau avec ${box} pour parler de la formule qui te convient.`, cta: 'Réserver un créneau' });
         setD1.push(f.id);
       } else if (!f.reminder_d3_sent && ['pending', 'responded', 'meeting_booked'].includes(f.status) && age >= 72 * HOUR) {
-        pushes.push({ user_id: f.member_id, title: `Prêt à te lancer chez ${box} ?`,
-          body: 'Découvre nos offres et rejoins-nous 🏋️', data: payload });
+        const title = `Prêt à te lancer chez ${box} ?`;
+        pushes.push({ user_id: f.member_id, title, body: 'Découvre nos offres et rejoins-nous 🏋️', data: payload });
+        emails.push({ user_id: f.member_id, subject: title, heading: title,
+          body: `Découvre les offres de ${box} et rejoins la communauté quand tu veux.`, cta: 'Voir les offres' });
         setD3.push(f.id);
       }
     }
@@ -126,12 +135,58 @@ serve(async (req: Request) => {
       }
     }
 
+    // 3bis. Emails de relance (Resend). Complément du push : silencieux si la
+    // clé n'est pas configurée (le push, lui, part déjà).
+    let emailed = 0;
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+    if (RESEND_API_KEY && emails.length) {
+      const FROM = Deno.env.get('RESEND_FROM') ?? 'AthleX <no-reply@athlex.app>';
+      const WEB_URL = Deno.env.get('APP_WEB_URL') ?? 'https://the-hub-rho.vercel.app';
+      const suiviUrl = `${WEB_URL}/suivi`;
+
+      const memberIds = [...new Set(emails.map((e) => e.user_id))];
+      const { data: profiles } = await admin.from('profiles').select('id, email').in('id', memberIds);
+      const emailByUser = new Map<string, string>();
+      for (const p of (profiles ?? []) as { id: string; email: string | null }[]) {
+        if (p.email) emailByUser.set(p.id, p.email);
+      }
+
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      for (const e of emails) {
+        const to = emailByUser.get(e.user_id);
+        if (!to) continue;
+        const html = `<!DOCTYPE html><html><body style="margin:0;background:#000;font-family:Arial,Helvetica,sans-serif;color:#fff">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;padding:32px 24px">
+    <tr><td>
+      <h1 style="font-size:22px;font-weight:800;margin:0 0 16px">${esc(e.heading)}</h1>
+      <p style="font-size:15px;line-height:1.5;color:#cfcfcf;margin:0 0 24px">${esc(e.body)}</p>
+      <a href="${suiviUrl}" style="display:inline-block;background:#fff;color:#000;font-weight:700;font-size:15px;text-decoration:none;padding:12px 22px;border-radius:10px">${esc(e.cta)}</a>
+      <p style="font-size:12px;color:#777;margin:28px 0 0">Tu reçois cet email suite à ta séance d'essai. AthleX.</p>
+    </td></tr>
+  </table>
+</body></html>`;
+        try {
+          const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: FROM, to, subject: e.subject, html }),
+          });
+          if (res.ok) emailed += 1;
+          else console.error('resend error', res.status, await res.text());
+        } catch (err) {
+          console.error('resend fetch failed', err instanceof Error ? err.message : String(err));
+        }
+      }
+    }
+
     // 4. Marquer les relances envoyées (idempotence des prochaines exécutions).
     if (setH.length) await admin.from('session_followups').update({ reminder_h_sent: true, updated_at: new Date().toISOString() }).in('id', setH);
     if (setD1.length) await admin.from('session_followups').update({ reminder_d1_sent: true, updated_at: new Date().toISOString() }).in('id', setD1);
     if (setD3.length) await admin.from('session_followups').update({ reminder_d3_sent: true, updated_at: new Date().toISOString() }).in('id', setD3);
 
-    return json({ detected: detected ?? 0, reminders: setH.length + setD1.length + setD3.length, push_sent: sent });
+    return json({ detected: detected ?? 0, reminders: setH.length + setD1.length + setD3.length, push_sent: sent, emailed });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error('session-followup-cron error', message);
