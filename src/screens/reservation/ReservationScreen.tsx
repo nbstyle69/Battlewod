@@ -274,7 +274,13 @@ export default function ReservationScreen() {
           schedule_id: item.id, member_id: user.id, box_id: currentBox.id,
           status: wantsWaiting ? 'waiting' : 'confirmed',
         }).select('status').single();
-        if (error) { Alert.alert(t('common.error'), error.message); }
+        if (error) {
+          if (error.message.includes('MEMBERSHIP_PAST_DUE')) {
+            Alert.alert(t('reservation.pastDueTitle'), t('reservation.pastDueBody'));
+          } else {
+            Alert.alert(t('common.error'), error.message);
+          }
+        }
         else if (data?.status === 'waiting') {
           Alert.alert(t('reservation.waitlistTitle'), t('reservation.waitlistDowngrade'));
         }
