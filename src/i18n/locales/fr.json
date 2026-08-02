@@ -911,6 +911,8 @@
     "leaveWaitlistTitle": "Quitter la liste d'attente",
     "cancelConfirmed": "Annuler ta réservation ? Ta place sera libérée et le premier en liste d'attente sera inscrit.",
     "leaveWaitlistConfirm": "Quitter la liste d'attente ?",
+    "pastDueTitle": "Abonnement impayé",
+    "pastDueBody": "Ton dernier prélèvement a échoué : les réservations sont suspendues. Mets ton moyen de paiement à jour ou contacte ta box pour rétablir ton accès.",
     "limitReachedTitle": "Limite atteinte",
     "limitReachedBody": "Tu as utilisé tes {{max}} séance(s) cette semaine ({{used}}/{{max}}). Contacte ton coach pour changer de contrat.",
     "dailyLimitTitle": "Limite journalière",

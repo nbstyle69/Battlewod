@@ -911,6 +911,8 @@
     "leaveWaitlistTitle": "Leave the waitlist",
     "cancelConfirmed": "Cancel your booking? Your spot will be freed and the first person on the waitlist will be registered.",
     "leaveWaitlistConfirm": "Leave the waitlist?",
+    "pastDueTitle": "Unpaid membership",
+    "pastDueBody": "Your last payment failed, so bookings are suspended. Update your payment method or contact your gym to restore access.",
     "limitReachedTitle": "Limit reached",
     "limitReachedBody": "You've used your {{max}} session(s) this week ({{used}}/{{max}}). Contact your coach to change your plan.",
     "dailyLimitTitle": "Daily limit",
