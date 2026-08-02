@@ -14,7 +14,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Switch,
 } from 'react-native';
 import { ChevronLeft, RefreshCw, Zap, Trophy } from 'lucide-react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -28,7 +28,7 @@ import { HyroxParams, HyroxWod } from '../../utils/wod/engineHyrox';
 import { rankCF, rankHyrox, RankedSuggestion, EMPTY_PROFILE, UserWodProfile } from '../../utils/wod/ranker';
 import { personalizedLoadDisplay } from '../../utils/wod/movementLoadability';
 import {
-  loadWodProfile, recordShown, recordChosen, recordSkippedAll,
+  loadWodProfile, recordShown, recordChosen, recordSkippedAll, recordCompleted,
 } from '../../services/wodPersonalization';
 import { buildHyroxTimerPlan, buildHyroxTimerRunParams } from '../../utils/wod/hyroxTimer';
 import { buildTimerRunParams } from '../../utils/wodToTimer';
@@ -38,6 +38,13 @@ const CF_METHOD_TO_WOD_TYPE: Record<string, BoxWODType> = {
   'AMRAP': 'amrap', 'For Time': 'for-time', 'EMOM': 'emom', 'Tabata': 'tabata', 'Max Reps': 'amrap',
 };
 const TIMER_COUNTDOWN = 10;
+
+const RPE_OPTIONS = [
+  { key: 'easy',    label: '😌 Facile' },
+  { key: 'perfect', label: '🎯 Parfait' },
+  { key: 'hard',    label: '🥵 Trop dur' },
+] as const;
+type Rpe = (typeof RPE_OPTIONS)[number]['key'];
 
 type Sport = 'functional' | 'hybrid';
 type Params = { sport: Sport; cfParams?: CFParams; hyroxParams?: HyroxParams };
@@ -86,6 +93,9 @@ export default function WODSuggestionsScreen() {
   const [suggestions, setSuggestions] = useState<RankedSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [reasonModal, setReasonModal] = useState(false);
+  // Séance lancée : au retour du timer on demande le RPE (1 tap) → calibration (SPEC §6).
+  const [pendingRpe, setPendingRpe] = useState<RankedSuggestion | null>(null);
+  const [rpeModal, setRpeModal] = useState(false);
   // Charges basées sur les PR : actif par défaut dès qu'au moins un 1RM existe (page Records).
   const [usePR, setUsePR] = useState(false);
   const hasPRs = Object.keys(profile.prs ?? {}).length > 0;
@@ -132,6 +142,7 @@ export default function WODSuggestionsScreen() {
       navigation.navigate('TimerRun', buildHyroxTimerRunParams(plan, {
         countdown: TIMER_COUNTDOWN, title: s.wod.title,
       }));
+      setPendingRpe(s);
       return;
     }
     const cf = s.wod as CFWod;
@@ -147,6 +158,23 @@ export default function WODSuggestionsScreen() {
       },
       { withCamera: false, countdown: TIMER_COUNTDOWN },
     ));
+    setPendingRpe(s);
+  };
+
+  // Retour sur l'écran après une séance lancée → RPE 1-tap.
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingRpe) setRpeModal(true);
+    }, [pendingRpe]),
+  );
+
+  const submitRpe = (rpe: Rpe) => {
+    const s = pendingRpe;
+    setRpeModal(false);
+    setPendingRpe(null);
+    if (!s) return;
+    trackEvent('wod_completed', { sport: params.sport, rpe, method: s.method, is_challenge: s.isChallenge });
+    if (user?.id) recordCompleted(user.id, params.sport, s, rpe);
   };
 
   const regenerate = (reason: (typeof SKIP_REASONS)[number]['key']) => {
@@ -261,6 +289,21 @@ export default function WODSuggestionsScreen() {
             ))}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* RPE post-séance : alimente la calibration du niveau (SPEC §6) */}
+      <Modal visible={rpeModal} transparent animationType="fade" onRequestClose={() => setRpeModal(false)}>
+        <View style={S.modalBg}>
+          <View style={S.modalSheet}>
+            <Text style={S.modalTitle}>C'était comment ?</Text>
+            <Text style={S.modalSub}>Un tap suffit — on ajuste tes prochaines séances.</Text>
+            {RPE_OPTIONS.map((o) => (
+              <TouchableOpacity key={o.key} style={S.reasonChip} onPress={() => submitRpe(o.key)} activeOpacity={0.8}>
+                <Text style={S.reasonText}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
       </Modal>
     </View>
   );

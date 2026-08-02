@@ -241,6 +241,18 @@ export async function saveGoal(userId: string, goal: UserWodProfile['goal']) {
   );
 }
 
+/** Lecture seule de la déclaration Gymnastique (page de records). */
+export async function loadGymDeclaration(userId: string): Promise<GymDeclaration> {
+  try {
+    const { data } = await supabase
+      .from('user_generation_settings').select('gym_declaration').eq('user_id', userId).maybeSingle();
+    return (data?.gym_declaration ?? {}) as GymDeclaration;
+  } catch (e) {
+    console.warn('[wodPersonalization] loadGymDeclaration:', e);
+    return {};
+  }
+}
+
 /** Section « Gymnastique » (page de records) : palier max déclaré par famille → gymLevel(). */
 export async function saveGymDeclaration(userId: string, gymDeclaration: GymDeclaration) {
   await supabase.from('user_generation_settings').upsert(
