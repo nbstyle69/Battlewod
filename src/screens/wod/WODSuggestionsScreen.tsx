@@ -9,11 +9,12 @@
  *   navigation.navigate('WODSuggestions', { sport, cfParams? , hyroxParams? })
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Switch,
+  Dimensions, NativeScrollEvent, NativeSyntheticEvent,
 } from 'react-native';
-import { ChevronLeft, RefreshCw, Zap, Trophy } from 'lucide-react-native';
+import { ChevronLeft, RefreshCw, Zap, Trophy, Camera, CameraOff } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -38,6 +39,10 @@ const CF_METHOD_TO_WOD_TYPE: Record<string, BoxWODType> = {
   'AMRAP': 'amrap', 'For Time': 'for-time', 'EMOM': 'emom', 'Tabata': 'tabata', 'Max Reps': 'amrap',
 };
 const TIMER_COUNTDOWN = 10;
+
+const SCREEN_W = Dimensions.get('window').width;
+const H_PADDING = 20;
+const PAGE_W = SCREEN_W - H_PADDING * 2;
 
 const RPE_OPTIONS = [
   { key: 'easy',    label: '😌 Facile' },
@@ -99,6 +104,11 @@ export default function WODSuggestionsScreen() {
   // Charges basées sur les PR : actif par défaut dès qu'au moins un 1RM existe (page Records).
   const [usePR, setUsePR] = useState(false);
   const hasPRs = Object.keys(profile.prs ?? {}).length > 0;
+  // Carrousel : une carte visible à la fois (SPEC UX — cartes empilées illisibles sur mobile).
+  const [page, setPage] = useState(0);
+  const pagerRef = useRef<ScrollView>(null);
+  // Choix caméra au lancement (comme le flux timer existant).
+  const [cameraFor, setCameraFor] = useState<{ s: RankedSuggestion; rank: number } | null>(null);
 
   const generate = useCallback((p: UserWodProfile) => {
     const next =
@@ -106,6 +116,8 @@ export default function WODSuggestionsScreen() {
         ? rankCF(params.cfParams!, p)
         : rankHyrox(params.hyroxParams!, p);
     setSuggestions(next);
+    setPage(0);
+    pagerRef.current?.scrollTo({ x: 0, animated: false });
     trackEvent('wod_suggestions_shown', {
       sport: params.sport,
       count: next.length,
@@ -129,7 +141,7 @@ export default function WODSuggestionsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const choose = (s: RankedSuggestion, rank: number) => {
+  const choose = (s: RankedSuggestion, rank: number, withCamera: boolean) => {
     trackEvent('wod_suggestion_chosen', {
       sport: params.sport, rank, match_pct: s.matchPct, is_challenge: s.isChallenge, method: s.method,
     });
@@ -140,7 +152,7 @@ export default function WODSuggestionsScreen() {
     if (s.kind === 'hyrox') {
       const plan = buildHyroxTimerPlan(s.wod as HyroxWod);
       navigation.navigate('TimerRun', buildHyroxTimerRunParams(plan, {
-        countdown: TIMER_COUNTDOWN, title: s.wod.title,
+        countdown: TIMER_COUNTDOWN, title: s.wod.title, withCamera,
       }));
       setPendingRpe(s);
       return;
@@ -156,7 +168,7 @@ export default function WODSuggestionsScreen() {
         tabata_work_seconds: undefined,
         tabata_rest_seconds: undefined,
       },
-      { withCamera: false, countdown: TIMER_COUNTDOWN },
+      { withCamera, countdown: TIMER_COUNTDOWN },
     ));
     setPendingRpe(s);
   };
@@ -175,6 +187,17 @@ export default function WODSuggestionsScreen() {
     if (!s) return;
     trackEvent('wod_completed', { sport: params.sport, rpe, method: s.method, is_challenge: s.isChallenge });
     if (user?.id) recordCompleted(user.id, params.sport, s, rpe);
+  };
+
+  const onPagerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const i = Math.round(e.nativeEvent.contentOffset.x / PAGE_W);
+    if (i !== page) setPage(i);
+  };
+
+  const launch = (withCamera: boolean) => {
+    const target = cameraFor;
+    setCameraFor(null);
+    if (target) choose(target.s, target.rank, withCamera);
   };
 
   const regenerate = (reason: (typeof SKIP_REASONS)[number]['key']) => {
@@ -198,10 +221,17 @@ export default function WODSuggestionsScreen() {
       {loading ? (
         <View style={S.center}><ActivityIndicator color={theme.accent} /></View>
       ) : (
-        <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={S.subtitle}>
-            3 propositions adaptées à ton profil — choisis, c'est parti.
-          </Text>
+        <View style={S.scroll}>
+          <View style={S.subtitleRow}>
+            <Text style={S.subtitle}>
+              {suggestions.length > 0
+                ? 'Swipe pour comparer, puis lance ta séance.'
+                : 'Aucune proposition pour ces réglages.'}
+            </Text>
+            {suggestions.length > 1 && (
+              <Text style={S.counter}>{page + 1}/{suggestions.length}</Text>
+            )}
+          </View>
 
           {/* Charges perso : visible seulement si l'utilisateur a renseigné des PR (page Records) */}
           {hasPRs && (
@@ -235,14 +265,28 @@ export default function WODSuggestionsScreen() {
             </GlassCard>
           )}
 
+          <ScrollView
+            ref={pagerRef}
+            horizontal
+            pagingEnabled
+            decelerationRate="fast"
+            snapToInterval={PAGE_W}
+            snapToAlignment="start"
+            disableIntervalMomentum
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={onPagerScroll}
+            style={S.pager}
+            contentContainerStyle={{ alignItems: 'stretch' }}
+          >
           {suggestions.map((s, i) => {
             const isFirst = i === 0;
             const accent = s.isChallenge ? theme.warning : theme.accent;
             return (
+              <View key={s.signature} style={S.page}>
               <GlassCard
-                key={s.signature}
                 style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.cardBody}>
                 <View style={S.cardTop}>
                   <Text style={[S.method, s.isChallenge && { color: theme.warning }]}>
                     {s.isChallenge ? '⚡ DÉFI · ' : ''}{s.method} · cap {(s.wod as CFWod).time_cap_min} min
@@ -259,36 +303,78 @@ export default function WODSuggestionsScreen() {
 
                 <Text style={S.title}>{s.wod.title}</Text>
 
-                {movementLines(s, usePR, profile.prs ?? {}).slice(0, 6).map((l, j) => (
+                {movementLines(s, usePR, profile.prs ?? {}).map((l, j) => (
                   <Text key={j} style={l.startsWith('  ') ? S.moveLine : S.schemeLine}>{l}</Text>
                 ))}
 
-                <View style={[S.whyBox, s.isChallenge && { backgroundColor: `${theme.warning}14` }]}>
-                  <Text style={[S.whyText, s.isChallenge && { color: theme.warning }]}>{s.why}</Text>
-                </View>
+                {/* Le « pourquoi » n'apparaît que s'il apporte une info personnelle (sinon vide). */}
+                {s.why !== '' && (
+                  <View style={[S.whyBox, s.isChallenge && { backgroundColor: `${theme.warning}14` }]}>
+                    <Text style={[S.whyText, s.isChallenge && { color: theme.warning }]}>{s.why}</Text>
+                  </View>
+                )}
+                </ScrollView>
 
                 <TouchableOpacity
-                  style={[S.cta, isFirst ? { backgroundColor: theme.accent } : S.ctaAlt,
-                          s.isChallenge && { backgroundColor: 'transparent', borderColor: theme.warning, borderWidth: 1 }]}
-                  onPress={() => choose(s, i + 1)}
+                  style={[S.cta, { backgroundColor: accent }]}
+                  onPress={() => setCameraFor({ s, rank: i + 1 })}
                   activeOpacity={0.85}
                 >
-                  <Text style={[S.ctaText, isFirst ? { color: theme.background } : { color: theme.text },
-                                s.isChallenge && { color: theme.warning }]}>
-                    {s.isChallenge ? 'Je relève le défi' : isFirst ? "C'est parti" : 'Choisir celle-ci'}
+                  <Text style={[S.ctaText, { color: theme.background }]}>
+                    {s.isChallenge ? 'Je relève le défi' : 'Lancer le WOD'}
                   </Text>
                 </TouchableOpacity>
               </GlassCard>
+              </View>
             );
           })}
+          </ScrollView>
 
-          <TouchableOpacity style={S.regen} onPress={() => setReasonModal(true)} activeOpacity={0.8}>
-            <RefreshCw size={15} color={theme.textSecondary} />
-            <Text style={S.regenText}>Rien ne te plaît ? Regénérer</Text>
+          {suggestions.length > 1 && (
+            <View style={S.dots}>
+              {suggestions.map((s, i) => (
+                <View
+                  key={s.signature}
+                  style={[S.dot, i === page && { backgroundColor: theme.accent, width: 20 }]}
+                />
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[S.regen, { marginBottom: insets.bottom + 16 }]}
+            onPress={() => setReasonModal(true)}
+            activeOpacity={0.85}
+          >
+            <RefreshCw size={16} color={theme.text} />
+            <Text style={S.regenText}>Regénérer</Text>
           </TouchableOpacity>
-          <View style={{ height: insets.bottom + 48 }} />
-        </ScrollView>
+        </View>
       )}
+
+      {/* Choix caméra avant de lancer la séance (même options que le flux timer existant) */}
+      <Modal visible={cameraFor !== null} transparent animationType="fade" onRequestClose={() => setCameraFor(null)}>
+        <TouchableOpacity style={S.modalBg} activeOpacity={1} onPress={() => setCameraFor(null)}>
+          <View style={S.modalSheet}>
+            <Text style={S.modalTitle}>Comment veux-tu t'entraîner ?</Text>
+            <Text style={S.modalSub}>{cameraFor?.s.wod.title}</Text>
+            <TouchableOpacity style={S.choiceRow} onPress={() => launch(true)} activeOpacity={0.85}>
+              <Camera size={20} color={theme.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={S.choiceTitle}>Avec caméra</Text>
+                <Text style={S.choiceSub}>Enregistre ta séance</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={S.choiceRow} onPress={() => launch(false)} activeOpacity={0.85}>
+              <CameraOff size={20} color={theme.textSecondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={S.choiceTitle}>Sans caméra</Text>
+                <Text style={S.choiceSub}>Chrono simple</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Raison de regénération : chaque re-roll devient un signal (SPEC §5) */}
       <Modal visible={reasonModal} transparent animationType="fade" onRequestClose={() => setReasonModal(false)}>
@@ -331,8 +417,16 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: theme.text },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll: { paddingHorizontal: 20 },
-  subtitle: { fontSize: 13, color: theme.textSecondary, marginBottom: 16 },
+  scroll: { flex: 1, paddingHorizontal: H_PADDING },
+  subtitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  subtitle: { flex: 1, fontSize: 13, color: theme.textSecondary },
+  counter: { fontSize: 13, fontWeight: '800', color: theme.text },
+
+  pager: { flex: 1 },
+  page: { width: PAGE_W },
+  cardBody: { paddingBottom: 8 },
+  dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 14 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.border },
 
   prToggleRow: {
     flexDirection: 'row', alignItems: 'center', gap: 16,
@@ -342,7 +436,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   prToggleTitle: { fontSize: 13, fontWeight: '700', color: theme.text },
   prToggleSub: { fontSize: 11, color: theme.textSecondary, marginTop: 1 },
 
-  card: { padding: 20, marginBottom: 16, borderRadius: 20 },
+  card: { flex: 1, padding: 20, borderRadius: 20 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   method: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: theme.textSecondary },
   matchBadge: {
@@ -358,15 +452,22 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   whyText: { fontSize: 11, color: theme.accentDark, lineHeight: 16 },
 
   cta: { marginTop: 16, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  ctaAlt: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
   ctaText: { fontSize: 14, fontWeight: '800' },
 
   regen: {
     flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderStyle: 'dashed', borderColor: theme.border,
-    borderRadius: 12, paddingVertical: 14, marginTop: 4,
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    borderRadius: 14, paddingVertical: 16, marginTop: 14,
   },
-  regenText: { fontSize: 13, color: theme.textSecondary },
+  regenText: { fontSize: 15, fontWeight: '800', color: theme.text },
+
+  choiceRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    borderRadius: 16, paddingVertical: 14, paddingHorizontal: 18, marginBottom: 10,
+  },
+  choiceTitle: { fontSize: 15, fontWeight: '800', color: theme.text },
+  choiceSub: { fontSize: 12, color: theme.textSecondary, marginTop: 1 },
 
   modalBg: { flex: 1, backgroundColor: theme.modalBackdrop, justifyContent: 'flex-end' },
   modalSheet: {

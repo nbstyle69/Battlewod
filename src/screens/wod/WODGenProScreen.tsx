@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, ChevronDown, ChevronUp, Sparkles, X, Flag } from 'lucide-react-native';
+import { ChevronLeft, ChevronDown, ChevronUp, Sparkles, X, Flag, History, Heart } from 'lucide-react-native';
 
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -187,6 +187,18 @@ export default function WODGenProScreen() {
   const adjustPct = Math.round(profile.levelAdjust * 100);
   const raceDaysLeft = profile.raceDaysLeft ?? null;
 
+  /** Réglages : une seule ligne qui défile horizontalement (pas de retour à la ligne). */
+  const ChipScroll = ({ children }: { children: React.ReactNode }) => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={S.chipScroll}
+      style={S.chipScrollOuter}
+    >
+      {children}
+    </ScrollView>
+  );
+
   const Chip = ({ label, selected, onPress, color }: { label: string; selected: boolean; onPress: () => void; color?: string }) => (
     <TouchableOpacity
       style={[S.chip, selected && { backgroundColor: `${color ?? accent}25`, borderColor: color ?? accent }]}
@@ -214,6 +226,22 @@ export default function WODGenProScreen() {
         <View style={S.center}><ActivityIndicator color={theme.accent} /></View>
       ) : (
       <ScrollView contentContainerStyle={[S.content, { paddingBottom: insets.bottom + 140 }]} showsVerticalScrollIndicator={false}>
+        {/* Accès rapide : Historique & Favoris (comme l'écran générateur existant) */}
+        <View style={S.quickRow}>
+          <GlassCard radius={12} style={{ flex: 1 }}>
+            <TouchableOpacity style={S.quickBtn} onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.85}>
+              <History color={theme.text} size={16} />
+              <Text style={S.quickText}>Historique</Text>
+            </TouchableOpacity>
+          </GlassCard>
+          <GlassCard radius={12} style={{ flex: 1 }}>
+            <TouchableOpacity style={S.quickBtn} onPress={() => navigation.navigate('WodHistory')} activeOpacity={0.85}>
+              <Heart color={theme.error} size={16} />
+              <Text style={S.quickText}>Favoris</Text>
+            </TouchableOpacity>
+          </GlassCard>
+        </View>
+
         {/* Sport */}
         <View style={S.sportRow}>
           {(['functional', 'hybrid'] as Sport[]).map((s) => (
@@ -226,7 +254,7 @@ export default function WODGenProScreen() {
               activeOpacity={0.85}
             >
               <Text style={S.sportEmoji}>{s === 'functional' ? '🏋️' : '🏁'}</Text>
-              <Text style={S.sportLabel}>{s === 'functional' ? 'Functional Fitness' : 'Hybrid / Hyrox'}</Text>
+              <Text style={S.sportLabel}>{s === 'functional' ? 'Functional Fitness' : 'Hybrid'}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -244,90 +272,90 @@ export default function WODGenProScreen() {
         {sport === 'functional' ? (
           <>
             <Section title="Durée" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {CF_DURATIONS.map((d) => (
                   <Chip key={d} label={`${d} min`} selected={duration === d} onPress={() => setDuration(d)} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
 
             <Section title="Type de travail" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {CF_INTENTS.map((i) => (
                   <Chip key={i.key} label={i.label} selected={intent === i.key} onPress={() => setIntent(i.key)} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
 
             <Section title="Méthode" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {CF_METHODS.map((m) => (
                   <Chip key={m} label={m} selected={method === m} onPress={() => setMethod(m)} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
 
             <Section title="Niveau" S={S} badge={adjustPct !== 0 ? `${level} · ajusté ${adjustPct > 0 ? '+' : ''}${adjustPct} %` : undefined} theme={theme}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {CF_LEVELS.map((l) => (
                   <Chip key={l} label={l} selected={level === l} onPress={() => setLevel(l)} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
 
             <Section title="Matériel" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {CF_EQUIPMENT.map((e) => (
                   <Chip key={e} label={e} selected={equipment.includes(e)} onPress={() => toggle(equipment, setEquipment, e)} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
           </>
         ) : (
           <>
             <Section title="Durée" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {HY_DURATIONS.map((d) => (
                   <Chip key={d} label={`${d} min`} selected={hyDuration === d} onPress={() => setHyDuration(d)} color={HYROX_ORANGE} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
 
             <Section title="Type de séance" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {HY_SESSIONS.map((s) => (
                   <Chip key={s.key} label={s.label} selected={session === s.key} onPress={() => setSession(s.key)} color={HYROX_ORANGE} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
 
             <Section title="Format de travail" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {HY_TRAINING.map((tt) => (
                   <Chip key={tt} label={tt} selected={training === tt} onPress={() => setTraining(tt)} color={HYROX_ORANGE} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
 
             <Section title="Catégorie · format" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {HY_CATEGORIES.map((c) => (
                   <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(c)} color={HYROX_ORANGE} />
                 ))}
-              </View>
-              <View style={[S.chipRow, { marginTop: 8 }]}>
+              </ChipScroll>
+              <ChipScroll>
                 {HY_FORMATS.map((f) => (
                   <Chip key={f} label={f} selected={hyFormat === f} onPress={() => setHyFormat(f)} color={HYROX_ORANGE} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
 
             <Section title="Ma salle · matériel" S={S}>
-              <View style={S.chipRow}>
+              <ChipScroll>
                 {HY_EQUIPMENT.map((e) => (
                   <Chip key={e} label={e} selected={hyEquipment.includes(e)} onPress={() => toggle(hyEquipment, setHyEquipment, e)} color={HYROX_ORANGE} />
                 ))}
-              </View>
+              </ChipScroll>
             </Section>
           </>
         )}
@@ -391,13 +419,19 @@ export default function WODGenProScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={[S.generateBtn, { backgroundColor: accent }]} onPress={generate} activeOpacity={0.9}>
-          <Sparkles size={18} color={theme.background} />
-          <View>
-            <Text style={[S.generateText, { color: theme.background }]}>GÉNÉRER MA SÉANCE</Text>
-            <Text style={[S.generateSub, { color: theme.background }]}>3 propositions adaptées à ton profil</Text>
-          </View>
-        </TouchableOpacity>
+        <GlassCard radius={16} variant={sport === 'hybrid' ? 'default' : 'emerald'} style={S.generateCard}>
+          <TouchableOpacity
+            style={[S.generateBtn, { borderColor: accent, backgroundColor: `${accent}1A` }]}
+            onPress={generate}
+            activeOpacity={0.9}
+          >
+            <Sparkles size={18} color={accent} />
+            <View>
+              <Text style={[S.generateText, { color: theme.text }]}>Générer des WODs</Text>
+              <Text style={S.generateSub}>3 propositions adaptées à ton profil</Text>
+            </View>
+          </TouchableOpacity>
+        </GlassCard>
       </ScrollView>
       )}
 
@@ -545,6 +579,8 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   calibBadgeText: { fontSize: 10, fontWeight: '800' },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipScrollOuter: { marginHorizontal: -16, marginBottom: 8 },
+  chipScroll: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12,
@@ -586,12 +622,20 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   raceBtnText: { fontSize: 13, fontWeight: '700', color: theme.text },
 
+  generateCard: { marginTop: 24, overflow: 'hidden' },
   generateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    borderRadius: 16, padding: 18, marginTop: 24,
+    borderRadius: 16, borderWidth: 1, padding: 18,
   },
-  generateText: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
-  generateSub: { fontSize: 11, fontWeight: '600', opacity: 0.85, marginTop: 2 },
+  generateText: { fontSize: 16, fontWeight: '900', letterSpacing: 0.6 },
+  generateSub: { fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginTop: 2 },
+
+  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  quickBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 12,
+  },
+  quickText: { fontSize: 13, fontWeight: '800', color: theme.text },
 
   modalBg: { flex: 1, backgroundColor: theme.modalBackdrop, justifyContent: 'flex-end' },
   modalSheet: {

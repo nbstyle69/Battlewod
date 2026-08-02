@@ -194,7 +194,8 @@ function buildWhy(s: { reasons: string[]; isChallenge: boolean; kind: 'cf' | 'hy
   if (fort) parts.push(`${fort[1]} est dans tes points forts`);
   if (s.reasons.some((r) => r.includes('priorité race sim'))) parts.push('ta course approche, les race sims passent en tête');
   if (s.reasons.some((r) => r.includes('affûtage'))) parts.push('affûtage : on garde de la fraîcheur pour le jour J');
-  if (parts.length === 0) parts.push('bon équilibre par rapport à tes dernières séances');
+  // Aucun signal personnel : pas de phrase générique répétée sur les 3 cartes (l'UI masque).
+  if (parts.length === 0) return '';
   return `💡 Proposé parce que ${parts.slice(0, 2).join(' — et ')}.`;
 }
 

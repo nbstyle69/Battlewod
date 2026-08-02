@@ -83,7 +83,12 @@ describe('ranker', () => {
     }
   });
 
-  it('donne une ligne « pourquoi » à chaque carte', () => {
-    expect(a.every((x) => x.why.length > 10)).toBe(true);
+  it('explique le « pourquoi » quand un signal personnel existe, et se tait sinon', () => {
+    // Profil neutre : aucune raison personnelle → pas de phrase générique répétée.
+    expect(a.every((x) => x.why === '')).toBe(true);
+
+    const withSignal: UserWodProfile = { ...EMPTY_PROFILE, prefs: { thruster: 0.8, burpee: 0.8 } };
+    const cards = rankCF(params, withSignal, seeds);
+    expect(cards.some((x) => x.why.length > 10)).toBe(true);
   });
 });
