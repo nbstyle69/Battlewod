@@ -63,7 +63,12 @@ interface MoveDef {
   scheme: (rng: RNG, dur: number) => string;
 }
 
-const repScale = (dur: number, base20: number) => Math.round(base20 * (dur / 20));
+// Reps PAR TOUR : ne scale PLUS avec la durée. L'ancien `base20 × dur/20` gonflait
+// les reps par tour ALORS QUE le nombre de tours grandit déjà avec la durée →
+// volume quadratique (« 68 Alt DB Snatch × 5 RFT » à 45 min). Dans la programmation
+// Hyrox réelle, les reps par tour restent courtes et rondes (10/15/20/25) et c'est
+// la durée qui pilote le nombre de tours / le cap.
+const repScale = (_dur: number, base20: number) => base20;
 
 // Banque de mouvements (extensible)
 const MOVES: MoveDef[] = [
@@ -121,13 +126,13 @@ const MOVES: MoveDef[] = [
   { name: 'Walking Lunge', type: 'bodyweight', equipment: null, rpe: [5, 8], loadKey: null, substitution: 'Fentes alternées sur place',
     scheme: (r) => `${r.pick([50, 100, 200])}m` },
   { name: 'Mountain Climbers', type: 'bodyweight', equipment: null, rpe: [5, 8], loadKey: null, substitution: null,
-    scheme: (r, d) => `${repScale(d, r.pick([30, 40, 50]))} reps` },
+    scheme: (r, d) => `${repScale(d, r.pick([20, 30]))} reps` },
   { name: 'Bear Crawl', type: 'bodyweight', equipment: null, rpe: [5, 8], loadKey: null, substitution: null,
     scheme: (r) => `${r.pick([15, 20, 30])}m` },
   { name: 'Broad Jump', type: 'bodyweight', equipment: null, rpe: [5, 8], loadKey: null, substitution: null,
     scheme: (r, d) => `${repScale(d, r.pick([10, 15]))} reps` },
   { name: 'Jumping Jacks', type: 'bodyweight', equipment: null, rpe: [5, 7], loadKey: null, substitution: null,
-    scheme: (r, d) => `${repScale(d, r.pick([40, 50]))} reps` },
+    scheme: (r, d) => `${repScale(d, r.pick([25, 30]))} reps` },
   { name: 'Push-up (HR)', type: 'bodyweight', equipment: null, rpe: [5, 8], loadKey: null, substitution: null,
     scheme: (r, d) => `${repScale(d, r.pick([10, 15, 20]))} reps` },
   { name: 'Air Squat', type: 'bodyweight', equipment: null, rpe: [5, 7], loadKey: null, substitution: null,
@@ -153,6 +158,11 @@ const MOVES: MoveDef[] = [
     scheme: (r, d) => `${repScale(d, r.pick([5, 8]))} reps` },
   { name: 'Strict Pull-up', type: 'bodyweight', equipment: null, rpe: [6, 9], loadKey: null, force: true, substitution: 'Ring rows / tractions assistées',
     scheme: (r, d) => `${repScale(d, r.pick([5, 8, 10]))} reps` },
+  // --- Grip & gainage (spécifiques Hyrox : farmers, sled, wall balls exigent les deux) ---
+  { name: 'Dead Hang', type: 'bodyweight', equipment: null, rpe: [5, 8], loadKey: null, force: true, substitution: 'Farmers hold lourd',
+    scheme: (r) => `${r.pick([30, 45, 60])}s de suspension` },
+  { name: 'Plank Hold', type: 'bodyweight', equipment: null, rpe: [5, 7], loadKey: null, force: true, substitution: null,
+    scheme: (r) => `${r.pick([45, 60])}s` },
   // --- Force : Kettlebell ---
   { name: 'KB Romanian Deadlift', type: 'kb', equipment: 'Kettlebell', rpe: [6, 8], loadKey: 'kb', force: true, substitution: 'DB RDL',
     scheme: (r, d) => `${repScale(d, r.pick([8, 10, 12]))} reps` },
@@ -215,14 +225,55 @@ function isAvailable(m: MoveDef, equipment: string[]): boolean {
   return equipment.includes(m.equipment);
 }
 
-function selectMoves(rng: RNG, params: HyroxParams, types: MoveType[], n: number): MoveDef[] {
+// ── Familles de patterns (cohérence : pas deux mouvements « jumeaux » par WOD) ──
+// Goblet Squat + Sandbag Front Rack Squat, DB Push Press + Sandbag S2OH, deux rows…
+// = même stimulus. Non listé = famille propre.
+const PATTERN: Record<string, string[]> = {
+  'Goblet Squat': ['squat'], 'KB Front Rack Squat': ['squat'], 'Sandbag Front Rack Squat': ['squat'],
+  'Air Squat': ['squat'], 'Tempo Air Squat': ['squat'], 'Pistol Squat': ['squat'],
+  'Sandbag Thruster': ['squat', 'press'], 'DB Thruster': ['squat', 'press'], 'Wall Balls': ['squat', 'press'],
+  'KB Deadlift': ['hinge'], 'KB Romanian Deadlift': ['hinge'], 'DB Romanian Deadlift': ['hinge'],
+  'KB Swing': ['hinge'], 'Nordic Curl': ['hinge'], 'Single-Leg Glute Bridge': ['hinge'],
+  'Sandbag Over-the-Shoulder': ['hinge', 'clean'],
+  'DB Push Press': ['press'], 'Sandbag S2OH': ['press'], 'DB Strict Shoulder Press': ['press'],
+  'Single-Arm KB Press': ['press'], 'KB Clean & Press': ['press', 'clean'],
+  'Strict HSPU': ['press', 'push-h'], 'Pike Push-up': ['press', 'push-h'],
+  'Diamond Push-up': ['push-h'], 'Push-up (HR)': ['push-h'], 'DB Floor Press': ['push-h'],
+  'Sandbag Bent Over Row': ['row'], 'KB Bent Over Row': ['row'], 'DB Bent Over Row': ['row'], 'Renegade Row': ['row', 'push-h'],
+  'Strict Pull-up': ['pull'], 'Dead Hang': ['grip'],
+  'Alt DB Snatch': ['snatch'],
+  'Burpee': ['burpee'], 'Burpee over Target': ['burpee'], 'Burpee Broad Jump': ['burpee'],
+  'Walking Lunge': ['lunge'], 'DB Walking Lunge (lourd)': ['lunge'], 'Sandbag Lunge': ['lunge'], 'Bulgarian Split Squat': ['lunge', 'squat'],
+  'Farmers Carry': ['carry', 'grip'],
+  'Sled Push': ['sled-push'], 'Sled Pull': ['sled-pull'],
+  'Run': ['run'], 'Shuttle Run': ['run'], 'Row': ['erg-row'], 'SkiErg': ['erg-ski'], 'BikeErg': ['erg-bike'],
+  'Sit-up': ['core'], 'Plank Hold': ['core'], 'Mountain Climbers': ['core'],
+  'Broad Jump': ['jump'], 'Jumping Jacks': ['jump'], 'Bear Crawl': ['crawl'],
+};
+const patternsOf = (m: MoveDef): string[] => PATTERN[m.name] ?? [m.name];
+
+/** Échantillonne en garantissant au plus UN mouvement par famille (déterministe). */
+function samplePatternSafe(rng: RNG, pool: MoveDef[], n: number, used?: Set<string>): MoveDef[] {
+  const taken = used ?? new Set<string>();
+  const out: MoveDef[] = [];
+  for (const m of rng.shuffle([...pool])) {
+    if (out.length === n) break;
+    const ps = patternsOf(m);
+    if (ps.some((p) => taken.has(p))) continue;
+    ps.forEach((p) => taken.add(p));
+    out.push(m);
+  }
+  return out;
+}
+
+function selectMoves(rng: RNG, params: HyroxParams, types: MoveType[], n: number, used?: Set<string>): MoveDef[] {
   const rpe = rpeMid(params.session_type);
   const pool = MOVES.filter(
     (m) => types.includes(m.type) && isAvailable(m, params.equipment) &&
            rpe >= m.rpe[0] && rpe <= m.rpe[1]
   );
   if (pool.length === 0) return [];
-  return rng.sample(pool, Math.min(n, pool.length));
+  return samplePatternSafe(rng, pool, Math.min(n, pool.length), used);
 }
 
 function toMovement(rng: RNG, params: HyroxParams, m: MoveDef): Movement {
@@ -257,7 +308,7 @@ function coachNotes(params: HyroxParams, blocks: Block[], method: string): strin
   const names = blocks.flatMap((b) => b.movements.map((m) => m.name));
   const has = (s: string) => names.some((n) => n.toLowerCase().includes(s));
 
-  if (params.session_type === 'Force') notes.push('Qualité avant vitesse : les 3 dernières reps doivent être exigeantes.');
+  if (params.session_type === 'Force') notes.push('Les charges affichées sont les poids de COURSE : en force, monte au-dessus (RPE 8, ~2 reps en réserve). Qualité avant vitesse.');
   else if (params.session_type === 'Aerobic') notes.push('Allure conversationnelle : tu dois pouvoir parler en bougeant.');
   else if (params.session_type === 'Run Split') notes.push('Cours vite, attaque les reps dès l\'arrivée sans poser la charge, puis repars sur la distance.');
   else notes.push(`Cible ${SESSION[params.session_type].rpe}/10 — pousse mais reste régulier.`);
@@ -280,45 +331,118 @@ function buildRaceSimulation(rng: RNG, params: HyroxParams): Block {
   const [rMin, rMax] = DURATION[params.duration_min].runRange;
   const nStations = params.duration_min <= 20 ? 3 : params.duration_min <= 30 ? 4 : params.duration_min <= 45 ? 6 : 8;
   const chosen = officialOrder.slice(0, nStations);
+  // Distance de run FIXE pour toute la sim (une vraie simulation travaille le pacing :
+  // en course c'est 8 × 1 km ; en version raccourcie on scale la distance, pas sa variance).
+  const runDist = rng.pick([rMin, Math.round((rMin + rMax) / 200) * 100, rMax].filter((v, i, a) => a.indexOf(v) === i));
   const movements: Movement[] = [];
   for (const st of chosen) {
-    movements.push({ name: 'Run', prescription: `${rng.int(rMin / 100, rMax / 100) * 100}m`, load: null, equipment: null, substitution: 'Row/Bike/Ski' });
+    movements.push({ name: 'Run', prescription: `${runDist}m`, load: null, equipment: null, substitution: 'Row/Bike/Ski' });
     const def = MOVES.find((m) => m.name === st);
     if (def) movements.push(toMovement(rng, params, def));
   }
-  return { label: null, structure: 'FOR TIME', scheme: 'Séquence course (ordre officiel)', movements, rest: null };
+  return {
+    label: null, structure: 'FOR TIME',
+    scheme: `Séquence course — ${nStations} × (${runDist}m run + station), ordre officiel`,
+    movements, rest: null,
+  };
+}
+
+// Nombre d'efforts d'une séance d'intervalles selon la durée (formats réels :
+// « 5 × 20 wall balls / 60s », « 6 × 25m sled push / 90s », « 5 × 250m SkiErg / 90s »).
+const intervalCount = (d: number) => (d <= 20 ? 5 : d <= 30 ? 6 : d <= 45 ? 8 : 10);
+
+/** Bloc INTERVAL réel : n × (un effort court / repos fixe). 1 mouvement principal
+ *  (station de préférence), éventuellement alterné avec un second. */
+function buildIntervalBlock(rng: RNG, params: HyroxParams): Block {
+  const used = new Set<string>();
+  const primary = selectMoves(rng, params, ['station', 'sandbag', 'kb', 'cardio'], 1, used);
+  const withSecond = rng.float() < 0.5;
+  const second = withSecond ? selectMoves(rng, params, ['cardio', 'bodyweight'], 1, used) : [];
+  const moves = [...primary, ...second].map((m) => toMovement(rng, params, m));
+  const n = intervalCount(params.duration_min);
+  const rest = rng.pick([60, 90]);
+  const scheme = moves.length === 2
+    ? `${n} × (effort / ${rest}s repos) — alterner les 2 mouvements`
+    : `${n} × (effort / ${rest}s repos)`;
+  return { label: null, structure: 'INTERVAL', scheme, movements: moves, rest: `${rest}s entre les efforts` };
+}
+
+/** Bloc EMOM réel : minutes alternées, reps courtes tenables dans la minute. */
+function buildEmomBlock(rng: RNG, params: HyroxParams): Block {
+  const used = new Set<string>();
+  const moves = [
+    ...selectMoves(rng, params, ['station', 'sandbag', 'kb'], rng.int(1, 2), used),
+    ...selectMoves(rng, params, ['cardio', 'bodyweight'], 1, used),
+  ];
+  const minutes = Math.round(params.duration_min * 0.8);
+  const movements = moves.map((m, i) => {
+    const mv = toMovement(rng, params, m);
+    // Un effort d'EMOM doit tenir dans la minute : cardio borné (≤250m / ≤15 cal).
+    const dist = mv.prescription.match(/^(\d+)m$/);
+    if (dist && Number(dist[1]) > 250) mv.prescription = '250m';
+    const cal = mv.prescription.match(/^(\d+) cal$/);
+    if (cal && Number(cal[1]) > 15) mv.prescription = '12 cal';
+    mv.prescription = `Min ${i + 1}: ${mv.prescription}`;
+    return mv;
+  });
+  return { label: null, structure: 'EMOM', scheme: `EMOM ${minutes} (alterné)`, movements, rest: 'reste de chaque minute' };
+}
+
+/** Bloc CHIPPER réel : une seule passe, volumes doublés mais ronds. */
+function buildChipperBlock(rng: RNG, params: HyroxParams): Block {
+  const used = new Set<string>();
+  const moves = [
+    ...selectMoves(rng, params, ['cardio'], 1, used),
+    ...selectMoves(rng, params, ['station', 'sandbag', 'kb'], rng.int(2, 3), used),
+    ...selectMoves(rng, params, ['bodyweight'], 1, used),
+  ];
+  const movements = moves.map((m) => {
+    const mv = toMovement(rng, params, m);
+    const r = mv.prescription.match(/^(\d+) reps/);
+    // une passe = ×2, plafonné à 50 (le standard « Filthy Fifty »), reste rond
+    if (r) mv.prescription = mv.prescription.replace(/^\d+/, String(Math.min(Number(r[1]) * 2, 50)));
+    return mv;
+  });
+  return { label: null, structure: 'CHIPPER', scheme: 'Chipper — une seule passe, dans l’ordre', movements, rest: null };
 }
 
 function buildStationTraining(rng: RNG, params: HyroxParams): Block {
   // Méthode pilotée par la session (+ AMRAP pour le mode WOD), jamais STRENGTH ici.
   const sessionMethods = SESSION[params.session_type].methods.filter((m) => m !== 'STRENGTH');
   const method = rng.pick([...sessionMethods, 'AMRAP']);
-  // Focus = stations/charges si équipement dispo, sinon repli sur l'aérobie poids-de-corps.
-  let focus = selectMoves(rng, params, ['station', 'sandbag', 'kb'], rng.int(1, 2));
+  if (method === 'INTERVAL') return buildIntervalBlock(rng, params);
+  if (method === 'EMOM') return buildEmomBlock(rng, params);
+  if (method === 'CHIPPER') return buildChipperBlock(rng, params);
+
+  // AMRAP / FOR TIME : reps par tour courtes (fixes), la durée pilote tours et cap.
+  const used = new Set<string>();
+  let focus = selectMoves(rng, params, ['station', 'sandbag', 'kb'], rng.int(1, 2), used);
   if (focus.length === 0) {
-    focus = selectMoves(rng, params, ['bodyweight'], rng.int(2, 3));
+    focus = selectMoves(rng, params, ['bodyweight'], rng.int(2, 3), used);
   } else {
-    focus = [...focus, ...selectMoves(rng, params, ['bodyweight'], 1)];
+    focus = [...focus, ...selectMoves(rng, params, ['bodyweight'], 1, used)];
   }
   const movements = focus.map((m) => toMovement(rng, params, m));
-  const cardio = selectMoves(rng, params, ['cardio'], 1)[0];
+  const cardio = selectMoves(rng, params, ['cardio'], 1, used)[0];
   if (cardio) movements.unshift(toMovement(rng, params, cardio));
-  const rounds = params.duration_min <= 30 ? 5 : 8;
+  const rounds = params.duration_min <= 20 ? 4 : params.duration_min <= 30 ? 5 : params.duration_min <= 45 ? 6 : 8;
   const scheme = method === 'AMRAP'
     ? `AMRAP ${Math.round(params.duration_min * 0.8)} min`
-    : method === 'FOR TIME'
-    ? `${rounds} rounds for time`
-    : `${rounds} rounds — focus station`;
-  const rest = method === 'EMOM' || method === 'INTERVAL' ? 'selon méthode' : null;
-  return { label: null, structure: method, scheme, movements, rest };
+    : `${rounds} rounds for time`;
+  return { label: null, structure: method, scheme, movements, rest: null };
 }
 
 function buildCardioForce(rng: RNG, params: HyroxParams): Block {
   const method = rng.pick(SESSION[params.session_type].methods.filter((m) => m !== 'STRENGTH').concat('AMRAP'));
-  const cardio = selectMoves(rng, params, ['cardio'], 1).map((m) => toMovement(rng, params, m));
-  const loaded = selectMoves(rng, params, ['station', 'sandbag', 'kb'], 2).map((m) => toMovement(rng, params, m));
+  if (method === 'INTERVAL') return buildIntervalBlock(rng, params);
+  if (method === 'EMOM') return buildEmomBlock(rng, params);
+  if (method === 'CHIPPER') return buildChipperBlock(rng, params);
+  const used = new Set<string>();
+  const cardio = selectMoves(rng, params, ['cardio'], 1, used).map((m) => toMovement(rng, params, m));
+  const loaded = selectMoves(rng, params, ['station', 'sandbag', 'kb'], 2, used).map((m) => toMovement(rng, params, m));
   const movements = [...cardio, ...loaded];
-  const scheme = method === 'AMRAP' ? `${Math.round(params.duration_min * 0.8)} min AMRAP` : `${params.duration_min <= 30 ? 4 : 5} RFT`;
+  const rounds = params.duration_min <= 30 ? 4 : 5;
+  const scheme = method === 'AMRAP' ? `${Math.round(params.duration_min * 0.8)} min AMRAP` : `${rounds} rounds for time`;
   return { label: null, structure: method, scheme, movements, rest: null };
 }
 
@@ -352,41 +476,71 @@ function buildRunSplit(rng: RNG, params: HyroxParams): Block {
 const isLoadable = (m: MoveDef) => m.loadKey != null;
 const schemeIsReps = (m: MoveDef) => m.scheme(new RNG(1), 20).includes('reps');
 
+/** Séance Force — alignée sur la programmation Hyrox réelle :
+ *  A. lift principal en séries courtes lourdes (5×5 / 3×3 / 4×6), repos long (2-3 min),
+ *     consigne explicite « charge > poids de course, RPE 8 » (les charges affichées sont
+ *     les poids de COURSE : en force on monte au-dessus) ;
+ *  B. 2 accessoires en 3×8-12, repos 60-90s (pas de volume conditioning) ;
+ *  C. finisher grip & gainage (dead hang / farmers / planche) — spécifique Hyrox. */
 function buildForceBlocks(rng: RNG, params: HyroxParams): Block[] {
   const rpe = rpeMid(params.session_type);
   const forcePool = MOVES.filter(
     (m) => m.force && isAvailable(m, params.equipment) && rpe >= m.rpe[0] && rpe <= m.rpe[1]
   );
+  const used = new Set<string>();
 
-  // Bloc A — mouvement principal. Priorité : chargeable à reps > port lesté/sled > poids de corps.
-  const loadableReps = forcePool.filter((m) => isLoadable(m) && schemeIsReps(m));
-  const loadableDist = forcePool.filter((m) => isLoadable(m) && !schemeIsReps(m));
+  // ---- Bloc A : lift principal lourd, priorité aux plus chargeables (sled > sandbag/KB > PDC)
+  const heavyDist = forcePool.filter((m) => isLoadable(m) && !schemeIsReps(m));       // Sled Push/Pull, Farmers
+  const heavyReps = forcePool.filter((m) => isLoadable(m) && schemeIsReps(m));        // KB/DB/Sandbag à reps
   const bodyweight = forcePool.filter((m) => !isLoadable(m));
 
-  let aMove: MoveDef | undefined;
-  let aKind: 'heavyReps' | 'heavyDist' | 'tempo';
-  if (loadableReps.length) { aMove = rng.pick(loadableReps); aKind = 'heavyReps'; }
-  else if (loadableDist.length) { aMove = rng.pick(loadableDist); aKind = 'heavyDist'; }
-  else { aMove = bodyweight.length ? rng.pick(bodyweight) : undefined; aKind = 'tempo'; }
+  const sets = rng.pick([[5, 5], [3, 3], [4, 6]]); // [séries, reps] — 5×5 / 3×3 / 4×6
+  let a: Movement[] = [];
+  let aScheme = '';
+  const pickA = (pool: MoveDef[]) => samplePatternSafe(rng, pool, 1, used)[0];
 
-  const a = aMove ? [(() => {
-    const mv = toMovement(rng, params, aMove!);
-    if (aKind === 'heavyReps') mv.prescription = `${rng.pick([5, 8])} reps lourdes`;
-    else if (aKind === 'tempo') mv.prescription = `${rng.pick([6, 8])} reps — tempo contrôlé 3s`;
-    // heavyDist : on garde la distance naturelle + charge lourde affichée
+  const aHeavyDist = heavyDist.length && rng.float() < 0.35 ? pickA(heavyDist) : undefined;
+  const aHeavyReps = !aHeavyDist && heavyReps.length ? pickA(heavyReps) : undefined;
+  if (aHeavyDist) {
+    // Sled/carry lourd : la « série » est une distance courte, charge montée au-dessus du poids de course.
+    const mv = toMovement(rng, params, aHeavyDist);
+    mv.prescription = `${sets[0]} × ${rng.pick([15, 20, 25])}m LOURD`;
+    a = [mv];
+    aScheme = `${sets[0]} séries lourdes — charge > poids de course (RPE 8)`;
+  } else if (aHeavyReps) {
+    const mv = toMovement(rng, params, aHeavyReps);
+    mv.prescription = `${sets[0]} × ${sets[1]} reps`;
+    a = [mv];
+    aScheme = `${sets[0]} × ${sets[1]} — charge > poids de course (RPE 8, 2 reps en réserve)`;
+  } else if (bodyweight.length) {
+    const m = pickA(bodyweight)!;
+    const mv = toMovement(rng, params, m);
+    mv.prescription = `${sets[0]} × ${rng.pick([5, 6, 8])} reps — tempo 3s excentrique`;
+    a = [mv];
+    aScheme = `${sets[0]} séries — tempo contrôlé (RPE 8)`;
+  }
+
+  // ---- Bloc B : 2 accessoires en 3×8-12, familles différentes du lift A
+  const bPool = forcePool.filter((m) => schemeIsReps(m));
+  const b = samplePatternSafe(rng, bPool, 2, used).map((m) => {
+    const mv = toMovement(rng, params, m);
+    const per = /\/(bras|jambe)/.test(mv.prescription) ? mv.prescription.match(/\/(bras|jambe)/)![0] : '';
+    mv.prescription = `3 × ${rng.pick([8, 10, 12])} reps${per}`;
     return mv;
-  })()] : [];
-  const aScheme = aKind === 'tempo' ? '5 rounds — tempo contrôlé, work:rest égal'
-    : '5 rounds — charge lourde, work:rest égal';
+  });
 
-  // Bloc B — 2 accessoires (hors mouvement A), prescription naturelle.
-  const bPool = forcePool.filter((m) => !aMove || m.name !== aMove.name);
-  const b = rng.sample(bPool, Math.min(2, bPool.length)).map((m) => toMovement(rng, params, m));
+  // ---- Bloc C : grip & gainage (2 tours) — dead hang / farmers / planche
+  const gripPool = forcePool.filter((m) => patternsOf(m).some((p) => p === 'grip' || p === 'core'));
+  const c = samplePatternSafe(rng, gripPool, 2, new Set()).map((m) => toMovement(rng, params, m));
 
-  return [
-    { label: 'A', structure: 'STRENGTH', scheme: aScheme, movements: a, rest: '1:30 entre séries' },
-    { label: 'B', structure: 'STRENGTH', scheme: '4 rounds for quality', movements: b, rest: '60-90s entre rounds' },
+  const blocks: Block[] = [
+    { label: 'A', structure: 'STRENGTH', scheme: aScheme, movements: a, rest: '2-3 min entre séries' },
+    { label: 'B', structure: 'STRENGTH', scheme: '3 tours — accessoires 8-12 reps propres', movements: b, rest: '60-90s entre tours' },
   ];
+  if (c.length > 0) {
+    blocks.push({ label: 'C', structure: 'STRENGTH', scheme: '2 tours — grip & gainage', movements: c, rest: '45s entre efforts' });
+  }
+  return blocks;
 }
 
 // ============================ Génération principale ============================
@@ -447,7 +601,10 @@ export function hyroxSignature(wod: HyroxWod): string {
   const moves = wod.blocks
     .flatMap((b) => b.movements.map((m) => m.name.toLowerCase()))
     .filter((n) => !GENERIC.has(n));
-  return `${wod.structure.toLowerCase()}::${[...new Set(moves)].sort().join('|')}`;
+  // Comme côté CF : la forme du schéma fait partie de l'identité (deux race sims aux
+  // runs différents, ou un chipper vs des rounds, sont des séances distinctes).
+  const scheme = (wod.blocks[0]?.scheme ?? '').toLowerCase();
+  return `${wod.structure.toLowerCase()}::${scheme}::${[...new Set(moves)].sort().join('|')}`;
 }
 
 export function generateFreshHyrox(params: HyroxParams, recentSignatures: string[], maxTries = 5): HyroxWod {
