@@ -1,11 +1,11 @@
 /**
  * AthleX — Écran de résultats du générateur : 3 suggestions personnalisées
  * ========================================================================
- * SPEC §0 (UX) : thème CLAIR glassmorphism existant — GlassBackground, GlassCard,
- * chips arrondies, accent Colors.accent (#10b981). Aucune nouvelle couleur en dur.
+ * SPEC §0 (UX) : glassmorphism existant — GlassBackground, GlassCard, chips arrondies.
+ * Thème adaptatif clair/sombre via ThemeContext (aucune couleur en dur).
  * Remplace l'affichage « 1 WOD généré » par 3 cartes choisies par le ranker.
  *
- * Navigation : poussé par WODGeneratorScreen après « ✨ GÉNÉRER MON WOD »
+ * Navigation : poussé par WODGenProScreen après « GÉNÉRER MA SÉANCE »
  *   navigation.navigate('WODSuggestions', { sport, cfParams? , hyroxParams? })
  */
 
@@ -17,11 +17,11 @@ import { ChevronLeft, RefreshCw, Zap, Trophy } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors } from '../../theme/colors';
-import { spacing, borderRadius, typography } from '../../theme/designTokens';
+import { useTheme, AppTheme } from '../../context/ThemeContext';
 import GlassBackground from '../../components/glass/GlassBackground';
 import GlassCard from '../../components/glass/GlassCard';
 import { useAuth } from '../../context/AuthContext';
+import { trackEvent } from '../../lib/analytics';
 
 import { CFParams, CFWod, Block as CFBlock } from '../../utils/wod/engineCrossFit';
 import { HyroxParams, HyroxWod } from '../../utils/wod/engineHyrox';
@@ -30,6 +30,14 @@ import { personalizedLoadDisplay } from '../../utils/wod/movementLoadability';
 import {
   loadWodProfile, recordShown, recordChosen, recordSkippedAll,
 } from '../../services/wodPersonalization';
+import { buildHyroxTimerPlan, buildHyroxTimerRunParams } from '../../utils/wod/hyroxTimer';
+import { buildTimerRunParams } from '../../utils/wodToTimer';
+import { BoxWODType } from '../../types';
+
+const CF_METHOD_TO_WOD_TYPE: Record<string, BoxWODType> = {
+  'AMRAP': 'amrap', 'For Time': 'for-time', 'EMOM': 'emom', 'Tabata': 'tabata', 'Max Reps': 'amrap',
+};
+const TIMER_COUNTDOWN = 10;
 
 type Sport = 'functional' | 'hybrid';
 type Params = { sport: Sport; cfParams?: CFParams; hyroxParams?: HyroxParams };
@@ -71,6 +79,8 @@ export default function WODSuggestionsScreen() {
   const { params } = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const S = createStyles(theme);
 
   const [profile, setProfile] = useState<UserWodProfile>(EMPTY_PROFILE);
   const [suggestions, setSuggestions] = useState<RankedSuggestion[]>([]);
@@ -86,7 +96,16 @@ export default function WODSuggestionsScreen() {
         ? rankCF(params.cfParams!, p)
         : rankHyrox(params.hyroxParams!, p);
     setSuggestions(next);
-    if (user?.id) recordShown(user.id, params.sport, next, params.cfParams ?? params.hyroxParams ?? {});
+    trackEvent('wod_suggestions_shown', {
+      sport: params.sport,
+      count: next.length,
+      goal: p.goal,
+      has_challenge: next.some((s) => s.isChallenge),
+      avoid_zones: p.avoidZones.length,
+    });
+    if (user?.id) {
+      recordShown(user.id, params.sport, next, (params.cfParams ?? params.hyroxParams ?? {}) as Record<string, unknown>);
+    }
   }, [params, user?.id]);
 
   useEffect(() => {
@@ -101,95 +120,119 @@ export default function WODSuggestionsScreen() {
   }, []);
 
   const choose = (s: RankedSuggestion, rank: number) => {
+    trackEvent('wod_suggestion_chosen', {
+      sport: params.sport, rank, match_pct: s.matchPct, is_challenge: s.isChallenge, method: s.method,
+    });
     if (user?.id) {
       recordChosen(user.id, params.sport, s, suggestions.filter((x) => x !== s), rank);
     }
-    // → flux existant : même destination que l'ancien générateur (carte WOD / timer).
-    navigation.navigate('WODScreen', { generated: s.wod, sport: params.sport, seed: s.seed });
+    // → flux timer EXISTANT (mode « libre » préconfiguré), comme depuis l'écran générateur.
+    if (s.kind === 'hyrox') {
+      const plan = buildHyroxTimerPlan(s.wod as HyroxWod);
+      navigation.navigate('TimerRun', buildHyroxTimerRunParams(plan, {
+        countdown: TIMER_COUNTDOWN, title: s.wod.title,
+      }));
+      return;
+    }
+    const cf = s.wod as CFWod;
+    navigation.navigate('TimerRun', buildTimerRunParams(
+      {
+        title: cf.title,
+        wod_type: CF_METHOD_TO_WOD_TYPE[cf.method] ?? 'for-time',
+        time_cap_seconds: cf.time_cap_min * 60,
+        rounds: undefined,
+        emom_interval_minutes: undefined,
+        tabata_work_seconds: undefined,
+        tabata_rest_seconds: undefined,
+      },
+      { withCamera: false, countdown: TIMER_COUNTDOWN },
+    ));
   };
 
   const regenerate = (reason: (typeof SKIP_REASONS)[number]['key']) => {
     setReasonModal(false);
+    trackEvent('wod_regenerated', { sport: params.sport, reason });
     if (user?.id) recordSkippedAll(user.id, params.sport, suggestions, reason);
     generate(profile);
   };
 
   return (
-    <GlassBackground>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
-          <ChevronLeft size={26} color={Colors.text} />
+    <View style={S.container}>
+      <GlassBackground />
+      <View style={[S.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <ChevronLeft size={26} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ta séance</Text>
+        <Text style={S.headerTitle}>Ta séance</Text>
         <View style={{ width: 26 }} />
       </View>
 
       {loading ? (
-        <View style={styles.center}><ActivityIndicator color={Colors.accent} /></View>
+        <View style={S.center}><ActivityIndicator color={theme.accent} /></View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.subtitle}>
+        <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
+          <Text style={S.subtitle}>
             3 propositions adaptées à ton profil — choisis, c'est parti.
           </Text>
 
           {/* Charges perso : visible seulement si l'utilisateur a renseigné des PR (page Records) */}
           {hasPRs && (
-            <View style={styles.prToggleRow}>
+            <View style={S.prToggleRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.prToggleTitle}>Charges basées sur mes PR</Text>
-                <Text style={styles.prToggleSub}>
+                <Text style={S.prToggleTitle}>Charges basées sur mes PR</Text>
+                <Text style={S.prToggleSub}>
                   {usePR ? 'Poids calculés depuis tes 1RM' : 'Poids RX standard (H/F)'}
                 </Text>
               </View>
               <Switch
                 value={usePR}
                 onValueChange={setUsePR}
-                trackColor={{ false: Colors.border, true: `${Colors.accent}99` }}
-                thumbColor={usePR ? Colors.accent : Colors.surface}
+                trackColor={{ false: theme.border, true: theme.ctaBg }}
+                thumbColor={usePR ? theme.accent : theme.surface}
               />
             </View>
           )}
 
           {suggestions.map((s, i) => {
             const isFirst = i === 0;
-            const accent = s.isChallenge ? Colors.featured : Colors.accent;
+            const accent = s.isChallenge ? theme.warning : theme.accent;
             return (
               <GlassCard
                 key={s.signature}
-                style={[styles.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
+                style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
-                <View style={styles.cardTop}>
-                  <Text style={[styles.method, s.isChallenge && { color: Colors.featured }]}>
+                <View style={S.cardTop}>
+                  <Text style={[S.method, s.isChallenge && { color: theme.warning }]}>
                     {s.isChallenge ? '⚡ DÉFI · ' : ''}{s.method} · cap {(s.wod as CFWod).time_cap_min} min
                   </Text>
-                  <View style={[styles.matchBadge, { backgroundColor: `${accent}22` }]}>
+                  <View style={[S.matchBadge, { backgroundColor: `${accent}22` }]}>
                     {s.isChallenge
                       ? <Zap size={11} color={accent} />
                       : <Trophy size={11} color={accent} />}
-                    <Text style={[styles.matchText, { color: accent }]}>
+                    <Text style={[S.matchText, { color: accent }]}>
                       {s.isChallenge ? 'DÉFI' : `MATCH ${s.matchPct} %`}
                     </Text>
                   </View>
                 </View>
 
-                <Text style={styles.title}>{s.wod.title}</Text>
+                <Text style={S.title}>{s.wod.title}</Text>
 
                 {movementLines(s, usePR, profile.prs ?? {}).slice(0, 6).map((l, j) => (
-                  <Text key={j} style={l.startsWith('  ') ? styles.moveLine : styles.schemeLine}>{l}</Text>
+                  <Text key={j} style={l.startsWith('  ') ? S.moveLine : S.schemeLine}>{l}</Text>
                 ))}
 
-                <View style={[styles.whyBox, s.isChallenge && { backgroundColor: `${Colors.featured}14` }]}>
-                  <Text style={[styles.whyText, s.isChallenge && { color: '#8a6d00' }]}>{s.why}</Text>
+                <View style={[S.whyBox, s.isChallenge && { backgroundColor: `${theme.warning}14` }]}>
+                  <Text style={[S.whyText, s.isChallenge && { color: theme.warning }]}>{s.why}</Text>
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.cta, isFirst ? { backgroundColor: Colors.accent } : styles.ctaAlt,
-                          s.isChallenge && { backgroundColor: 'transparent', borderColor: Colors.featured, borderWidth: 1 }]}
+                  style={[S.cta, isFirst ? { backgroundColor: theme.accent } : S.ctaAlt,
+                          s.isChallenge && { backgroundColor: 'transparent', borderColor: theme.warning, borderWidth: 1 }]}
                   onPress={() => choose(s, i + 1)}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.ctaText, isFirst ? { color: '#fff' } : { color: Colors.text },
-                                s.isChallenge && { color: Colors.featured }]}>
+                  <Text style={[S.ctaText, isFirst ? { color: theme.background } : { color: theme.text },
+                                s.isChallenge && { color: theme.warning }]}>
                     {s.isChallenge ? 'Je relève le défi' : isFirst ? "C'est parti" : 'Choisir celle-ci'}
                   </Text>
                 </TouchableOpacity>
@@ -197,94 +240,87 @@ export default function WODSuggestionsScreen() {
             );
           })}
 
-          <TouchableOpacity style={styles.regen} onPress={() => setReasonModal(true)} activeOpacity={0.8}>
-            <RefreshCw size={15} color={Colors.textSecondary} />
-            <Text style={styles.regenText}>Rien ne te plaît ? Regénérer</Text>
+          <TouchableOpacity style={S.regen} onPress={() => setReasonModal(true)} activeOpacity={0.8}>
+            <RefreshCw size={15} color={theme.textSecondary} />
+            <Text style={S.regenText}>Rien ne te plaît ? Regénérer</Text>
           </TouchableOpacity>
-          <View style={{ height: insets.bottom + spacing.xxl }} />
+          <View style={{ height: insets.bottom + 48 }} />
         </ScrollView>
       )}
 
       {/* Raison de regénération : chaque re-roll devient un signal (SPEC §5) */}
       <Modal visible={reasonModal} transparent animationType="fade" onRequestClose={() => setReasonModal(false)}>
-        <TouchableOpacity style={styles.modalBg} activeOpacity={1} onPress={() => setReasonModal(false)}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Qu'est-ce qui n'allait pas ?</Text>
-            <Text style={styles.modalSub}>Ça nous aide à mieux te proposer la prochaine fois.</Text>
+        <TouchableOpacity style={S.modalBg} activeOpacity={1} onPress={() => setReasonModal(false)}>
+          <View style={S.modalSheet}>
+            <Text style={S.modalTitle}>Qu'est-ce qui n'allait pas ?</Text>
+            <Text style={S.modalSub}>Ça nous aide à mieux te proposer la prochaine fois.</Text>
             {SKIP_REASONS.map((r) => (
-              <TouchableOpacity key={r.key} style={styles.reasonChip} onPress={() => regenerate(r.key)}>
-                <Text style={styles.reasonText}>{r.label}</Text>
+              <TouchableOpacity key={r.key} style={S.reasonChip} onPress={() => regenerate(r.key)}>
+                <Text style={S.reasonText}>{r.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </TouchableOpacity>
       </Modal>
-    </GlassBackground>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingBottom: spacing.sm,
+    paddingHorizontal: 20, paddingBottom: 8,
   },
-  headerTitle: { ...typography.h3, color: Colors.text },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: theme.text },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll: { paddingHorizontal: spacing.lg },
-  subtitle: { ...typography.bodySmall, color: Colors.textSecondary, marginBottom: spacing.md },
+  scroll: { paddingHorizontal: 20 },
+  subtitle: { fontSize: 13, color: theme.textSecondary, marginBottom: 16 },
 
   prToggleRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: borderRadius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    borderRadius: 16, paddingVertical: 8, paddingHorizontal: 16, marginBottom: 16,
   },
-  prToggleTitle: { ...typography.bodySmall, fontWeight: '700', color: Colors.text },
-  prToggleSub: { ...typography.caption, color: Colors.textSecondary, marginTop: 1 },
+  prToggleTitle: { fontSize: 13, fontWeight: '700', color: theme.text },
+  prToggleSub: { fontSize: 11, color: theme.textSecondary, marginTop: 1 },
 
-  card: { padding: spacing.lg, marginBottom: spacing.md, borderRadius: borderRadius.xl },
+  card: { padding: 20, marginBottom: 16, borderRadius: 20 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  method: { ...typography.overline, color: Colors.textSecondary },
+  method: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: theme.textSecondary },
   matchBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2,
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
   },
   matchText: { fontSize: 10, fontWeight: '800' },
-  title: { ...typography.h3, color: Colors.text, marginTop: spacing.xs, marginBottom: spacing.sm },
-  schemeLine: { ...typography.bodySmall, fontWeight: '600', color: Colors.text, marginTop: spacing.xs },
-  moveLine: { ...typography.bodySmall, color: Colors.textSecondary },
+  title: { fontSize: 20, fontWeight: '800', color: theme.text, marginTop: 4, marginBottom: 8 },
+  schemeLine: { fontSize: 13, fontWeight: '600', color: theme.text, marginTop: 4 },
+  moveLine: { fontSize: 13, color: theme.textSecondary },
 
-  whyBox: {
-    backgroundColor: `${Colors.accent}12`, borderRadius: borderRadius.md,
-    padding: spacing.md, marginTop: spacing.md,
-  },
-  whyText: { ...typography.caption, color: Colors.accentDark, lineHeight: 16 },
+  whyBox: { backgroundColor: `${theme.accent}1F`, borderRadius: 12, padding: 12, marginTop: 16 },
+  whyText: { fontSize: 11, color: theme.accentDark, lineHeight: 16 },
 
-  cta: {
-    marginTop: spacing.md, borderRadius: borderRadius.md,
-    paddingVertical: spacing.md, alignItems: 'center',
-  },
-  ctaAlt: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
-  ctaText: { ...typography.button },
+  cta: { marginTop: 16, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  ctaAlt: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
+  ctaText: { fontSize: 14, fontWeight: '800' },
 
   regen: {
-    flexDirection: 'row', gap: spacing.sm, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.border,
-    borderRadius: borderRadius.md, paddingVertical: spacing.md, marginTop: spacing.xs,
+    flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderStyle: 'dashed', borderColor: theme.border,
+    borderRadius: 12, paddingVertical: 14, marginTop: 4,
   },
-  regenText: { ...typography.bodySmall, color: Colors.textSecondary },
+  regenText: { fontSize: 13, color: theme.textSecondary },
 
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  modalBg: { flex: 1, backgroundColor: theme.modalBackdrop, justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: Colors.card, borderTopLeftRadius: borderRadius.xxl, borderTopRightRadius: borderRadius.xxl,
-    padding: spacing.xl, paddingBottom: spacing.xxxl,
+    backgroundColor: theme.modalCard, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 40,
   },
-  modalTitle: { ...typography.h4, color: Colors.text },
-  modalSub: { ...typography.bodySmall, color: Colors.textSecondary, marginTop: 2, marginBottom: spacing.lg },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: theme.text },
+  modalSub: { fontSize: 13, color: theme.textSecondary, marginTop: 2, marginBottom: 20 },
   reasonChip: {
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: borderRadius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8,
   },
-  reasonText: { ...typography.body, color: Colors.text },
-});
+  reasonText: { fontSize: 15, color: theme.text },
+}); }

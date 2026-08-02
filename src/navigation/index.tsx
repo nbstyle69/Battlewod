@@ -56,6 +56,10 @@ import TimerRunScreen from '../screens/timer/TimerRunScreen';
 import VideoPlaybackScreen from '../screens/timer/VideoPlaybackScreen';
 import WODScreen from '../screens/wod/WODScreen';
 import WODGeneratorScreen from '../screens/wod/WODGeneratorScreen';
+import WODGenProScreen from '../screens/wod/WODGenProScreen';
+import type { CFParams } from '../utils/wod/engineCrossFit';
+import type { HyroxParams } from '../utils/wod/engineHyrox';
+import WODSuggestionsScreen from '../screens/wod/WODSuggestionsScreen';
 import HomeWODGeneratorScreen from '../components/WodGeneratorCard';
 import OneRMCalculatorScreen from '../screens/home/OneRMCalculatorScreen';
 import CompetitionScreen from '../screens/competition/CompetitionScreen';
@@ -212,6 +216,13 @@ export type ExplorerStackParamList = {
   BoxPrograms: undefined;
 };
 
+/** Générateur personnalisé : paramètres passés au ranker (3 suggestions). */
+export type WODSuggestionsParams = {
+  sport: 'functional' | 'hybrid';
+  cfParams?: CFParams;
+  hyroxParams?: HyroxParams;
+};
+
 export type TimerType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'ywyr' | 'splits' | 'libre';
 export type BlockType = Exclude<TimerType, 'libre' | 'splits'>;
 export type SeqBlock = {
@@ -246,6 +257,8 @@ export type HomeStackParamList = {
   BoxInfo: undefined;
   Changelog: undefined;
   WODGenerator: undefined;
+  WODGenPro: undefined;
+  WODSuggestions: WODSuggestionsParams;
   WodHistory: undefined;
   NotificationSettings: undefined;
   BlockedUsers: undefined;
@@ -292,6 +305,8 @@ export type HomeStackParamList = {
 export type WODStackParamList = {
   WODList: undefined;
   WODGenerator: undefined;
+  WODGenPro: undefined;
+  WODSuggestions: WODSuggestionsParams;
   WodHistory: undefined;
   TimerRun: {
     timerType: TimerType;
@@ -486,6 +501,8 @@ function HomeNavigator() {
       <HomeStack.Screen name="BoxInfo" component={BoxInfoScreen} />
       <HomeStack.Screen name="Changelog" component={ChangelogScreen} />
       <HomeStack.Screen name="WODGenerator" component={HomeWODGeneratorScreen} />
+      <HomeStack.Screen name="WODGenPro" component={WODGenProScreen} />
+      <HomeStack.Screen name="WODSuggestions" component={WODSuggestionsScreen} />
       <HomeStack.Screen name="OneRMCalculator" component={OneRMCalculatorScreen} />
       <HomeStack.Screen name="Timer" component={TimerScreen} />
       <HomeStack.Screen name="TimerRun" component={TimerRunScreen} />
@@ -513,6 +530,8 @@ function WODNavigator() {
     <WODStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
       <WODStack.Screen name="WODList" component={WODScreen} />
       <WODStack.Screen name="WODGenerator" component={WODGeneratorScreen} />
+      <WODStack.Screen name="WODGenPro" component={WODGenProScreen} />
+      <WODStack.Screen name="WODSuggestions" component={WODSuggestionsScreen} />
       <WODStack.Screen name="WodHistory"   component={WodHistoryScreen} />
       <WODStack.Screen name="TimerRun"     component={TimerRunScreen} />
       <WODStack.Screen name="VideoPlayback" component={VideoPlaybackScreen} />

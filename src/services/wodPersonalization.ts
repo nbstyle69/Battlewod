@@ -6,7 +6,8 @@
  * Best-effort : toute erreur réseau est loggée, jamais bloquante pour l'UX.
  */
 
-import { supabase } from '../lib/supabase'; // ← adapter au chemin réel du client
+import { supabase } from '../lib/supabase';
+import { Json } from '../types/supabase';
 import { BodyZone } from '../utils/wod/movementZones';
 import { UserWodProfile, RankedSuggestion, EMPTY_PROFILE } from '../utils/wod/ranker';
 import { parsePersonalRecords } from '../utils/wod/movementLoadability';
@@ -46,7 +47,9 @@ export async function loadWodProfile(userId: string): Promise<UserWodProfile> {
 
     // Charges basées sur les PR : normalise profiles.personal_records → PRMap chiffré.
     // {} si la page Records est vide → resolveLoad retombe proprement sur RX.
-    const prs = parsePersonalRecords(profileQ.data?.personal_records ?? null);
+    const prs = parsePersonalRecords(
+      (profileQ.data?.personal_records ?? null) as Record<string, unknown> | null,
+    );
 
     // Déclaration Gymnastique (palier max par famille), stockée dans les settings de génération.
     const gymDeclaration = (settings?.gym_declaration ?? {}) as GymDeclaration;
@@ -105,7 +108,7 @@ export async function loadWodProfile(userId: string): Promise<UserWodProfile> {
 
 type Sport = 'functional' | 'hybrid';
 
-function rowFor(userId: string, sport: Sport, s: RankedSuggestion, action: string, extra: object = {}) {
+function rowFor(userId: string, sport: Sport, s: RankedSuggestion, action: string, extra: Record<string, unknown> = {}) {
   return {
     user_id: userId, sport, seed: s.seed, signature: s.signature,
     movements: s.movementNames, params: {}, action,
@@ -114,10 +117,10 @@ function rowFor(userId: string, sport: Sport, s: RankedSuggestion, action: strin
 }
 
 /** À l'affichage des 3 cartes. */
-export async function recordShown(userId: string, sport: Sport, suggestions: RankedSuggestion[], params: object) {
+export async function recordShown(userId: string, sport: Sport, suggestions: RankedSuggestion[], params: Record<string, unknown>) {
   try {
     await supabase.from('user_wod_feedback').insert(
-      suggestions.map((s, i) => ({ ...rowFor(userId, sport, s, 'shown', { rank: i + 1 }), params })),
+      suggestions.map((s, i) => ({ ...rowFor(userId, sport, s, 'shown', { rank: i + 1 }), params: params as Json })),
     );
   } catch (e) { console.warn('[wodPersonalization] recordShown:', e); }
 }
