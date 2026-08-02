@@ -12,9 +12,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Switch,
-  Dimensions, NativeScrollEvent, NativeSyntheticEvent,
+  Dimensions, NativeScrollEvent, NativeSyntheticEvent, Share, Alert,
 } from 'react-native';
-import { ChevronLeft, RefreshCw, Zap, Trophy, Camera, CameraOff } from 'lucide-react-native';
+import {
+  ChevronLeft, RefreshCw, Zap, Trophy, Camera, CameraOff, Bookmark, Share2, BookOpen,
+} from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -32,11 +34,14 @@ import {
   loadWodProfile, recordShown, recordChosen, recordSkippedAll, recordCompleted,
 } from '../../services/wodPersonalization';
 import { buildHyroxTimerPlan, buildHyroxTimerRunParams } from '../../utils/wod/hyroxTimer';
-import { buildTimerRunParams } from '../../utils/wodToTimer';
+import { buildCFTimerRunParams } from '../../utils/wod/cfTimer';
+import { supabase } from '../../lib/supabase';
 import { BoxWODType } from '../../types';
 
 const CF_METHOD_TO_WOD_TYPE: Record<string, BoxWODType> = {
-  'AMRAP': 'amrap', 'For Time': 'for-time', 'EMOM': 'emom', 'Tabata': 'tabata', 'Max Reps': 'amrap',
+  // Les moteurs renvoient la méthode en majuscules (« FOR TIME », « FOR TIME (Benchmark) »…).
+  'AMRAP': 'amrap', 'FOR TIME': 'for-time', 'EMOM': 'emom', 'TABATA': 'tabata', 'MAX REPS': 'amrap',
+  'STRENGTH': 'strength',
 };
 const TIMER_COUNTDOWN = 10;
 
@@ -109,6 +114,7 @@ export default function WODSuggestionsScreen() {
   const pagerRef = useRef<ScrollView>(null);
   // Choix caméra au lancement (comme le flux timer existant).
   const [cameraFor, setCameraFor] = useState<{ s: RankedSuggestion; rank: number } | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
 
   const generate = useCallback((p: UserWodProfile) => {
     const next =
@@ -158,18 +164,10 @@ export default function WODSuggestionsScreen() {
       return;
     }
     const cf = s.wod as CFWod;
-    navigation.navigate('TimerRun', buildTimerRunParams(
-      {
-        title: cf.title,
-        wod_type: CF_METHOD_TO_WOD_TYPE[cf.method] ?? 'for-time',
-        time_cap_seconds: cf.time_cap_min * 60,
-        rounds: undefined,
-        emom_interval_minutes: undefined,
-        tabata_work_seconds: undefined,
-        tabata_rest_seconds: undefined,
-      },
-      { withCamera, countdown: TIMER_COUNTDOWN },
-    ));
+    navigation.navigate(
+      'TimerRun',
+      buildCFTimerRunParams(cf, { withCamera, countdown: TIMER_COUNTDOWN }),
+    );
     setPendingRpe(s);
   };
 
@@ -188,6 +186,53 @@ export default function WODSuggestionsScreen() {
     trackEvent('wod_completed', { sport: params.sport, rpe, method: s.method, is_challenge: s.isChallenge });
     if (user?.id) recordCompleted(user.id, params.sport, s, rpe);
   };
+
+  /** Texte partagé / sauvegardé : mêmes lignes que la carte. */
+  const wodText = (s: RankedSuggestion) =>
+    movementLines(s, usePR, profile.prs ?? {}).join('\n');
+
+  async function saveWod(s: RankedSuggestion) {
+    if (!user?.id) { Alert.alert('Connecte-toi', 'Il faut être connecté pour sauvegarder un WOD.'); return; }
+    setSaving(s.signature);
+    const wod = s.wod as CFWod;
+    const { error } = await supabase.from('generated_wods').insert({
+      user_id: user.id,
+      sport: params.sport,
+      wod_name: wod.title,
+      wod_type: s.method,
+      duration: wod.time_cap_min,
+      level: (wod as CFWod).level ?? 'RX',
+      format: 'Solo',
+      movements: wodText(s),
+      scoring: wod.score_type,
+      coach_tip: wod.coach_notes.join('\n'),
+    });
+    setSaving(null);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    Alert.alert('✅ WOD sauvegardé', 'Retrouve-le dans ton historique.');
+  }
+
+  async function addToWhiteboard(s: RankedSuggestion) {
+    if (!user?.id) { Alert.alert('Connecte-toi', 'Il faut être connecté pour utiliser le whiteboard.'); return; }
+    setSaving(s.signature);
+    const wod = s.wod as CFWod;
+    const { error } = await supabase.from('box_wods').insert({
+      box_id: null,
+      created_by: user.id,
+      title: wod.title,
+      description: `${wodText(s)}\n\n📊 ${wod.score_type}`,
+      wod_type: s.kind === 'cf' ? (CF_METHOD_TO_WOD_TYPE[wod.method] ?? 'custom') : 'custom',
+      scheduled_date: new Date().toISOString().slice(0, 10),
+      time_cap_seconds: wod.time_cap_min * 60,
+      notes: wod.coach_notes.join('\n'),
+      is_published: true,
+      leaderboard_enabled: false,
+      sort_order: 0,
+    });
+    setSaving(null);
+    if (error) { Alert.alert('Erreur', error.message); return; }
+    Alert.alert('✅ Ajouté au whiteboard', "La séance est programmée pour aujourd'hui.");
+  }
 
   const onPagerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / PAGE_W);
@@ -288,9 +333,14 @@ export default function WODSuggestionsScreen() {
               >
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.cardBody}>
                 <View style={S.cardTop}>
-                  <Text style={[S.method, s.isChallenge && { color: theme.warning }]}>
-                    {s.isChallenge ? '⚡ DÉFI · ' : ''}{s.method} · cap {(s.wod as CFWod).time_cap_min} min
-                  </Text>
+                  <View style={S.badgeRow}>
+                    <View style={S.badge}>
+                      <Text style={S.badgeText}>{s.method}</Text>
+                    </View>
+                    <View style={S.badge}>
+                      <Text style={S.badgeText}>cap {(s.wod as CFWod).time_cap_min} min</Text>
+                    </View>
+                  </View>
                   <View style={[S.matchBadge, { backgroundColor: `${accent}22` }]}>
                     {s.isChallenge
                       ? <Zap size={11} color={accent} />
@@ -303,9 +353,27 @@ export default function WODSuggestionsScreen() {
 
                 <Text style={S.title}>{s.wod.title}</Text>
 
-                {movementLines(s, usePR, profile.prs ?? {}).map((l, j) => (
-                  <Text key={j} style={l.startsWith('  ') ? S.moveLine : S.schemeLine}>{l}</Text>
-                ))}
+                <View style={S.moveBox}>
+                  {movementLines(s, usePR, profile.prs ?? {}).map((l, j) => (
+                    <Text key={j} style={l.startsWith('  ') ? S.moveLine : S.schemeLine}>{l}</Text>
+                  ))}
+                </View>
+
+                <View style={S.scoringRow}>
+                  <Zap size={14} color={theme.gold} />
+                  <Text style={S.scoringText}>
+                    {(s.wod as CFWod).score_type} — cap {(s.wod as CFWod).time_cap_min} min
+                  </Text>
+                </View>
+
+                {(s.wod as CFWod).coach_notes.length > 0 && (
+                  <View style={S.coachBox}>
+                    <Text style={S.coachLabel}>💡 Coach</Text>
+                    {(s.wod as CFWod).coach_notes.map((n, j) => (
+                      <Text key={j} style={S.coachText}>{n}</Text>
+                    ))}
+                  </View>
+                )}
 
                 {/* Le « pourquoi » n'apparaît que s'il apporte une info personnelle (sinon vide). */}
                 {s.why !== '' && (
@@ -313,16 +381,52 @@ export default function WODSuggestionsScreen() {
                     <Text style={[S.whyText, s.isChallenge && { color: theme.warning }]}>{s.why}</Text>
                   </View>
                 )}
+
+                <View style={S.actionRow}>
+                  <TouchableOpacity
+                    style={S.actionBtn}
+                    onPress={() => saveWod(s)}
+                    disabled={saving === s.signature}
+                    activeOpacity={0.8}
+                  >
+                    {saving === s.signature
+                      ? <ActivityIndicator size="small" color={theme.accent} />
+                      : <><Bookmark size={14} color={theme.accent} /><Text style={S.actionText}>Sauvegarder</Text></>}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={S.actionBtn}
+                    onPress={() => Share.share({
+                      message: `${s.wod.title}\n${(s.wod as CFWod).score_type}\n\n${wodText(s)}\n\nGénéré avec AthleX 💪`,
+                    })}
+                    activeOpacity={0.8}
+                  >
+                    <Share2 size={14} color={theme.accent} />
+                    <Text style={S.actionText}>Partager</Text>
+                  </TouchableOpacity>
+                </View>
                 </ScrollView>
 
+                <GlassCard radius={16} variant={s.isChallenge ? 'default' : 'emerald'} style={S.ctaCard}>
+                  <TouchableOpacity
+                    style={[S.cta, { borderColor: accent, backgroundColor: `${accent}1F` }]}
+                    onPress={() => setCameraFor({ s, rank: i + 1 })}
+                    activeOpacity={0.85}
+                  >
+                    <Zap size={16} color={accent} />
+                    <Text style={[S.ctaText, { color: theme.text }]}>
+                      {s.isChallenge ? 'Je relève le défi' : 'Lancer le WOD'}
+                    </Text>
+                  </TouchableOpacity>
+                </GlassCard>
+
                 <TouchableOpacity
-                  style={[S.cta, { backgroundColor: accent }]}
-                  onPress={() => setCameraFor({ s, rank: i + 1 })}
+                  style={[S.wbBtn, { borderColor: accent }]}
+                  onPress={() => addToWhiteboard(s)}
+                  disabled={saving === s.signature}
                   activeOpacity={0.85}
                 >
-                  <Text style={[S.ctaText, { color: theme.background }]}>
-                    {s.isChallenge ? 'Je relève le défi' : 'Lancer le WOD'}
-                  </Text>
+                  <BookOpen size={15} color={accent} />
+                  <Text style={[S.wbText, { color: accent }]}>Ajouter au whiteboard</Text>
                 </TouchableOpacity>
               </GlassCard>
               </View>
@@ -451,8 +555,44 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   whyBox: { backgroundColor: `${theme.accent}1F`, borderRadius: 12, padding: 12, marginTop: 16 },
   whyText: { fontSize: 11, color: theme.accentDark, lineHeight: 16 },
 
-  cta: { marginTop: 16, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  ctaText: { fontSize: 14, fontWeight: '800' },
+  badgeRow: { flexDirection: 'row', gap: 6, flexShrink: 1 },
+  badge: {
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+  },
+  badgeText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
+
+  moveBox: {
+    backgroundColor: theme.surface, borderRadius: 14, padding: 14, gap: 2, marginTop: 4,
+  },
+  scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  scoringText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, flex: 1 },
+
+  coachBox: {
+    backgroundColor: `${theme.gold}14`, borderRadius: 14, padding: 14, marginTop: 12, gap: 4,
+  },
+  coachLabel: { fontSize: 12, fontWeight: '800', color: theme.gold },
+  coachText: { fontSize: 12, color: theme.textSecondary, lineHeight: 18 },
+
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  actionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 12, paddingVertical: 12,
+    borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface,
+  },
+  actionText: { fontSize: 13, fontWeight: '700', color: theme.text },
+
+  ctaCard: { marginTop: 14, overflow: 'hidden' },
+  cta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    borderRadius: 16, borderWidth: 1, paddingVertical: 16,
+  },
+  ctaText: { fontSize: 15, fontWeight: '800' },
+  wbBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 14, borderWidth: 1, paddingVertical: 13, marginTop: 10,
+  },
+  wbText: { fontSize: 13, fontWeight: '800' },
 
   regen: {
     flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
