@@ -187,6 +187,14 @@ export default function WODSuggestionsScreen() {
     if (user?.id) recordCompleted(user.id, params.sport, s, rpe);
   };
 
+  /** Fermeture SANS enregistrement (retour arrière, séance non faite) : ne pollue ni
+   *  l'historique `completed`, ni la calibration, ni l'event Mixpanel. Désarme aussi
+   *  `pendingRpe`, sinon la modale se réarmait à chaque re-focus de l'écran. */
+  const dismissRpe = () => {
+    setRpeModal(false);
+    setPendingRpe(null);
+  };
+
   /** Texte partagé / sauvegardé : mêmes lignes que la carte. */
   const wodText = (s: RankedSuggestion) =>
     movementLines(s, usePR, profile.prs ?? {}).join('\n');
@@ -492,10 +500,12 @@ export default function WODSuggestionsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* RPE post-séance : alimente la calibration du niveau (SPEC §6) */}
-      <Modal visible={rpeModal} transparent animationType="fade" onRequestClose={() => setRpeModal(false)}>
-        <View style={S.modalBg}>
-          <View style={S.modalSheet}>
+      {/* RPE post-séance : alimente la calibration du niveau (SPEC §6).
+          L'app ne SAIT PAS si la séance a réellement eu lieu (le timer ne renvoie pas de
+          signal de fin) → toute sortie sans réponse explicite ne doit RIEN enregistrer. */}
+      <Modal visible={rpeModal} transparent animationType="fade" onRequestClose={dismissRpe}>
+        <TouchableOpacity style={S.modalBg} activeOpacity={1} onPress={dismissRpe}>
+          <TouchableOpacity activeOpacity={1} style={S.modalSheet}>
             <Text style={S.modalTitle}>C'était comment ?</Text>
             <Text style={S.modalSub}>Un tap suffit — on ajuste tes prochaines séances.</Text>
             {RPE_OPTIONS.map((o) => (
@@ -503,8 +513,11 @@ export default function WODSuggestionsScreen() {
                 <Text style={S.reasonText}>{o.label}</Text>
               </TouchableOpacity>
             ))}
-          </View>
-        </View>
+            <TouchableOpacity style={S.rpeSkip} onPress={dismissRpe} activeOpacity={0.8}>
+              <Text style={S.rpeSkipText}>Je ne l'ai pas faite</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -621,4 +634,6 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8,
   },
   reasonText: { fontSize: 15, color: theme.text },
+  rpeSkip: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  rpeSkipText: { fontSize: 13, fontWeight: '600', color: theme.textMuted, textDecorationLine: 'underline' },
 }); }
