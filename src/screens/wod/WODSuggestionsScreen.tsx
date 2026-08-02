@@ -22,7 +22,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import GlassBackground from '../../components/glass/GlassBackground';
-import GlassCard from '../../components/glass/GlassCard';
 import { useAuth } from '../../context/AuthContext';
 import { trackEvent } from '../../lib/analytics';
 
@@ -297,7 +296,7 @@ export default function WODSuggestionsScreen() {
           )}
 
           {suggestions.length === 0 && (
-            <GlassCard style={S.card}>
+            <View style={[S.card, S.cardInner]}>
               <Text style={S.title}>Aucune séance ne passe tes filtres</Text>
               <Text style={S.moveLine}>
                 {profile.avoidZones.length > 0
@@ -307,7 +306,7 @@ export default function WODSuggestionsScreen() {
               <TouchableOpacity style={[S.cta, { backgroundColor: theme.accent }]} onPress={() => navigation.goBack()} activeOpacity={0.85}>
                 <Text style={[S.ctaText, { color: theme.background }]}>Modifier mes réglages</Text>
               </TouchableOpacity>
-            </GlassCard>
+            </View>
           )}
 
           <ScrollView
@@ -328,7 +327,7 @@ export default function WODSuggestionsScreen() {
             const accent = s.isChallenge ? theme.warning : theme.accent;
             return (
               <View key={s.signature} style={S.page}>
-              <GlassCard
+              <View
                 style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
                 <View style={S.cardInner}>
@@ -420,7 +419,7 @@ export default function WODSuggestionsScreen() {
                     <Text style={[S.wbText, { color: accent }]}>AJOUTER AU WHITEBOARD</Text>
                   </TouchableOpacity>
                 </View>
-              </GlassCard>
+              </View>
               </View>
             );
           })}
@@ -536,9 +535,12 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   // La carte s'adapte à son contenu : pas de vide entre le WOD et les boutons.
   // flex:1 obligatoire : GlassCard place son contenu dans une vue flex:1,
   // une carte à hauteur automatique s'écraserait.
-  // GlassCard applique `style` sur sa vue externe : padding/gap doivent vivre
-  // dans une vue interne, sinon les enfants sont collés et débordent de la carte.
-  card: { borderRadius: 16 },
+  // Vue simple (pas GlassCard) : sur iOS le wrapper BlurView en flex:1 écrase
+  // une carte à hauteur de contenu. Même rendu que la carte du générateur.
+  card: {
+    borderRadius: 16, backgroundColor: theme.card,
+    borderWidth: 1, borderColor: theme.border,
+  },
   cardInner: { padding: 16, gap: 12 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   method: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: theme.textSecondary },
