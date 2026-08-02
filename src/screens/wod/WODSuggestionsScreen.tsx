@@ -57,7 +57,11 @@ const RPE_OPTIONS = [
 type Rpe = (typeof RPE_OPTIONS)[number]['key'];
 
 type Sport = 'functional' | 'hybrid';
-type Params = { sport: Sport; cfParams?: CFParams; hyroxParams?: HyroxParams };
+type Params = {
+  sport: Sport; cfParams?: CFParams; hyroxParams?: HyroxParams;
+  /** état UI courant du générateur — prime sur la lecture Supabase (course write/read) */
+  goal?: UserWodProfile['goal']; avoidZones?: UserWodProfile['avoidZones'];
+};
 type Route = RouteProp<{ WODSuggestions: Params }, 'WODSuggestions'>;
 
 const SKIP_REASONS = [
@@ -138,7 +142,14 @@ export default function WODSuggestionsScreen() {
 
   useEffect(() => {
     (async () => {
-      const p = user?.id ? await loadWodProfile(user.id) : EMPTY_PROFILE;
+      const loaded = user?.id ? await loadWodProfile(user.id) : EMPTY_PROFILE;
+      // Les choix faits À L'INSTANT sur l'écran générateur (objectif, zones) arrivent en
+      // params : ils priment sur la lecture Supabase, qui peut être en retard d'un upsert.
+      const p: UserWodProfile = {
+        ...loaded,
+        goal: params.goal ?? loaded.goal,
+        avoidZones: params.avoidZones ?? loaded.avoidZones,
+      };
       setProfile(p);
       setUsePR(Object.keys(p.prs ?? {}).length > 0); // ON par défaut si des PR existent
       generate(p);
@@ -203,14 +214,18 @@ export default function WODSuggestionsScreen() {
     if (!user?.id) { Alert.alert('Connecte-toi', 'Il faut être connecté pour sauvegarder un WOD.'); return; }
     setSaving(s.signature);
     const wod = s.wod as CFWod;
+    // Une carte Hyrox n'a ni `level` ni `format` CF : on prend les vrais champs du
+    // HyroxWod (category, format Solo/Doubles/Relais) au lieu de forcer 'Solo'/'RX'
+    // — sinon une séance Doubles était historisée comme Solo RX (données fausses).
+    const hy = s.kind === 'hyrox' ? (s.wod as HyroxWod) : null;
     const { error } = await supabase.from('generated_wods').insert({
       user_id: user.id,
       sport: params.sport,
       wod_name: wod.title,
       wod_type: s.method,
       duration: wod.time_cap_min,
-      level: (wod as CFWod).level ?? 'RX',
-      format: 'Solo',
+      level: hy ? hy.category : wod.level ?? 'RX',
+      format: hy ? hy.format : 'Solo',
       movements: wodText(s),
       scoring: wod.score_type,
       coach_tip: wod.coach_notes.join('\n'),
