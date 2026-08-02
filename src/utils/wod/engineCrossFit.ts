@@ -206,6 +206,70 @@ function isAvailable(m: MoveDef, equipment: string[]): boolean {
 // restreindre au poids de corps — sinon seuls Run + gym au sol seraient tirés.
 const STANDARD_BOX = ['Barbell', 'Haltères', 'Kettlebell', 'Med Ball', 'Barre traction', 'Anneaux', 'Corde', 'Box', 'Erg'];
 
+// ── Familles de patterns de mouvement ─────────────────────────────────────────
+// Un WOD cohérent ne fait pas se suivre deux exercices « jumeaux » (Front Squat +
+// Goblet Squat, Push Press + Push Jerk, Burpees + Burpees Over Bar…). Chaque
+// mouvement appartient à une famille ; on ne tire JAMAIS deux mouvements de la
+// même famille dans un même WOD. Les familles cardio restent distinctes entre
+// machines (Row vs Ski = stimulus différent) mais uniques par machine.
+// Les mouvements composés portent PLUSIEURS familles : un Thruster est un squat ET une
+// poussée → il exclut à la fois Front Squat et Push Press. Non listé = famille propre.
+const PATTERN: Record<string, string[]> = {
+  // squat (dominante genoux)
+  frontSquat: ['squat'], backSquat: ['squat'], ohSquat: ['squat'], gobletSquat: ['squat'],
+  airSquat: ['squat'], pistol: ['squat'],
+  thruster: ['squat', 'press'], dbThruster: ['squat', 'press'], wallBall: ['squat', 'press'],
+  // hinge (chaîne postérieure)
+  deadlift: ['hinge'], dbDeadlift: ['hinge'], sdhp: ['hinge'], kbSwing: ['hinge'],
+  // clean (tirage + réception) — les variantes squat/jerk cumulent les familles
+  clean: ['clean'], kbClean: ['clean'],
+  squatClean: ['clean', 'squat'],
+  cleanJerk: ['clean', 'press'], dbCleanJerk: ['clean', 'press'],
+  squatCleanJerk: ['clean', 'squat', 'press'], cluster: ['clean', 'squat', 'press'],
+  // snatch
+  snatch: ['snatch'], dbSnatch: ['snatch'],
+  squatSnatch: ['snatch', 'squat'],
+  // poussée verticale (barre, haltères ou gym : même stimulus épaules)
+  pushPress: ['press'], pushJerk: ['press'], dbPushPress: ['press'],
+  hspu: ['press', 'push-h'],
+  devilsPress: ['burpee', 'press'],
+  // poussée horizontale
+  pushup: ['push-h'],
+  // Les mouvements aux anneaux portent l'UNION des familles de leur échelle de scaling :
+  // ringMuscleUp s'affiche « Ring Dips » en Scaled/RX, ringDip s'affiche « Ring Muscle-ups »
+  // en Elite → sans l'union, un WOD pouvait AFFICHER deux poussées identiques.
+  ringDip: ['push-h', 'pull'], ringMuscleUp: ['pull', 'push-h'],
+  // traction verticale
+  pullup: ['pull'], c2b: ['pull'], barMuscleUp: ['pull'], ropeClimb: ['pull'],
+  t2b: ['core-hang'],
+  // burpees & box
+  burpee: ['burpee'], burpeeOverBar: ['burpee'], burpeeOverBarFacing: ['burpee'],
+  boxJump: ['box'], boxJumpUp: ['box'], boxStepUp: ['box'],
+  // divers
+  situp: ['core'], hsWalk: ['handstand'], doubleUnder: ['jump-rope'],
+  row: ['erg-row'], bike: ['erg-bike'], echoBike: ['erg-bike'], ski: ['erg-ski'], run: ['run'],
+};
+const patternsOf = (m: MoveDef): string[] => PATTERN[m.key] ?? [m.key];
+
+/** Garde les mouvements dont AUCUNE famille n'est déjà prise, dans l'ordre du tirage. */
+function dedupePatterns(moves: MoveDef[], pool: MoveDef[], n: number, rng: RNG): MoveDef[] {
+  const used = new Set<string>();
+  const out: MoveDef[] = [];
+  const tryAdd = (m: MoveDef) => {
+    const ps = patternsOf(m);
+    if (ps.some((p) => used.has(p))) return;
+    ps.forEach((p) => used.add(p));
+    out.push(m);
+  };
+  for (const m of moves) { if (out.length === n) return out; tryAdd(m); }
+  // Complète depuis le pool avec des familles encore libres (ordre mélangé, déterministe).
+  for (const m of rng.shuffle(pool.filter((x) => !out.includes(x)))) {
+    if (out.length === n) return out;
+    tryAdd(m);
+  }
+  return out; // moins de n mouvements si le pool est trop contraint — assumé
+}
+
 function selectMoves(rng: RNG, params: CFParams, n: number, exclude?: (m: MoveDef) => boolean): MoveDef[] {
   const domains = INTENT_DOMAINS[params.intent];
   const bodyweightOnly = params.equipment.includes('Sans matériel');
@@ -220,9 +284,9 @@ function selectMoves(rng: RNG, params: CFParams, n: number, exclude?: (m: MoveDe
       .map((d) => rng.pick(pool.filter((m) => m.domain === d)))
       .filter(Boolean) as MoveDef[];
     const extra = rng.sample(pool.filter((m) => !byDomain.includes(m)), Math.max(0, n - byDomain.length));
-    return [...byDomain, ...extra].slice(0, n);
+    return dedupePatterns([...byDomain, ...extra], pool, n, rng);
   }
-  return rng.sample(pool, Math.min(n, pool.length));
+  return dedupePatterns(rng.sample(pool, pool.length), pool, Math.min(n, pool.length), rng);
 }
 
 function toMovement(level: Level, m: MoveDef, prescription: string, loadOverride?: string): Movement {
@@ -268,24 +332,163 @@ function repPrescription(rng: RNG, m: MoveDef, mult = 1): string {
 
 // En For Time on exclut les mouvements à 1 rep (ex. Handstand Hold/Walk) : difficile d'en juger « la rep ».
 const FORTIME_EXCLUDE = (m: MoveDef) => m.unit === 'reps' && m.base <= 1;
+// Les schémas de reps (ladders, pyramides…) exigent des mouvements comptés en reps (pas de cardio).
+const REPS_ONLY = (m: MoveDef) => m.unit !== 'reps' || m.base <= 1;
+
+/** Variantes For Time — inspirées des formats réels de programmation
+ *  (RFT, ladders montantes/descendantes, pyramide, reps croisées, chipper,
+ *  buy-in/cash-out, ERFT façon « Barbara »). Le tirage est gaté par la durée. */
+type FTVariant = 'rounds' | 'ladder' | 'ascLadder' | 'pyramid' | 'crossed' | 'chipper' | 'buyin' | 'erft';
+
+const BUYIN_OPTIONS = ['400 m Run', '500 m Row', '50 Double-unders', '30 cal Row'];
 
 function buildForTime(rng: RNG, params: CFParams): Block {
+  const d = params.duration_min;
+  // Pool de variantes selon la durée : un chipper de 5 min ou un ERFT de 10 min n'ont pas de sens.
+  const pool: FTVariant[] = ['rounds', 'ladder'];
+  if (d >= 10) pool.push('ascLadder', 'crossed', 'pyramid');
+  if (d >= 15) pool.push('chipper', 'buyin');
+  if (d >= 20) pool.push('erft');
+  const variant = params.intent === 'Force' ? rng.pick(['rounds', 'ladder'] as FTVariant[]) : rng.pick(pool);
+
+  // ---- Chipper : une seule passe, 4-6 mouvements, gros volume par mouvement ----
+  if (variant === 'chipper') {
+    const n = d >= 25 ? rng.int(5, 6) : rng.int(4, 5);
+    const moves = selectMoves(rng, params, n, FORTIME_EXCLUDE);
+    const loads = sharedLoads(params.level, moves);
+    const volMult = d >= 25 ? 3.5 : 2.5; // volume d'une passe unique ≈ 2.5-3.5× la base
+    const movements = moves.map((m) =>
+      toMovement(params.level, m, m.unit === 'cardio' && m.cardio ? m.cardio(rng) : `${roundTo(m.base * volMult, 5) || 5} reps`, loads[m.key]));
+    return { label: null, structure: 'FOR TIME', scheme: 'Chipper — une seule passe, dans l’ordre', movements, rest: null };
+  }
+
+  // ---- Buy-in / Cash-out : cardio d'entrée (et de sortie 1 fois sur 2) + rounds au milieu ----
+  if (variant === 'buyin') {
+    const buy = rng.pick(BUYIN_OPTIONS);
+    const withCashout = rng.float() < 0.5;
+    const rounds = rng.int(3, 4);
+    const moves = selectMoves(rng, params, rng.int(2, 3), FORTIME_EXCLUDE);
+    const loads = sharedLoads(params.level, moves);
+    const movements = moves.map((m) => toMovement(params.level, m, repPrescription(rng, m), loads[m.key]));
+    const scheme = withCashout
+      ? `Buy-in ${buy} → ${rounds} tours → Cash-out ${buy}`
+      : `Buy-in ${buy} → ${rounds} tours`;
+    return { label: null, structure: 'FOR TIME', scheme, movements, rest: null };
+  }
+
+  // ---- ERFT (« Barbara ») : chaque tour chronométré, repos imposé entre les tours ----
+  if (variant === 'erft') {
+    const rounds = rng.int(4, 5);
+    const moves = selectMoves(rng, params, rng.int(2, 3), FORTIME_EXCLUDE);
+    const loads = sharedLoads(params.level, moves);
+    const movements = moves.map((m) => toMovement(params.level, m, repPrescription(rng, m), loads[m.key]));
+    return {
+      label: null, structure: 'FOR TIME',
+      scheme: `${rounds} tours — chaque tour chronométré`,
+      movements, rest: '2 min de repos entre les tours (score = temps de travail cumulé)',
+    };
+  }
+
+  // ---- Variantes à schéma de reps : uniquement des mouvements comptés en reps ----
+  if (variant === 'ladder' || variant === 'ascLadder' || variant === 'pyramid' || variant === 'crossed') {
+    const moves = selectMoves(rng, params, 2, REPS_ONLY);
+    if (moves.length === 2 && moves.every((m) => m.unit === 'reps')) {
+      const loads = sharedLoads(params.level, moves);
+      if (variant === 'ascLadder') {
+        const top = d <= 10 ? 8 : 10;
+        const scheme = `Échelle montante 1-2-3…${top}`;
+        const movements = moves.map((m) => toMovement(params.level, m, `1 à ${top} reps (+1/tour)`, loads[m.key]));
+        return { label: null, structure: 'FOR TIME', scheme, movements, rest: null };
+      }
+      if (variant === 'pyramid') {
+        const ladder = d >= 15 ? rng.pick([[21, 15, 9, 15, 21], [5, 10, 15, 10, 5]]) : [5, 10, 15, 10, 5];
+        const movements = moves.map((m) => toMovement(params.level, m, `${ladder.join('-')} reps`, loads[m.key]));
+        return { label: null, structure: 'FOR TIME', scheme: `Pyramide ${ladder.join('-')}`, movements, rest: null };
+      }
+      if (variant === 'crossed') {
+        const down = [21, 15, 9]; const up = [9, 15, 21];
+        const movements = moves.map((m, i) =>
+          toMovement(params.level, m, `${(i === 0 ? down : up).join('-')} reps`, loads[m.key]));
+        return { label: null, structure: 'FOR TIME', scheme: 'Reps croisées 21-15-9 ↔ 9-15-21', movements, rest: null };
+      }
+      // ladder descendante — banque enrichie (les gros volumes exigent ≥15 min)
+      const bank: number[][] = [[21, 15, 9], [15, 12, 9], [21, 18, 15, 12, 9], [27, 21, 15, 9]];
+      if (d >= 15) bank.push([21, 18, 15, 12, 9, 6, 3], [10, 9, 8, 7, 6, 5, 4, 3, 2, 1], [50, 40, 30, 20, 10]);
+      const ladder = rng.pick(bank);
+      const movements = moves.map((m) => toMovement(params.level, m, `${ladder.join('-')} reps`, loads[m.key]));
+      return { label: null, structure: 'FOR TIME', scheme: `${ladder.join('-')} reps`, movements, rest: null };
+    }
+    // pas assez de mouvements « reps » disponibles → repli rounds
+  }
+
+  // ---- RFT classique : rounds désormais VARIABLES (avant : 5 en dur à 20 min) ----
   const moves = selectMoves(rng, params, params.intent === 'Force' ? 2 : rng.int(2, 3), FORTIME_EXCLUDE);
   const loads = sharedLoads(params.level, moves);
-  const repBased = moves.every((m) => m.unit === 'reps');
-  if (repBased && moves.length <= 3) {
-    const ladder = rng.pick([[21, 15, 9], [21, 18, 15, 12, 9], [15, 12, 9], [27, 21, 15, 9]]);
-    const movements = moves.map((m) => toMovement(params.level, m, `${ladder.join('-')} reps`, loads[m.key]));
-    return { label: null, structure: 'FOR TIME', scheme: `${ladder.join('-')} reps`, movements, rest: null };
-  }
-  const rounds = params.duration_min <= 10 ? 3 : params.duration_min <= 20 ? 5 : rng.int(5, 7);
+  const rounds = d <= 10 ? rng.int(3, 4) : d <= 20 ? rng.int(4, 6) : rng.int(5, 8);
   const movements = moves.map((m) => toMovement(params.level, m, repPrescription(rng, m), loads[m.key]));
   return { label: null, structure: 'FOR TIME', scheme: `${rounds} rounds for time`, movements, rest: null };
 }
 
+/** Variantes AMRAP : classique, reps montantes (façon 17.5), intervalles (« The Chief »),
+ *  buy-in cardio, stations façon « Fight Gone Bad ». */
+type AmrapVariant = 'classic' | 'ascending' | 'intervals' | 'buyin' | 'fgb';
+
 function buildAmrap(rng: RNG, params: CFParams): Block {
   const d = params.duration_min;
-  // 10 min -> 2 à 4 exos ; 15 min et + -> 3 à 5 exos.
+  const pool: AmrapVariant[] = ['classic', 'classic']; // le classique reste le plus probable
+  if (d >= 10) pool.push('ascending', 'buyin');
+  if (d >= 15) pool.push('intervals', 'fgb');
+  const variant = rng.pick(pool);
+
+  // ---- Intervalles (« The Chief ») : n cycles de 4 min AMRAP / 1 min repos, on repart du début ----
+  if (variant === 'intervals') {
+    const cycles = Math.max(3, Math.round(d / 5));
+    const moves = selectMoves(rng, params, 3);
+    const loads = sharedLoads(params.level, moves);
+    const movements = moves.map((m) => toMovement(params.level, m, repPrescription(rng, m, 0.5), loads[m.key]));
+    return {
+      label: null, structure: 'AMRAP',
+      scheme: `${cycles} × (4 min AMRAP / 1 min repos) — repartir du début à chaque cycle`,
+      movements, rest: '1 min entre les cycles',
+    };
+  }
+
+  // ---- Stations façon Fight Gone Bad : 1 min par station, le chrono ne s'arrête pas ----
+  if (variant === 'fgb') {
+    const stations = rng.int(3, 5);
+    const tours = Math.max(2, Math.round(d / (stations + 1)));
+    const moves = selectMoves(rng, params, stations);
+    const loads = sharedLoads(params.level, moves);
+    const movements = moves.map((m) => toMovement(params.level, m, 'max reps / 1 min', loads[m.key]));
+    return {
+      label: null, structure: 'AMRAP',
+      scheme: `Stations — 1 min/station × ${tours} tours (score = total reps)`,
+      movements, rest: stations + 1 <= 5 ? '1 min de repos entre les tours' : null,
+    };
+  }
+
+  // ---- Reps montantes : départ bas, +3 reps par tour (façon Open 17.5 / ascending AMReps) ----
+  if (variant === 'ascending') {
+    const moves = selectMoves(rng, params, 2, REPS_ONLY);
+    if (moves.length === 2 && moves.every((m) => m.unit === 'reps')) {
+      const start = 3;
+      const loads = sharedLoads(params.level, moves);
+      const movements = moves.map((m) => toMovement(params.level, m, `${start}-${start + 3}-${start + 6}… (+3/tour)`, loads[m.key]));
+      return { label: null, structure: 'AMRAP', scheme: `${d} min AMRAP — reps montantes (+3 par tour)`, movements, rest: null };
+    }
+    // repli classique si pas 2 mouvements « reps »
+  }
+
+  // ---- Buy-in : cardio d'entrée UNE fois, puis AMRAP dans le temps restant ----
+  if (variant === 'buyin') {
+    const buy = rng.pick(BUYIN_OPTIONS);
+    const moves = selectMoves(rng, params, rng.int(2, 3));
+    const loads = sharedLoads(params.level, moves);
+    const movements = moves.map((m) => toMovement(params.level, m, repPrescription(rng, m, 0.8), loads[m.key]));
+    return { label: null, structure: 'AMRAP', scheme: `Buy-in ${buy}, puis AMRAP dans le temps restant (${d} min au total)`, movements, rest: null };
+  }
+
+  // ---- AMRAP classique ----
   const minN = d <= 10 ? 2 : 3;
   const maxN = d <= 10 ? 4 : 5;
   const moves = selectMoves(rng, params, rng.int(minN, maxN));
@@ -296,15 +499,100 @@ function buildAmrap(rng: RNG, params: CFParams): Block {
   return { label: null, structure: 'AMRAP', scheme: `${d} min AMRAP`, movements, rest: null };
 }
 
+/** Variantes EMOM : alterné (1 mouvement/min), séquence complète chaque minute (« Chelsea »),
+ *  E2MOM (gros bloc toutes les 2 min), Death by (+1 rep/min jusqu'à l'échec). */
+type EmomVariant = 'alternating' | 'chelsea' | 'e2mom' | 'deathby';
+
 function buildEmom(rng: RNG, params: CFParams): Block {
+  const d = params.duration_min;
+  const pool: EmomVariant[] = ['alternating', 'alternating', 'chelsea'];
+  if (d >= 10) pool.push('e2mom', 'deathby');
+  const variant = rng.pick(pool);
+
+  // ---- Death by : un seul mouvement, +1 rep par minute jusqu'à rater la minute ----
+  if (variant === 'deathby') {
+    const moves = selectMoves(rng, params, 1, REPS_ONLY);
+    if (moves.length === 1 && moves[0].unit === 'reps') {
+      const movements = [toMovement(params.level, moves[0], '1 rep min 1, 2 reps min 2… (+1/min)')];
+      return {
+        label: null, structure: 'EMOM',
+        scheme: `Death by — jusqu'à l'échec (cap ${d} min, score = dernière minute complétée)`,
+        movements, rest: 'reste de chaque minute',
+      };
+    }
+  }
+
+  // ---- « Chelsea » : la MÊME séquence complète au début de chaque minute ----
+  if (variant === 'chelsea') {
+    const moves = selectMoves(rng, params, rng.int(2, 3));
+    const loads = sharedLoads(params.level, moves);
+    const movements = moves.map((m) => toMovement(params.level, m, repPrescription(rng, m, 0.4), loads[m.key]));
+    return {
+      label: null, structure: 'EMOM',
+      scheme: `EMOM ${d} — la séquence complète chaque minute`,
+      movements, rest: 'reste de chaque minute',
+    };
+  }
+
+  // ---- E2MOM : un bloc plus gros toutes les 2 minutes, vrai repos ----
+  if (variant === 'e2mom') {
+    const moves = selectMoves(rng, params, 2);
+    const loads = sharedLoads(params.level, moves);
+    const movements = moves.map((m, i) =>
+      toMovement(params.level, m, `Bloc ${i + 1}: ${repPrescription(rng, m, 1)}`, loads[m.key]));
+    return {
+      label: null, structure: 'EMOM',
+      scheme: `E2MOM ${d} — un bloc toutes les 2 min (alterné)`,
+      movements, rest: 'reste de chaque fenêtre de 2 min',
+    };
+  }
+
+  // ---- EMOM alterné classique ----
   const moves = selectMoves(rng, params, rng.int(2, 3));
   const loads = sharedLoads(params.level, moves);
   const movements = moves.map((m, i) =>
     toMovement(params.level, m, `Min ${i + 1}: ${repPrescription(rng, m, 0.7)}`, loads[m.key]));
-  return { label: null, structure: 'EMOM', scheme: `EMOM ${params.duration_min} (alterné)`, movements, rest: 'reste de chaque minute' };
+  return { label: null, structure: 'EMOM', scheme: `EMOM ${d} (alterné)`, movements, rest: 'reste de chaque minute' };
 }
 
+/** Variantes Tabata : classique (1-2 mouvements), « Something Else » (4 mouvements,
+ *  8 rounds chacun, enchaînés), alterné (2 mouvements en alternance de rounds). */
+type TabataVariant = 'classic' | 'somethingElse' | 'alternating';
+
 function buildTabata(rng: RNG, params: CFParams): Block {
+  const pool: TabataVariant[] = ['classic', 'somethingElse', 'alternating'];
+  const variant = rng.pick(pool);
+
+  // ---- Tabata Something Else : 4 mouvements × 8 rounds chacun, enchaînés ----
+  if (variant === 'somethingElse') {
+    const moves = selectMoves(rng, params, 4);
+    if (moves.length === 4) {
+      const loads = sharedLoads(params.level, moves);
+      const movements = moves.map((m) => toMovement(params.level, m, '8 × (20s on / 10s off)', loads[m.key]));
+      return {
+        label: null, structure: 'TABATA',
+        scheme: 'Tabata Something Else — 4 mouvements × 8 rounds (score = total reps)',
+        movements, rest: '10s entre intervalles, enchaîner les mouvements',
+      };
+    }
+  }
+
+  // ---- Tabata alterné : 2 mouvements, un round sur deux ----
+  if (variant === 'alternating') {
+    const moves = selectMoves(rng, params, 2);
+    if (moves.length === 2) {
+      const loads = sharedLoads(params.level, moves);
+      const movements = moves.map((m, i) =>
+        toMovement(params.level, m, `rounds ${i === 0 ? 'impairs' : 'pairs'} — max reps / 20s`, loads[m.key]));
+      return {
+        label: null, structure: 'TABATA',
+        scheme: '8 rounds — 20s on / 10s off, mouvements alternés',
+        movements, rest: '10s entre intervalles',
+      };
+    }
+  }
+
+  // ---- Tabata classique ----
   const moves = selectMoves(rng, params, rng.int(1, 2));
   const loads = sharedLoads(params.level, moves);
   const movements = moves.map((m) => toMovement(params.level, m, 'max reps / 20s', loads[m.key]));
@@ -616,7 +904,10 @@ export function cfSignature(wod: CFWod): string {
   const moves = [...(wod.strength ? wod.strength.movements : []), ...wod.blocks.flatMap((b) => b.movements)]
     .map((m) => m.name.toLowerCase())
     .filter((n) => !GENERIC.has(n));
-  return `${wod.method.toLowerCase()}::${[...new Set(moves)].sort().join('|')}`;
+  // La forme du schéma fait partie de l'identité du WOD : un chipper et un 21-15-9 avec les
+  // mêmes mouvements sont deux séances différentes (anti-répétition + dédoublonnage du ranker).
+  const scheme = (wod.blocks[0]?.scheme ?? '').toLowerCase();
+  return `${wod.method.toLowerCase()}::${scheme}::${[...new Set(moves)].sort().join('|')}`;
 }
 
 export function generateFreshCF(params: CFParams, recentSignatures: string[], maxTries = 5): CFWod {
