@@ -331,7 +331,6 @@ export default function WODSuggestionsScreen() {
               <GlassCard
                 style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
-                <View style={S.cardBody}>
                 <View style={S.cardTop}>
                   <View style={S.badgeRow}>
                     <View style={S.badge}>
@@ -395,20 +394,17 @@ export default function WODSuggestionsScreen() {
                     <Text style={S.actionText}>Partager</Text>
                   </TouchableOpacity>
                 </View>
-                </View>
 
-                <GlassCard radius={16} variant={s.isChallenge ? 'default' : 'emerald'} style={S.ctaCard}>
-                  <TouchableOpacity
-                    style={[S.cta, { borderColor: accent, backgroundColor: `${accent}1F` }]}
-                    onPress={() => setCameraFor({ s, rank: i + 1 })}
-                    activeOpacity={0.85}
-                  >
-                    <Zap size={16} color={accent} />
-                    <Text style={[S.ctaText, { color: theme.text }]}>
-                      {s.isChallenge ? 'Je relève le défi' : 'Lancer le WOD'}
-                    </Text>
-                  </TouchableOpacity>
-                </GlassCard>
+                <TouchableOpacity
+                  style={[S.cta, { borderColor: accent, backgroundColor: `${accent}22` }]}
+                  onPress={() => setCameraFor({ s, rank: i + 1 })}
+                  activeOpacity={0.85}
+                >
+                  <Zap size={17} color={accent} />
+                  <Text style={[S.ctaText, { color: theme.text }]}>
+                    {s.isChallenge ? 'Je relève le défi' : 'Lancer le WOD'}
+                  </Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[S.wbBtn, { borderColor: accent }]}
@@ -518,8 +514,8 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   counter: { fontSize: 13, fontWeight: '800', color: theme.text },
 
   pager: { flex: 1 },
-  page: { width: PAGE_W },
-  cardBody: { flex: 1 },
+  page: { width: PAGE_W, justifyContent: 'flex-start' },
+
   dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 14 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.border },
 
@@ -531,7 +527,8 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   prToggleTitle: { fontSize: 13, fontWeight: '700', color: theme.text },
   prToggleSub: { fontSize: 11, color: theme.textSecondary, marginTop: 1 },
 
-  card: { flex: 1, padding: 20, borderRadius: 20 },
+  // La carte s'adapte à son contenu : pas de vide entre le WOD et les boutons.
+  card: { padding: 20, borderRadius: 20, gap: 12 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   method: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: theme.textSecondary },
   matchBadge: {
@@ -539,7 +536,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
   },
   matchText: { fontSize: 10, fontWeight: '800' },
-  title: { fontSize: 20, fontWeight: '800', color: theme.text, marginTop: 4, marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: '800', color: theme.text },
   schemeLine: { fontSize: 15, fontWeight: '700', color: theme.text, marginTop: 6 },
   moveLine: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
 
@@ -553,15 +550,14 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   badgeText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
 
-  // Le bloc séance occupe l'espace libre : la carte tient sans scroll.
   moveBox: {
-    flex: 1, justifyContent: 'center',
-    backgroundColor: theme.surface, borderRadius: 14, padding: 16, gap: 4, marginTop: 4,
+    backgroundColor: theme.surface, borderRadius: 14, padding: 16, gap: 4, minHeight: 120,
+    justifyContent: 'center',
   },
-  scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   scoringText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, flex: 1 },
 
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   actionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: 12, paddingVertical: 12,
@@ -569,10 +565,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   actionText: { fontSize: 13, fontWeight: '700', color: theme.text },
 
-  ctaCard: { marginTop: 14, overflow: 'hidden' },
   cta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    borderRadius: 16, borderWidth: 1, paddingVertical: 16,
+    borderRadius: 16, borderWidth: 1.5, paddingVertical: 16, marginTop: 8,
   },
   ctaText: { fontSize: 15, fontWeight: '800' },
   wbBtn: {
