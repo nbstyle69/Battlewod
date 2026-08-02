@@ -2,26 +2,32 @@ import { Mixpanel } from 'mixpanel-react-native';
 
 const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN || '';
 
-const mixpanel = new Mixpanel(MIXPANEL_TOKEN, true);
-mixpanel.init();
+// Sans token (dev/CI/Expo Go sans .env), le SDK lève « token is not a valid string »
+// au chargement du module et empêche l'app de démarrer : on désactive le tracking.
+const mixpanel = MIXPANEL_TOKEN ? new Mixpanel(MIXPANEL_TOKEN, true) : null;
+if (mixpanel) {
+  mixpanel.init();
+} else {
+  console.warn('[analytics] EXPO_PUBLIC_MIXPANEL_TOKEN absent — tracking désactivé.');
+}
 
 // ── Identity ────────────────────────────────────────────
 
 export function identifyUser(userId: string, props?: Record<string, any>) {
-  mixpanel.identify(userId);
+  mixpanel?.identify(userId);
   if (props) {
-    mixpanel.getPeople().set(props);
+    mixpanel?.getPeople().set(props);
   }
 }
 
 export function resetUser() {
-  mixpanel.reset();
+  mixpanel?.reset();
 }
 
 // ── Events ──────────────────────────────────────────────
 
 export function trackEvent(name: string, props?: Record<string, any>) {
-  mixpanel.track(name, props);
+  mixpanel?.track(name, props);
 }
 
 // ── Predefined events ───────────────────────────────────
