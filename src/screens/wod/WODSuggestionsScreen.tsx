@@ -57,7 +57,11 @@ const RPE_OPTIONS = [
 type Rpe = (typeof RPE_OPTIONS)[number]['key'];
 
 type Sport = 'functional' | 'hybrid';
-type Params = { sport: Sport; cfParams?: CFParams; hyroxParams?: HyroxParams };
+type Params = {
+  sport: Sport; cfParams?: CFParams; hyroxParams?: HyroxParams;
+  /** état UI courant du générateur — prime sur la lecture Supabase (course write/read) */
+  goal?: UserWodProfile['goal']; avoidZones?: UserWodProfile['avoidZones'];
+};
 type Route = RouteProp<{ WODSuggestions: Params }, 'WODSuggestions'>;
 
 const SKIP_REASONS = [
@@ -138,7 +142,14 @@ export default function WODSuggestionsScreen() {
 
   useEffect(() => {
     (async () => {
-      const p = user?.id ? await loadWodProfile(user.id) : EMPTY_PROFILE;
+      const loaded = user?.id ? await loadWodProfile(user.id) : EMPTY_PROFILE;
+      // Les choix faits À L'INSTANT sur l'écran générateur (objectif, zones) arrivent en
+      // params : ils priment sur la lecture Supabase, qui peut être en retard d'un upsert.
+      const p: UserWodProfile = {
+        ...loaded,
+        goal: params.goal ?? loaded.goal,
+        avoidZones: params.avoidZones ?? loaded.avoidZones,
+      };
       setProfile(p);
       setUsePR(Object.keys(p.prs ?? {}).length > 0); // ON par défaut si des PR existent
       generate(p);
@@ -187,6 +198,14 @@ export default function WODSuggestionsScreen() {
     if (user?.id) recordCompleted(user.id, params.sport, s, rpe);
   };
 
+  /** Fermeture SANS enregistrement (retour arrière, séance non faite) : ne pollue ni
+   *  l'historique `completed`, ni la calibration, ni l'event Mixpanel. Désarme aussi
+   *  `pendingRpe`, sinon la modale se réarmait à chaque re-focus de l'écran. */
+  const dismissRpe = () => {
+    setRpeModal(false);
+    setPendingRpe(null);
+  };
+
   /** Texte partagé / sauvegardé : mêmes lignes que la carte. */
   const wodText = (s: RankedSuggestion) =>
     movementLines(s, usePR, profile.prs ?? {}).join('\n');
@@ -195,14 +214,18 @@ export default function WODSuggestionsScreen() {
     if (!user?.id) { Alert.alert('Connecte-toi', 'Il faut être connecté pour sauvegarder un WOD.'); return; }
     setSaving(s.signature);
     const wod = s.wod as CFWod;
+    // Une carte Hyrox n'a ni `level` ni `format` CF : on prend les vrais champs du
+    // HyroxWod (category, format Solo/Doubles/Relais) au lieu de forcer 'Solo'/'RX'
+    // — sinon une séance Doubles était historisée comme Solo RX (données fausses).
+    const hy = s.kind === 'hyrox' ? (s.wod as HyroxWod) : null;
     const { error } = await supabase.from('generated_wods').insert({
       user_id: user.id,
       sport: params.sport,
       wod_name: wod.title,
       wod_type: s.method,
       duration: wod.time_cap_min,
-      level: (wod as CFWod).level ?? 'RX',
-      format: 'Solo',
+      level: hy ? hy.category : wod.level ?? 'RX',
+      format: hy ? hy.format : 'Solo',
       movements: wodText(s),
       scoring: wod.score_type,
       coach_tip: wod.coach_notes.join('\n'),
@@ -492,10 +515,12 @@ export default function WODSuggestionsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* RPE post-séance : alimente la calibration du niveau (SPEC §6) */}
-      <Modal visible={rpeModal} transparent animationType="fade" onRequestClose={() => setRpeModal(false)}>
-        <View style={S.modalBg}>
-          <View style={S.modalSheet}>
+      {/* RPE post-séance : alimente la calibration du niveau (SPEC §6).
+          L'app ne SAIT PAS si la séance a réellement eu lieu (le timer ne renvoie pas de
+          signal de fin) → toute sortie sans réponse explicite ne doit RIEN enregistrer. */}
+      <Modal visible={rpeModal} transparent animationType="fade" onRequestClose={dismissRpe}>
+        <TouchableOpacity style={S.modalBg} activeOpacity={1} onPress={dismissRpe}>
+          <TouchableOpacity activeOpacity={1} style={S.modalSheet}>
             <Text style={S.modalTitle}>C'était comment ?</Text>
             <Text style={S.modalSub}>Un tap suffit — on ajuste tes prochaines séances.</Text>
             {RPE_OPTIONS.map((o) => (
@@ -503,8 +528,11 @@ export default function WODSuggestionsScreen() {
                 <Text style={S.reasonText}>{o.label}</Text>
               </TouchableOpacity>
             ))}
-          </View>
-        </View>
+            <TouchableOpacity style={S.rpeSkip} onPress={dismissRpe} activeOpacity={0.8}>
+              <Text style={S.rpeSkipText}>Je ne l'ai pas faite</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -621,4 +649,6 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8,
   },
   reasonText: { fontSize: 15, color: theme.text },
+  rpeSkip: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  rpeSkipText: { fontSize: 13, fontWeight: '600', color: theme.textMuted, textDecorationLine: 'underline' },
 }); }

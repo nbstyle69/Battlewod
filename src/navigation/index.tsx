@@ -218,11 +218,16 @@ export type ExplorerStackParamList = {
   BoxPrograms: undefined;
 };
 
-/** Générateur personnalisé : paramètres passés au ranker (3 suggestions). */
+/** Générateur personnalisé : paramètres passés au ranker (3 suggestions).
+ *  goal/avoidZones : valeurs COURANTES de l'UI, passées en direct pour que la
+ *  génération ne dépende pas du timing des écritures Supabase (sinon un objectif
+ *  ou une zone tout juste choisis pouvaient être ignorés — course write/read). */
 export type WODSuggestionsParams = {
   sport: 'functional' | 'hybrid';
   cfParams?: CFParams;
   hyroxParams?: HyroxParams;
+  goal?: 'balanced' | 'progress' | 'race';
+  avoidZones?: import('../utils/wod/movementZones').BodyZone[];
 };
 
 export type TimerType = 'for-time' | 'amrap' | 'emom' | 'tabata' | 'ywyr' | 'splits' | 'libre';

@@ -195,9 +195,12 @@ async function updateCalibration(userId: string, rpe: 'easy' | 'perfect' | 'hard
     .eq('action', 'completed').order('created_at', { ascending: false }).limit(3);
   const rpes = (last ?? []).map((r) => r.rpe);
 
+  // Garde de longueur : `.every()` renvoie true sur une liste trop courte (aucun
+  // contre-exemple), donc sans ce garde UNE seule séance « facile » suffisait à
+  // déclencher +0.05 au lieu des 3 consécutives exigées par la SPEC §5.
   let delta = 0;
-  if (easySignal && rpes.slice(0, 3).every((r) => r === 'easy')) delta = +CALIB_STEP;
-  if (rpe === 'hard' && rpes.slice(0, 2).every((r) => r === 'hard')) delta = -CALIB_STEP;
+  if (easySignal && rpes.length >= 3 && rpes.slice(0, 3).every((r) => r === 'easy')) delta = +CALIB_STEP;
+  if (rpe === 'hard' && rpes.length >= 2 && rpes.slice(0, 2).every((r) => r === 'hard')) delta = -CALIB_STEP;
   if (delta === 0) return;
 
   const { data: s } = await supabase

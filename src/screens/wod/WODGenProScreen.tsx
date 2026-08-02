@@ -170,15 +170,18 @@ export default function WODGenProScreen() {
   }
 
   function generate() {
+    // goal/avoidZones passés EN DIRECT (état UI) : la génération n'attend pas que les
+    // upserts Supabase (chooseGoal/confirmZone) soient visibles en lecture — sinon un
+    // choix fait juste avant « Générer » pouvait être ignoré (course write/read).
     if (sport === 'functional') {
       const cfParams: CFParams = { level, duration_min: duration, intent, method, format: 'Solo', equipment };
-      navigation.navigate('WODSuggestions', { sport, cfParams });
+      navigation.navigate('WODSuggestions', { sport, cfParams, goal, avoidZones });
     } else {
       const hyroxParams: HyroxParams = {
         category, duration_min: hyDuration, session_type: session,
         format: hyFormat, training_type: training, equipment: hyEquipment, vest: 'off',
       };
-      navigation.navigate('WODSuggestions', { sport, hyroxParams });
+      navigation.navigate('WODSuggestions', { sport, hyroxParams, goal, avoidZones });
     }
   }
 
