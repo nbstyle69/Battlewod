@@ -331,7 +331,7 @@ export default function WODSuggestionsScreen() {
               <GlassCard
                 style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.cardBody}>
+                <View style={S.cardBody}>
                 <View style={S.cardTop}>
                   <View style={S.badgeRow}>
                     <View style={S.badge}>
@@ -366,15 +366,6 @@ export default function WODSuggestionsScreen() {
                   </Text>
                 </View>
 
-                {(s.wod as CFWod).coach_notes.length > 0 && (
-                  <View style={S.coachBox}>
-                    <Text style={S.coachLabel}>💡 Coach</Text>
-                    {(s.wod as CFWod).coach_notes.map((n, j) => (
-                      <Text key={j} style={S.coachText}>{n}</Text>
-                    ))}
-                  </View>
-                )}
-
                 {/* Le « pourquoi » n'apparaît que s'il apporte une info personnelle (sinon vide). */}
                 {s.why !== '' && (
                   <View style={[S.whyBox, s.isChallenge && { backgroundColor: `${theme.warning}14` }]}>
@@ -404,7 +395,7 @@ export default function WODSuggestionsScreen() {
                     <Text style={S.actionText}>Partager</Text>
                   </TouchableOpacity>
                 </View>
-                </ScrollView>
+                </View>
 
                 <GlassCard radius={16} variant={s.isChallenge ? 'default' : 'emerald'} style={S.ctaCard}>
                   <TouchableOpacity
@@ -528,7 +519,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
 
   pager: { flex: 1 },
   page: { width: PAGE_W },
-  cardBody: { paddingBottom: 8 },
+  cardBody: { flex: 1 },
   dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 14 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.border },
 
@@ -549,8 +540,8 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   matchText: { fontSize: 10, fontWeight: '800' },
   title: { fontSize: 20, fontWeight: '800', color: theme.text, marginTop: 4, marginBottom: 8 },
-  schemeLine: { fontSize: 13, fontWeight: '600', color: theme.text, marginTop: 4 },
-  moveLine: { fontSize: 13, color: theme.textSecondary },
+  schemeLine: { fontSize: 15, fontWeight: '700', color: theme.text, marginTop: 6 },
+  moveLine: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
 
   whyBox: { backgroundColor: `${theme.accent}1F`, borderRadius: 12, padding: 12, marginTop: 16 },
   whyText: { fontSize: 11, color: theme.accentDark, lineHeight: 16 },
@@ -562,17 +553,13 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   badgeText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
 
+  // Le bloc séance occupe l'espace libre : la carte tient sans scroll.
   moveBox: {
-    backgroundColor: theme.surface, borderRadius: 14, padding: 14, gap: 2, marginTop: 4,
+    flex: 1, justifyContent: 'center',
+    backgroundColor: theme.surface, borderRadius: 14, padding: 16, gap: 4, marginTop: 4,
   },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   scoringText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, flex: 1 },
-
-  coachBox: {
-    backgroundColor: `${theme.gold}14`, borderRadius: 14, padding: 14, marginTop: 12, gap: 4,
-  },
-  coachLabel: { fontSize: 12, fontWeight: '800', color: theme.gold },
-  coachText: { fontSize: 12, color: theme.textSecondary, lineHeight: 18 },
 
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   actionBtn: {
