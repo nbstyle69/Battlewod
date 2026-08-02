@@ -82,6 +82,20 @@ function movementNamesOf(kind: 'cf' | 'hyrox', wod: CFWod | HyroxWod): string[] 
   return [...new Set(blocks.flatMap((b) => b.movements.map((m) => norm(m.name))))];
 }
 
+/** Empreinte structurelle d'un candidat, utilisée pour dédoublonner le tirage.
+ *  La signature moteur reste la référence anti-répétition (feedback), mais elle est
+ *  trop grossière pour certains formats (Hyrox Race Simulation : 1 signature pour
+ *  20 séances pourtant différentes) et écraserait 2 des 3 cartes. */
+function fingerprintOf(kind: 'cf' | 'hyrox', wod: CFWod | HyroxWod): string {
+  const blocks =
+    kind === 'cf'
+      ? [...((wod as CFWod).strength ? [(wod as CFWod).strength!] : []), ...(wod as CFWod).blocks]
+      : (wod as HyroxWod).blocks;
+  return blocks
+    .map((b) => `${b.label ?? ''}|${b.scheme}|${b.movements.map((m) => `${m.name}~${m.prescription ?? ''}~${m.load ?? ''}`).join(',')}`)
+    .join('#');
+}
+
 // ============================ Scoring ============================
 
 interface ScoreDetail { score: number; reasons: string[]; eliminated: boolean }
@@ -199,7 +213,7 @@ function pickTop(cands: RankedSuggestion[], profile: UserWodProfile): RankedSugg
   const pickNext = (filter?: (c: RankedSuggestion) => boolean) => {
     const found = valid.find(
       (c) => !picked.includes(c) &&
-             !picked.some((p) => p.signature === c.signature) &&
+             !picked.some((p) => fingerprintOf(p.kind, p.wod) === fingerprintOf(c.kind, c.wod)) &&
              (!filter || filter(c)),
     );
     if (found) picked.push(found);
@@ -240,14 +254,20 @@ function rank<K extends 'cf' | 'hyrox'>(
   profile: UserWodProfile,
   seeds?: number[],
 ): RankedSuggestion[] {
-  const useSeeds = seeds ?? Array.from({ length: WEIGHTS.N_CANDIDATES }, () => randomSeed());
+  const baseSeeds = seeds ?? Array.from({ length: WEIGHTS.N_CANDIDATES }, () => randomSeed());
+  // Les zones à ménager peuvent éliminer tout un tirage : on élargit alors le pool avec
+  // des seeds dérivés (déterministes) plutôt que de rendre un écran vide.
+  const extraSeeds = profile.avoidZones.length > 0
+    ? baseSeeds.flatMap((s) => [s * 3 + 11, s * 7 + 23, s * 13 + 41])
+    : [];
   const seen = new Set<string>();
   const cands: RankedSuggestion[] = [];
-  for (const seed of useSeeds) {
+  for (const seed of [...baseSeeds, ...extraSeeds]) {
     const wod = gen(seed);
     const signature = sig(wod);
-    if (seen.has(signature)) continue; // dédoublonne le tirage
-    seen.add(signature);
+    const fingerprint = fingerprintOf(kind, wod);
+    if (seen.has(fingerprint)) continue; // dédoublonne le tirage
+    seen.add(fingerprint);
     const names = movementNamesOf(kind, wod);
     const d = scoreCandidate(kind, wod, names, signature, profile);
     const c: RankedSuggestion = {

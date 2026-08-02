@@ -221,6 +221,20 @@ export default function WODSuggestionsScreen() {
             </View>
           )}
 
+          {suggestions.length === 0 && (
+            <GlassCard style={S.card}>
+              <Text style={S.title}>Aucune séance ne passe tes filtres</Text>
+              <Text style={S.moveLine}>
+                {profile.avoidZones.length > 0
+                  ? 'Tes zones à ménager excluent tous les mouvements disponibles avec ce matériel. Retire une zone ou élargis le matériel, puis relance.'
+                  : 'Change la durée, la méthode ou le matériel, puis relance la génération.'}
+              </Text>
+              <TouchableOpacity style={[S.cta, { backgroundColor: theme.accent }]} onPress={() => navigation.goBack()} activeOpacity={0.85}>
+                <Text style={[S.ctaText, { color: theme.background }]}>Modifier mes réglages</Text>
+              </TouchableOpacity>
+            </GlassCard>
+          )}
+
           {suggestions.map((s, i) => {
             const isFirst = i === 0;
             const accent = s.isChallenge ? theme.warning : theme.accent;
