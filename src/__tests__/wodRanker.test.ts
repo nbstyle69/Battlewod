@@ -87,7 +87,9 @@ describe('ranker', () => {
     // Profil neutre : aucune raison personnelle → pas de phrase générique répétée.
     expect(a.every((x) => x.why === '')).toBe(true);
 
-    const withSignal: UserWodProfile = { ...EMPTY_PROFILE, prefs: { thruster: 0.8, burpee: 0.8 } };
+    // Préférence sur un mouvement RÉELLEMENT tiré (robuste aux évolutions du moteur :
+    // une pref en dur sur 'thruster' dépendait du hasard des seeds).
+    const withSignal: UserWodProfile = { ...EMPTY_PROFILE, prefs: { [target]: 0.8 } };
     const cards = rankCF(params, withSignal, seeds);
     expect(cards.some((x) => x.why.length > 10)).toBe(true);
   });
@@ -101,7 +103,7 @@ describe('ranker', () => {
 
   it('ne marque « personalized » que si un signal personnel a joué', () => {
     expect(a.every((x) => x.personalized === false || x.isChallenge)).toBe(true);
-    const withSignal: UserWodProfile = { ...EMPTY_PROFILE, prefs: { thruster: 0.8 } };
+    const withSignal: UserWodProfile = { ...EMPTY_PROFILE, prefs: { [target]: 0.8 } };
     expect(rankCF(params, withSignal, seeds).some((x) => x.personalized)).toBe(true);
   });
 });
