@@ -25,6 +25,7 @@ import { Program } from '../../types';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { prKey, normalizePrRecords, PrCategorySlug } from './prStorage';
+import GymDeclarationSection from '../../components/wod/GymDeclarationSection';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
@@ -722,6 +723,7 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            {!searching && <GymDeclarationSection userId={user?.id} />}
             {searching && filtered.length === 0 && (
               <Text style={S.prNoResults}>{t('profile.pr.noResults', { query: prSearch.trim() })}</Text>
             )}

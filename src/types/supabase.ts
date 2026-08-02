@@ -6364,6 +6364,135 @@ export type Database = {
           },
         ]
       }
+      user_generation_settings: {
+        Row: {
+          avoid_zones: Json
+          goal: string
+          gym_declaration: Json
+          last_params: Json | null
+          level_adjust: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avoid_zones?: Json
+          goal?: string
+          gym_declaration?: Json
+          last_params?: Json | null
+          level_adjust?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avoid_zones?: Json
+          goal?: string
+          gym_declaration?: Json
+          last_params?: Json | null
+          level_adjust?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_movement_prefs: {
+        Row: {
+          movement: string
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          movement: string
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          movement?: string
+          score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_races: {
+        Row: {
+          category: string
+          created_at: string
+          format: string
+          id: string
+          name: string
+          race_date: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          format?: string
+          id?: string
+          name: string
+          race_date: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          format?: string
+          id?: string
+          name?: string
+          race_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_wod_feedback: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          is_challenge: boolean
+          movements: string[]
+          params: Json
+          rank: number | null
+          reason: string | null
+          rpe: string | null
+          seed: number
+          signature: string
+          sport: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          is_challenge?: boolean
+          movements?: string[]
+          params?: Json
+          rank?: number | null
+          reason?: string | null
+          rpe?: string | null
+          seed: number
+          signature: string
+          sport: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          is_challenge?: boolean
+          movements?: string[]
+          params?: Json
+          rank?: number | null
+          reason?: string | null
+          rpe?: string | null
+          seed?: number
+          signature?: string
+          sport?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_movement_stats: {
         Row: {
           best_weight: number | null
