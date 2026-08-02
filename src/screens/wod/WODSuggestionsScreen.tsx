@@ -12,7 +12,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Switch,
-  Dimensions, NativeScrollEvent, NativeSyntheticEvent, Share, Alert,
+  Dimensions, NativeScrollEvent, NativeSyntheticEvent, Share, Alert, Platform,
 } from 'react-native';
 import {
   ChevronLeft, RefreshCw, Zap, Trophy, Camera, CameraOff, Bookmark, Share2, BookOpen, Clock,
@@ -43,6 +43,7 @@ const CF_METHOD_TO_WOD_TYPE: Record<string, BoxWODType> = {
   'STRENGTH': 'strength',
 };
 const TIMER_COUNTDOWN = 10;
+const TAB_BAR_H = Platform.OS === 'ios' ? 60 : 40;
 
 const SCREEN_W = Dimensions.get('window').width;
 const H_PADDING = 20;
@@ -437,7 +438,9 @@ export default function WODSuggestionsScreen() {
           )}
 
           <TouchableOpacity
-            style={[S.regen, { marginBottom: insets.bottom + 16 }]}
+            // La barre d'onglets flotte au-dessus de l'écran (84 px iOS) : sans cette marge
+            // le bouton passe dessous et n'est visible qu'en scrollant.
+            style={[S.regen, { marginBottom: TAB_BAR_H + insets.bottom + 16 }]}
             onPress={() => setReasonModal(true)}
             activeOpacity={0.85}
           >
