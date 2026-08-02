@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Share, Alert,
 } from 'react-native';
-import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings, Building2, CreditCard, BookOpen, Globe2 } from 'lucide-react-native';
+import { Users, ClipboardList, Trophy, Copy, LogOut, BarChart3, FileText, Bell, Award, Newspaper, Settings, Building2, CreditCard, BookOpen, Globe2, Store } from 'lucide-react-native';
 import TrialBanner from '../../components/TrialBanner';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
@@ -256,6 +256,7 @@ export default function BODashboardScreen({ navigation }: any) {
               { label: t('bo.dashboard.qaTournaments'),   icon: Trophy,        onPress: () => navigation.navigate('BOTournament') },
               { label: t('bo.dashboard.qaInterBox'),      icon: Globe2,        onPress: () => navigation.navigate('BOInterCompetition') },
               { label: t('bo.dashboard.qaPrograms'),      icon: BookOpen,      onPress: () => navigation.navigate('BOPrograms') },
+              { label: t('bo.dashboard.qaProgramming'),   icon: Store,         onPress: () => navigation.navigate('BOProgramming') },
             ].map(({ label, icon: Icon, onPress }) => (
               <TouchableOpacity key={label} style={S.quickBtn} onPress={onPress} activeOpacity={0.8}>
                 <Icon color={theme.accent} size={18} />

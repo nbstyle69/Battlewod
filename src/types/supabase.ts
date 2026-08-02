@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
   public: {
     Tables: {
       app_changelog: {
@@ -42,6 +47,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "app_changelog_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       app_config: {
@@ -58,6 +70,72 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      appointment_bookings: {
+        Row: {
+          box_id: string
+          created_at: string
+          followup_id: string | null
+          id: string
+          member_id: string
+          slot_id: string
+          status: string
+        }
+        Insert: {
+          box_id: string
+          created_at?: string
+          followup_id?: string | null
+          id?: string
+          member_id: string
+          slot_id: string
+          status?: string
+        }
+        Update: {
+          box_id?: string
+          created_at?: string
+          followup_id?: string | null
+          id?: string
+          member_id?: string
+          slot_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_bookings_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_bookings_followup_id_fkey"
+            columns: ["followup_id"]
+            isOneToOne: false
+            referencedRelation: "session_followups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_bookings_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_bookings_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_bookings_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "box_appointment_slots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       athlete_badges: {
         Row: {
@@ -84,6 +162,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_badges_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -121,6 +206,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "athlete_streaks_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: true
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       badges_catalog: {
@@ -149,6 +241,64 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      box_appointment_slots: {
+        Row: {
+          box_id: string
+          capacity: number
+          coach: string | null
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          id: string
+          notes: string | null
+          starts_at: string
+        }
+        Insert: {
+          box_id: string
+          capacity?: number
+          coach?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          id?: string
+          notes?: string | null
+          starts_at: string
+        }
+        Update: {
+          box_id?: string
+          capacity?: number
+          coach?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          id?: string
+          notes?: string | null
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_appointment_slots_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_appointment_slots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_appointment_slots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       box_article_comments: {
         Row: {
@@ -187,6 +337,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "box_article_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       box_article_likes: {
@@ -218,6 +375,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_article_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -256,6 +420,13 @@ export type Database = {
             columns: ["author_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_articles_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -310,6 +481,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "box_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       box_elo: {
@@ -350,6 +528,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_elo_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -404,6 +589,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "box_elo_history_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "box_elo_history_wod_id_fkey"
             columns: ["wod_id"]
             isOneToOne: false
@@ -416,46 +608,61 @@ export type Database = {
         Row: {
           amount_cents: number | null
           box_id: string | null
+          commitment_end_date: string | null
           id: string
           joined_at: string | null
           member_id: string | null
+          pause_resumes_at: string | null
+          pause_started_at: string | null
           plan_id: string | null
           platform_fee_cents: number | null
           role: string
           status: string | null
           stripe_checkout_session_id: string | null
           stripe_subscription_id: string | null
+          subscription_cancel_at_period_end: boolean
           subscription_current_period_end: string | null
+          subscription_paused: boolean
           subscription_status: string | null
         }
         Insert: {
           amount_cents?: number | null
           box_id?: string | null
+          commitment_end_date?: string | null
           id?: string
           joined_at?: string | null
           member_id?: string | null
+          pause_resumes_at?: string | null
+          pause_started_at?: string | null
           plan_id?: string | null
           platform_fee_cents?: number | null
           role?: string
           status?: string | null
           stripe_checkout_session_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_cancel_at_period_end?: boolean
           subscription_current_period_end?: string | null
+          subscription_paused?: boolean
           subscription_status?: string | null
         }
         Update: {
           amount_cents?: number | null
           box_id?: string | null
+          commitment_end_date?: string | null
           id?: string
           joined_at?: string | null
           member_id?: string | null
+          pause_resumes_at?: string | null
+          pause_started_at?: string | null
           plan_id?: string | null
           platform_fee_cents?: number | null
           role?: string
           status?: string | null
           stripe_checkout_session_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_cancel_at_period_end?: boolean
           subscription_current_period_end?: string | null
+          subscription_paused?: boolean
           subscription_status?: string | null
         }
         Relationships: [
@@ -471,6 +678,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_members_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -580,6 +794,213 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "box_notifications_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      box_programming: {
+        Row: {
+          billing: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          days_per_week: number | null
+          description: string | null
+          discipline: string | null
+          id: string
+          is_published: boolean
+          level: string | null
+          price_cents: number
+          publisher_box_id: string
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          title: string
+          updated_at: string
+          weeks_count: number
+        }
+        Insert: {
+          billing?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          days_per_week?: number | null
+          description?: string | null
+          discipline?: string | null
+          id?: string
+          is_published?: boolean
+          level?: string | null
+          price_cents?: number
+          publisher_box_id: string
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          title: string
+          updated_at?: string
+          weeks_count?: number
+        }
+        Update: {
+          billing?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          days_per_week?: number | null
+          description?: string | null
+          discipline?: string | null
+          id?: string
+          is_published?: boolean
+          level?: string | null
+          price_cents?: number
+          publisher_box_id?: string
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          title?: string
+          updated_at?: string
+          weeks_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_programming_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_programming_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_programming_publisher_box_id_fkey"
+            columns: ["publisher_box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      box_programming_subscriptions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          current_period_end: string | null
+          id: string
+          programming_id: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscriber_box_id: string
+          week_anchor: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          id?: string
+          programming_id: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscriber_box_id: string
+          week_anchor?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          id?: string
+          programming_id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscriber_box_id?: string
+          week_anchor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_programming_subscriptions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_programming_subscriptions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_programming_subscriptions_programming_id_fkey"
+            columns: ["programming_id"]
+            isOneToOne: false
+            referencedRelation: "box_programming"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_programming_subscriptions_subscriber_box_id_fkey"
+            columns: ["subscriber_box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      box_programming_wods: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          description: string | null
+          id: string
+          programming_id: string
+          rounds: number | null
+          sort_order: number
+          time_cap_seconds: number | null
+          title: string
+          week_number: number
+          wod_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          description?: string | null
+          id?: string
+          programming_id: string
+          rounds?: number | null
+          sort_order?: number
+          time_cap_seconds?: number | null
+          title: string
+          week_number?: number
+          wod_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          description?: string | null
+          id?: string
+          programming_id?: string
+          rounds?: number | null
+          sort_order?: number
+          time_cap_seconds?: number | null
+          title?: string
+          week_number?: number
+          wod_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_programming_wods_programming_id_fkey"
+            columns: ["programming_id"]
+            isOneToOne: false
+            referencedRelation: "box_programming"
+            referencedColumns: ["id"]
+          },
         ]
       }
       box_subscriptions: {
@@ -649,6 +1070,8 @@ export type Database = {
           rounds: number | null
           scheduled_date: string
           sort_order: number
+          source_programming_id: string | null
+          source_programming_wod_id: string | null
           tabata_rest_seconds: number | null
           tabata_work_seconds: number | null
           time_cap_seconds: number | null
@@ -672,6 +1095,8 @@ export type Database = {
           rounds?: number | null
           scheduled_date: string
           sort_order?: number
+          source_programming_id?: string | null
+          source_programming_wod_id?: string | null
           tabata_rest_seconds?: number | null
           tabata_work_seconds?: number | null
           time_cap_seconds?: number | null
@@ -695,6 +1120,8 @@ export type Database = {
           rounds?: number | null
           scheduled_date?: string
           sort_order?: number
+          source_programming_id?: string | null
+          source_programming_wod_id?: string | null
           tabata_rest_seconds?: number | null
           tabata_work_seconds?: number | null
           time_cap_seconds?: number | null
@@ -715,6 +1142,27 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_wods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_wods_source_programming_id_fkey"
+            columns: ["source_programming_id"]
+            isOneToOne: false
+            referencedRelation: "box_programming"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_wods_source_programming_wod_id_fkey"
+            columns: ["source_programming_wod_id"]
+            isOneToOne: false
+            referencedRelation: "box_programming_wods"
             referencedColumns: ["id"]
           },
         ]
@@ -752,6 +1200,7 @@ export type Database = {
           stripe_account_id: string | null
           stripe_onboarding_complete: boolean | null
           tagline: string | null
+          terms_pdf_url: string | null
           website_url: string | null
           weekly_publish_day: number | null
           weekly_publish_hour: number | null
@@ -788,6 +1237,7 @@ export type Database = {
           stripe_account_id?: string | null
           stripe_onboarding_complete?: boolean | null
           tagline?: string | null
+          terms_pdf_url?: string | null
           website_url?: string | null
           weekly_publish_day?: number | null
           weekly_publish_hour?: number | null
@@ -824,6 +1274,7 @@ export type Database = {
           stripe_account_id?: string | null
           stripe_onboarding_complete?: boolean | null
           tagline?: string | null
+          terms_pdf_url?: string | null
           website_url?: string | null
           weekly_publish_day?: number | null
           weekly_publish_hour?: number | null
@@ -834,6 +1285,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boxes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -869,6 +1327,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "changelog_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       class_reservations: {
@@ -876,6 +1341,7 @@ export type Database = {
           attended: boolean | null
           box_id: string | null
           created_at: string | null
+          credit_id: string | null
           id: string
           member_id: string | null
           schedule_id: string | null
@@ -885,6 +1351,7 @@ export type Database = {
           attended?: boolean | null
           box_id?: string | null
           created_at?: string | null
+          credit_id?: string | null
           id?: string
           member_id?: string | null
           schedule_id?: string | null
@@ -894,6 +1361,7 @@ export type Database = {
           attended?: boolean | null
           box_id?: string | null
           created_at?: string | null
+          credit_id?: string | null
           id?: string
           member_id?: string | null
           schedule_id?: string | null
@@ -908,10 +1376,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "class_reservations_credit_id_fkey"
+            columns: ["credit_id"]
+            isOneToOne: false
+            referencedRelation: "member_class_credits"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "class_reservations_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_reservations_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -1010,6 +1492,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "competition_participants_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       competition_scores: {
@@ -1056,6 +1545,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_scores_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -1128,6 +1624,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "competitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       daily_tournament_elo_history: {
@@ -1176,6 +1679,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "daily_tournament_elo_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       daily_tournament_participants: {
@@ -1210,6 +1720,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_tournament_participants_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -1263,6 +1780,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "daily_tournament_scores_contested_by_fkey"
+            columns: ["contested_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "daily_tournament_scores_tournament_id_fkey"
             columns: ["tournament_id"]
             isOneToOne: false
@@ -1274,6 +1798,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_tournament_scores_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -1345,6 +1876,13 @@ export type Database = {
             columns: ["creator_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_tournaments_creator_id_profiles_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -1437,6 +1975,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_registrations_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       events: {
@@ -1497,6 +2042,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       friend_requests: {
@@ -1530,10 +2082,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "friend_requests_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "friend_requests_sender_id_fkey"
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friend_requests_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -1572,10 +2138,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "friendships_addressee_id_fkey"
+            columns: ["addressee_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "friendships_requester_id_fkey"
             columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -1788,10 +2368,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inter_bracket_matches_loser_id_fkey"
+            columns: ["loser_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inter_bracket_matches_participant1_id_fkey"
             columns: ["participant1_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_bracket_matches_participant1_id_fkey"
+            columns: ["participant1_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -1802,10 +2396,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inter_bracket_matches_participant2_id_fkey"
+            columns: ["participant2_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inter_bracket_matches_winner_id_fkey"
             columns: ["winner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_bracket_matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -1924,6 +2532,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "inter_competitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       inter_elo_history: {
@@ -1969,6 +2584,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_elo_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2074,6 +2696,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inter_league_standings_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inter_league_standings_competition_id_fkey"
             columns: ["competition_id"]
             isOneToOne: false
@@ -2176,10 +2805,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inter_pool_matches_athlete1_id_fkey"
+            columns: ["athlete1_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inter_pool_matches_athlete2_id_fkey"
             columns: ["athlete2_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_pool_matches_athlete2_id_fkey"
+            columns: ["athlete2_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2201,6 +2844,13 @@ export type Database = {
             columns: ["winner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_pool_matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2255,6 +2905,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inter_pool_members_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inter_pool_members_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
@@ -2297,6 +2954,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_registrations_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2383,6 +3047,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inter_scores_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inter_scores_competition_id_fkey"
             columns: ["competition_id"]
             isOneToOne: false
@@ -2394,6 +3065,13 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_scores_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2461,10 +3139,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inter_swiss_pairings_athlete1_id_fkey"
+            columns: ["athlete1_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inter_swiss_pairings_athlete2_id_fkey"
             columns: ["athlete2_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_swiss_pairings_athlete2_id_fkey"
+            columns: ["athlete2_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2486,6 +3178,13 @@ export type Database = {
             columns: ["winner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_swiss_pairings_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2581,6 +3280,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inter_swiss_standings_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inter_swiss_standings_competition_id_fkey"
             columns: ["competition_id"]
             isOneToOne: false
@@ -2629,6 +3335,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "inter_team_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       inter_teams: {
@@ -2672,6 +3385,13 @@ export type Database = {
             columns: ["captain_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_teams_captain_id_fkey"
+            columns: ["captain_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2741,8 +3461,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "matches_athlete1_id_fkey"
+            columns: ["athlete1_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "matches_athlete2_id_fkey"
             columns: ["athlete2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_athlete2_id_fkey"
+            columns: ["athlete2_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_winner_id_fkey"
+            columns: ["winner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2751,7 +3492,7 @@ export type Database = {
             foreignKeyName: "matches_winner_id_fkey"
             columns: ["winner_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -2811,6 +3552,162 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "matchmaking_queue_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_class_credits: {
+        Row: {
+          box_id: string
+          created_at: string
+          credits_total: number
+          credits_used: number
+          expires_at: string
+          id: string
+          member_id: string
+          plan_id: string | null
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent: string | null
+        }
+        Insert: {
+          box_id: string
+          created_at?: string
+          credits_total: number
+          credits_used?: number
+          expires_at: string
+          id?: string
+          member_id: string
+          plan_id?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent?: string | null
+        }
+        Update: {
+          box_id?: string
+          created_at?: string
+          credits_total?: number
+          credits_used?: number
+          expires_at?: string
+          id?: string
+          member_id?: string
+          plan_id?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_class_credits_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_class_credits_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_class_credits_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_class_credits_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      membership_cancellation_requests: {
+        Row: {
+          box_id: string
+          created_at: string
+          document_path: string | null
+          id: string
+          member_id: string
+          message: string | null
+          reason_type: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          box_id: string
+          created_at?: string
+          document_path?: string | null
+          id?: string
+          member_id: string
+          message?: string | null
+          reason_type?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          box_id?: string
+          created_at?: string
+          document_path?: string | null
+          id?: string
+          member_id?: string
+          message?: string | null
+          reason_type?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_cancellation_requests_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_cancellation_requests_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_cancellation_requests_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_cancellation_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_cancellation_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       membership_plan_groups: {
@@ -2854,51 +3751,128 @@ export type Database = {
         Row: {
           box_id: string
           color: string
+          commitment_months: number
           created_at: string | null
+          credits: number | null
           currency: string
           description: string | null
           id: string
           is_active: boolean
           max_sessions_per_week: number | null
           name: string
+          plan_type: string
           price_cents: number
           sort_order: number
           stripe_price_id: string | null
           stripe_product_id: string | null
+          terms: string | null
+          validity_days: number | null
         }
         Insert: {
           box_id: string
           color?: string
+          commitment_months?: number
           created_at?: string | null
+          credits?: number | null
           currency?: string
           description?: string | null
           id?: string
           is_active?: boolean
           max_sessions_per_week?: number | null
           name: string
+          plan_type?: string
           price_cents?: number
           sort_order?: number
           stripe_price_id?: string | null
           stripe_product_id?: string | null
+          terms?: string | null
+          validity_days?: number | null
         }
         Update: {
           box_id?: string
           color?: string
+          commitment_months?: number
           created_at?: string | null
+          credits?: number | null
           currency?: string
           description?: string | null
           id?: string
           is_active?: boolean
           max_sessions_per_week?: number | null
           name?: string
+          plan_type?: string
           price_cents?: number
           sort_order?: number
           stripe_price_id?: string | null
           stripe_product_id?: string | null
+          terms?: string | null
+          validity_days?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "membership_plans_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      membership_promo_codes: {
+        Row: {
+          amount_off_cents: number | null
+          box_id: string
+          code: string
+          created_at: string
+          currency: string
+          discount_type: string
+          duration: string
+          duration_in_months: number | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_redemptions: number | null
+          percent_off: number | null
+          stripe_coupon_id: string | null
+          stripe_promotion_code_id: string | null
+        }
+        Insert: {
+          amount_off_cents?: number | null
+          box_id: string
+          code: string
+          created_at?: string
+          currency?: string
+          discount_type?: string
+          duration?: string
+          duration_in_months?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          percent_off?: number | null
+          stripe_coupon_id?: string | null
+          stripe_promotion_code_id?: string | null
+        }
+        Update: {
+          amount_off_cents?: number | null
+          box_id?: string
+          code?: string
+          created_at?: string
+          currency?: string
+          discount_type?: string
+          duration?: string
+          duration_in_months?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          percent_off?: number | null
+          stripe_coupon_id?: string | null
+          stripe_promotion_code_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_promo_codes_box_id_fkey"
             columns: ["box_id"]
             isOneToOne: false
             referencedRelation: "boxes"
@@ -2952,6 +3926,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "message_groups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       message_reactions: {
@@ -2982,6 +3963,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -3031,6 +4019,13 @@ export type Database = {
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_replies_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -3105,10 +4100,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "messages_sender_id_fkey"
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -3153,6 +4162,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mini_tournaments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -3203,6 +4219,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "movement_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       movement_rep_counts: {
@@ -3236,6 +4259,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movement_rep_counts_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -3278,6 +4308,63 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      owner_subscriptions: {
+        Row: {
+          box_quota: number
+          created_at: string
+          current_period_end: string | null
+          id: string
+          owner_id: string
+          plan_tier: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          box_quota?: number
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          owner_id: string
+          plan_tier?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          box_quota?: number
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          owner_id?: string
+          plan_tier?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_subscriptions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_subscriptions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: true
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       partners: {
         Row: {
@@ -3358,6 +4445,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_records_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -3587,6 +4681,13 @@ export type Database = {
             columns: ["referred_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -3921,8 +5022,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reports_reported_user_id_fkey"
+            columns: ["reported_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reports_reporter_id_fkey"
             columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_resolved_by_fkey"
+            columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -3931,7 +5053,7 @@ export type Database = {
             foreignKeyName: "reports_resolved_by_fkey"
             columns: ["resolved_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -4020,6 +5142,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "score_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "score_comments_box_id_fkey"
             columns: ["box_id"]
             isOneToOne: false
@@ -4070,6 +5199,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "score_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -4123,6 +5259,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "scores_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scores_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: false
@@ -4137,10 +5280,257 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "scores_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scores_wod_id_fkey"
             columns: ["wod_id"]
             isOneToOne: false
             referencedRelation: "wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_followups: {
+        Row: {
+          box_id: string
+          converted_plan_id: string | null
+          created_at: string
+          feedback_comment: string | null
+          first_seen_at: string
+          id: string
+          member_id: string
+          rating: number | null
+          reminder_d1_sent: boolean
+          reminder_d3_sent: boolean
+          reminder_h_sent: boolean
+          reservation_id: string | null
+          responded_at: string | null
+          schedule_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          box_id: string
+          converted_plan_id?: string | null
+          created_at?: string
+          feedback_comment?: string | null
+          first_seen_at?: string
+          id?: string
+          member_id: string
+          rating?: number | null
+          reminder_d1_sent?: boolean
+          reminder_d3_sent?: boolean
+          reminder_h_sent?: boolean
+          reservation_id?: string | null
+          responded_at?: string | null
+          schedule_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          box_id?: string
+          converted_plan_id?: string | null
+          created_at?: string
+          feedback_comment?: string | null
+          first_seen_at?: string
+          id?: string
+          member_id?: string
+          rating?: number | null
+          reminder_d1_sent?: boolean
+          reminder_d3_sent?: boolean
+          reminder_h_sent?: boolean
+          reservation_id?: string | null
+          responded_at?: string | null
+          schedule_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_followups_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_followups_converted_plan_id_fkey"
+            columns: ["converted_plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_followups_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_followups_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_followups_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "class_reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_followups_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_admins: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          sender_id: string
+          sender_role: string
+          ticket_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          sender_id: string
+          sender_role: string
+          ticket_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          sender_id?: string
+          sender_role?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          admin_unread: boolean
+          box_id: string
+          created_at: string
+          created_by: string
+          id: string
+          last_message_at: string
+          requester_unread: boolean
+          status: string
+          subject: string
+          type: string
+        }
+        Insert: {
+          admin_unread?: boolean
+          box_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          last_message_at?: string
+          requester_unread?: boolean
+          status?: string
+          subject: string
+          type?: string
+        }
+        Update: {
+          admin_unread?: boolean
+          box_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          last_message_at?: string
+          requester_unread?: boolean
+          status?: string
+          subject?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -4206,8 +5596,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tournament_bracket_matches_loser_id_fkey"
+            columns: ["loser_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tournament_bracket_matches_participant1_id_fkey"
             columns: ["participant1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_bracket_matches_participant1_id_fkey"
+            columns: ["participant1_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_bracket_matches_participant2_id_fkey"
+            columns: ["participant2_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -4216,7 +5627,7 @@ export type Database = {
             foreignKeyName: "tournament_bracket_matches_participant2_id_fkey"
             columns: ["participant2_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -4231,6 +5642,13 @@ export type Database = {
             columns: ["winner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_bracket_matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -4273,6 +5691,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_division_members_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -4371,10 +5796,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tournament_elo_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tournament_elo_history_tournament_id_fkey"
             columns: ["tournament_id"]
             isOneToOne: false
             referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_match_elo_history: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          elo_after: number
+          elo_before: number
+          elo_delta: number
+          id: string
+          match_id: string
+          opponent_id: string | null
+          result: string
+          tournament_id: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          elo_after: number
+          elo_before: number
+          elo_delta: number
+          id?: string
+          match_id: string
+          opponent_id?: string | null
+          result: string
+          tournament_id: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          elo_after?: number
+          elo_before?: number
+          elo_delta?: number
+          id?: string
+          match_id?: string
+          opponent_id?: string | null
+          result?: string
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_match_elo_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_match_elo_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_match_elo_history_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_bracket_matches"
             referencedColumns: ["id"]
           },
         ]
@@ -4475,6 +5968,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tournament_scores_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tournament_scores_tournament_id_fkey"
             columns: ["tournament_id"]
             isOneToOne: false
@@ -4493,6 +5993,13 @@ export type Database = {
             columns: ["validated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_scores_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -4546,6 +6053,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tournament_season_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tournament_season_history_division_id_fkey"
             columns: ["division_id"]
             isOneToOne: false
@@ -4557,6 +6071,67 @@ export type Database = {
             columns: ["tournament_id"]
             isOneToOne: false
             referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_wod_elo_history: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          division_id: string | null
+          elo_after: number
+          elo_before: number
+          elo_delta: number
+          id: string
+          rank: number
+          tournament_id: string
+          tournament_wod_id: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          division_id?: string | null
+          elo_after: number
+          elo_before: number
+          elo_delta: number
+          id?: string
+          rank: number
+          tournament_id: string
+          tournament_wod_id: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          division_id?: string | null
+          elo_after?: number
+          elo_before?: number
+          elo_delta?: number
+          id?: string
+          rank?: number
+          tournament_id?: string
+          tournament_wod_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_wod_elo_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_wod_elo_history_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_wod_elo_history_tournament_wod_id_fkey"
+            columns: ["tournament_wod_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_wods"
             referencedColumns: ["id"]
           },
         ]
@@ -4733,6 +6308,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tournaments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_blocks: {
@@ -4760,10 +6342,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_blocks_blocker_id_fkey"
             columns: ["blocker_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
         ]
@@ -4924,6 +6520,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_movement_stats_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
       wod_completions: {
@@ -4961,6 +6564,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wod_completions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -5101,6 +6711,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "wod_scores_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "wod_scores_wod_id_fkey"
             columns: ["wod_id"]
             isOneToOne: false
@@ -5157,6 +6774,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "wods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -5183,6 +6807,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inter_scores_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -5238,32 +6869,62 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "movement_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      public_leaderboard: {
+        Row: {
+          avatar_url: string | null
+          elo: number | null
+          id: string | null
+          level: string | null
+          losses: number | null
+          role: string | null
+          total_matches: number | null
+          username: string | null
+          wins: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          elo?: number | null
+          id?: string | null
+          level?: string | null
+          losses?: number | null
+          role?: string | null
+          total_matches?: number | null
+          username?: string | null
+          wins?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          elo?: number | null
+          id?: string | null
+          level?: string | null
+          losses?: number | null
+          role?: string | null
+          total_matches?: number | null
+          username?: string | null
+          wins?: number | null
+        }
+        Relationships: []
       }
     }
     Functions: {
-      get_box_billing: {
-        Args: { p_box_id: string }
+      _daily_official_template: {
+        Args: { p_date: string }
         Returns: {
-          id: string
-          member_id: string
-          amount_cents: number
-          platform_fee_cents: number
-          has_stripe_sub: boolean
+          duration: number
+          movements: string
+          score_mode: string
+          wod_name: string
+          wod_type: string
         }[]
-      }
-      get_my_membership_billing: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          id: string
-          box_id: string
-          amount_cents: number
-          platform_fee_cents: number
-        }[]
-      }
-      join_box_by_invite: {
-        Args: { p_invite_code: string }
-        Returns: string
       }
       advance_bracket_round: {
         Args: { p_completed_round: number; p_tournament_id: string }
@@ -5272,6 +6933,11 @@ export type Database = {
       advance_inter_bracket_round: {
         Args: { p_competition_id: string; p_completed_round: number }
         Returns: number
+      }
+      book_appointment_slot: { Args: { p_slot_id: string }; Returns: string }
+      box_subscribes_programming: {
+        Args: { p_programming_id: string }
+        Returns: boolean
       }
       calculate_elo: {
         Args: { k_factor?: number; loser_elo: number; winner_elo: number }
@@ -5325,13 +6991,20 @@ export type Database = {
           final_rank: number
         }[]
       }
-      ensure_daily_official_wod: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       compute_inter_league_round: {
         Args: { p_competition_id: string; p_round_number: number }
         Returns: number
+      }
+      compute_league_wod_elo: {
+        Args: { p_tournament_wod_id: string }
+        Returns: {
+          athlete_id: string
+          division_id: string
+          elo_after: number
+          elo_before: number
+          elo_delta: number
+          rank: number
+        }[]
       }
       compute_tournament_elo: {
         Args: { p_tournament_id: string }
@@ -5354,10 +7027,12 @@ export type Database = {
         }[]
       }
       delete_user_account: { Args: never; Returns: undefined }
+      detect_trial_followups: { Args: never; Returns: number }
       end_season_and_advance: {
         Args: { p_tournament_id: string }
         Returns: number
       }
+      ensure_daily_official_wod: { Args: never; Returns: string }
       extend_all_class_schedules: { Args: never; Returns: number }
       generate_bracket_round_1: {
         Args: { p_tournament_id: string }
@@ -5383,7 +7058,26 @@ export type Database = {
         Args: { p_competition_id: string }
         Returns: number
       }
+      get_box_billing: {
+        Args: { p_box_id: string }
+        Returns: {
+          amount_cents: number
+          has_stripe_sub: boolean
+          id: string
+          member_id: string
+          platform_fee_cents: number
+        }[]
+      }
       get_box_mate_ids: { Args: never; Returns: string[] }
+      get_my_membership_billing: {
+        Args: never
+        Returns: {
+          amount_cents: number
+          box_id: string
+          id: string
+          platform_fee_cents: number
+        }[]
+      }
       get_total_box_count: { Args: never; Returns: number }
       get_tournament_participants: {
         Args: { p_tournament_id: string }
@@ -5417,16 +7111,26 @@ export type Database = {
       is_box_member: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner_member: { Args: { p_box_id: string }; Returns: boolean }
+      is_box_staff: { Args: { p_box_id: string }; Returns: boolean }
       is_inter_competition_manager: {
         Args: { p_competition_id: string }
         Returns: boolean
       }
       is_privileged_backend: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      is_support_admin: { Args: never; Returns: boolean }
       is_tournament_manager: {
         Args: { p_tournament_id: string }
         Returns: boolean
       }
+      join_box_by_invite: { Args: { p_invite_code: string }; Returns: string }
+      manages_box: { Args: { p_box_id: string }; Returns: boolean }
+      manages_box_funnel: { Args: { p_box_id: string }; Returns: boolean }
+      materialize_box_programming: {
+        Args: { p_target_monday?: string }
+        Returns: number
+      }
+      owner_box_count: { Args: { p_owner_id: string }; Returns: number }
       promote_relegate_divisions: {
         Args: { p_tournament_id: string }
         Returns: undefined
@@ -5461,6 +7165,10 @@ export type Database = {
           p_score2: number
           p_scoring_type?: string
         }
+        Returns: undefined
+      }
+      submit_followup_feedback: {
+        Args: { p_comment?: string; p_followup_id: string; p_rating: number }
         Returns: undefined
       }
       update_user_elo: {
@@ -5604,4 +7312,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

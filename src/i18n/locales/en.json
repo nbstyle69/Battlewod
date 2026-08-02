@@ -161,7 +161,15 @@
     },
     "settings": {
       "title": "Publishing settings",
-      "days": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      "days": [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
       "wodOfDay": "WOD of the day",
       "dailyDesc": "Default publishing time for daily WODs",
       "weeklyTitle": "Weekly programming",
@@ -404,7 +412,15 @@
       "activeVisible": "Active (visible)"
     },
     "programEditor": {
-      "dayLabels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "dayLabels": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
       "typeForTime": "For Time",
       "typeAmrap": "AMRAP",
       "typeEmom": "EMOM",
@@ -477,11 +493,20 @@
       "qaReport": "Report",
       "qaNotifications": "Notifications",
       "qaArticles": "News",
-      "qaPublication": "Publication"
+      "qaPublication": "Publication",
+      "qaProgramming": "Programming"
     },
     "schedule": {
       "title": "Schedule & Slots",
-      "dayLabels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "dayLabels": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
       "today": "Today",
       "addSlot": "+ Add a slot",
       "invalidCapacity": "Invalid capacity",
@@ -522,7 +547,15 @@
     },
     "wods": {
       "title": "WOD Calendar",
-      "dayLabels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "dayLabels": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
       "today": "Today",
       "addWod": "+ Add a WOD",
       "draft": "Draft",
@@ -628,6 +661,32 @@
       "rejectScore": "Reject score",
       "rejectReasonPlaceholder": "Rejection reason (optional)",
       "confirmReject": "Confirm rejection"
+    },
+    "programming": {
+      "title": "Programming",
+      "subtitle": "Receive other boxes' programming in your Whiteboard, revealed Sunday 6pm.",
+      "searchPlaceholder": "Search programming…",
+      "free": "Free",
+      "allDisciplines": "All",
+      "empty": "No programming available for these filters.",
+      "aBox": "Box",
+      "by": "by {{name}}",
+      "perMonth": "/mo",
+      "subscribed": "Subscribed",
+      "subscribe": "Subscribe",
+      "weeks": "{{n}} wk",
+      "daysPerWeek": "{{n}} d/wk",
+      "levelAll": "All levels",
+      "levelBeginner": "Beginner",
+      "levelIntermediate": "Intermediate",
+      "levelAdvanced": "Advanced",
+      "revealNote": "WODs will appear in your box's Whiteboard, revealed Sunday 6pm (just like for athletes).",
+      "subscribeConfirmTitle": "Subscribe?",
+      "subscribeConfirmMsg": "Receive “{{title}}” in {{box}}'s Whiteboard?",
+      "subscribedOk": "Subscription active",
+      "paidTitle": "Paid offer",
+      "paidMsg": "This programming ({{price}}) is paid on the web via secure Stripe checkout. Open the payment page?",
+      "payOnWeb": "Pay on the web"
     }
   },
   "common": {
@@ -715,7 +774,15 @@
     "weekTotal": "{{res}} classes · {{wods}} WODs this week",
     "dayStreak": "{{count}}-day streak",
     "dayDetail": "{{day}}: {{res}} classes · {{wods}} WODs",
-    "dayNamesFull": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "dayNamesFull": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+    ],
     "personalRecords": "Personal records",
     "myBoxes": "My boxes",
     "competitions": "Competitions",
@@ -911,6 +978,8 @@
     "leaveWaitlistTitle": "Leave the waitlist",
     "cancelConfirmed": "Cancel your booking? Your spot will be freed and the first person on the waitlist will be registered.",
     "leaveWaitlistConfirm": "Leave the waitlist?",
+    "pastDueTitle": "Unpaid membership",
+    "pastDueBody": "Your last payment failed, so bookings are suspended. Update your payment method or contact your gym to restore access.",
     "limitReachedTitle": "Limit reached",
     "limitReachedBody": "You've used your {{max}} session(s) this week ({{used}}/{{max}}). Contact your coach to change your plan.",
     "dailyLimitTitle": "Daily limit",
@@ -1414,7 +1483,14 @@
     "statusActive": "In progress",
     "statusClosed": "Completed",
     "statusUpcoming": "Upcoming",
-    "bracketStages": ["Final", "Semi-final", "Quarter-final", "Round of 16", "Round of 32", "Round of 64"],
+    "bracketStages": [
+      "Final",
+      "Semi-final",
+      "Quarter-final",
+      "Round of 16",
+      "Round of 32",
+      "Round of 64"
+    ],
     "stageN": "Stage {{n}}",
     "registerError": "Registration error",
     "registerImpossible": "Registration failed",
@@ -1514,16 +1590,46 @@
     "sectionHome": "On the home screen",
     "sectionNav": "The navigation bar",
     "steps": [
-      { "label": "ELO", "description": "Your progression from your box's daily WOD and from competitions inside the app." },
-      { "label": "Friends", "description": "Find and browse your friends list." },
-      { "label": "Leaderboard", "description": "Check out the different rankings." },
-      { "label": "Video Timer", "description": "A timer with video recording — perfect for online qualifiers." },
-      { "label": "WOD Generator", "description": "We suggest WODs based on what you want!" },
-      { "label": "1RM Calculator", "description": "Find the load matching a % of your exercise." },
-      { "label": "Competition", "description": "Here you'll find the available competitions." },
-      { "label": "Explore", "description": "Info about boxes and partners." },
-      { "label": "My box", "description": "You'll find your booked classes here." },
-      { "label": "Bookings", "description": "Book the classes at your gym." }
+      {
+        "label": "ELO",
+        "description": "Your progression from your box's daily WOD and from competitions inside the app."
+      },
+      {
+        "label": "Friends",
+        "description": "Find and browse your friends list."
+      },
+      {
+        "label": "Leaderboard",
+        "description": "Check out the different rankings."
+      },
+      {
+        "label": "Video Timer",
+        "description": "A timer with video recording — perfect for online qualifiers."
+      },
+      {
+        "label": "WOD Generator",
+        "description": "We suggest WODs based on what you want!"
+      },
+      {
+        "label": "1RM Calculator",
+        "description": "Find the load matching a % of your exercise."
+      },
+      {
+        "label": "Competition",
+        "description": "Here you'll find the available competitions."
+      },
+      {
+        "label": "Explore",
+        "description": "Info about boxes and partners."
+      },
+      {
+        "label": "My box",
+        "description": "You'll find your booked classes here."
+      },
+      {
+        "label": "Bookings",
+        "description": "Book the classes at your gym."
+      }
     ]
   }
 }
