@@ -15,7 +15,7 @@ import {
   Dimensions, NativeScrollEvent, NativeSyntheticEvent, Share, Alert,
 } from 'react-native';
 import {
-  ChevronLeft, RefreshCw, Zap, Trophy, Camera, CameraOff, Bookmark, Share2, BookOpen,
+  ChevronLeft, RefreshCw, Zap, Trophy, Camera, CameraOff, Bookmark, Share2, BookOpen, Clock,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -332,12 +332,15 @@ export default function WODSuggestionsScreen() {
                 style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
                 <View style={S.cardTop}>
-                  <View style={S.badgeRow}>
-                    <View style={S.badge}>
-                      <Text style={S.badgeText}>{s.method}</Text>
+                  <View style={S.badges}>
+                    <View style={[S.badge, { backgroundColor: `${accent}20` }]}>
+                      <Text style={[S.badgeText, { color: accent }]}>{s.method}</Text>
                     </View>
-                    <View style={S.badge}>
-                      <Text style={S.badgeText}>cap {(s.wod as CFWod).time_cap_min} min</Text>
+                    <View style={[S.badge, { backgroundColor: theme.surface }]}>
+                      <Clock size={11} color={theme.textMuted} />
+                      <Text style={[S.badgeText, { color: theme.textMuted }]}>
+                        cap {(s.wod as CFWod).time_cap_min} min
+                      </Text>
                     </View>
                   </View>
                   <View style={[S.matchBadge, { backgroundColor: `${accent}22` }]}>
@@ -354,7 +357,7 @@ export default function WODSuggestionsScreen() {
 
                 <View style={S.moveBox}>
                   {movementLines(s, usePR, profile.prs ?? {}).map((l, j) => (
-                    <Text key={j} style={l.startsWith('  ') ? S.moveLine : S.schemeLine}>{l}</Text>
+                    <Text key={j} style={l.startsWith('  ') ? S.moveLine : S.schemeLine}>{l.trim()}</Text>
                   ))}
                 </View>
 
@@ -374,46 +377,46 @@ export default function WODSuggestionsScreen() {
 
                 <View style={S.actionRow}>
                   <TouchableOpacity
-                    style={S.actionBtn}
+                    style={[S.actionBtn, { borderColor: accent }]}
                     onPress={() => saveWod(s)}
                     disabled={saving === s.signature}
                     activeOpacity={0.8}
                   >
                     {saving === s.signature
-                      ? <ActivityIndicator size="small" color={theme.accent} />
-                      : <><Bookmark size={14} color={theme.accent} /><Text style={S.actionText}>Sauvegarder</Text></>}
+                      ? <ActivityIndicator size="small" color={accent} />
+                      : <><Bookmark size={14} color={accent} /><Text style={[S.actionText, { color: accent }]}>Sauvegarder</Text></>}
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={S.actionBtn}
+                    style={[S.actionBtn, { borderColor: accent }]}
                     onPress={() => Share.share({
                       message: `${s.wod.title}\n${(s.wod as CFWod).score_type}\n\n${wodText(s)}\n\nGénéré avec AthleX 💪`,
                     })}
                     activeOpacity={0.8}
                   >
-                    <Share2 size={14} color={theme.accent} />
-                    <Text style={S.actionText}>Partager</Text>
+                    <Share2 size={14} color={accent} />
+                    <Text style={[S.actionText, { color: accent }]}>Partager</Text>
                   </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
-                  style={[S.cta, { borderColor: accent, backgroundColor: `${accent}22` }]}
+                  style={[S.cta, { backgroundColor: accent }]}
                   onPress={() => setCameraFor({ s, rank: i + 1 })}
                   activeOpacity={0.85}
                 >
-                  <Zap size={17} color={accent} />
-                  <Text style={[S.ctaText, { color: theme.text }]}>
-                    {s.isChallenge ? 'Je relève le défi' : 'Lancer le WOD'}
+                  <Zap size={16} color="#fff" />
+                  <Text style={S.ctaText}>
+                    {s.isChallenge ? 'JE RELÈVE LE DÉFI' : 'LANCER LE WOD'}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[S.wbBtn, { borderColor: accent }]}
+                  style={[S.wbBtn, { borderColor: accent, backgroundColor: `${accent}15` }]}
                   onPress={() => addToWhiteboard(s)}
                   disabled={saving === s.signature}
                   activeOpacity={0.85}
                 >
-                  <BookOpen size={15} color={accent} />
-                  <Text style={[S.wbText, { color: accent }]}>Ajouter au whiteboard</Text>
+                  <BookOpen size={16} color={accent} />
+                  <Text style={[S.wbText, { color: accent }]}>AJOUTER AU WHITEBOARD</Text>
                 </TouchableOpacity>
               </GlassCard>
               </View>
@@ -538,45 +541,44 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
   },
   matchText: { fontSize: 10, fontWeight: '800' },
-  title: { fontSize: 20, fontWeight: '800', color: theme.text },
-  schemeLine: { fontSize: 15, fontWeight: '700', color: theme.text, marginTop: 6 },
-  moveLine: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
+  title: { fontSize: 22, fontWeight: '900', color: theme.text, letterSpacing: -0.3 },
+  schemeLine: { fontSize: 12, fontWeight: '800', color: theme.textSecondary },
+  moveLine: { fontSize: 13, fontWeight: '600', color: theme.text },
 
   whyBox: { backgroundColor: `${theme.accent}1F`, borderRadius: 12, padding: 12, marginTop: 16 },
   whyText: { fontSize: 11, color: theme.accentDark, lineHeight: 16 },
 
-  badgeRow: { flexDirection: 'row', gap: 6, flexShrink: 1 },
+  badges: { flexDirection: 'row', gap: 6, flexShrink: 1 },
   badge: {
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
   },
-  badgeText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
+  badgeText: { fontSize: 10, fontWeight: '800' },
 
   // Le bloc séance absorbe la hauteur restante : pas de vide entre les blocs.
   moveBox: {
-    flex: 1, backgroundColor: theme.surface, borderRadius: 14, padding: 16, gap: 4,
+    flex: 1, backgroundColor: theme.surface, borderRadius: 10, padding: 12, gap: 3,
   },
-  scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   scoringText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, flex: 1 },
 
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  actionRow: { flexDirection: 'row', gap: 8 },
   actionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 12, paddingVertical: 12,
-    borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderRadius: 10, borderWidth: 1.5, paddingVertical: 10,
   },
-  actionText: { fontSize: 13, fontWeight: '700', color: theme.text },
+  actionText: { fontSize: 12, fontWeight: '800' },
 
   cta: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    borderRadius: 16, borderWidth: 1.5, paddingVertical: 16, marginTop: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 12, padding: 14,
   },
-  ctaText: { fontSize: 15, fontWeight: '800' },
+  ctaText: { fontSize: 14, fontWeight: '900', color: '#fff' },
   wbBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 14, borderWidth: 1, paddingVertical: 13, marginTop: 10,
+    borderRadius: 12, borderWidth: 2, padding: 14,
   },
-  wbText: { fontSize: 13, fontWeight: '800' },
+  wbText: { fontSize: 14, fontWeight: '900' },
 
   regen: {
     flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
