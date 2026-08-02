@@ -108,6 +108,57 @@ CREATE TRIGGER a_trg_enforce_membership_not_suspended
   BEFORE INSERT OR UPDATE OF status ON class_reservations
   FOR EACH ROW EXECUTE FUNCTION public.enforce_membership_not_suspended();
 
+-- ============================================================
+-- Vue back-office « Impayés » — les colonnes de dunning ne sont pas
+-- accordées à `authenticated` (comme les colonnes de facturation, cf.
+-- 20260610), donc le staff y accède par RPC SECURITY DEFINER.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.get_box_dunning(p_box_id uuid)
+RETURNS TABLE (
+  id uuid,
+  member_id uuid,
+  username text,
+  email text,
+  plan_name text,
+  amount_cents integer,
+  payment_method_type text,
+  past_due_since timestamptz,
+  dunning_attempts integer,
+  dunning_reminders_sent integer,
+  dunning_last_reminder_at timestamptz,
+  last_payment_error text,
+  has_stripe_sub boolean,
+  suspended boolean,
+  grace_days integer
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT bm.id, bm.member_id, pr.username, pr.email, mp.name,
+         bm.amount_cents, bm.payment_method_type, bm.past_due_since,
+         bm.dunning_attempts, bm.dunning_reminders_sent, bm.dunning_last_reminder_at,
+         bm.last_payment_error,
+         (bm.stripe_subscription_id IS NOT NULL),
+         public.membership_access_blocked(bm.member_id, bm.box_id),
+         COALESCE(b.dunning_grace_days, 7)
+  FROM public.box_members bm
+  JOIN public.boxes b ON b.id = bm.box_id
+  LEFT JOIN public.profiles pr ON pr.id = bm.member_id
+  LEFT JOIN public.membership_plans mp ON mp.id = bm.plan_id
+  WHERE bm.box_id = p_box_id
+    AND bm.subscription_status = 'past_due'
+    AND (
+      public.is_box_owner(p_box_id)
+      OR public.is_box_owner_member(p_box_id)
+      OR public.is_super_admin()
+    )
+  ORDER BY bm.past_due_since ASC NULLS LAST;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_box_dunning(uuid) TO authenticated;
+
 COMMIT;
 
 NOTIFY pgrst, 'reload schema';
