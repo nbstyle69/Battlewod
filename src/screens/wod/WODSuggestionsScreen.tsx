@@ -321,7 +321,7 @@ export default function WODSuggestionsScreen() {
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={onPagerScroll}
             style={S.pager}
-            contentContainerStyle={{ alignItems: 'stretch' }}
+            contentContainerStyle={{ flexGrow: 1, alignItems: 'stretch' }}
           >
           {suggestions.map((s, i) => {
             const isFirst = i === 0;
@@ -331,93 +331,95 @@ export default function WODSuggestionsScreen() {
               <GlassCard
                 style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
-                <View style={S.cardTop}>
-                  <View style={S.badges}>
-                    <View style={[S.badge, { backgroundColor: `${accent}20` }]}>
-                      <Text style={[S.badgeText, { color: accent }]}>{s.method}</Text>
+                <View style={S.cardInner}>
+                  <View style={S.cardTop}>
+                    <View style={S.badges}>
+                      <View style={[S.badge, { backgroundColor: `${accent}20` }]}>
+                        <Text style={[S.badgeText, { color: accent }]}>{s.method}</Text>
+                      </View>
+                      <View style={[S.badge, { backgroundColor: theme.surface }]}>
+                        <Clock size={11} color={theme.textMuted} />
+                        <Text style={[S.badgeText, { color: theme.textMuted }]}>
+                          cap {(s.wod as CFWod).time_cap_min} min
+                        </Text>
+                      </View>
                     </View>
-                    <View style={[S.badge, { backgroundColor: theme.surface }]}>
-                      <Clock size={11} color={theme.textMuted} />
-                      <Text style={[S.badgeText, { color: theme.textMuted }]}>
-                        cap {(s.wod as CFWod).time_cap_min} min
+                    <View style={[S.matchBadge, { backgroundColor: `${accent}22` }]}>
+                      {s.isChallenge
+                        ? <Zap size={11} color={accent} />
+                        : <Trophy size={11} color={accent} />}
+                      <Text style={[S.matchText, { color: accent }]}>
+                        {s.isChallenge ? 'DÉFI' : `MATCH ${s.matchPct} %`}
                       </Text>
                     </View>
                   </View>
-                  <View style={[S.matchBadge, { backgroundColor: `${accent}22` }]}>
-                    {s.isChallenge
-                      ? <Zap size={11} color={accent} />
-                      : <Trophy size={11} color={accent} />}
-                    <Text style={[S.matchText, { color: accent }]}>
-                      {s.isChallenge ? 'DÉFI' : `MATCH ${s.matchPct} %`}
+
+                  <Text style={S.title}>{s.wod.title}</Text>
+
+                  <View style={S.moveBox}>
+                    {movementLines(s, usePR, profile.prs ?? {}).map((l, j) => (
+                      <Text key={j} style={l.startsWith('  ') ? S.moveLine : S.schemeLine}>{l.trim()}</Text>
+                    ))}
+                  </View>
+
+                  <View style={S.scoringRow}>
+                    <Zap size={14} color={theme.gold} />
+                    <Text style={S.scoringText}>
+                      {(s.wod as CFWod).score_type} — cap {(s.wod as CFWod).time_cap_min} min
                     </Text>
                   </View>
-                </View>
 
-                <Text style={S.title}>{s.wod.title}</Text>
+                  {/* Le « pourquoi » n'apparaît que s'il apporte une info personnelle (sinon vide). */}
+                  {s.why !== '' && (
+                    <View style={[S.whyBox, s.isChallenge && { backgroundColor: `${theme.warning}14` }]}>
+                      <Text style={[S.whyText, s.isChallenge && { color: theme.warning }]}>{s.why}</Text>
+                    </View>
+                  )}
 
-                <View style={S.moveBox}>
-                  {movementLines(s, usePR, profile.prs ?? {}).map((l, j) => (
-                    <Text key={j} style={l.startsWith('  ') ? S.moveLine : S.schemeLine}>{l.trim()}</Text>
-                  ))}
-                </View>
-
-                <View style={S.scoringRow}>
-                  <Zap size={14} color={theme.gold} />
-                  <Text style={S.scoringText}>
-                    {(s.wod as CFWod).score_type} — cap {(s.wod as CFWod).time_cap_min} min
-                  </Text>
-                </View>
-
-                {/* Le « pourquoi » n'apparaît que s'il apporte une info personnelle (sinon vide). */}
-                {s.why !== '' && (
-                  <View style={[S.whyBox, s.isChallenge && { backgroundColor: `${theme.warning}14` }]}>
-                    <Text style={[S.whyText, s.isChallenge && { color: theme.warning }]}>{s.why}</Text>
+                  <View style={S.actionRow}>
+                    <TouchableOpacity
+                      style={[S.actionBtn, { borderColor: accent }]}
+                      onPress={() => saveWod(s)}
+                      disabled={saving === s.signature}
+                      activeOpacity={0.8}
+                    >
+                      {saving === s.signature
+                        ? <ActivityIndicator size="small" color={accent} />
+                        : <><Bookmark size={14} color={accent} /><Text style={[S.actionText, { color: accent }]}>Sauvegarder</Text></>}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[S.actionBtn, { borderColor: accent }]}
+                      onPress={() => Share.share({
+                        message: `${s.wod.title}\n${(s.wod as CFWod).score_type}\n\n${wodText(s)}\n\nGénéré avec AthleX 💪`,
+                      })}
+                      activeOpacity={0.8}
+                    >
+                      <Share2 size={14} color={accent} />
+                      <Text style={[S.actionText, { color: accent }]}>Partager</Text>
+                    </TouchableOpacity>
                   </View>
-                )}
 
-                <View style={S.actionRow}>
                   <TouchableOpacity
-                    style={[S.actionBtn, { borderColor: accent }]}
-                    onPress={() => saveWod(s)}
-                    disabled={saving === s.signature}
-                    activeOpacity={0.8}
+                    style={[S.cta, { backgroundColor: accent }]}
+                    onPress={() => setCameraFor({ s, rank: i + 1 })}
+                    activeOpacity={0.85}
                   >
-                    {saving === s.signature
-                      ? <ActivityIndicator size="small" color={accent} />
-                      : <><Bookmark size={14} color={accent} /><Text style={[S.actionText, { color: accent }]}>Sauvegarder</Text></>}
+                    <Zap size={16} color="#fff" />
+                    <Text style={S.ctaText}>
+                      {s.isChallenge ? 'JE RELÈVE LE DÉFI' : 'LANCER LE WOD'}
+                    </Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
-                    style={[S.actionBtn, { borderColor: accent }]}
-                    onPress={() => Share.share({
-                      message: `${s.wod.title}\n${(s.wod as CFWod).score_type}\n\n${wodText(s)}\n\nGénéré avec AthleX 💪`,
-                    })}
-                    activeOpacity={0.8}
+                    style={[S.wbBtn, { borderColor: accent, backgroundColor: `${accent}15` }]}
+                    onPress={() => addToWhiteboard(s)}
+                    disabled={saving === s.signature}
+                    activeOpacity={0.85}
                   >
-                    <Share2 size={14} color={accent} />
-                    <Text style={[S.actionText, { color: accent }]}>Partager</Text>
+                    <BookOpen size={16} color={accent} />
+                    <Text style={[S.wbText, { color: accent }]}>AJOUTER AU WHITEBOARD</Text>
                   </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity
-                  style={[S.cta, { backgroundColor: accent }]}
-                  onPress={() => setCameraFor({ s, rank: i + 1 })}
-                  activeOpacity={0.85}
-                >
-                  <Zap size={16} color="#fff" />
-                  <Text style={S.ctaText}>
-                    {s.isChallenge ? 'JE RELÈVE LE DÉFI' : 'LANCER LE WOD'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[S.wbBtn, { borderColor: accent, backgroundColor: `${accent}15` }]}
-                  onPress={() => addToWhiteboard(s)}
-                  disabled={saving === s.signature}
-                  activeOpacity={0.85}
-                >
-                  <BookOpen size={16} color={accent} />
-                  <Text style={[S.wbText, { color: accent }]}>AJOUTER AU WHITEBOARD</Text>
-                </TouchableOpacity>
               </GlassCard>
               </View>
             );
@@ -517,7 +519,8 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   counter: { fontSize: 13, fontWeight: '800', color: theme.text },
 
   pager: { flex: 1 },
-  page: { width: PAGE_W },
+  // Carte à hauteur de contenu, centrée : ni trou dans la carte, ni bloc écrasé.
+  page: { width: PAGE_W, justifyContent: 'center' },
 
   dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 14 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.border },
@@ -533,7 +536,10 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   // La carte s'adapte à son contenu : pas de vide entre le WOD et les boutons.
   // flex:1 obligatoire : GlassCard place son contenu dans une vue flex:1,
   // une carte à hauteur automatique s'écraserait.
-  card: { flex: 1, padding: 20, borderRadius: 20, gap: 12 },
+  // GlassCard applique `style` sur sa vue externe : padding/gap doivent vivre
+  // dans une vue interne, sinon les enfants sont collés et débordent de la carte.
+  card: { borderRadius: 16 },
+  cardInner: { padding: 16, gap: 12 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   method: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: theme.textSecondary },
   matchBadge: {
@@ -557,7 +563,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
 
   // Le bloc séance absorbe la hauteur restante : pas de vide entre les blocs.
   moveBox: {
-    flex: 1, backgroundColor: theme.surface, borderRadius: 10, padding: 12, gap: 3,
+    backgroundColor: theme.surface, borderRadius: 10, padding: 12, gap: 3,
   },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   scoringText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, flex: 1 },
