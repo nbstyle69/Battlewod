@@ -61,6 +61,9 @@ AS $$
   );
 $$;
 
+-- Révoquer PUBLIC aussi : sans ça l'EXECUTE accordé par défaut à PUBLIC
+-- laisse n'importe quel utilisateur connecté sonder un autre membre.
+REVOKE ALL ON FUNCTION public.membership_access_blocked(uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.membership_access_blocked(uuid, uuid) FROM anon, authenticated;
 
 -- Le membre connecté peut interroger SON propre statut (bannière in-app).
