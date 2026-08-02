@@ -514,7 +514,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   counter: { fontSize: 13, fontWeight: '800', color: theme.text },
 
   pager: { flex: 1 },
-  page: { width: PAGE_W, justifyContent: 'flex-start' },
+  page: { width: PAGE_W },
 
   dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 14 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.border },
@@ -528,7 +528,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   prToggleSub: { fontSize: 11, color: theme.textSecondary, marginTop: 1 },
 
   // La carte s'adapte à son contenu : pas de vide entre le WOD et les boutons.
-  card: { padding: 20, borderRadius: 20, gap: 12 },
+  // flex:1 obligatoire : GlassCard place son contenu dans une vue flex:1,
+  // une carte à hauteur automatique s'écraserait.
+  card: { flex: 1, padding: 20, borderRadius: 20, gap: 12 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   method: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: theme.textSecondary },
   matchBadge: {
@@ -550,9 +552,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   badgeText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
 
+  // Le bloc séance absorbe la hauteur restante : pas de vide entre les blocs.
   moveBox: {
-    backgroundColor: theme.surface, borderRadius: 14, padding: 16, gap: 4, minHeight: 120,
-    justifyContent: 'center',
+    flex: 1, backgroundColor: theme.surface, borderRadius: 14, padding: 16, gap: 4,
   },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   scoringText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, flex: 1 },
