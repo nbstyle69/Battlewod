@@ -82,6 +82,7 @@ import BOArticlesScreen from '../screens/backoffice/BOArticlesScreen';
 import BOSettingsScreen from '../screens/backoffice/BOSettingsScreen';
 import BOInterCompetitionScreen from '../screens/backoffice/BOInterCompetitionScreen';
 import BOProgramsScreen from '../screens/backoffice/BOProgramsScreen';
+import BOProgrammingScreen from '../screens/backoffice/BOProgrammingScreen';
 import BOProgramEditorScreen from '../screens/backoffice/BOProgramEditorScreen';
 import ProgramDetailScreen from '../screens/programs/ProgramDetailScreen';
 import ArticlesScreen from '../screens/whiteboard/ArticlesScreen';
@@ -183,6 +184,7 @@ export type BODashboardStackParamList = {
   BOBoxInfo: undefined;
   BOSubscription: undefined;
   BOPrograms: undefined;
+  BOProgramming: undefined;
   BOProgramEditor: { programId: string; programTitle: string; durationWeeks?: number; daysPerWeek?: number; progType: string };
 };
 
@@ -606,6 +608,7 @@ function BODashboardNavigator() {
       <BODashStack.Screen name="BOBoxInfo" component={BOBoxInfoScreen} />
       <BODashStack.Screen name="BOSubscription" component={BOSubscriptionScreen} />
       <BODashStack.Screen name="BOPrograms" component={BOProgramsScreen} />
+      <BODashStack.Screen name="BOProgramming" component={BOProgrammingScreen} />
       <BODashStack.Screen name="BOProgramEditor" component={BOProgramEditorScreen} />
     </BODashStack.Navigator>
   );

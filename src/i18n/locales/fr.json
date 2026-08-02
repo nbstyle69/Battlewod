@@ -161,7 +161,15 @@
     },
     "settings": {
       "title": "Paramètres publication",
-      "days": ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
+      "days": [
+        "Dimanche",
+        "Lundi",
+        "Mardi",
+        "Mercredi",
+        "Jeudi",
+        "Vendredi",
+        "Samedi"
+      ],
       "wodOfDay": "WOD du jour",
       "dailyDesc": "Heure de publication par défaut pour les WODs quotidiens",
       "weeklyTitle": "Programmation hebdomadaire",
@@ -404,7 +412,15 @@
       "activeVisible": "Actif (visible)"
     },
     "programEditor": {
-      "dayLabels": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+      "dayLabels": [
+        "Lun",
+        "Mar",
+        "Mer",
+        "Jeu",
+        "Ven",
+        "Sam",
+        "Dim"
+      ],
       "typeForTime": "For Time",
       "typeAmrap": "AMRAP",
       "typeEmom": "EMOM",
@@ -477,11 +493,20 @@
       "qaReport": "Rapport",
       "qaNotifications": "Notifications",
       "qaArticles": "Actualités",
-      "qaPublication": "Publication"
+      "qaPublication": "Publication",
+      "qaProgramming": "Programmation"
     },
     "schedule": {
       "title": "Horaires & Créneaux",
-      "dayLabels": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+      "dayLabels": [
+        "Lun",
+        "Mar",
+        "Mer",
+        "Jeu",
+        "Ven",
+        "Sam",
+        "Dim"
+      ],
       "today": "Aujourd'hui",
       "addSlot": "+ Ajouter un créneau",
       "invalidCapacity": "Capacité invalide",
@@ -522,7 +547,15 @@
     },
     "wods": {
       "title": "Calendrier WODs",
-      "dayLabels": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+      "dayLabels": [
+        "Lun",
+        "Mar",
+        "Mer",
+        "Jeu",
+        "Ven",
+        "Sam",
+        "Dim"
+      ],
       "today": "Aujourd'hui",
       "addWod": "+ Ajouter un WOD",
       "draft": "Brouillon",
@@ -628,6 +661,32 @@
       "rejectScore": "Rejeter le score",
       "rejectReasonPlaceholder": "Motif du rejet (optionnel)",
       "confirmReject": "Confirmer le rejet"
+    },
+    "programming": {
+      "title": "Programmation",
+      "subtitle": "Recevez la programmation d'autres box dans votre Whiteboard, révélée le dimanche 18h.",
+      "searchPlaceholder": "Rechercher une programmation…",
+      "free": "Gratuit",
+      "allDisciplines": "Toutes",
+      "empty": "Aucune programmation disponible pour ces filtres.",
+      "aBox": "Box",
+      "by": "par {{name}}",
+      "perMonth": "/mois",
+      "subscribed": "Abonné",
+      "subscribe": "S'abonner",
+      "weeks": "{{n}} sem",
+      "daysPerWeek": "{{n}} j/sem",
+      "levelAll": "Tous niveaux",
+      "levelBeginner": "Débutant",
+      "levelIntermediate": "Intermédiaire",
+      "levelAdvanced": "Avancé",
+      "revealNote": "Les WOD apparaîtront dans le Whiteboard de votre box, révélés le dimanche 18h (comme pour les athlètes).",
+      "subscribeConfirmTitle": "S'abonner ?",
+      "subscribeConfirmMsg": "Recevoir « {{title}} » dans le Whiteboard de {{box}} ?",
+      "subscribedOk": "Abonnement activé",
+      "paidTitle": "Offre payante",
+      "paidMsg": "Cette programmation ({{price}}) se règle sur le web via paiement sécurisé Stripe. Ouvrir la page de paiement ?",
+      "payOnWeb": "Payer sur le web"
     }
   },
   "common": {
@@ -715,7 +774,15 @@
     "weekTotal": "{{res}} cours · {{wods}} WODs cette semaine",
     "dayStreak": "{{count}} jours d'affilée",
     "dayDetail": "{{day}} : {{res}} cours · {{wods}} WODs",
-    "dayNamesFull": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+    "dayNamesFull": [
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi",
+      "Dimanche"
+    ],
     "personalRecords": "Records personnels",
     "myBoxes": "Mes boxes",
     "competitions": "Compétitions",
@@ -1416,7 +1483,14 @@
     "statusActive": "En cours",
     "statusClosed": "Terminé",
     "statusUpcoming": "À venir",
-    "bracketStages": ["Finale", "Demi-finale", "Quart de finale", "8e de finale", "16e de finale", "32e de finale"],
+    "bracketStages": [
+      "Finale",
+      "Demi-finale",
+      "Quart de finale",
+      "8e de finale",
+      "16e de finale",
+      "32e de finale"
+    ],
     "stageN": "Étape {{n}}",
     "registerError": "Erreur inscription",
     "registerImpossible": "Inscription impossible",
@@ -1516,16 +1590,46 @@
     "sectionHome": "Sur l'accueil",
     "sectionNav": "La barre de navigation",
     "steps": [
-      { "label": "L'ELO", "description": "Ta progression en participant au WOD du jour de ta box et lors des compétitions au sein de l'application." },
-      { "label": "Amis", "description": "Retrouve et consulte ta liste d'amis." },
-      { "label": "Classement", "description": "Consulte les différents classements." },
-      { "label": "Minuteur Vidéo", "description": "Un chronomètre à disposition avec enregistrement vidéo — idéal pour les qualifications en ligne." },
-      { "label": "Générateur de WOD", "description": "On te propose des WODs selon tes envies !" },
-      { "label": "Calculateur 1RM", "description": "Pour trouver la charge correspondant à un % de ton exercice." },
-      { "label": "Compétition", "description": "Ici tu retrouveras les différentes compétitions disponibles." },
-      { "label": "Explorer", "description": "Des informations concernant les box et les partenaires." },
-      { "label": "Ma box", "description": "Tu retrouveras tes cours inscrits ici." },
-      { "label": "Réservations", "description": "Tu pourras t'inscrire aux cours de ta salle." }
+      {
+        "label": "L'ELO",
+        "description": "Ta progression en participant au WOD du jour de ta box et lors des compétitions au sein de l'application."
+      },
+      {
+        "label": "Amis",
+        "description": "Retrouve et consulte ta liste d'amis."
+      },
+      {
+        "label": "Classement",
+        "description": "Consulte les différents classements."
+      },
+      {
+        "label": "Minuteur Vidéo",
+        "description": "Un chronomètre à disposition avec enregistrement vidéo — idéal pour les qualifications en ligne."
+      },
+      {
+        "label": "Générateur de WOD",
+        "description": "On te propose des WODs selon tes envies !"
+      },
+      {
+        "label": "Calculateur 1RM",
+        "description": "Pour trouver la charge correspondant à un % de ton exercice."
+      },
+      {
+        "label": "Compétition",
+        "description": "Ici tu retrouveras les différentes compétitions disponibles."
+      },
+      {
+        "label": "Explorer",
+        "description": "Des informations concernant les box et les partenaires."
+      },
+      {
+        "label": "Ma box",
+        "description": "Tu retrouveras tes cours inscrits ici."
+      },
+      {
+        "label": "Réservations",
+        "description": "Tu pourras t'inscrire aux cours de ta salle."
+      }
     ]
   }
 }
