@@ -36,7 +36,7 @@ const USER = 'user-1';
 const sugg = {
   kind: 'cf', wod: {} as never, seed: 1, signature: 'sig-1',
   movementNames: ['thruster', 'pull-ups'], score: 80, matchPct: 80,
-  isChallenge: false, why: '', method: 'For Time',
+  isChallenge: false, personalized: false, why: '', method: 'For Time',
 } as RankedSuggestion;
 
 /** Programme l'historique RPE renvoyé par user_wod_feedback (le + récent d'abord). */
