@@ -344,14 +344,17 @@ export default function WODSuggestionsScreen() {
                         </Text>
                       </View>
                     </View>
+                    {/* Le score n'a de sens que si un signal personnel a joué (sinon 50 % partout). */}
+                    {(s.isChallenge || s.personalized) && (
                     <View style={[S.matchBadge, { backgroundColor: `${accent}22` }]}>
                       {s.isChallenge
                         ? <Zap size={11} color={accent} />
                         : <Trophy size={11} color={accent} />}
                       <Text style={[S.matchText, { color: accent }]}>
-                        {s.isChallenge ? 'DÉFI' : `MATCH ${s.matchPct} %`}
+                        {s.isChallenge ? 'DÉFI' : `POUR TOI ${s.matchPct} %`}
                       </Text>
                     </View>
+                    )}
                   </View>
 
                   <Text style={S.title}>{s.wod.title}</Text>

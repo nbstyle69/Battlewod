@@ -91,4 +91,17 @@ describe('ranker', () => {
     const cards = rankCF(params, withSignal, seeds);
     expect(cards.some((x) => x.why.length > 10)).toBe(true);
   });
+
+  it('cale le time cap sur la durée choisie (20 min = cap 20, pas 19)', () => {
+    const p20: CFParams = { ...params, duration_min: 20, method: 'For Time' };
+    for (const c of rankCF(p20, EMPTY_PROFILE, seeds)) {
+      expect((c.wod as { time_cap_min: number }).time_cap_min).toBe(20);
+    }
+  });
+
+  it('ne marque « personalized » que si un signal personnel a joué', () => {
+    expect(a.every((x) => x.personalized === false || x.isChallenge)).toBe(true);
+    const withSignal: UserWodProfile = { ...EMPTY_PROFILE, prefs: { thruster: 0.8 } };
+    expect(rankCF(params, withSignal, seeds).some((x) => x.personalized)).toBe(true);
+  });
 });

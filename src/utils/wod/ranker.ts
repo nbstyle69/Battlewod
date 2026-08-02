@@ -49,6 +49,8 @@ export interface RankedSuggestion {
   movementNames: string[];   // noms normalisés
   score: number;
   matchPct: number;
+  /** true dès qu'un signal personnel (prefs, rotation, objectif, course) a joué. */
+  personalized: boolean;
   isChallenge: boolean;
   why: string;
   method: string;
@@ -242,6 +244,7 @@ function pickTop(cands: RankedSuggestion[], profile: UserWodProfile): RankedSugg
   return picked.map((p) => ({
     ...p,
     matchPct: Math.min(98, p.score),
+    personalized: ((p as any)._reasons ?? []).length > 0,
     why: buildWhy({ reasons: (p as any)._reasons ?? [], isChallenge: p.isChallenge, kind: p.kind }, p.wod),
   }));
 }
@@ -273,7 +276,7 @@ function rank<K extends 'cf' | 'hyrox'>(
     const d = scoreCandidate(kind, wod, names, signature, profile);
     const c: RankedSuggestion = {
       kind, wod, seed, signature, movementNames: names,
-      score: d.eliminated ? 0 : d.score, matchPct: 0,
+      score: d.eliminated ? 0 : d.score, matchPct: 0, personalized: false,
       isChallenge: false, why: '', method: (wod as any).method ?? (wod as any).structure,
     };
     (c as any)._reasons = d.reasons;
@@ -284,7 +287,13 @@ function rank<K extends 'cf' | 'hyrox'>(
 
 /** Mode Functional Fitness / CrossFit. `seeds` injectable pour les tests (déterminisme). */
 export function rankCF(params: CFParams, profile: UserWodProfile, seeds?: number[]): RankedSuggestion[] {
-  return rank('cf', (s) => generateCFWod(params, s), cfSignature, profile, seeds);
+  // Le moteur ramène le cap à 95 % de la durée demandée hors AMRAP : on le recale sur
+  // la durée choisie (20 min demandées = cap 20), sans toucher au moteur ni aux reps.
+  const gen = (s: number) => {
+    const w = generateCFWod(params, s);
+    return params.benchmark ? w : { ...w, time_cap_min: params.duration_min };
+  };
+  return rank('cf', gen, cfSignature, profile, seeds);
 }
 
 /** Mode Hybrid / Hyrox. `seeds` injectable pour les tests (déterminisme). */
