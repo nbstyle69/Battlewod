@@ -86,8 +86,11 @@ function movementLines(s: RankedSuggestion, usePR: boolean, prs: Record<string, 
     lines.push(b.label ? `${b.label} · ${b.scheme}` : b.scheme);
     for (const m of b.movements) {
       let l = m.prescription ? `${m.prescription} — ${m.name}` : m.name;
-      // Personnalisation d'affichage : uniquement le générateur perso, jamais benchmarks/box.
-      const load = usePR ? personalizedLoadDisplay(m.name, m.load, level, prs) : m.load;
+      // Personnalisation d'affichage : uniquement le générateur perso CF, jamais benchmarks/box.
+      // Pas en Hybrid : resolveLoad applique des % de CONDITIONING — il écraserait les
+      // prescriptions de force des blocs barre Hyrox (« 80-85 % du 1RM ») par des charges
+      // de metcon trop légères pour du 5×5.
+      const load = usePR && s.kind === 'cf' ? personalizedLoadDisplay(m.name, m.load, level, prs) : m.load;
       if (load) l += ` @ ${load}`;
       lines.push(`  ${l}`);
     }
@@ -350,7 +353,7 @@ export default function WODSuggestionsScreen() {
             const isFirst = i === 0;
             const accent = s.isChallenge ? theme.warning : theme.accent;
             return (
-              <View key={s.signature} style={S.page}>
+              <View key={`${s.seed}-${s.signature}`} style={S.page}>
               <View
                 style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
@@ -456,7 +459,7 @@ export default function WODSuggestionsScreen() {
             <View style={S.dots}>
               {suggestions.map((s, i) => (
                 <View
-                  key={s.signature}
+                  key={`${s.seed}-${s.signature}`}
                   style={[S.dot, i === page && { backgroundColor: theme.accent, width: 20 }]}
                 />
               ))}
