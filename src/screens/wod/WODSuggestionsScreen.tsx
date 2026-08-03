@@ -353,7 +353,7 @@ export default function WODSuggestionsScreen() {
             const isFirst = i === 0;
             const accent = s.isChallenge ? theme.warning : theme.accent;
             return (
-              <View key={s.signature} style={S.page}>
+              <View key={`${s.seed}-${s.signature}`} style={S.page}>
               <View
                 style={[S.card, (isFirst || s.isChallenge) && { borderColor: accent, borderWidth: 1.5 }]}
               >
@@ -459,7 +459,7 @@ export default function WODSuggestionsScreen() {
             <View style={S.dots}>
               {suggestions.map((s, i) => (
                 <View
-                  key={s.signature}
+                  key={`${s.seed}-${s.signature}`}
                   style={[S.dot, i === page && { backgroundColor: theme.accent, width: 20 }]}
                 />
               ))}
