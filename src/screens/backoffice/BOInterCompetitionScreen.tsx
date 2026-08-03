@@ -64,6 +64,9 @@ export default function BOInterCompetitionScreen() {
 
   // Selected competition data
   const [wods, setWods] = useState<InterWod[]>([]);
+  // Révélation programmée : WOD en cours de programmation + saisie « AAAA-MM-JJ HH:mm »
+  const [schedulingWodId, setSchedulingWodId] = useState<string | null>(null);
+  const [scheduleInput, setScheduleInput] = useState('');
   const [scores, setScores] = useState<InterScore[]>([]);
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[]>([]);
   const [leagueRounds, setLeagueRounds] = useState<LeagueRound[]>([]);
@@ -363,6 +366,35 @@ export default function BOInterCompetitionScreen() {
     }
   }
 
+  /** Révélation PROGRAMMÉE : un `revealed_at` FUTUR reste masqué par la RLS
+   *  (`revealed_at <= now()`) jusqu'à l'heure dite — les participants voient le WOD
+   *  apparaître au jour/heure exacts, à leur prochain chargement de l'écran.
+   *  Limite connue : pas de push à l'heure programmée (il faudrait un cron serveur). */
+  function parseScheduleInput(input: string): Date | null {
+    const m = input.trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+    if (!m) return null;
+    const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  async function handleScheduleReveal(wodId: string) {
+    const when = parseScheduleInput(scheduleInput);
+    if (!when) { Alert.alert(t('common.error'), 'Format attendu : AAAA-MM-JJ HH:mm'); return; }
+    if (when.getTime() <= Date.now()) { Alert.alert(t('common.error'), 'La date doit être dans le futur.'); return; }
+    const { error } = await supabase.from('inter_competition_wods')
+      .update({ revealed_at: when.toISOString() }).eq('id', wodId);
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
+    setSchedulingWodId(null); setScheduleInput('');
+    loadData();
+  }
+
+  async function handleCancelSchedule(wodId: string) {
+    const { error } = await supabase.from('inter_competition_wods')
+      .update({ revealed_at: null }).eq('id', wodId);
+    if (error) { Alert.alert(t('common.error'), error.message); return; }
+    loadData();
+  }
+
   async function handleValidateScore(scoreId: string) {
     const { error } = await supabase.from('inter_scores')
       .update({ status: 'validated', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
@@ -647,13 +679,44 @@ export default function BOInterCompetitionScreen() {
                       </Text>
                     </View>
                     {!w.revealed_at ? (
-                      <TouchableOpacity style={S.revealBtn} onPress={() => handleRevealWod(w.id)}>
-                        <Text style={S.revealBtnText}>{t('bo.interComp.reveal')}</Text>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        <TouchableOpacity style={S.revealBtn} onPress={() => handleRevealWod(w.id)}>
+                          <Text style={S.revealBtnText}>{t('bo.interComp.reveal')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={S.scheduleBtn}
+                          onPress={() => { setSchedulingWodId(schedulingWodId === w.id ? null : w.id); setScheduleInput(''); }}
+                        >
+                          <Text style={S.scheduleBtnText}>Programmer</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : new Date(w.revealed_at) > new Date() ? (
+                      // Programmé dans le futur : masqué des participants jusqu'à l'heure dite (RLS)
+                      <TouchableOpacity style={S.scheduledChip} onPress={() => handleCancelSchedule(w.id)}>
+                        <Text style={S.scheduledChipText}>
+                          🕐 {new Date(w.revealed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}{' '}
+                          {new Date(w.revealed_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · annuler
+                        </Text>
                       </TouchableOpacity>
                     ) : (
                       <CheckCircle color={theme.success} size={16} />
                     )}
                   </View>
+                  {schedulingWodId === w.id && !w.revealed_at && (
+                    <View style={S.scheduleRow}>
+                      <TextInput
+                        style={S.scheduleInput}
+                        placeholder="AAAA-MM-JJ HH:mm"
+                        placeholderTextColor={theme.textMuted}
+                        value={scheduleInput}
+                        onChangeText={setScheduleInput}
+                        autoCapitalize="none"
+                      />
+                      <TouchableOpacity style={S.revealBtn} onPress={() => handleScheduleReveal(w.id)}>
+                        <Text style={S.revealBtnText}>OK</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                   {w.description ? <Text style={S.wodDesc}>{w.description}</Text> : null}
                 </View>
               ))}
@@ -905,6 +968,15 @@ function createStyles(theme: AppTheme) {
     wodDesc: { fontSize: 12, color: theme.textMuted, marginTop: 6 },
     revealBtn: { backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
     revealBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+    scheduleBtn: { borderWidth: 1, borderColor: theme.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+    scheduleBtnText: { fontSize: 11, fontWeight: '700', color: theme.accent },
+    scheduledChip: { backgroundColor: `${theme.accent}18`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+    scheduledChipText: { fontSize: 10, fontWeight: '700', color: theme.accent },
+    scheduleRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8 },
+    scheduleInput: {
+      flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: 8,
+      paddingHorizontal: 10, paddingVertical: 6, fontSize: 12, color: theme.text,
+    },
     scoreCard: { backgroundColor: theme.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border },
     scoreHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     scoreName: { fontSize: 14, fontWeight: '700', color: theme.text },
