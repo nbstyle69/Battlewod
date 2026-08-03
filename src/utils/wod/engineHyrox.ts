@@ -51,7 +51,7 @@ const WEIGHTS: Record<Category, Record<string, string>> = {
   'Men Pro':   { sledPush: '202 kg', sledPull: '153 kg', farmers: '2×32 kg', sandbag: '30 kg', wallBall: '9 kg / 10ft', kb: '32 kg', sandbagLoad: '35 kg' },
 };
 
-type MoveType = 'station' | 'cardio' | 'sandbag' | 'kb' | 'bodyweight';
+type MoveType = 'station' | 'cardio' | 'sandbag' | 'kb' | 'bodyweight' | 'barbell';
 interface MoveDef {
   name: string;
   type: MoveType;
@@ -158,6 +158,19 @@ const MOVES: MoveDef[] = [
     scheme: (r, d) => `${repScale(d, r.pick([5, 8]))} reps` },
   { name: 'Strict Pull-up', type: 'bodyweight', equipment: null, rpe: [6, 9], loadKey: null, force: true, substitution: 'Ring rows / tractions assistées',
     scheme: (r, d) => `${repScale(d, r.pick([5, 8, 10]))} reps` },
+  // --- Barre (séance FORCE uniquement : aucun builder de metcon ne tire le type 'barbell') ---
+  // Les lifts de référence de la préparation Hyrox (back/front squat, deadlift, fentes, row).
+  // Pas de poids de catégorie : la charge se prescrit en % du 1RM (posé par buildForceBlocks).
+  { name: 'Back Squat', type: 'barbell', equipment: 'Barbell', rpe: [6, 8], loadKey: null, force: true, substitution: 'Goblet squat lourd',
+    scheme: (r) => `${r.pick([3, 5])} reps` },
+  { name: 'Front Squat', type: 'barbell', equipment: 'Barbell', rpe: [6, 8], loadKey: null, force: true, substitution: 'KB front rack squat',
+    scheme: (r) => `${r.pick([3, 5])} reps` },
+  { name: 'Deadlift', type: 'barbell', equipment: 'Barbell', rpe: [6, 8], loadKey: null, force: true, substitution: 'KB deadlift lourd',
+    scheme: (r) => `${r.pick([3, 5])} reps` },
+  { name: 'Barbell Lunge', type: 'barbell', equipment: 'Barbell', rpe: [6, 8], loadKey: null, force: true, substitution: 'DB walking lunge',
+    scheme: (r) => `${r.pick([6, 8])} reps/jambe` },
+  { name: 'Barbell Bent Over Row', type: 'barbell', equipment: 'Barbell', rpe: [6, 8], loadKey: null, force: true, substitution: 'DB row',
+    scheme: (r) => `${r.pick([6, 8])} reps` },
   // --- Grip & gainage (spécifiques Hyrox : farmers, sled, wall balls exigent les deux) ---
   { name: 'Dead Hang', type: 'bodyweight', equipment: null, rpe: [5, 8], loadKey: null, force: true, substitution: 'Farmers hold lourd',
     scheme: (r) => `${r.pick([30, 45, 60])}s de suspension` },
@@ -245,6 +258,8 @@ const PATTERN: Record<string, string[]> = {
   'Burpee': ['burpee'], 'Burpee over Target': ['burpee'], 'Burpee Broad Jump': ['burpee'],
   'Walking Lunge': ['lunge'], 'DB Walking Lunge (lourd)': ['lunge'], 'Sandbag Lunge': ['lunge'], 'Bulgarian Split Squat': ['lunge', 'squat'],
   'Farmers Carry': ['carry', 'grip'],
+  'Back Squat': ['squat'], 'Front Squat': ['squat'], 'Deadlift': ['hinge'],
+  'Barbell Lunge': ['lunge', 'squat'], 'Barbell Bent Over Row': ['row'],
   'Sled Push': ['sled-push'], 'Sled Pull': ['sled-pull'],
   'Run': ['run'], 'Shuttle Run': ['run'], 'Row': ['erg-row'], 'SkiErg': ['erg-ski'], 'BikeErg': ['erg-bike'],
   'Sit-up': ['core'], 'Plank Hold': ['core'], 'Mountain Climbers': ['core'],
@@ -463,7 +478,8 @@ function buildNamedWod(rng: RNG, params: HyroxParams): Block {
 function buildRunSplit(rng: RNG, params: HyroxParams): Block {
   // Petite distance de cardio, puis 2-4 exercices courts (reps ≤ 10) entre chaque run.
   const probe = new RNG(1);
-  const repPool = MOVES.filter((m) => isAvailable(m, params.equipment) && m.scheme(probe, 20).includes('reps'));
+  // type 'barbell' exclu : les lifts barre sont réservés à la séance Force.
+  const repPool = MOVES.filter((m) => m.type !== 'barbell' && isAvailable(m, params.equipment) && m.scheme(probe, 20).includes('reps'));
   const exos = rng
     .sample(repPool, Math.min(rng.int(2, 4), repPool.length))
     .map((m) => {
@@ -492,19 +508,30 @@ function buildForceBlocks(rng: RNG, params: HyroxParams): Block[] {
   );
   const used = new Set<string>();
 
-  // ---- Bloc A : lift principal lourd, priorité aux plus chargeables (sled > sandbag/KB > PDC)
-  const heavyDist = forcePool.filter((m) => isLoadable(m) && !schemeIsReps(m));       // Sled Push/Pull, Farmers
-  const heavyReps = forcePool.filter((m) => isLoadable(m) && schemeIsReps(m));        // KB/DB/Sandbag à reps
-  const bodyweight = forcePool.filter((m) => !isLoadable(m));
+  // ---- Bloc A : lift principal lourd. Priorité BARRE (back/front squat, deadlift…)
+  // quand la chip Barbell est cochée — ce sont les lifts de référence de la prépa
+  // Hyrox (3-5 reps à 80-90 % du 1RM). Sinon : sled/carry lourd > sandbag/KB > PDC.
+  const barbell = forcePool.filter((m) => m.type === 'barbell');
+  const heavyDist = forcePool.filter((m) => m.type !== 'barbell' && isLoadable(m) && !schemeIsReps(m)); // Sled, Farmers
+  const heavyReps = forcePool.filter((m) => m.type !== 'barbell' && isLoadable(m) && schemeIsReps(m));  // KB/DB/Sandbag
+  const bodyweight = forcePool.filter((m) => !isLoadable(m) && m.type !== 'barbell');
 
   const sets = rng.pick([[5, 5], [3, 3], [4, 6]]); // [séries, reps] — 5×5 / 3×3 / 4×6
   let a: Movement[] = [];
   let aScheme = '';
   const pickA = (pool: MoveDef[]) => samplePatternSafe(rng, pool, 1, used)[0];
 
-  const aHeavyDist = heavyDist.length && rng.float() < 0.35 ? pickA(heavyDist) : undefined;
-  const aHeavyReps = !aHeavyDist && heavyReps.length ? pickA(heavyReps) : undefined;
-  if (aHeavyDist) {
+  const aBarbell = barbell.length && rng.float() < 0.7 ? pickA(barbell) : undefined;
+  const aHeavyDist = !aBarbell && heavyDist.length && rng.float() < 0.35 ? pickA(heavyDist) : undefined;
+  const aHeavyReps = !aBarbell && !aHeavyDist && heavyReps.length ? pickA(heavyReps) : undefined;
+  if (aBarbell) {
+    const mv = toMovement(rng, params, aBarbell);
+    const perLeg = /jambe/.test(mv.prescription) ? '/jambe' : '';
+    mv.prescription = `${sets[0]} × ${sets[1]} reps${perLeg}`;
+    mv.load = '80-85 % du 1RM';
+    a = [mv];
+    aScheme = `${sets[0]} × ${sets[1]} — lourd (80-85 % du 1RM, 2 reps en réserve)`;
+  } else if (aHeavyDist) {
     // Sled/carry lourd : la « série » est une distance courte, charge montée au-dessus du poids de course.
     const mv = toMovement(rng, params, aHeavyDist);
     mv.prescription = `${sets[0]} × ${rng.pick([15, 20, 25])}m LOURD`;
@@ -529,6 +556,7 @@ function buildForceBlocks(rng: RNG, params: HyroxParams): Block[] {
     const mv = toMovement(rng, params, m);
     const per = /\/(bras|jambe)/.test(mv.prescription) ? mv.prescription.match(/\/(bras|jambe)/)![0] : '';
     mv.prescription = `3 × ${rng.pick([8, 10, 12])} reps${per}`;
+    if (m.type === 'barbell') mv.load = '65-75 % du 1RM'; // accessoire barre : plus léger que le lift A
     return mv;
   });
 

@@ -74,6 +74,40 @@ describe('séance Force (structure réelle : lourd court + accessoires + grip/ga
     const w = force(SEEDS[0]);
     expect(w.coach_notes.join(' ')).toMatch(/poids de COURSE|monte au-dessus/);
   });
+
+  const BARBELL_LIFTS = ['Back Squat', 'Front Squat', 'Deadlift', 'Barbell Lunge', 'Barbell Bent Over Row'];
+
+  it('chip Barbell cochée : le bloc A privilégie les lifts barre, en % du 1RM', () => {
+    let barbellA = 0;
+    for (const s of SEEDS.slice(0, 60)) {
+      const w = generateHyroxWod({ ...base, session_type: 'Force', equipment: [...base.equipment, 'Barbell'] }, s);
+      const a = w.blocks.find((b) => b.label === 'A')!;
+      if (BARBELL_LIFTS.includes(a.movements[0]?.name)) {
+        barbellA++;
+        expect(a.movements[0].load).toMatch(/% du 1RM/);
+        expect(a.scheme).toMatch(/1RM/);
+      }
+    }
+    expect(barbellA).toBeGreaterThan(25); // priorité barre (~70 % des tirages)
+  });
+
+  it('sans chip Barbell : aucun lift barre ne sort', () => {
+    for (const s of SEEDS.slice(0, 60)) {
+      const w = generateHyroxWod({ ...base, session_type: 'Force' }, s);
+      const names = w.blocks.flatMap((b) => b.movements.map((m) => m.name));
+      expect(names.filter((n) => BARBELL_LIFTS.includes(n))).toEqual([]);
+    }
+  });
+
+  it('les lifts barre restent réservés à la séance Force (jamais dans les metcons)', () => {
+    for (const st of ['Engine', 'Interval', 'Aerobic', 'Run Split'] as const) {
+      for (const s of SEEDS.slice(0, 40)) {
+        const w = generateHyroxWod({ ...base, session_type: st, equipment: [...base.equipment, 'Barbell'] }, s);
+        const names = w.blocks.flatMap((b) => b.movements.map((m) => m.name));
+        expect(names.filter((n) => BARBELL_LIFTS.includes(n))).toEqual([]);
+      }
+    }
+  });
 });
 
 describe('intervalles & EMOM réels', () => {

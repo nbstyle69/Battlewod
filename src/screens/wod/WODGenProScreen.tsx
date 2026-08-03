@@ -62,6 +62,9 @@ const HY_FORMATS: HyroxParams['format'][] = ['Solo', 'Doubles', 'Relais', 'Mixed
 const HY_EQUIPMENT = [
   'SkiErg', 'Sled Push', 'Sled Pull', 'RowErg', 'BikeErg',
   'Burpee Broad Jump', 'Farmers Carry', 'Sandbag Lunges', 'Wall Balls',
+  // Barre : ouvre les lifts de la prépa Hyrox (Back/Front Squat, Deadlift, fentes, row)
+  // dans les séances FORCE uniquement — jamais dans les metcons.
+  'Barbell',
 ];
 
 const GOALS: { key: Goal; label: string; sub: string }[] = [
