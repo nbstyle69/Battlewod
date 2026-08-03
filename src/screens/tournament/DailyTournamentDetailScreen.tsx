@@ -170,7 +170,14 @@ export default function DailyTournamentDetailScreen() {
 
     // ELO: compute lazily after tournament ends_at has passed, then load deltas
     const tournEnded = t?.ends_at ? new Date() >= new Date(t.ends_at) : false;
-    if (t?.status === 'completed' && tournEnded && !t?.is_official) {
+    // Fenêtre expirée mais jamais complété (ex. < max_players scores) : complétion
+    // paresseuse via RPC pour que l'ELO puisse enfin être distribué.
+    let tournStatus = t?.status;
+    if (t && tournStatus !== 'completed' && tournEnded && !t.is_official && (alreadyJoined || isCreator)) {
+      const { error: cErr } = await supabase.rpc('complete_daily_tournament', { p_tournament_id: tournamentId });
+      if (!cErr) tournStatus = 'completed';
+    }
+    if (tournStatus === 'completed' && tournEnded && !t?.is_official) {
       const { data: eloHist } = await supabase
         .from('daily_tournament_elo_history')
         .select('user_id, elo_delta')
@@ -350,8 +357,12 @@ export default function DailyTournamentDetailScreen() {
 
   async function completeTournament() {
     if (!tournament) return;
-    // Mark tournament completed — ELO will be computed lazily on first load after ends_at
-    await supabase.from('daily_tournaments').update({ status: 'completed' }).eq('id', tournamentId);
+    // RPC serveur : complète si tous les scores attendus sont là OU si la fenêtre est
+    // expirée. Appelable par TOUT participant — avant, l'update direct échouait en
+    // silence (RLS créateur uniquement) quand le dernier score venait d'un autre
+    // joueur, et l'ELO n'était jamais distribué.
+    const { error } = await supabase.rpc('complete_daily_tournament', { p_tournament_id: tournamentId });
+    if (error) captureError(error, { screen: 'DailyTournamentDetail', action: 'completeTournament' });
   }
 
   async function computeAndSaveEloForTournament(tId: string, _t: any, _parts: Participant[]) {
@@ -364,11 +375,14 @@ export default function DailyTournamentDetailScreen() {
     }
   }
 
+  // Validation/contestation par les PAIRS via RPC SECURITY DEFINER : l'update direct
+  // était un no-op silencieux (la RLS n'autorise que l'auteur du score) — l'app
+  // affichait « validé » sans rien écrire. Le RPC vérifie : relecteur participant,
+  // pas son propre score, score encore pending, tournoi non complété.
   async function handleValidateScore(participantId: string) {
-    const { error } = await supabase.from('daily_tournament_scores')
-      .update({ status: 'validated' })
-      .eq('tournament_id', tournamentId)
-      .eq('user_id', participantId);
+    const { error } = await supabase.rpc('peer_review_daily_score', {
+      p_tournament_id: tournamentId, p_user_id: participantId, p_action: 'validated',
+    });
     if (error) { Alert.alert('Erreur', error.message); return; }
     Alert.alert('✅', 'Score validé !');
     load();
@@ -376,10 +390,10 @@ export default function DailyTournamentDetailScreen() {
 
   async function handleContestScore() {
     if (!contestModal || !user) return;
-    const { error } = await supabase.from('daily_tournament_scores')
-      .update({ status: 'contested', contested_by: user.id, contest_reason: contestReason.trim() || null })
-      .eq('tournament_id', tournamentId)
-      .eq('user_id', contestModal.user_id);
+    const { error } = await supabase.rpc('peer_review_daily_score', {
+      p_tournament_id: tournamentId, p_user_id: contestModal.user_id,
+      p_action: 'contested', p_reason: contestReason.trim() || null,
+    });
     if (error) { Alert.alert('Erreur', error.message); return; }
     setContestModal(null);
     setContestReason('');

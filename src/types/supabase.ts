@@ -6971,6 +6971,31 @@ export type Database = {
           rank: number
         }[]
       }
+      can_join_daily_tournament: {
+        Args: { p_tournament_id: string }
+        Returns: boolean
+      }
+      can_join_inter_competition: {
+        Args: { p_competition_id: string }
+        Returns: boolean
+      }
+      can_join_tournament: {
+        Args: { p_tournament_id: string }
+        Returns: boolean
+      }
+      complete_daily_tournament: {
+        Args: { p_tournament_id: string }
+        Returns: boolean
+      }
+      peer_review_daily_score: {
+        Args: {
+          p_tournament_id: string
+          p_user_id: string
+          p_action: string
+          p_reason?: string | null
+        }
+        Returns: undefined
+      }
       compute_daily_tournament_elo: {
         Args: { p_tournament_id: string }
         Returns: {

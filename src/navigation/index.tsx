@@ -388,6 +388,8 @@ export type CompetitionStackParamList = {
   TournamentWOD: {
     tournamentId: string;
     tournamentName: string;
+    /** règle du tournoi : preuve vidéo exigée à la soumission (sinon vidéo facultative) */
+    requireVideoProof?: boolean;
     wod: {
       id: string;
       tournament_id: string;

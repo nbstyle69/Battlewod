@@ -313,6 +313,7 @@ export default function TournamentScreen() {
     navigation.navigate('TournamentWOD', {
       tournamentId,
       tournamentName: tournament?.name ?? '',
+      requireVideoProof: tournament?.require_video_proof ?? false,
       wod,
       existingScore: existing ? {
         tournament_wod_id: existing.tournament_wod_id,

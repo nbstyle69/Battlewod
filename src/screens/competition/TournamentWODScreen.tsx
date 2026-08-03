@@ -41,7 +41,7 @@ function formatCountdown(ms: number, theme: AppTheme, expiredLabel: string): { t
 export default function TournamentWODScreen() {
   const navigation = useNavigation<Nav>();
   const route      = useRoute<Route>();
-  const { tournamentId, tournamentName, wod, existingScore } = route.params;
+  const { tournamentId, tournamentName, wod, existingScore, requireVideoProof = false } = route.params;
   const { user } = useAuth();
   const { theme } = useTheme();
   const { t } = useTranslation();
@@ -96,7 +96,12 @@ export default function TournamentWODScreen() {
     // or raw text (loads/other). Ranking consumes the canonical number.
     const finalScore = canonicalScore.trim();
     if (!scoreValid)         { Alert.alert(t('common.error'), t('tourWod.errNoScore')); return; }
-    if (!urlValid)           { Alert.alert(t('common.error'), t('tourWod.errBadUrl')); return; }
+    // La vidéo n'est exigée que si la RÈGLE du tournoi l'impose (require_video_proof).
+    // Sinon elle est facultative — mais si un lien est saisi, il doit être valide.
+    if (requireVideoProof && !urlValid) { Alert.alert(t('common.error'), t('tourWod.errBadUrl')); return; }
+    if (!requireVideoProof && youtubeUrl.trim().length > 0 && !urlValid) {
+      Alert.alert(t('common.error'), t('tourWod.errBadUrl')); return;
+    }
     if (remainingMs <= 0)    { Alert.alert(t('tourWod.deadlineExpiredTitle'), t('tourWod.errExpired')); return; }
     if (!user)               { Alert.alert(t('common.error'), t('tourWod.errNoUser')); return; }
 
@@ -107,7 +112,7 @@ export default function TournamentWODScreen() {
       athlete_id:        user.id,
       score_value:       finalScore,
       tiebreak_value:    tiebreakValue ? parseFloat(tiebreakValue) : null,
-      video_url:         youtubeUrl.trim(),
+      video_url:         youtubeUrl.trim() || null,
       notes:             notes.trim() || null,
       submitted_at:      new Date().toISOString(),
       deadline_at:       new Date(deadlineMsRef.current).toISOString(),
