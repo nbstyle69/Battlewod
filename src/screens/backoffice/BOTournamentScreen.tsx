@@ -195,6 +195,14 @@ export default function BOTournamentScreen() {
 
   // ── Validate score ────────────────────────────────────────────────────────
   async function handleValidate(score: TournamentScore) {
+    // Règle du tournoi : si la preuve vidéo est exigée, un score sans vidéo ne peut pas
+    // être validé — même garde que sur l'écran tournoi (les deux chemins doivent être
+    // cohérents ; avant, cet écran laissait passer avec un simple avertissement).
+    const currentTourn = tournaments.find(tt => tt.id === selectedId);
+    if (currentTourn?.require_video_proof && !score.video_url) {
+      Alert.alert(t('common.error'), t('bo.tournament.noVideo'));
+      return;
+    }
     Alert.alert(t('bo.tournament.validateTitle'), `${score.profile?.username} — ${formatScoreDisplay(score.score_value, (score.tw as any)?.type, (score.tw as any)?.reps_per_round)}`, [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('bo.tournament.validate'), onPress: async () => {
