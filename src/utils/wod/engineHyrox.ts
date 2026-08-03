@@ -328,7 +328,10 @@ function coachNotes(params: HyroxParams, blocks: Block[], method: string): strin
 
 function buildRaceSimulation(rng: RNG, params: HyroxParams): Block {
   const officialOrder = ['SkiErg', 'Sled Push', 'Sled Pull', 'Burpee Broad Jump', 'Row', 'Farmers Carry', 'Sandbag Lunge', 'Wall Balls'];
-  const [rMin, rMax] = DURATION[params.duration_min].runRange;
+  // La durée peut être « variée » (42, 38…) : on prend la clé de référence la plus proche.
+  const durKeys = Object.keys(DURATION).map(Number);
+  const nearest = durKeys.reduce((a, b) => (Math.abs(b - params.duration_min) < Math.abs(a - params.duration_min) ? b : a));
+  const [rMin, rMax] = DURATION[nearest].runRange;
   const nStations = params.duration_min <= 20 ? 3 : params.duration_min <= 30 ? 4 : params.duration_min <= 45 ? 6 : 8;
   const chosen = officialOrder.slice(0, nStations);
   // Distance de run FIXE pour toute la sim (une vraie simulation travaille le pacing :
@@ -545,22 +548,31 @@ function buildForceBlocks(rng: RNG, params: HyroxParams): Block[] {
 
 // ============================ Génération principale ============================
 
+// Comme côté CF : la durée choisie est une CIBLE — chaque séance tire sa durée
+// naturelle (nombre rond) autour d'elle. « 45 min » peut donner 40, 45 ou 50.
+const HY_MINUTES_WINDOW: Record<number, number[]> = {
+  20: [16, 18, 20, 22], 30: [25, 28, 30, 34], 45: [38, 42, 45, 50], 60: [50, 55, 60, 65],
+};
+
 export function generateHyroxWod(params: HyroxParams, seed: number): HyroxWod {
   const rng = new RNG(seed);
-  const durKey = (DURATION[params.duration_min] ? params.duration_min : 45) as number;
-  const cap = Math.round(params.duration_min * DURATION[durKey].capPct);
+  const minutes = rng.pick(HY_MINUTES_WINDOW[params.duration_min] ?? [params.duration_min]);
+  // Les builders raisonnent sur la durée réelle (tours, intervalles, minutes d'EMOM).
+  // Le cast est sûr : les seuils internes (<=20, <=30…) fonctionnent sur tout entier.
+  const eff: HyroxParams = { ...params, duration_min: minutes as HyroxParams['duration_min'] };
+  const cap = minutes;
 
   let blocks: Block[];
-  if (params.session_type === 'Force') {
-    blocks = buildForceBlocks(rng, params);
-  } else if (params.session_type === 'Run Split') {
-    blocks = [buildRunSplit(rng, params)];
+  if (eff.session_type === 'Force') {
+    blocks = buildForceBlocks(rng, eff);
+  } else if (eff.session_type === 'Run Split') {
+    blocks = [buildRunSplit(rng, eff)];
   } else {
-    switch (params.training_type) {
-      case 'Race Simulation': blocks = [buildRaceSimulation(rng, params)]; break;
-      case 'Station Training': blocks = [buildStationTraining(rng, params)]; break;
-      case 'Cardio Force':     blocks = [buildCardioForce(rng, params)]; break;
-      default:                 blocks = [buildNamedWod(rng, params)];
+    switch (eff.training_type) {
+      case 'Race Simulation': blocks = [buildRaceSimulation(rng, eff)]; break;
+      case 'Station Training': blocks = [buildStationTraining(rng, eff)]; break;
+      case 'Cardio Force':     blocks = [buildCardioForce(rng, eff)]; break;
+      default:                 blocks = [buildNamedWod(rng, eff)];
     }
   }
 
@@ -573,7 +585,7 @@ export function generateHyroxWod(params: HyroxParams, seed: number): HyroxWod {
     title: makeTitle(rng),
     category: params.category,
     format: params.format,
-    duration_min: params.duration_min,
+    duration_min: minutes, // durée réelle de la séance (la cible utilisateur reste dans les params)
     session_type: params.session_type,
     rpe: SESSION[params.session_type].rpe,
     training_type: params.training_type,

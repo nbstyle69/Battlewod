@@ -94,11 +94,26 @@ describe('ranker', () => {
     expect(cards.some((x) => x.why.length > 10)).toBe(true);
   });
 
-  it('cale le time cap sur la durée choisie (20 min = cap 20, pas 19)', () => {
+  it('le time cap reste PROCHE de la durée choisie (cible approximative, nombres ronds)', () => {
+    // La durée est une cible : 20 min choisi → cap tiré dans {16,18,20,22}, jamais 19/29.
     const p20: CFParams = { ...params, duration_min: 20, method: 'For Time' };
     for (const c of rankCF(p20, EMPTY_PROFILE, seeds)) {
-      expect((c.wod as { time_cap_min: number }).time_cap_min).toBe(20);
+      const cap = (c.wod as { time_cap_min: number }).time_cap_min;
+      expect(Number.isInteger(cap)).toBe(true);
+      expect(cap).toBeGreaterThanOrEqual(16);
+      expect(cap).toBeLessThanOrEqual(22);
+      expect(cap % 2).toBe(0); // nombres ronds (fenêtre paire), pas de 19
     }
+  });
+
+  it('les durées VARIENT entre les candidats (un choix 20 min ≠ trois caps identiques)', () => {
+    const p20: CFParams = { ...params, duration_min: 20, method: 'For Time' };
+    const caps = new Set<number>();
+    for (let i = 0; i < 4; i++) {
+      const batch = rankCF(p20, EMPTY_PROFILE, seeds.map((s) => s + i * 1009));
+      for (const c of batch) caps.add((c.wod as { time_cap_min: number }).time_cap_min);
+    }
+    expect(caps.size).toBeGreaterThanOrEqual(2);
   });
 
   it('ne marque « personalized » que si un signal personnel a joué', () => {

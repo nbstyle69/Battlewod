@@ -854,30 +854,47 @@ function buildNamedCFWod(rng: RNG, params: CFParams, seed: number): CFWod {
 
 // ============================ Génération principale ============================
 
+// La durée choisie est une CIBLE approximative, pas une valeur exacte : chaque WOD
+// tire sa durée naturelle (nombre rond) dans une fenêtre autour de la cible.
+// Choisir « 20 min » peut donner un AMRAP 16, un For Time cap 22, un EMOM 18…
+// Fini les caps artificiels 19/29 (ancien ×0.95) et les durées toutes identiques.
+const MINUTES_WINDOW: Record<number, number[]> = {
+  5: [4, 5, 6], 10: [8, 10, 12], 15: [12, 14, 16], 20: [16, 18, 20, 22], 30: [25, 28, 30, 35],
+};
+function pickMinutes(rng: RNG, target: number): number {
+  const w = MINUTES_WINDOW[target];
+  if (w) return rng.pick(w);
+  return Math.max(4, Math.round((target * rng.pick([0.8, 0.9, 1, 1.1])) / 2) * 2);
+}
+
 export function generateCFWod(params: CFParams, seed: number): CFWod {
   const rng = new RNG(seed);
-  const cap = Math.max(3, Math.round(params.duration_min * (params.method === 'AMRAP' ? 1 : 0.95)));
 
   if (params.benchmark) return buildNamedCFWod(rng, params, seed);
 
+  // Durée naturelle du WOD, tirée autour de la cible ; tous les builders la voient.
+  const minutes = pickMinutes(rng, params.duration_min);
+  const eff: CFParams = { ...params, duration_min: minutes };
+  const cap = minutes;
+
   let block: Block;
-  switch (params.method) {
-    case 'For Time': block = buildForTime(rng, params); break;
-    case 'AMRAP':    block = buildAmrap(rng, params); break;
-    case 'EMOM':     block = buildEmom(rng, params); break;
-    case 'Tabata':   block = buildTabata(rng, params); break;
-    case 'Max Reps': block = buildMaxReps(rng, params); break;
-    default:         block = buildForTime(rng, params);
+  switch (eff.method) {
+    case 'For Time': block = buildForTime(rng, eff); break;
+    case 'AMRAP':    block = buildAmrap(rng, eff); break;
+    case 'EMOM':     block = buildEmom(rng, eff); break;
+    case 'Tabata':   block = buildTabata(rng, eff); break;
+    case 'Max Reps': block = buildMaxReps(rng, eff); break;
+    default:         block = buildForTime(rng, eff);
   }
 
-  const strength = buildStrength(rng, params);
+  const strength = buildStrength(rng, eff);
   const method = block.structure;
 
   return {
     title: makeTitle(rng),
     level: params.level,
     format: params.format,
-    duration_min: params.duration_min,
+    duration_min: minutes, // durée réelle du WOD (la cible utilisateur reste dans les params)
     intent: params.intent,
     method,
     time_cap_min: cap,

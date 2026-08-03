@@ -285,15 +285,11 @@ function rank<K extends 'cf' | 'hyrox'>(
   return pickTop(cands, profile);
 }
 
-/** Mode Functional Fitness / CrossFit. `seeds` injectable pour les tests (déterminisme). */
+/** Mode Functional Fitness / CrossFit. `seeds` injectable pour les tests (déterminisme).
+ *  La durée choisie est une CIBLE approximative : le moteur tire lui-même une durée
+ *  naturelle (nombre rond) autour d'elle — plus aucun recalage de cap ici. */
 export function rankCF(params: CFParams, profile: UserWodProfile, seeds?: number[]): RankedSuggestion[] {
-  // Le moteur ramène le cap à 95 % de la durée demandée hors AMRAP : on le recale sur
-  // la durée choisie (20 min demandées = cap 20), sans toucher au moteur ni aux reps.
-  const gen = (s: number) => {
-    const w = generateCFWod(params, s);
-    return params.benchmark ? w : { ...w, time_cap_min: params.duration_min };
-  };
-  return rank('cf', gen, cfSignature, profile, seeds);
+  return rank('cf', (s) => generateCFWod(params, s), cfSignature, profile, seeds);
 }
 
 /** Mode Hybrid / Hyrox. `seeds` injectable pour les tests (déterminisme). */
