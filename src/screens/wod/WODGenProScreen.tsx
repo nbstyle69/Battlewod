@@ -59,9 +59,14 @@ const HY_SESSIONS: { key: SessionType; label: string }[] = [
 const HY_TRAINING: TrainingType[] = ['Race Simulation', 'Station Training', 'Cardio Force', 'Named WOD'];
 const HY_CATEGORIES: Category[] = ['Women', 'Women Pro', 'Men', 'Men Pro'];
 const HY_FORMATS: HyroxParams['format'][] = ['Solo', 'Doubles', 'Relais', 'Mixed Relais'];
+// ⚠️ Ces libellés doivent correspondre EXACTEMENT aux chaînes `equipment` du moteur
+// (engineHyrox MOVES) : « Sandbag Lunges » (pluriel) ne matchait jamais « Sandbag Lunge »
+// et Sandbag/Kettlebell/Haltères manquaient → banques KB/DB/sandbag inatteignables.
+// Aucune chip cochée = salle standard (fallback moteur) ; la Barre reste opt-in.
 const HY_EQUIPMENT = [
   'SkiErg', 'Sled Push', 'Sled Pull', 'RowErg', 'BikeErg',
-  'Burpee Broad Jump', 'Farmers Carry', 'Sandbag Lunges', 'Wall Balls',
+  'Burpee Broad Jump', 'Farmers Carry', 'Sandbag Lunge', 'Wall Balls',
+  'Sandbag', 'Kettlebell', 'Haltères',
   // Barre : ouvre les lifts de la prépa Hyrox (Back/Front Squat, Deadlift, fentes, row)
   // dans les séances FORCE uniquement — jamais dans les metcons.
   'Barbell',

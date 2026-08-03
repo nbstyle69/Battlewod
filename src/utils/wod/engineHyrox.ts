@@ -233,6 +233,18 @@ function loadFor(cat: Category, m: MoveDef): string | null {
   return m.loadKey ? WEIGHTS[cat][m.loadKey] ?? null : null;
 }
 
+// Salle Hyrox standard : si l'utilisateur ne coche AUCUNE chip, on suppose une salle
+// équipée plutôt que de restreindre au poids de corps (même logique que STANDARD_BOX
+// côté CF) — sinon les pools s'effondrent et on sort des cartes à 1 seul mouvement.
+// La Barre reste OPT-IN (chip explicite) : elle n'entre pas dans le standard.
+const HY_STANDARD_EQUIP = [
+  'SkiErg', 'RowErg', 'BikeErg', 'Sled Push', 'Sled Pull', 'Farmers Carry',
+  'Sandbag Lunge', 'Wall Balls', 'Sandbag', 'Kettlebell', 'Haltères',
+];
+function effectiveEquipment(params: HyroxParams): string[] {
+  return params.equipment.length > 0 ? params.equipment : HY_STANDARD_EQUIP;
+}
+
 function isAvailable(m: MoveDef, equipment: string[]): boolean {
   if (m.equipment === null) return true;
   return equipment.includes(m.equipment);
@@ -284,7 +296,7 @@ function samplePatternSafe(rng: RNG, pool: MoveDef[], n: number, used?: Set<stri
 function selectMoves(rng: RNG, params: HyroxParams, types: MoveType[], n: number, used?: Set<string>): MoveDef[] {
   const rpe = rpeMid(params.session_type);
   const pool = MOVES.filter(
-    (m) => types.includes(m.type) && isAvailable(m, params.equipment) &&
+    (m) => types.includes(m.type) && isAvailable(m, effectiveEquipment(params)) &&
            rpe >= m.rpe[0] && rpe <= m.rpe[1]
   );
   if (pool.length === 0) return [];
@@ -292,7 +304,7 @@ function selectMoves(rng: RNG, params: HyroxParams, types: MoveType[], n: number
 }
 
 function toMovement(rng: RNG, params: HyroxParams, m: MoveDef): Movement {
-  const available = isAvailable(m, params.equipment);
+  const available = isAvailable(m, effectiveEquipment(params));
   return {
     name: m.name,
     prescription: m.scheme(rng, params.duration_min),
@@ -443,6 +455,11 @@ function buildStationTraining(rng: RNG, params: HyroxParams): Block {
   const movements = focus.map((m) => toMovement(rng, params, m));
   const cardio = selectMoves(rng, params, ['cardio'], 1, used)[0];
   if (cardio) movements.unshift(toMovement(rng, params, cardio));
+  // Garde-fou anti-carte-vide : jamais moins de 2 mouvements dans un metcon.
+  if (movements.length < 2) {
+    movements.push(...selectMoves(rng, params, ['bodyweight'], 2 - movements.length + 1, used)
+      .map((m) => toMovement(rng, params, m)));
+  }
   const rounds = params.duration_min <= 20 ? 4 : params.duration_min <= 30 ? 5 : params.duration_min <= 45 ? 6 : 8;
   const scheme = method === 'AMRAP'
     ? `AMRAP ${Math.round(params.duration_min * 0.8)} min`
@@ -459,6 +476,12 @@ function buildCardioForce(rng: RNG, params: HyroxParams): Block {
   const cardio = selectMoves(rng, params, ['cardio'], 1, used).map((m) => toMovement(rng, params, m));
   const loaded = selectMoves(rng, params, ['station', 'sandbag', 'kb'], 2, used).map((m) => toMovement(rng, params, m));
   const movements = [...cardio, ...loaded];
+  // Garde-fou : un metcon à 1 seul mouvement n'est pas une séance — on complète
+  // en poids de corps (toujours disponible) si le pool équipé était trop maigre.
+  if (movements.length < 3) {
+    movements.push(...selectMoves(rng, params, ['bodyweight'], 3 - movements.length, used)
+      .map((m) => toMovement(rng, params, m)));
+  }
   const rounds = params.duration_min <= 30 ? 4 : 5;
   const scheme = method === 'AMRAP' ? `${Math.round(params.duration_min * 0.8)} min AMRAP` : `${rounds} rounds for time`;
   return { label: null, structure: method, scheme, movements, rest: null };
@@ -479,7 +502,7 @@ function buildRunSplit(rng: RNG, params: HyroxParams): Block {
   // Petite distance de cardio, puis 2-4 exercices courts (reps ≤ 10) entre chaque run.
   const probe = new RNG(1);
   // type 'barbell' exclu : les lifts barre sont réservés à la séance Force.
-  const repPool = MOVES.filter((m) => m.type !== 'barbell' && isAvailable(m, params.equipment) && m.scheme(probe, 20).includes('reps'));
+  const repPool = MOVES.filter((m) => m.type !== 'barbell' && isAvailable(m, effectiveEquipment(params)) && m.scheme(probe, 20).includes('reps'));
   const exos = rng
     .sample(repPool, Math.min(rng.int(2, 4), repPool.length))
     .map((m) => {
@@ -504,7 +527,7 @@ const schemeIsReps = (m: MoveDef) => m.scheme(new RNG(1), 20).includes('reps');
 function buildForceBlocks(rng: RNG, params: HyroxParams): Block[] {
   const rpe = rpeMid(params.session_type);
   const forcePool = MOVES.filter(
-    (m) => m.force && isAvailable(m, params.equipment) && rpe >= m.rpe[0] && rpe <= m.rpe[1]
+    (m) => m.force && isAvailable(m, effectiveEquipment(params)) && rpe >= m.rpe[0] && rpe <= m.rpe[1]
   );
   const used = new Set<string>();
 
@@ -514,7 +537,9 @@ function buildForceBlocks(rng: RNG, params: HyroxParams): Block[] {
   const barbell = forcePool.filter((m) => m.type === 'barbell');
   const heavyDist = forcePool.filter((m) => m.type !== 'barbell' && isLoadable(m) && !schemeIsReps(m)); // Sled, Farmers
   const heavyReps = forcePool.filter((m) => m.type !== 'barbell' && isLoadable(m) && schemeIsReps(m));  // KB/DB/Sandbag
-  const bodyweight = forcePool.filter((m) => !isLoadable(m) && m.type !== 'barbell');
+  // Lift principal PDC : uniquement des mouvements à REPS (un « 5 × 8 — Dead Hang »
+  // n'a pas de sens : les efforts en secondes restent au bloc C grip & gainage).
+  const bodyweight = forcePool.filter((m) => !isLoadable(m) && m.type !== 'barbell' && schemeIsReps(m));
 
   const sets = rng.pick([[5, 5], [3, 3], [4, 6]]); // [séries, reps] — 5×5 / 3×3 / 4×6
   let a: Movement[] = [];
@@ -560,8 +585,13 @@ function buildForceBlocks(rng: RNG, params: HyroxParams): Block[] {
     return mv;
   });
 
-  // ---- Bloc C : grip & gainage (2 tours) — dead hang / farmers / planche
-  const gripPool = forcePool.filter((m) => patternsOf(m).some((p) => p === 'grip' || p === 'core'));
+  // ---- Bloc C : grip & gainage (2 tours) — dead hang / farmers / planche.
+  // Exclusion par NOM des mouvements déjà en A/B (pas par famille : A = Farmers et
+  // C = Dead Hang est une programmation valide, mais Dead Hang deux fois non).
+  const abNames = new Set([...a, ...b].map((mv) => mv.name));
+  const gripPool = forcePool.filter(
+    (m) => !abNames.has(m.name) && patternsOf(m).some((p) => p === 'grip' || p === 'core'),
+  );
   const c = samplePatternSafe(rng, gripPool, 2, new Set()).map((m) => toMovement(rng, params, m));
 
   const blocks: Block[] = [

@@ -108,6 +108,60 @@ describe('séance Force (structure réelle : lourd court + accessoires + grip/ga
       }
     }
   });
+
+  it("bloc A : jamais un effort en secondes comme lift principal (Dead Hang, Plank…)", () => {
+    for (const s of SEEDS.slice(0, 80)) {
+      // Sans chip Barbell ET sans matériel : le repli PDC du bloc A doit rester à reps.
+      const w = generateHyroxWod({ ...base, session_type: 'Force', equipment: [] }, s);
+      const a = w.blocks.find((b) => b.label === 'A')!;
+      expect(a.movements[0]?.name).not.toMatch(/Dead Hang|Plank/);
+      // Un lift principal se prescrit en reps ou en mètres lourds — jamais en secondes.
+      expect(a.movements[0]?.prescription ?? '').toMatch(/reps|m LOURD/);
+    }
+  });
+
+  it('aucun mouvement dupliqué entre les blocs A/B/C d’une même séance Force', () => {
+    for (const s of SEEDS.slice(0, 80)) {
+      const w = generateHyroxWod({ ...base, session_type: 'Force' }, s);
+      const names = w.blocks.flatMap((b) => b.movements.map((m) => m.name));
+      expect(names.length).toBe(new Set(names).size);
+    }
+  });
+});
+
+describe('pools jamais vides (fallback salle standard + garde-fou)', () => {
+  it('aucune chip cochée → salle standard : jamais de metcon à 1 seul mouvement', () => {
+    for (const st of ['Engine', 'Interval', 'Aerobic'] as const) {
+      for (const tt of ['Station Training', 'Cardio Force', 'Named WOD'] as const) {
+        for (const s of SEEDS.slice(0, 30)) {
+          const w = generateHyroxWod({ ...base, session_type: st, training_type: tt, equipment: [] }, s);
+          // Les intervalles mono-station sont un format légitime ; tout le reste ≥ 2.
+          if (w.structure !== 'INTERVAL') {
+            expect(w.blocks[0].movements.length).toBeGreaterThanOrEqual(2);
+          }
+        }
+      }
+    }
+  });
+
+  it('salle standard : les banques KB/sandbag redeviennent atteignables sans chips', () => {
+    const seen = new Set<string>();
+    for (const s of SEEDS.slice(0, 60)) {
+      const w = generateHyroxWod({ ...base, equipment: [] }, s);
+      for (const b of w.blocks) for (const m of b.movements) seen.add(m.name);
+    }
+    const kbOrSandbag = [...seen].filter((n) => /KB|Sandbag|Goblet|DB /.test(n));
+    expect(kbOrSandbag.length).toBeGreaterThan(0);
+  });
+
+  it('la Barre reste opt-in : le fallback salle standard ne la contient pas', () => {
+    const BARBELL_LIFTS = ['Back Squat', 'Front Squat', 'Deadlift', 'Barbell Lunge', 'Barbell Bent Over Row'];
+    for (const s of SEEDS.slice(0, 60)) {
+      const w = generateHyroxWod({ ...base, session_type: 'Force', equipment: [] }, s);
+      const names = w.blocks.flatMap((b) => b.movements.map((m) => m.name));
+      expect(names.filter((n) => BARBELL_LIFTS.includes(n))).toEqual([]);
+    }
+  });
 });
 
 describe('intervalles & EMOM réels', () => {
