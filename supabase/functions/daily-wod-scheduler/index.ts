@@ -30,14 +30,14 @@ serve(async (req) => {
   try {
     // Garde optionnelle : si CRON_SECRET est défini, exiger l'en-tête correspondant.
     // (L'RPC est déjà idempotente, mais on évite les déclenchements HTTP publics.)
+    // CRON_SECRET OBLIGATOIRE (fail-closed) : refus si secret non configure OU
+    // en-tete absent/incorrect. Deploiement coordonne : cf. runbook 1C-b.
     const cronSecret = Deno.env.get('CRON_SECRET');
-    if (cronSecret) {
-      const provided = req.headers.get('x-cron-secret') ?? '';
-      if (provided !== cronSecret) {
-        return new Response(JSON.stringify({ error: 'unauthorized' }), {
-          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    const provided = req.headers.get('x-cron-secret') ?? '';
+    if (!cronSecret || provided !== cronSecret) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
