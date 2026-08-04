@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { resolveStorageUrls } from '../../lib/storageUrl';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { sendNewMessageNotification } from '../../services/notifications';
@@ -71,6 +72,10 @@ export default function MessagesScreen() {
   const [sending,    setSending]    = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [previewImg,   setPreviewImg]   = useState<string | null>(null);
+  // Lot 1C-c — bucket `message-attachments` privé : la valeur stockée en base
+  // (URL publique historique, chemin nu, ou GIF externe) est résolue en URL
+  // affichable (signée pour les objets du bucket, telle quelle pour les GIF).
+  const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
   const [reactionMsgId, setReactionMsgId] = useState<string | null>(null);
   const [gifOpen,    setGifOpen]    = useState(false);
   const [gifSearch,  setGifSearch]  = useState('');
@@ -204,6 +209,26 @@ export default function MessagesScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Résolution des pièces jointes (URL signées, mises en cache par le helper).
+  useEffect(() => {
+    let cancelled = false;
+    const pending = [...new Set(
+      messages.map(m => m.attachment_url).filter((v): v is string => !!v),
+    )].filter(v => !attachmentUrls[v]);
+    if (pending.length === 0) return;
+    (async () => {
+      const resolved = await resolveStorageUrls(pending, 'message-attachments');
+      if (cancelled) return;
+      setAttachmentUrls(prev => {
+        const next = { ...prev };
+        pending.forEach((v, i) => { const r = resolved[i]; if (r) next[v] = r; });
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
   // Auto-select first group ONLY at initial mount (avoid stale-closure resets on refresh)
   useEffect(() => {
     if (activeTab === null && groups.length > 0) {
@@ -322,10 +347,14 @@ export default function MessagesScreen() {
     }
   }
 
-  async function uploadImage(uri: string): Promise<string | null> {
+  async function uploadImage(uri: string, groupId: string): Promise<string | null> {
     try {
       const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      // Chemin scopé (Lot 1C-c) : <group_id>/<uid>_<ts>_<rand>.<ext>.
+      // Avant, les chemins étaient plats → impossible de restreindre la lecture
+      // aux membres de la conversation. Le 1er segment porte le groupe : la
+      // policy storage lit l'appartenance sans requête applicative.
+      const fileName = `${groupId}/${user!.id}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
       const response = await fetch(uri);
       const blob = await response.blob();
       const arrayBuf = await new Response(blob).arrayBuffer();
@@ -333,8 +362,10 @@ export default function MessagesScreen() {
         .from('message-attachments')
         .upload(fileName, arrayBuf, { contentType: blob.type || `image/${ext}`, upsert: false });
       if (error) { captureError(error, { screen: 'Messages', action: 'uploadImage' }); return null; }
-      const { data: urlData } = supabase.storage.from('message-attachments').getPublicUrl(fileName);
-      return urlData.publicUrl;
+      // Bucket PRIVÉ (Lot 1C-c) : on stocke le CHEMIN, signé à l'affichage.
+      // (Les GIF externes continuent d'arriver ici sous forme d'URL http → le
+      //  résolveur les distingue et ne les signe pas.)
+      return fileName;
     } catch (e) { captureError(e, { screen: 'Messages', action: 'uploadImage' }); return null; }
   }
 
@@ -389,7 +420,9 @@ export default function MessagesScreen() {
 
     let attachmentUrl: string | null = null;
     if (pendingImage) {
-      attachmentUrl = await uploadImage(pendingImage);
+      // Le chemin de stockage est scopé au groupe → pas d'upload hors conversation
+      // (l'insert ne se fait de toute façon que si `activeTab` existe).
+      if (activeTab) attachmentUrl = await uploadImage(pendingImage, activeTab);
       setPendingImage(null);
     }
 
@@ -581,9 +614,16 @@ export default function MessagesScreen() {
                       <Text style={S.announcementText}>Annonce</Text>
                     </View>
                   )}
-                  {msg.attachment_url && (
-                    <Pressable onPress={() => setPreviewImg(msg.attachment_url!)} style={S.attachmentWrap}>
-                      <Image source={{ uri: msg.attachment_url }} style={S.attachmentImg} resizeMode="cover" />
+                  {msg.attachment_url && attachmentUrls[msg.attachment_url] && (
+                    <Pressable
+                      onPress={() => setPreviewImg(attachmentUrls[msg.attachment_url!])}
+                      style={S.attachmentWrap}
+                    >
+                      <Image
+                        source={{ uri: attachmentUrls[msg.attachment_url] }}
+                        style={S.attachmentImg}
+                        resizeMode="cover"
+                      />
                     </Pressable>
                   )}
                   {msg.content && msg.content !== '📷 Image' && (
