@@ -1,4 +1,15 @@
 -- ═══════════════════════════════════════════════════════════════════════════
+-- ⛔ NE PAS APPLIQUER TANT QUE L'APP PATCHÉE N'EST PAS EN PRODUCTION.
+-- Cette migration = LOT 1C-c2. Elle rend les buckets privés : toute app qui
+-- ne sait pas signer les URLs (donc toute version antérieure au patch
+-- storageUrl) cesse d'afficher les PDF et les pièces jointes.
+-- La livraison OTA s'est révélée impossible (aucun `channel` configuré dans
+-- eas.json) → il faut un build store. En attendant, seule la migration
+-- 20260821_lot1c_c1_documents_durcissement.sql est déployable : elle ferme la
+-- faille de suppression SANS aucune dépendance à la version de l'app.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- LOT 1C-c — Buckets `documents` & `message-attachments` PRIVÉS + accès scopé
 -- Basé sur le DUMP RÉEL de prod (reconnaissance 1C-c + complément policies).
 --
