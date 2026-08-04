@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
-import { resolveStorageUrls } from '../../lib/storageUrl';
+import { resolveStorageUrls, isExternalValue } from '../../lib/storageUrl';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { sendNewMessageNotification } from '../../services/notifications';
@@ -81,6 +81,9 @@ export default function MessagesScreen() {
   const [gifSearch,  setGifSearch]  = useState('');
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
   const [gifLoading, setGifLoading] = useState(false);
+  // Distingue « Tenor n'a rien trouvé » de « l'appel a échoué » (clé absente,
+  // réseau, quota) : avant, les deux affichaient la même page vide.
+  const [gifError,   setGifError]   = useState(false);
   const listRef = useRef<FlatList>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
   const [kbOpen, setKbOpen] = useState(false);
@@ -298,11 +301,14 @@ export default function MessagesScreen() {
 
   async function searchGifs(query: string) {
     setGifLoading(true);
+    setGifError(false);
     try {
+      if (!TENOR_API_KEY) throw new Error('EXPO_PUBLIC_TENOR_KEY absente du bundle');
       const endpoint = query.trim()
         ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&limit=20&media_filter=tinygif,gif`
         : `https://tenor.googleapis.com/v2/featured?key=${TENOR_API_KEY}&limit=20&media_filter=tinygif,gif`;
       const res = await fetch(endpoint);
+      if (!res.ok) throw new Error(`Tenor HTTP ${res.status}`);
       const json = await res.json();
       const results: GifResult[] = (json.results ?? []).map((r: any) => ({
         id: r.id,
@@ -310,7 +316,11 @@ export default function MessagesScreen() {
         preview: r.media_formats?.tinygif?.url ?? r.media_formats?.gif?.url ?? '',
       }));
       setGifResults(results);
-    } catch (e) { captureError(e, { screen: 'Messages', action: 'searchGifs' }); setGifResults([]); }
+    } catch (e) {
+      captureError(e, { screen: 'Messages', action: 'searchGifs' });
+      setGifResults([]);
+      setGifError(true);
+    }
     setGifLoading(false);
   }
 
@@ -614,18 +624,23 @@ export default function MessagesScreen() {
                       <Text style={S.announcementText}>Annonce</Text>
                     </View>
                   )}
-                  {msg.attachment_url && attachmentUrls[msg.attachment_url] && (
-                    <Pressable
-                      onPress={() => setPreviewImg(attachmentUrls[msg.attachment_url!])}
-                      style={S.attachmentWrap}
-                    >
-                      <Image
-                        source={{ uri: attachmentUrls[msg.attachment_url] }}
-                        style={S.attachmentImg}
-                        resizeMode="cover"
-                      />
-                    </Pressable>
-                  )}
+                  {(() => {
+                    const raw = msg.attachment_url;
+                    if (!raw) return null;
+                    // Une URL externe (GIF Tenor/Giphy) s'affiche IMMÉDIATEMENT :
+                    // elle n'a jamais besoin d'être signée, donc elle ne doit pas
+                    // attendre la résolution asynchrone. Seuls les objets du
+                    // bucket privé attendent leur URL signée.
+                    const uri = isExternalValue(raw, 'message-attachments')
+                      ? raw
+                      : attachmentUrls[raw];
+                    if (!uri) return null;
+                    return (
+                      <Pressable onPress={() => setPreviewImg(uri)} style={S.attachmentWrap}>
+                        <Image source={{ uri }} style={S.attachmentImg} resizeMode="cover" />
+                      </Pressable>
+                    );
+                  })()}
                   {msg.content && msg.content !== '📷 Image' && (
                     <Text style={[S.bubbleText, isMe && S.bubbleTextMe]}>{msg.content}</Text>
                   )}
@@ -783,7 +798,9 @@ export default function MessagesScreen() {
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
-                <Text style={[S.emptyText, { marginTop: 40 }]}>Aucun r\u00e9sultat</Text>
+                <Text style={[S.emptyText, { marginTop: 40 }]}>
+                  {gifError ? 'Recherche de GIF indisponible' : 'Aucun r\u00e9sultat'}
+                </Text>
               }
             />
           )}
