@@ -77,9 +77,10 @@ async function authorizeRecipients(
     admin.from('box_members').select('box_id').eq('member_id', caller).eq('status', 'active'),
     admin.from('boxes').select('id').eq('owner_id', caller),
   ]);
+  const ownedBoxIds = (myOwned ?? []).map((r: any) => r.id).filter(Boolean);
   const myBoxIds = [
     ...(myMemberships ?? []).map((r: any) => r.box_id),
-    ...(myOwned ?? []).map((r: any) => r.id),
+    ...ownedBoxIds,
   ].filter(Boolean);
   if (myBoxIds.length) {
     const { data: mates } = await admin
@@ -87,6 +88,17 @@ async function authorizeRecipients(
       .in('box_id', myBoxIds).in('member_id', candidates).eq('status', 'active');
     for (const m of mates ?? []) allowed.add(m.member_id);
   }
+
+  // 1bis. Box que l'appelant GÈRE (possédée OU role owner/coach actif) — réplique
+  //       manages_box() ici, car is_box_admin() (auth.uid()) n'est pas appelable
+  //       en service-role. Sert aux branches organisateur ci-dessous (#6/#7).
+  const { data: myStaff } = await admin
+    .from('box_members').select('box_id')
+    .eq('member_id', caller).in('role', ['owner', 'coach']).eq('status', 'active');
+  const managedBoxIds = [
+    ...ownedBoxIds,
+    ...(myStaff ?? []).map((r: any) => r.box_id),
+  ].filter(Boolean);
 
   // 2. Amis (acceptés OU en attente, dans les deux sens) → demande d'ami + acceptation.
   const { data: friends } = await admin
@@ -118,7 +130,7 @@ async function authorizeRecipients(
     for (const c of co ?? []) allowed.add(c.athlete_id);
   }
 
-  // 5. Même compétition inter-box (inscrits).
+  // 5. Même compétition inter-box (inscrits) — participant → co-inscrits.
   const { data: myComps } = await admin
     .from('inter_registrations').select('competition_id').eq('athlete_id', caller);
   const cIds = (myComps ?? []).map((r: any) => r.competition_id).filter(Boolean);
@@ -127,6 +139,33 @@ async function authorizeRecipients(
       .from('inter_registrations').select('athlete_id')
       .in('competition_id', cIds).in('athlete_id', candidates);
     for (const c of co ?? []) allowed.add(c.athlete_id);
+  }
+
+  // 6. ORGANISATEUR de tournoi → participants de CE tournoi (#4 tournament_closed).
+  //    Un owner clôture un tournoi ouvert/inter : ses participants ne sont pas tous
+  //    membres de sa box → on l'autorise via la propriété du tournoi (box gérée).
+  if (managedBoxIds.length) {
+    const { data: myTournsOrg } = await admin
+      .from('tournaments').select('id').in('box_id', managedBoxIds);
+    const orgTIds = (myTournsOrg ?? []).map((r: any) => r.id).filter(Boolean);
+    if (orgTIds.length) {
+      const { data: parts } = await admin
+        .from('tournament_participants').select('athlete_id')
+        .in('tournament_id', orgTIds).in('athlete_id', candidates);
+      for (const p of parts ?? []) allowed.add(p.athlete_id);
+    }
+  }
+
+  // 7. ORGANISATEUR de compétition inter-box → tous ses inscrits (#9/#10/#11/#12/#13).
+  //    L'organisateur (created_by) n'est pas inscrit comme athlète → non couvert par #5.
+  const { data: myOrgComps } = await admin
+    .from('inter_competitions').select('id').eq('created_by', caller);
+  const orgCIds = (myOrgComps ?? []).map((r: any) => r.id).filter(Boolean);
+  if (orgCIds.length) {
+    const { data: regs } = await admin
+      .from('inter_registrations').select('athlete_id')
+      .in('competition_id', orgCIds).in('athlete_id', candidates);
+    for (const r of regs ?? []) allowed.add(r.athlete_id);
   }
 
   return allowed;
