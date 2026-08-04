@@ -123,5 +123,43 @@ DROP POLICY IF EXISTS "movement_stats_own_write" ON public.user_movement_stats;
 -- Ajoute aussi (défense en profondeur) :
 --   REVOKE ALL ON FUNCTION public.increment_movement_stats(...) FROM PUBLIC;
 --   GRANT EXECUTE ... TO authenticated, service_role;
+--
+-- ⚠️ DISCRIMINANT « backend » : le commentaire du patch suggérait is_privileged_backend(),
+-- MAIS cette fonction est SECURITY DEFINER (propriétaire = postgres) → à l'intérieur,
+-- current_user vaut 'postgres', donc is_privileged_backend() (qui teste current_user)
+-- renvoie TRUE même pour un appel client authentifié → la garde serait inopérante
+-- (le client pourrait toujours viser un p_user_id tiers). On utilise donc auth.role(),
+-- qui reflète le rôle RÉEL de l'appelant via le JWT de requête, même en SECURITY DEFINER :
+--   • client   → auth.role()='authenticated', auth.uid()=<son id>  → cible = auth.uid()
+--   • backend  → auth.role()='service_role',  auth.uid()=NULL      → cible = p_user_id
+-- (l'intention documentée est conservée : appelant non-backend forcé à lui-même.)
+CREATE OR REPLACE FUNCTION public.increment_movement_stats(p_user_id uuid, p_movement text, p_reps integer, p_weight numeric DEFAULT NULL::numeric)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_target uuid;
+BEGIN
+  -- Cible forcée : un appelant client ne peut cumuler QUE pour lui-même (auth.uid()).
+  -- Seul le backend de confiance (service_role) peut viser un p_user_id explicite.
+  v_target := CASE WHEN auth.role() = 'service_role'
+                     THEN COALESCE(p_user_id, auth.uid())
+                   ELSE auth.uid() END;
+  IF v_target IS NULL THEN RETURN; END IF;
+
+  INSERT INTO public.user_movement_stats (user_id, movement, total_reps, best_weight, updated_at)
+  VALUES (v_target, p_movement, p_reps, p_weight, now())
+  ON CONFLICT (user_id, movement) DO UPDATE SET
+    total_reps = user_movement_stats.total_reps + p_reps,
+    best_weight = GREATEST(user_movement_stats.best_weight, p_weight),
+    updated_at = now();
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.increment_movement_stats(uuid, text, integer, numeric) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.increment_movement_stats(uuid, text, integer, numeric) FROM anon;
+GRANT EXECUTE ON FUNCTION public.increment_movement_stats(uuid, text, integer, numeric) TO authenticated, service_role;
 
 NOTIFY pgrst, 'reload schema';
