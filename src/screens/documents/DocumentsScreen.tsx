@@ -7,8 +7,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { ArrowLeft, FileText, Plus, Trash2, X, Eye } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { resolveStorageUrl, storagePathFromValue } from '../../lib/storageUrl';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -37,6 +39,7 @@ export default function DocumentsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -74,6 +77,11 @@ export default function DocumentsScreen() {
       setUploading(true);
 
       const ext = file.name.split('.').pop() ?? 'pdf';
+      // Chemin INCHANGÉ : <uid>/<ts>.pdf. La reco a montré que le 1er dossier
+      // vaut l'owner sur 100% des objets existants → la policy storage peut
+      // exiger `foldername[1] = auth.uid()` à l'écriture sans reprise de
+      // données, et la lecture est autorisée via la ligne box_documents
+      // correspondante (portée box) plutôt que via le chemin.
       const fileName = `${user!.id}/${Date.now()}.${ext}`;
 
       // Read file as base64
@@ -101,16 +109,15 @@ export default function DocumentsScreen() {
         return;
       }
 
-      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
-      const publicUrl = urlData.publicUrl;
-
       const title = file.name.replace(/\.pdf$/i, '');
 
       await supabase.from('box_documents').insert({
         box_id: currentBox?.id ?? null,
         uploaded_by: user!.id,
         title,
-        file_url: publicUrl,
+        // Bucket PRIVÉ (Lot 1C-c) : on stocke le CHEMIN, plus une URL publique
+        // (qui ne résout plus rien). Signature à la lecture via resolveStorageUrl.
+        file_url: fileName,
         file_size: file.size ?? 0,
       });
 
@@ -128,10 +135,10 @@ export default function DocumentsScreen() {
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer', style: 'destructive', onPress: async () => {
-          // Delete from storage
-          const path = doc.file_url.split('/documents/')[1];
+          // Delete from storage (accepte URL publique historique OU chemin nu).
+          const path = storagePathFromValue(doc.file_url, 'documents');
           if (path) {
-            await supabase.storage.from('documents').remove([decodeURIComponent(path)]);
+            await supabase.storage.from('documents').remove([path]);
           }
           await supabase.from('box_documents').delete().eq('id', doc.id);
           setDocs(prev => prev.filter(d => d.id !== doc.id));
@@ -140,9 +147,43 @@ export default function DocumentsScreen() {
     ]);
   }
 
+  // Lecture d'un PDF sur bucket PRIVÉ (Lot 1C-c).
+  // Avant : on passait l'URL publique à Google Docs Viewer — le document était
+  // lisible par quiconque avait l'URL, et transitait par un tiers. Maintenant :
+  // URL signée courte → téléchargement dans le cache de l'app → ouverture avec
+  // le lecteur du téléphone. Aucun tiers, aucun jeton envoyé ailleurs.
   async function openPdf(doc: DocRow) {
-    const googleViewerUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(doc.file_url)}`;
-    await WebBrowser.openBrowserAsync(googleViewerUrl);
+    if (openingId) return;
+    setOpeningId(doc.id);
+    try {
+      const url = await resolveStorageUrl(doc.file_url, 'documents', { expiresIn: 300 });
+      if (!url) {
+        Alert.alert('Erreur', 'Document introuvable.');
+        return;
+      }
+
+      const dir = `${FileSystem.cacheDirectory}athlex-docs/`;
+      await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(() => {});
+      const target = `${dir}${doc.id}.pdf`;
+      const res = await FileSystem.downloadAsync(url, target);
+      if (res.status !== 200) throw new Error(`Téléchargement HTTP ${res.status}`);
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(res.uri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+          dialogTitle: doc.title,
+        });
+      } else {
+        // Repli (web / environnement sans feuille de partage) : URL signée directe.
+        await WebBrowser.openBrowserAsync(url);
+      }
+    } catch (e: any) {
+      captureError(e, { screen: 'Documents', action: 'openPdf' });
+      Alert.alert('Erreur', "Impossible d'ouvrir le document.");
+    } finally {
+      setOpeningId(null);
+    }
   }
 
   function formatSize(bytes: number): string {
@@ -201,8 +242,14 @@ export default function DocumentsScreen() {
                   </Text>
                 </View>
                 <View style={S.docActions}>
-                  <TouchableOpacity onPress={() => openPdf(doc)} style={S.docActionBtn}>
-                    <Eye color={theme.accent} size={18} />
+                  <TouchableOpacity
+                    onPress={() => openPdf(doc)}
+                    disabled={openingId !== null}
+                    style={S.docActionBtn}
+                  >
+                    {openingId === doc.id
+                      ? <ActivityIndicator size="small" color={theme.accent} />
+                      : <Eye color={theme.accent} size={18} />}
                   </TouchableOpacity>
                   {isMe && (
                     <TouchableOpacity onPress={() => deleteDoc(doc)} style={S.docActionBtn}>
