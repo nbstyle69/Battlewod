@@ -6,6 +6,7 @@
   "build": {
     "development": {
       "distribution": "internal",
+      "channel": "development",
       "android": {
         "buildType": "app-bundle"
       },
@@ -15,6 +16,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "env": {
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
@@ -28,6 +30,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "android": {
         "buildType": "app-bundle"
       },
