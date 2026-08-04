@@ -46,11 +46,11 @@ serve(async (req: Request) => {
     new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   try {
+    // CRON_SECRET OBLIGATOIRE (fail-closed) : refus si secret non configure OU
+    // en-tete absent/incorrect. Deploiement coordonne : cf. runbook 1C-b.
     const cronSecret = Deno.env.get('CRON_SECRET');
-    if (cronSecret) {
-      const provided = req.headers.get('x-cron-secret') ?? '';
-      if (provided !== cronSecret) return json({ error: 'unauthorized' }, 401);
-    }
+    const provided = req.headers.get('x-cron-secret') ?? '';
+    if (!cronSecret || provided !== cronSecret) return json({ error: 'unauthorized' }, 401);
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
