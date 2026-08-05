@@ -372,10 +372,12 @@ export default function MessagesScreen() {
         .from('message-attachments')
         .upload(fileName, arrayBuf, { contentType: blob.type || `image/${ext}`, upsert: false });
       if (error) { captureError(error, { screen: 'Messages', action: 'uploadImage' }); return null; }
-      // Bucket PRIVÉ (Lot 1C-c) : on stocke le CHEMIN, signé à l'affichage.
-      // (Les GIF externes continuent d'arriver ici sous forme d'URL http → le
-      //  résolveur les distingue et ne les signe pas.)
-      return fileName;
+      // Format « public » conservé pour la coexistence de versions : tant que le
+      // bucket est public, une app non mise à jour doit pouvoir afficher une
+      // pièce jointe envoyée depuis la nouvelle. Le résolveur en extrait le
+      // chemin et la signe une fois le bucket privé.
+      const { data: urlData } = supabase.storage.from('message-attachments').getPublicUrl(fileName);
+      return urlData.publicUrl;
     } catch (e) { captureError(e, { screen: 'Messages', action: 'uploadImage' }); return null; }
   }
 

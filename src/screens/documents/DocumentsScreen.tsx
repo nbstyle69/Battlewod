@@ -111,13 +111,20 @@ export default function DocumentsScreen() {
 
       const title = file.name.replace(/\.pdf$/i, '');
 
+      // On continue de stocker l'URL au format « public » — PAS par nostalgie,
+      // mais pour la COEXISTENCE DE VERSIONS. Tant que les buckets sont publics,
+      // les téléphones restés sur l'ancienne app doivent pouvoir ouvrir un
+      // document importé depuis la nouvelle : eux lisent `file_url` comme une
+      // URL, ils ne savent pas signer. Un chemin nu leur serait illisible.
+      // Le résolveur accepte les deux formes, donc rien ne nous empêchera de
+      // passer aux chemins nus plus tard, une fois le parc à jour.
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
+
       await supabase.from('box_documents').insert({
         box_id: currentBox?.id ?? null,
         uploaded_by: user!.id,
         title,
-        // Bucket PRIVÉ (Lot 1C-c) : on stocke le CHEMIN, plus une URL publique
-        // (qui ne résout plus rien). Signature à la lecture via resolveStorageUrl.
-        file_url: fileName,
+        file_url: urlData.publicUrl,
         file_size: file.size ?? 0,
       });
 
