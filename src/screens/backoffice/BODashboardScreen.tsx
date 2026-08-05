@@ -51,7 +51,11 @@ export default function BODashboardScreen({ navigation }: any) {
     if (!currentBox) { setLoading(false); return; }
     try {
     const [{ count }, { data: wods }, { data: scores }] = await Promise.all([
-      supabase.from('box_members').select('*', { count: 'exact', head: true })
+      // Compter sur une colonne AUTORISÉE, jamais `*` : PostgREST résout `*`
+      // contre les grants colonne AVANT de compter, et box_members ferme ses
+      // colonnes de facturation. Un `count` sur `*` renvoyait donc 42501 —
+      // silencieusement, l'erreur n'étant pas lue : l'écran affichait 0.
+      supabase.from('box_members').select('id', { count: 'exact', head: true })
         .eq('box_id', currentBox.id).eq('status', 'active'),
       supabase.from('box_wods').select('title, wod_type')
         .eq('box_id', currentBox.id).eq('scheduled_date', today).eq('is_published', true).limit(1),
