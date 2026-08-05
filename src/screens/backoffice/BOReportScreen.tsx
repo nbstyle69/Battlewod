@@ -49,12 +49,12 @@ export default function BOReportScreen() {
 
     // Total active members
     const { count: totalMembers } = await supabase
-      .from('box_members').select('*', { count: 'exact', head: true })
+      .from('box_members').select('id', { count: 'exact', head: true })
       .eq('box_id', boxId).eq('status', 'active');
 
     // New members this month
     const { count: newMembers } = await supabase
-      .from('box_members').select('*', { count: 'exact', head: true })
+      .from('box_members').select('id', { count: 'exact', head: true })
       .eq('box_id', boxId)
       .gte('joined_at', start.toISOString())
       .lt('joined_at', end.toISOString());

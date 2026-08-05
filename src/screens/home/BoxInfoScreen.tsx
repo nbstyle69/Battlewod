@@ -42,7 +42,7 @@ export default function BoxInfoScreen({ navigation }: any) {
       try {
         const [{ data: boxRaw }, { count }, { data: elos }, { data: membership }] = await Promise.all([
           supabase.from('boxes').select('name, description, logo_url, address, website_url, contact_email, phone, google_maps_url, founded_at, owner_id, created_at').eq('id', currentBox.id).single(),
-          supabase.from('box_members').select('*', { count: 'exact', head: true }).eq('box_id', currentBox.id).eq('status', 'active'),
+          supabase.from('box_members').select('id', { count: 'exact', head: true }).eq('box_id', currentBox.id).eq('status', 'active'),
           supabase.from('box_members').select('member_id, profiles(elo)').eq('box_id', currentBox.id).eq('status', 'active'),
           supabase.from('box_members').select('joined_at').eq('box_id', currentBox.id).eq('member_id', user.id).eq('status', 'active').maybeSingle(),
         ]);

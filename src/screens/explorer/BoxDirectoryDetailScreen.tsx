@@ -48,7 +48,7 @@ export default function BoxDirectoryDetailScreen() {
       try {
         const [{ data: boxData }, { count }] = await Promise.all([
           supabase.from('boxes').select('*').eq('id', boxId).single(),
-          supabase.from('box_members').select('*', { count: 'exact', head: true }).eq('box_id', boxId).eq('status', 'active'),
+          supabase.from('box_members').select('id', { count: 'exact', head: true }).eq('box_id', boxId).eq('status', 'active'),
         ]);
         setBox(boxData as unknown as Box);
         setMemberCount(count ?? 0);

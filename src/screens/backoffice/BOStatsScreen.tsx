@@ -37,7 +37,7 @@ export default function BOStatsScreen() {
 
     // ── Members count ──
     const { count: mc } = await supabase
-      .from('box_members').select('*', { count: 'exact', head: true })
+      .from('box_members').select('id', { count: 'exact', head: true })
       .eq('box_id', boxId).eq('status', 'active');
     setMemberCount(mc ?? 0);
 
