@@ -609,11 +609,17 @@ export type Database = {
           amount_cents: number | null
           box_id: string | null
           commitment_end_date: string | null
+          dunning_attempts: number
+          dunning_last_reminder_at: string | null
+          dunning_reminders_sent: number
           id: string
           joined_at: string | null
+          last_payment_error: string | null
           member_id: string | null
+          past_due_since: string | null
           pause_resumes_at: string | null
           pause_started_at: string | null
+          payment_method_type: string | null
           plan_id: string | null
           platform_fee_cents: number | null
           role: string
@@ -629,11 +635,17 @@ export type Database = {
           amount_cents?: number | null
           box_id?: string | null
           commitment_end_date?: string | null
+          dunning_attempts?: number
+          dunning_last_reminder_at?: string | null
+          dunning_reminders_sent?: number
           id?: string
           joined_at?: string | null
+          last_payment_error?: string | null
           member_id?: string | null
+          past_due_since?: string | null
           pause_resumes_at?: string | null
           pause_started_at?: string | null
+          payment_method_type?: string | null
           plan_id?: string | null
           platform_fee_cents?: number | null
           role?: string
@@ -649,11 +661,17 @@ export type Database = {
           amount_cents?: number | null
           box_id?: string | null
           commitment_end_date?: string | null
+          dunning_attempts?: number
+          dunning_last_reminder_at?: string | null
+          dunning_reminders_sent?: number
           id?: string
           joined_at?: string | null
+          last_payment_error?: string | null
           member_id?: string | null
+          past_due_since?: string | null
           pause_resumes_at?: string | null
           pause_started_at?: string | null
+          payment_method_type?: string | null
           plan_id?: string | null
           platform_fee_cents?: number | null
           role?: string
@@ -1178,6 +1196,7 @@ export type Database = {
           created_at: string | null
           daily_publish_hour: number | null
           description: string | null
+          dunning_grace_days: number
           founded_at: string | null
           google_maps_url: string | null
           id: string
@@ -1215,6 +1234,7 @@ export type Database = {
           created_at?: string | null
           daily_publish_hour?: number | null
           description?: string | null
+          dunning_grace_days?: number
           founded_at?: string | null
           google_maps_url?: string | null
           id?: string
@@ -1252,6 +1272,7 @@ export type Database = {
           created_at?: string | null
           daily_publish_hour?: number | null
           description?: string | null
+          dunning_grace_days?: number
           founded_at?: string | null
           google_maps_url?: string | null
           id?: string
@@ -6415,6 +6436,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_movement_stats: {
+        Row: {
+          best_weight: number | null
+          movement: string
+          total_reps: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_weight?: number | null
+          movement: string
+          total_reps?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_weight?: number | null
+          movement?: string
+          total_reps?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_movement_stats_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_movement_stats_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_races: {
         Row: {
           category: string
@@ -6492,42 +6552,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      user_movement_stats: {
-        Row: {
-          best_weight: number | null
-          movement: string
-          total_reps: number
-          user_id: string
-        }
-        Insert: {
-          best_weight?: number | null
-          movement: string
-          total_reps?: number
-          user_id: string
-        }
-        Update: {
-          best_weight?: number | null
-          movement?: string
-          total_reps?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_movement_stats_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_movement_stats_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "public_leaderboard"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       wod_completions: {
         Row: {
@@ -6947,6 +6971,18 @@ export type Database = {
           new_winner_elo: number
         }[]
       }
+      can_join_daily_tournament: {
+        Args: { p_tournament_id: string }
+        Returns: boolean
+      }
+      can_join_inter_competition: {
+        Args: { p_competition_id: string }
+        Returns: boolean
+      }
+      can_join_tournament: {
+        Args: { p_tournament_id: string }
+        Returns: boolean
+      }
       check_daily_limit: {
         Args: { p_box_id: string; p_date: string; p_user_id: string }
         Returns: Json
@@ -6961,6 +6997,10 @@ export type Database = {
             }
             Returns: Json
           }
+      complete_daily_tournament: {
+        Args: { p_tournament_id: string }
+        Returns: boolean
+      }
       compute_box_elo: {
         Args: { p_wod_id: string }
         Returns: {
@@ -6970,31 +7010,6 @@ export type Database = {
           member_id: string
           rank: number
         }[]
-      }
-      can_join_daily_tournament: {
-        Args: { p_tournament_id: string }
-        Returns: boolean
-      }
-      can_join_inter_competition: {
-        Args: { p_competition_id: string }
-        Returns: boolean
-      }
-      can_join_tournament: {
-        Args: { p_tournament_id: string }
-        Returns: boolean
-      }
-      complete_daily_tournament: {
-        Args: { p_tournament_id: string }
-        Returns: boolean
-      }
-      peer_review_daily_score: {
-        Args: {
-          p_tournament_id: string
-          p_user_id: string
-          p_action: string
-          p_reason?: string | null
-        }
-        Returns: undefined
       }
       compute_daily_tournament_elo: {
         Args: { p_tournament_id: string }
@@ -7093,6 +7108,25 @@ export type Database = {
           platform_fee_cents: number
         }[]
       }
+      get_box_dunning: {
+        Args: { p_box_id: string }
+        Returns: {
+          amount_cents: number
+          dunning_attempts: number
+          dunning_last_reminder_at: string
+          dunning_reminders_sent: number
+          email: string
+          grace_days: number
+          has_stripe_sub: boolean
+          id: string
+          last_payment_error: string
+          past_due_since: string
+          payment_method_type: string
+          plan_name: string
+          suspended: boolean
+          username: string
+        }[]
+      }
       get_box_mate_ids: { Args: never; Returns: string[] }
       get_my_membership_billing: {
         Args: never
@@ -7156,9 +7190,22 @@ export type Database = {
         Returns: number
       }
       owner_box_count: { Args: { p_owner_id: string }; Returns: number }
+      peer_review_daily_score: {
+        Args: {
+          p_action: string
+          p_reason?: string
+          p_tournament_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       promote_relegate_divisions: {
         Args: { p_tournament_id: string }
         Returns: undefined
+      }
+      reactivate_box_member: {
+        Args: { p_box_id: string; p_member_id: string }
+        Returns: boolean
       }
       recalc_division_points: {
         Args: { p_tournament_id: string }

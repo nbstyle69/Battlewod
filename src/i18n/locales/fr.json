@@ -345,7 +345,7 @@
     },
     "members": {
       "title": "Membres",
-      "summary": "{{active}} actifs · {{banned}} bannis",
+      "summary": "{{active}} actifs · {{inactive}} inactifs · {{banned}} bannis",
       "promoteCoach": "Promouvoir coach",
       "demoteCoach": "Retirer le rôle coach",
       "confirmTitle": "{{label}} ?",
@@ -355,7 +355,7 @@
       "reactivate": "Réactiver",
       "confirmBanTitle": "{{label}} {{username}} ?",
       "banMsg": "Ce membre ne pourra plus accéder à la box.",
-      "reactivateMsg": "Ce membre retrouvera l'accès.",
+      "reactivateMsg": "Ce membre retrouvera l'accès. Son ancien abonnement n'est pas réactivé : il devra souscrire à nouveau.",
       "coachBadge": "COACH",
       "eloSince": "{{elo}} ELO · depuis {{date}}",
       "empty": "Aucun membre pour l'instant.\nPartage le code d'invitation !",
@@ -364,7 +364,9 @@
       "reservations": "Réservations",
       "noReservation": "Aucune réservation",
       "confirmed": "Confirmé",
-      "waiting": "Attente"
+      "waiting": "Attente",
+      "inactiveBadge": "INACTIF",
+      "ownerBadge": "OWNER"
     },
     "gamification": {
       "title": "Gamification",

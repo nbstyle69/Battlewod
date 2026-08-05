@@ -392,7 +392,7 @@ export default function DailyTournamentDetailScreen() {
     if (!contestModal || !user) return;
     const { error } = await supabase.rpc('peer_review_daily_score', {
       p_tournament_id: tournamentId, p_user_id: contestModal.user_id,
-      p_action: 'contested', p_reason: contestReason.trim() || null,
+      p_action: 'contested', p_reason: contestReason.trim() || undefined,
     });
     if (error) { Alert.alert('Erreur', error.message); return; }
     setContestModal(null);
