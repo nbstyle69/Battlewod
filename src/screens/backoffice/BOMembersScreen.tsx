@@ -57,11 +57,23 @@ export default function BOMembersScreen({ navigation }: any) {
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
     try {
-    const { data } = await supabase
+    // Colonnes EXPLICITES, jamais `*` : `authenticated` n'a qu'un grant SELECT
+    // par colonne sur box_members (les colonnes de facturation stripe_*,
+    // amount_cents, dunning_* sont fermées). Un `select('*')` demande donc des
+    // colonnes interdites et PostgREST renvoie 42501 pour TOUTE la requête —
+    // l'écran affichait 0 membre à un owner légitime.
+    const { data, error } = await supabase
       .from('box_members')
-      .select('*, role, profile:profiles(id, username, email, level, elo, avatar_url)')
+      .select('id, box_id, member_id, joined_at, status, role, profile:profiles(id, username, email, level, elo, avatar_url)')
       .eq('box_id', currentBox.id)
       .order('joined_at', { ascending: false });
+    // L'erreur était ignorée : un refus de permission se traduisait par une
+    // liste vide, sans alerte ni trace. Un écran vide n'est pas une absence de
+    // membres, c'est un symptôme — on le remonte désormais.
+    if (error) {
+      captureError(error, { screen: 'BOMembers', action: 'load' });
+      Alert.alert('Erreur', error.message);
+    }
     setMembers((data ?? []) as MemberRow[]);
     } catch (e) { captureError(e, { screen: 'BOMembers', action: 'load' }); }
     setLoading(false);
