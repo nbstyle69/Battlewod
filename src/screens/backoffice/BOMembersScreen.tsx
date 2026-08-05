@@ -17,8 +17,12 @@ interface MemberRow {
   box_id: string;
   member_id: string;
   joined_at: string;
-  status: 'active' | 'banned';
-  role: 'member' | 'coach';
+  // 'inactive' = abonnement terminé (révocation d'accès). Le statut existait en
+  // base depuis 20260805 mais n'était pas typé ici : un membre révoqué
+  // s'affichait comme un membre normal. 'owner' idem, d'où un bouton qui
+  // proposait de le « promouvoir coach ».
+  status: 'active' | 'banned' | 'inactive';
+  role: 'member' | 'coach' | 'owner';
   profile: { username: string; email: string; level: string; elo: number; avatar_url?: string };
 }
 
@@ -118,7 +122,22 @@ export default function BOMembersScreen({ navigation }: any) {
           text: label,
           style: newStatus === 'banned' ? 'destructive' : 'default',
           onPress: async () => {
-            await supabase.from('box_members').update({ status: newStatus }).eq('id', member.id);
+            if (newStatus === 'active') {
+              // Réactivation : passe par la RPC serveur, qui remet à zéro
+              // l'abonnement comme le fait la ré-adhésion par code d'invitation.
+              // Un UPDATE direct ressusciterait l'ancien forfait.
+              // `as any` : la RPC est créée par la migration 20260830 et n'existe
+              // pas encore dans src/types/supabase.ts (généré). À retirer après
+              // `npm run gen:types` une fois la migration appliquée.
+              const { error } = await (supabase.rpc as any)('reactivate_box_member', {
+                p_box_id: member.box_id, p_member_id: member.member_id,
+              });
+              if (error) { captureError(error, { screen: 'BOMembers', action: 'reactivate' }); Alert.alert('Erreur', error.message); return; }
+            } else {
+              const { error } = await supabase.from('box_members')
+                .update({ status: newStatus }).eq('id', member.id);
+              if (error) { captureError(error, { screen: 'BOMembers', action: 'ban' }); Alert.alert('Erreur', error.message); return; }
+            }
             load();
           },
         },
@@ -141,8 +160,9 @@ export default function BOMembersScreen({ navigation }: any) {
     );
   }
 
-  const active = members.filter(m => m.status === 'active').length;
-  const banned = members.filter(m => m.status === 'banned').length;
+  const active   = members.filter(m => m.status === 'active').length;
+  const banned   = members.filter(m => m.status === 'banned').length;
+  const inactive = members.filter(m => m.status === 'inactive').length;
 
   return (
     <View style={S.container}>
@@ -152,7 +172,7 @@ export default function BOMembersScreen({ navigation }: any) {
         </TouchableOpacity>
         <View>
           <Text style={S.headerTitle}>{t('bo.members.title')}</Text>
-          <Text style={S.headerSub}>{t('bo.members.summary', { active, banned })}</Text>
+          <Text style={S.headerSub}>{t('bo.members.summary', { active, inactive, banned })}</Text>
         </View>
       </View>
 
@@ -163,14 +183,24 @@ export default function BOMembersScreen({ navigation }: any) {
         contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 140 }}
         renderItem={({ item: m }) => (
           <TouchableOpacity
-            style={[S.row, m.status === 'banned' && S.rowBanned]}
+            style={[S.row, m.status !== 'active' && S.rowBanned]}
             onPress={() => openMemberDetail(m)}
             activeOpacity={0.7}
           >
             <UserAvatar uri={m.profile.avatar_url} name={m.profile.username} size={40} borderRadius={14} backgroundColor={theme.accentShadow} />
             <View style={S.mid}>
               <View style={S.nameRow}>
-                <Text style={[S.name, m.status === 'banned' && S.nameBanned]}>{m.profile.username}</Text>
+                <Text style={[S.name, m.status !== 'active' && S.nameBanned]}>{m.profile.username}</Text>
+                {m.role === 'owner' && (
+                  <View style={[S.levelPill, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
+                    <Text style={[S.levelText, { color: '#F59E0B' }]}>{t('bo.members.ownerBadge')}</Text>
+                  </View>
+                )}
+                {m.status === 'inactive' && (
+                  <View style={[S.levelPill, { backgroundColor: 'rgba(148,163,184,0.18)' }]}>
+                    <Text style={[S.levelText, { color: '#94A3B8' }]}>{t('bo.members.inactiveBadge')}</Text>
+                  </View>
+                )}
                 {m.role === 'coach' && (
                   <View style={[S.levelPill, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
                     <Text style={[S.levelText, { color: '#3B82F6' }]}>{t('bo.members.coachBadge')}</Text>
@@ -225,7 +255,7 @@ export default function BOMembersScreen({ navigation }: any) {
             </View>
 
             {/* Coach promote/demote + Ban/Unban actions */}
-            {selectedMember && selectedMember.status === 'active' && (
+            {selectedMember && selectedMember.status === 'active' && selectedMember.role !== 'owner' && (
               <TouchableOpacity
                 style={[S.banBtn, { backgroundColor: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.25)' }]}
                 onPress={() => toggleCoach(selectedMember)}
