@@ -126,10 +126,7 @@ export default function BOMembersScreen({ navigation }: any) {
               // Réactivation : passe par la RPC serveur, qui remet à zéro
               // l'abonnement comme le fait la ré-adhésion par code d'invitation.
               // Un UPDATE direct ressusciterait l'ancien forfait.
-              // `as any` : la RPC est créée par la migration 20260830 et n'existe
-              // pas encore dans src/types/supabase.ts (généré). À retirer après
-              // `npm run gen:types` une fois la migration appliquée.
-              const { error } = await (supabase.rpc as any)('reactivate_box_member', {
+              const { error } = await supabase.rpc('reactivate_box_member', {
                 p_box_id: member.box_id, p_member_id: member.member_id,
               });
               if (error) { captureError(error, { screen: 'BOMembers', action: 'reactivate' }); Alert.alert('Erreur', error.message); return; }
