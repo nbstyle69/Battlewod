@@ -150,6 +150,11 @@ BEGIN
   -- RGPD storage : avatars + documents + pièces jointes de l'utilisateur.
   -- (Supprime les métadonnées et rend l'objet inaccessible ; le protocole
   --  vérifie qu'aucune URL ne le sert plus.)
+  -- Le trigger plateforme storage.protect_objects_delete refuse tout DELETE
+  -- direct (ERRCODE 42501) sauf si cette GUC locale est posée — c'est le
+  -- mécanisme documenté pour une purge serveur légitime. LOCAL = limité à la
+  -- transaction de cette RPC.
+  PERFORM set_config('storage.allow_delete_query', 'true', true);
   DELETE FROM storage.objects
   WHERE (bucket_id = 'avatars'   AND (owner = uid OR name LIKE uid || '/%'))
      OR (bucket_id = 'documents' AND (owner = uid OR name LIKE uid || '/%'))
