@@ -46,4 +46,12 @@ describe('prStorage', () => {
     const mixed = { 'weightlifting_Back Squat': '150', 'Haltérophilie_Back Squat': '120' };
     expect(normalizePrRecords(mixed)['weightlifting_Back Squat']).toBe('150');
   });
+
+  it('coerces numeric values to strings instead of dropping them (4.6)', () => {
+    const raw: Record<string, unknown> = { 'weightlifting_Back Squat': 150, 'cardio_Row': 92.5, bad: null };
+    const out = normalizePrRecords(raw);
+    expect(out['weightlifting_Back Squat']).toBe('150');
+    expect(out['cardio_Row']).toBe('92.5');
+    expect('bad' in out).toBe(false);
+  });
 });

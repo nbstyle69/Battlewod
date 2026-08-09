@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { supabase } from '../../lib/supabase';
+import { countUnreadMessages } from '../../lib/unreadMessages';
 import { captureError } from '../../lib/sentry';
 import { hapticSuccess } from '../../lib/haptics';
 import { recordActivity, logMovementReps } from '../../services/gamification';
@@ -372,20 +373,11 @@ export default function WhiteboardScreen() {
     if (!user || !currentBox) return;
     (async () => {
       try {
-        const [lastMsg, lastArt] = await Promise.all([
-          AsyncStorage.getItem(`lastSeenMessages_${user.id}_${currentBox.id}`),
+        const [unread, lastArt] = await Promise.all([
+          countUnreadMessages(user.id, currentBox.id),
           AsyncStorage.getItem(`lastSeenArticles_${user.id}_${currentBox.id}`),
         ]);
-        // Unread messages (general, not from me, after last seen)
-        let msgQuery = supabase
-          .from('messages')
-          .select('id', { count: 'exact', head: true })
-          .eq('box_id', currentBox.id)
-          .eq('message_type', 'general')
-          .neq('sender_id', user.id);
-        if (lastMsg) msgQuery = msgQuery.gt('created_at', lastMsg);
-        const { count: msgCount } = await msgQuery;
-        setUnreadMessages(msgCount ?? 0);
+        setUnreadMessages(unread);
 
         // Unread articles (after last seen)
         let artQuery = supabase

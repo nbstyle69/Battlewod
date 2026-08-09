@@ -433,8 +433,72 @@ export async function cancelScoreReminder() {
 // Cancel today's score reminder (called after submitting a score)
 export async function cancelTodayScoreReminder() {
   await cancelScoreReminder();
-  // Re-schedule for tomorrow (it's daily, so re-scheduling restarts the cycle)
-  await scheduleScoreReminder();
+  // 4.10 : re-programmer un déclencheur DAILY sonne encore aujourd'hui 18h,
+  // donc le rappel tombait alors que le score venait d'être soumis. On pose une
+  // occurrence unique demain ; le rappel quotidien est ré-armé au démarrage
+  // suivant (AuthContext).
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(18, 0, 0, 0);
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '💪 WOD du jour',
+      body: 'Tu n\'as pas encore soumis ton score aujourd\'hui !',
+      sound: 'default',
+      data: { type: 'score_reminder' },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: tomorrow,
+    },
+  });
+}
+
+// ── 4.10 Rappel de cours réservé (1 h avant) ─────────────────────────
+const CLASS_REMINDER_LEAD_MIN = 60;
+
+/** Date locale d'un créneau : `YYYY-MM-DD` + `HH:MM[:SS]`, sans passer par UTC. */
+export function classStartDate(scheduledDate: string, startTime: string): Date {
+  const [y, m, d] = scheduledDate.split('-').map(Number);
+  const [hh, mm] = startTime.split(':').map(Number);
+  return new Date(y, m - 1, d, hh, mm ?? 0, 0, 0);
+}
+
+export async function scheduleClassReminder(
+  scheduleId: string,
+  className: string,
+  scheduledDate: string,
+  startTime: string,
+) {
+  await cancelClassReminder(scheduleId);
+
+  const remindAt = new Date(
+    classStartDate(scheduledDate, startTime).getTime() - CLASS_REMINDER_LEAD_MIN * 60 * 1000,
+  );
+  if (remindAt <= new Date()) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '⏰ Ton cours approche',
+      body: `"${className}" commence dans ${CLASS_REMINDER_LEAD_MIN} minutes.`,
+      sound: 'default',
+      data: { type: 'class_reminder', scheduleId },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: remindAt,
+    },
+  });
+}
+
+export async function cancelClassReminder(scheduleId: string) {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const notif of scheduled) {
+    if (notif.content.data?.type === 'class_reminder' && notif.content.data?.scheduleId === scheduleId) {
+      await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════

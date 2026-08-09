@@ -14,6 +14,7 @@ import WeekDayPicker from '../../components/WeekDayPicker';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
 import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
+import { scheduleClassReminder, cancelClassReminder } from '../../services/notifications';
 
 interface ClassSchedule {
   id: string;
@@ -217,6 +218,7 @@ export default function ReservationScreen() {
                 .eq('schedule_id', item.id)
                 .eq('member_id', user.id);
               if (error) Alert.alert(t('common.error'), error.message);
+              else await cancelClassReminder(item.id);
               setBooking(null);
               load();
             },
@@ -283,6 +285,9 @@ export default function ReservationScreen() {
         }
         else if (data?.status === 'waiting') {
           Alert.alert(t('reservation.waitlistTitle'), t('reservation.waitlistDowngrade'));
+        }
+        else {
+          await scheduleClassReminder(item.id, item.title, item.scheduled_date, item.start_time);
         }
         setBooking(null);
         load();

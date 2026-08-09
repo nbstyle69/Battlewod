@@ -122,6 +122,7 @@ import BoxInfoScreen from '../screens/home/BoxInfoScreen';
 import BOBoxInfoScreen from '../screens/backoffice/BOBoxInfoScreen';
 import BOSubscriptionScreen from '../screens/backoffice/BOSubscriptionScreen';
 import BOPaywallScreen from '../screens/backoffice/BOPaywallScreen';
+import { useUnreadMessages } from '../hooks/useUnreadMessages';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -751,6 +752,7 @@ function CoachTabs() {
 function MainTabs() {
   const { t } = useTranslation();
   const { theme, mode } = useTheme();
+  const unreadMessages = useUnreadMessages();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
   useAndroidNavBar(theme.tabBar, mode);
@@ -803,7 +805,8 @@ function MainTabs() {
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Explorer', { screen: 'ExplorerMain' }) })} />
       <Tab.Screen name="Home"         component={HomeNavigator}         options={{ tabBarLabel: t('tabs.home') }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Home', { screen: 'HomeList' }) })} />
-      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}   options={{ tabBarLabel: t('tabs.myBox') }}
+      <Tab.Screen name="Whiteboard"   component={WhiteboardNavigator}
+        options={{ tabBarLabel: t('tabs.myBox'), tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Whiteboard', { screen: 'WhiteboardMain' }) })} />
       <Tab.Screen name="Reservation"  component={ReservationNavigator}  options={{ tabBarLabel: t('tabs.reservation') }}
         listeners={({ navigation }) => ({ tabPress: () => navigation.navigate('Reservation', { screen: 'ReservationMain' }) })} />

@@ -22,6 +22,7 @@ import { spacing, borderRadius, typography, shadows } from '../../theme/designTo
 import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
 import { Program } from '../../types';
+import { Json } from '../../types/supabase';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { prKey, normalizePrRecords, PrCategorySlug } from './prStorage';
@@ -251,7 +252,7 @@ export default function ProfileScreen() {
     async () => {
       if (!user) return null;
       const [wodCountRes, prRes, badgesRes, earnedRes, streakRes, friendsRes, featuredRes] = await Promise.all([
-        supabase.from('wod_scores').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('wod_scores').select('id', { count: 'exact', head: true }).eq('member_id', user.id), // 4.1 : la colonne est member_id, pas user_id (compteur bloque a 0)
         supabase.from('profiles').select('personal_records').eq('id', user.id).single(),
         getBadgesCatalog(),
         getEarnedBadges(user.id),
@@ -307,12 +308,25 @@ export default function ProfileScreen() {
     loadReferralCode();
   }, [user?.id]);
 
-  async function savePRs(updated: Record<string, string>) {
+  async function savePRs(updated: Record<string, string>, changedKeys: string[]) {
     if (!user) return;
+    // 4.6b : relire la colonne et ne fusionner QUE les clés modifiées. Écrire
+    // l'état local complet écrasait les PR enregistrés ailleurs (web, autre
+    // appareil) depuis le chargement de l'écran.
+    const { data, error } = await supabase
+      .from('profiles').select('personal_records').eq('id', user.id).single();
+    if (error) { captureError(error, { screen: 'Profile', action: 'savePRs.read' }); return; }
+
+    const remote = (data?.personal_records ?? {}) as Record<string, Json>;
+    const merged: Record<string, Json> = { ...remote };
+    for (const key of changedKeys) merged[key] = updated[key];
     // Post-migration: PRs and featured badges live in separate storage. Pre-migration:
     // keep persisting the featured badges alongside the PRs so we don't drop them.
-    const records = featuredColumn ? updated : { ...updated, _featured_badges: featuredBadges };
-    await supabase.from('profiles').update({ personal_records: records }).eq('id', user.id);
+    if (!featuredColumn) merged._featured_badges = featuredBadges;
+
+    const { error: upErr } = await supabase
+      .from('profiles').update({ personal_records: merged }).eq('id', user.id);
+    if (upErr) captureError(upErr, { screen: 'Profile', action: 'savePRs.write' });
   }
 
   async function toggleFeaturedBadge(badgeKey: string) {
@@ -772,7 +786,7 @@ export default function ProfileScreen() {
                                 const updated = { ...prValues, [`${key}_date`]: today };
                                 setPrValues(updated);
                                 setEditingPR(null);
-                                savePRs(updated);
+                                savePRs(updated, [key, `${key}_date`]);
                               }}
                               style={S.prEditConfirm}
                             >
