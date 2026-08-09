@@ -391,7 +391,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentBox(null);
     setBoxRole(null);
     setMyBoxes([]);
-    await AsyncStorage.removeItem(ACTIVE_BOX_KEY);
+    setBoxSkipped(false);
+    // Purge des clés locales au signOut (3.8) — appareils partagés : box active,
+    // onboarding, tour, messages vus (lastSeenMessages_*), file de badges, etc.
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const toRemove = keys.filter(k => k.startsWith('@athlex:') || k.startsWith('lastSeenMessages_'));
+      if (toRemove.length) await AsyncStorage.multiRemove(toRemove);
+    } catch (e) { captureError(e, { action: 'signOutPurge' }); }
   }
 
   async function deleteAccount(): Promise<{ error: string | null }> {
