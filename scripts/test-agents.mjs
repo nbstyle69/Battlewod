@@ -11,52 +11,20 @@
  *   3. Inter-box         — 5 agents, standings view, reps mode
  *
  * USAGE
- *   node scripts/test-agents.mjs <SUPABASE_SERVICE_ROLE_KEY>
- *   -- or --
- *   SUPABASE_SERVICE_ROLE_KEY=... node scripts/test-agents.mjs
+ *   ./scripts/test-stack.sh up && node scripts/test-agents.mjs [--keep-data]
+ *   Cible fournie par TEST_SUPABASE_URL / TEST_SUPABASE_*_KEY (jamais la prod).
  *
- *   # Keep test data in DB for manual inspection:
- *   node scripts/test-agents.mjs <key> --keep-data
- *
- * Get service role key: Supabase Dashboard → Settings → API → service_role
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import {
+  requireTestTarget, serviceClient, signInAs, createUser, createOwnedBox, dropBoxAndOwner,
+  onCleanup, runCleanup, installCleanupTraps, KEEP_DATA,
+} from './lib/test-env.mjs';
 
-// Auto-load .env from project root (no dotenv dependency needed)
-try {
-  const __dir = dirname(fileURLToPath(import.meta.url));
-  const envPath = join(__dir, '..', '.env');
-  for (const line of readFileSync(envPath, 'utf-8').split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const idx = trimmed.indexOf('=');
-    if (idx === -1) continue;
-    const key = trimmed.slice(0, idx).trim();
-    const val = trimmed.slice(idx + 1).trim();
-    if (!process.env[key]) process.env[key] = val;
-  }
-} catch { /* .env not found or unreadable — rely on process.env */ }
+requireTestTarget();
+installCleanupTraps();
 
-// ── Config ────────────────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://lkwdlqlbrbxaiydkoxfp.supabase.co';
-const SERVICE_ROLE_KEY = process.argv.find(a => !a.startsWith('--') && a !== process.argv[0] && a !== process.argv[1])
-  || process.env.SUPABASE_SERVICE_ROLE_KEY;
-const KEEP_DATA = process.argv.includes('--keep-data');
-
-if (!SERVICE_ROLE_KEY) {
-  console.error('❌  SUPABASE_SERVICE_ROLE_KEY required');
-  console.error('    Usage: node scripts/test-agents.mjs <SERVICE_ROLE_KEY>');
-  console.error('    Get it from: Supabase Dashboard → Settings → API');
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const supabase = serviceClient();
 
 // ── ELO Logic (mirrors src/utils/elo.ts) ─────────────────────────────────────
 const K_PAIRWISE = 64;
@@ -322,20 +290,36 @@ async function testBOTournament() {
   const agents = AGENTS.filter(a => a.id);
   if (agents.length < 2) { skip('Not enough agents'); return null; }
 
-  // Requires an existing box
-  const { data: box } = await supabase.from('boxes').select('id, name').limit(1).single();
-  if (!box) {
-    skip('No box found in DB — Suite 2 requires at least one box (create one via BO web first)');
-    return null;
-  }
-  info(`Using box: "${box.name}" (${box.id.slice(0, 8)}...)`);
+  // Box jetable dédiée : la suite n'emprunte jamais une box existante.
+  const ownerEmail = `owner.${TAG}@test.athlex.io`;
+  const ownerPassword = `AthleX_Test_${TS}!`;
+  const ownerId = await createUser(supabase, {
+    email: ownerEmail,
+    password: ownerPassword,
+    username: `AgtOwner_${TS}`,
+    role: 'box_owner',
+  });
+  const boxId = await createOwnedBox(supabase, { tag: TAG, ownerId });
+  onCleanup(() => dropBoxAndOwner(supabase, boxId, ownerId));
+  const box = { id: boxId, name: `[TEST] Box ${TAG}` };
+  info(`Box jetable : "${box.name}" (${box.id.slice(0, 8)}...)`);
+
+  const { client: asOwner } = await signInAs(ownerEmail, ownerPassword);
+
+  // update_user_elo n'est exécutable que par service_role : un JWT owner doit
+  // être refusé, sinon n'importe quel client pourrait réécrire un ELO.
+  const { error: eloGuardErr } = await asOwner.rpc('update_user_elo', {
+    p_user_id: agents[0].id, p_new_elo: 9999, p_increment_matches: 0, p_increment_wins: 0,
+  });
+  assert(!!eloGuardErr, 'update_user_elo refusé à un JWT owner (réservé service_role)');
 
   // ── 2a. Create tournament ─────────────────────────────────────────────────
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 24 * 3600 * 1000).toISOString().split('T')[0];
-  const { data: tourn, error: tErr } = await supabase.from('tournaments').insert({
+  // Créé avec le JWT de l'owner : la RLS de `tournaments` est réellement exercée.
+  const { data: tourn, error: tErr } = await asOwner.from('tournaments').insert({
     box_id: box.id,
-    created_by: agents[0].id,
+    created_by: ownerId,
     name: `[TEST] BO Tournament ${TAG}`,
     description: 'Automated reliability test — safe to delete',
     status: 'open',
@@ -708,6 +692,7 @@ async function main() {
   console.log(`║  Mode: ${KEEP_DATA ? 'keep data' : 'auto-cleanup'} ${' '.repeat(KEEP_DATA ? 46 : 42)}║`);
   console.log('╚══════════════════════════════════════════════════════════════════════════╝');
 
+  onCleanup(cleanup);
   try {
     await createAgents();
     await testDailyTournament();
@@ -715,7 +700,7 @@ async function main() {
     await testInterCompetition();
     await testEdgeCases();
   } finally {
-    await cleanup();
+    await runCleanup();
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────
@@ -735,5 +720,5 @@ async function main() {
 
 main().catch(err => {
   console.error('\n💥 Fatal error:', err.message ?? err);
-  cleanup().finally(() => process.exit(1));
+  runCleanup().finally(() => process.exit(1));
 });

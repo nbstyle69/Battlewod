@@ -4,8 +4,11 @@ project_id = "battlewod"
 port = 54322
 major_version = 17
 
+# Le baseline ALTER `storage.objects`, dont le rôle utilisé par la CLI n'est pas
+# propriétaire : l'application automatique échoue. `scripts/test-stack.sh` rejoue
+# supabase/migrations en `supabase_admin` juste après le démarrage.
 [db.migrations]
-enabled = true
+enabled = false
 
 [api]
 enabled = true

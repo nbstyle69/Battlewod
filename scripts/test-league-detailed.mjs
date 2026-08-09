@@ -8,30 +8,24 @@
  * Scoring : 1er=100, 2e=97, ..., -3/rang, min 1 pt
  * Promote : top 2 de D2/D3/D4 → division supérieure
  * Relegate: bottom 2 de D1/D2/D3 → division inférieure
+ *
+ * USAGE
+ *   ./scripts/test-stack.sh up && node scripts/test-league-detailed.mjs
+ *   Cible fournie par TEST_SUPABASE_URL / TEST_SUPABASE_*_KEY (jamais la prod).
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import {
+  requireTestTarget, serviceClient, signInAs, createUser, createOwnedBox, dropBoxAndOwner,
+  onCleanup, runCleanup, installCleanupTraps,
+} from './lib/test-env.mjs';
 
-try {
-  const __dir = dirname(fileURLToPath(import.meta.url));
-  for (const line of readFileSync(join(__dir, '..', '.env'), 'utf-8').split('\n')) {
-    const t = line.trim(); if (!t || t.startsWith('#')) continue;
-    const idx = t.indexOf('='); if (idx === -1) continue;
-    const k = t.slice(0, idx).trim(), v = t.slice(idx + 1).trim();
-    if (!process.env[k]) process.env[k] = v;
-  }
-} catch {}
+requireTestTarget();
+installCleanupTraps();
 
-const SUPABASE_URL = 'https://lkwdlqlbrbxaiydkoxfp.supabase.co';
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!SERVICE_ROLE_KEY) { console.error('❌  SUPABASE_SERVICE_ROLE_KEY required'); process.exit(1); }
+const db = serviceClient();
 
-const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+/** Client JWT de l'owner : end_season_and_advance est gardée par is_box_admin(). */
+let asOwner = db;
 
 const TS  = Date.now();
 const TAG = `league_${TS}`;
@@ -68,14 +62,20 @@ async function setup() {
   }
   console.log(`  ✅ ${n}/32 agents prêts`);
 
-  const { data: box } = await db.from('boxes').select('id,name').limit(1).single();
-  if (!box) { console.error('❌  Aucune box trouvée'); process.exit(1); }
-  console.log(`  ✅ Box: "${box.name}"`);
+  // Box jetable avec son propre owner (jamais une box existante).
+  const ownerEmail = `owner.${TAG}@test.athlex.io`;
+  const ownerId = await createUser(db, {
+    email: ownerEmail, password: pw, username: `LgOwner_${TS}`, role: 'box_owner',
+  });
+  const boxId = await createOwnedBox(db, { tag: TAG, ownerId });
+  onCleanup(() => dropBoxAndOwner(db, boxId, ownerId));
+  ({ client: asOwner } = await signInAs(ownerEmail, pw));
+  console.log(`  ✅ Box jetable ${boxId.slice(0, 8)}…`);
 
   // Tournoi league_div
   const today = new Date().toISOString().split('T')[0];
   const { data: t, error: tErr } = await db.from('tournaments').insert({
-    box_id: box.id, created_by: AGENTS[0].id,
+    box_id: boxId, created_by: ownerId,
     name: `[TEST-LEAGUE] ${TAG}`,
     description: 'Auto test détaillé — safe to delete',
     status: 'open', level: 'rx', format: 'league_div',
@@ -207,7 +207,7 @@ async function runSeason(season) {
   }
 
   // Snapshot + promote/relegate
-  const { data: nextSeason, error: esErr } = await db.rpc('end_season_and_advance', { p_tournament_id: tournId });
+  const { data: nextSeason, error: esErr } = await asOwner.rpc('end_season_and_advance', { p_tournament_id: tournId });
   assert(!esErr, `Saison ${season} clôturée → passage en saison ${nextSeason}`, esErr);
 
   // Afficher les mouvements
@@ -242,6 +242,7 @@ async function main() {
   console.log('║   AthleX — League Détaillée · 32 agents · 4 divs · 5 saisons · 4 WODs ║');
   console.log('╚══════════════════════════════════════════════════════════════════════════╝');
 
+  onCleanup(cleanup);
   try {
     await setup();
     for (let s = 1; s <= 5; s++) await runSeason(s);
@@ -280,7 +281,7 @@ async function main() {
     console.log(`     🏆 Champions   : ${champions?.length ?? 0}`);
 
   } finally {
-    await cleanup();
+    await runCleanup();
   }
 
   const total = passed + failed;
@@ -290,4 +291,4 @@ async function main() {
   if (failed > 0) { process.exit(1); }
 }
 
-main().catch(e => { console.error('\n💥 Fatal:', e.message); cleanup().finally(() => process.exit(1)); });
+main().catch(e => { console.error('\n💥 Fatal:', e.message); runCleanup().finally(() => process.exit(1)); });
