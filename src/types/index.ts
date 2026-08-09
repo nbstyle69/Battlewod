@@ -25,7 +25,8 @@ export interface Box {
   phone?: string;
   google_maps_url?: string;
   founded_at?: string;
-  invite_code: string;
+  /** Jamais chargé avec la box : passe par la RPC `get_my_box_invite_code`. */
+  invite_code?: string;
   is_active: boolean;
   created_at: string;
   city?: string;

@@ -10,6 +10,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { BOX_COLUMNS } from '../../lib/boxColumns';
 import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
@@ -47,7 +48,7 @@ export default function BoxDirectoryDetailScreen() {
     (async () => {
       try {
         const [{ data: boxData }, { count }] = await Promise.all([
-          supabase.from('boxes').select('*').eq('id', boxId).single(),
+          supabase.from('boxes').select(BOX_COLUMNS).eq('id', boxId).single(),
           supabase.from('box_members').select('id', { count: 'exact', head: true }).eq('box_id', boxId).eq('status', 'active'),
         ]);
         setBox(boxData as unknown as Box);

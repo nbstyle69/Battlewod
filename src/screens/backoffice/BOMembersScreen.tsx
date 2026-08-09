@@ -23,7 +23,7 @@ interface MemberRow {
   // proposait de le « promouvoir coach ».
   status: 'active' | 'banned' | 'inactive';
   role: 'member' | 'coach' | 'owner';
-  profile: { username: string; email: string; level: string; elo: number; avatar_url?: string };
+  profile: { username: string; email?: string; level: string; elo: number; avatar_url?: string };
 }
 
 interface MemberReservation {
@@ -64,7 +64,7 @@ export default function BOMembersScreen({ navigation }: any) {
     // l'écran affichait 0 membre à un owner légitime.
     const { data, error } = await supabase
       .from('box_members')
-      .select('id, box_id, member_id, joined_at, status, role, profile:profiles(id, username, email, level, elo, avatar_url)')
+      .select('id, box_id, member_id, joined_at, status, role, profile:profiles(id, username, level, elo, avatar_url)')
       .eq('box_id', currentBox.id)
       .order('joined_at', { ascending: false });
     // L'erreur était ignorée : un refus de permission se traduisait par une
@@ -74,7 +74,15 @@ export default function BOMembersScreen({ navigation }: any) {
       captureError(error, { screen: 'BOMembers', action: 'load' });
       Alert.alert('Erreur', error.message);
     }
-    setMembers((data ?? []) as MemberRow[]);
+    // `email` ne peut plus venir de l'embed : la Phase 3 le révoque à
+    // `authenticated`, et une colonne interdite fait échouer TOUTE la requête.
+    // La RPC le rend aux seuls admins de la box, fusionné par member_id.
+    const rows = (data ?? []) as MemberRow[];
+    const { data: emails, error: emailsError } = await supabase
+      .rpc('get_box_member_emails', { p_box_id: currentBox.id });
+    if (emailsError) captureError(emailsError, { screen: 'BOMembers', action: 'emails' });
+    const byMember = new Map((emails ?? []).map(e => [e.member_id, e.email]));
+    setMembers(rows.map(m => ({ ...m, profile: { ...m.profile, email: byMember.get(m.member_id) } })));
     } catch (e) { captureError(e, { screen: 'BOMembers', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);

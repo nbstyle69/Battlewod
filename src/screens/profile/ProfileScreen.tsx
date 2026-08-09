@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { getMyBoxInviteCode } from '../../lib/boxInviteCode';
 import { WEB_URL } from '../../lib/urls';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -146,6 +147,7 @@ export default function ProfileScreen() {
 
   // ── Box join modal
   const [joinModal, setJoinModal]   = useState(false);
+  const [boxInviteCode, setBoxInviteCode] = useState<string | null>(null);
   const [joinCode, setJoinCode]     = useState('');
   const [joining, setJoining]       = useState(false);
 
@@ -555,9 +557,13 @@ export default function ProfileScreen() {
                   : t('profile.roles.athlete');
 
   async function handleShareBoxCode() {
-    if (!currentBox?.invite_code) return;
+    if (!currentBox) return;
+    // Code demandé à la RPC au moment du partage : il n'est plus chargé avec la box.
+    const code = boxInviteCode ?? await getMyBoxInviteCode(currentBox.id);
+    if (!code) return;
+    setBoxInviteCode(code);
     await Share.share({
-      message: t('profile.referral.shareBox', { name: currentBox.name, code: currentBox.invite_code }),
+      message: t('profile.referral.shareBox', { name: currentBox.name, code }),
     });
   }
 
@@ -1007,11 +1013,11 @@ export default function ProfileScreen() {
                     </View>
                   </View>
                   {/* Box invite code (owner only) */}
-                  {user?.role === 'box_owner' && currentBox?.invite_code && (
+                  {user?.role === 'box_owner' && currentBox && (
                     <View style={S.infoRow}>
                       <Text style={S.infoRowLabel}>{t('profile.account.boxCode')}</Text>
                       <TouchableOpacity style={S.inviteCodeRow} onPress={handleShareBoxCode} activeOpacity={0.7}>
-                        <Text style={S.inviteCodeText}>{currentBox.invite_code}</Text>
+                        <Text style={S.inviteCodeText}>{boxInviteCode ?? '••••••'}</Text>
                         <Share2 size={14} color={theme.text} style={{ marginLeft: 6 }} />
                       </TouchableOpacity>
                     </View>
