@@ -10,6 +10,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusQuery } from '../../hooks/useFocusQuery';
@@ -49,16 +50,22 @@ export default function BoxRankingScreen() {
     async (): Promise<Row[]> => {
       if (!currentBox) return [];
 
-      const { data: members } = await supabase
-        .from('box_members')
-        .select('member_id, profiles(id, username, avatar_url, level)')
-        .eq('box_id', currentBox.id)
-        .eq('status', 'active');
+      const members = await readRows(
+        supabase
+          .from('box_members')
+          .select('member_id, profiles(id, username, avatar_url, level)')
+          .eq('box_id', currentBox.id)
+          .eq('status', 'active'),
+        { screen: 'BoxRanking', action: 'loadMembers' },
+      );
 
-      const { data: eloRows } = await supabase
-        .from('box_elo')
-        .select('member_id, elo, matches, wins')
-        .eq('box_id', currentBox.id);
+      const eloRows = await readRows(
+        supabase
+          .from('box_elo')
+          .select('member_id, elo, matches, wins')
+          .eq('box_id', currentBox.id),
+        { screen: 'BoxRanking', action: 'loadBoxElo' },
+      );
 
       const eloMap: Record<string, { elo: number; matches: number; wins: number }> = {};
       (eloRows ?? []).forEach((r: any) => {

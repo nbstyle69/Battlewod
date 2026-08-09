@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -32,11 +33,14 @@ export default function BOBoxInfoScreen({ navigation }: any) {
     if (!currentBox) return;
     (async () => {
       try {
-        const { data } = await supabase
-          .from('boxes')
-          .select('name, address, website_url, contact_email, logo_url')
-          .eq('id', currentBox.id)
-          .single();
+        const data = await readRows(
+          supabase
+            .from('boxes')
+            .select('name, address, website_url, contact_email, logo_url')
+            .eq('id', currentBox.id)
+            .single(),
+          { screen: 'BOBoxInfo', action: 'load' },
+        );
         if (data) {
           setName(data.name ?? '');
           setAddress(data.address ?? '');

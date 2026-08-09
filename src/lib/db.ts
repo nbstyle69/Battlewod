@@ -1,6 +1,9 @@
 import { captureError } from './sentry';
 
-type QueryResult<T> = { data: T | null; error: unknown };
+// `data` n'est PAS `T | null` : les réponses PostgREST sont une union
+// discriminée (succès `{data, error: null}` / échec `{data: null, error}`), et
+// un paramètre en `T | null` fait inférer `T = never` sur cette union.
+type QueryResult<T> = { data: T; error: unknown };
 
 /**
  * Lit une requête Supabase en REMONTANT l'erreur (Sentry + contexte écran) au

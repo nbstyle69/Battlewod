@@ -5,6 +5,7 @@ import {
 import { BarChart3, TrendingUp, Users, Flame, AlertTriangle } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -111,10 +112,13 @@ export default function BOStatsScreen() {
     setPopularWODs(sortedWODs);
 
     // ── Inactive members (no score in 14+ days) ──
-    const { data: members } = await supabase
-      .from('box_members')
-      .select('member_id, profiles(username)')
-      .eq('box_id', boxId).eq('status', 'active');
+    const members = await readRows(
+      supabase
+        .from('box_members')
+        .select('member_id, profiles(username)')
+        .eq('box_id', boxId).eq('status', 'active'),
+      { screen: 'BOStats', action: 'loadActiveMembers' },
+    );
 
     const inactive: InactiveMember[] = [];
     for (const m of (members ?? [])) {

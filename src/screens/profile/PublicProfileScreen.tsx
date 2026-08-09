@@ -7,6 +7,7 @@ import { ChevronLeft, UserPlus, Check, Clock, Trophy, Zap, TrendingUp, Share2, M
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/designTokens';
@@ -68,20 +69,26 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
   }, [userId]);
 
   async function loadProfile() {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, username, full_name, avatar_url, level, elo, wins, total_matches, bio, personal_records')
-      .eq('id', userId)
-      .single();
+    const data = await readRows(
+      supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url, level, elo, wins, total_matches, bio, personal_records')
+        .eq('id', userId)
+        .single(),
+      { screen: 'PublicProfile', action: 'loadProfile' },
+    );
     setProfile(data as PublicUser);
     setLoading(false);
     // Featured badges moved to a dedicated column; fall back to the legacy
     // personal_records._featured_badges slot for profiles not yet migrated.
-    const { data: featuredData } = await supabase
-      .from('profiles')
-      .select('featured_badges')
-      .eq('id', userId)
-      .maybeSingle();
+    const featuredData = await readRows(
+      supabase
+        .from('profiles')
+        .select('featured_badges')
+        .eq('id', userId)
+        .maybeSingle(),
+      { screen: 'PublicProfile', action: 'loadFeaturedBadges' },
+    );
     const keys: string[] = featuredData?.featured_badges?.length
       ? featuredData.featured_badges
       : ((data as any)?.personal_records?._featured_badges ?? []);
@@ -111,13 +118,16 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
   }
 
   async function loadBox() {
-    const { data: membership } = await supabase
-      .from('box_members')
-      .select('box_id, boxes(id, name, city)')
-      .eq('member_id', userId)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle();
+    const membership = await readRows(
+      supabase
+        .from('box_members')
+        .select('box_id, boxes(id, name, city)')
+        .eq('member_id', userId)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle(),
+      { screen: 'PublicProfile', action: 'loadBox' },
+    );
     if (membership?.boxes) {
       const b = Array.isArray(membership.boxes) ? membership.boxes[0] : membership.boxes;
       if (b) setBoxInfo({ id: b.id, name: b.name, city: b.city ?? undefined });

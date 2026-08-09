@@ -7,6 +7,7 @@ import { Users, Search, ChevronRight, Trophy, Zap } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CommunityStackParamList } from '../../navigation';
@@ -46,11 +47,14 @@ export default function CommunityScreen() {
     if (!currentBox) { setLoading(false); setRefreshing(false); return; }
     // 4.1 : profiles n'a pas de colonne box_id (l'ecran etait TOUJOURS vide).
     // On passe par box_members (membres actifs de la box) puis on lit le profil.
-    const { data } = await supabase
-      .from('box_members')
-      .select('profiles:member_id(id, username, level, elo, wins, total_matches, avatar_url)')
-      .eq('box_id', currentBox.id)
-      .eq('status', 'active');
+    const data = await readRows(
+      supabase
+        .from('box_members')
+        .select('profiles:member_id(id, username, level, elo, wins, total_matches, avatar_url)')
+        .eq('box_id', currentBox.id)
+        .eq('status', 'active'),
+      { screen: 'Community', action: 'loadMembers' },
+    );
     const rows = (data ?? []) as { profiles: Member | Member[] | null }[];
     const list = rows
       .map(r => (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles))
