@@ -7,6 +7,7 @@ import { ChevronLeft, Search, MapPin, Users, Map, X } from 'lucide-react-native'
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { BOX_COLUMNS } from '../../lib/boxColumns';
 import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
@@ -45,7 +46,7 @@ export default function BoxDirectoryScreen() {
     try {
       const { data, error } = await supabase
         .from('boxes')
-        .select('*')
+        .select(BOX_COLUMNS)
         .eq('is_listed', true)
         .eq('is_active', true);
       if (error) throw error;

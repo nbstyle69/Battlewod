@@ -8,6 +8,7 @@ import TrialBanner from '../../components/TrialBanner';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { getMyBoxInviteCode } from '../../lib/boxInviteCode';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { formatScoreValue } from '../../utils/scoreFormat';
@@ -40,6 +41,7 @@ export default function BODashboardScreen({ navigation }: any) {
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [interBoxStats, setInterBoxStats] = useState<InterBoxStats>({
     totalCompetitions: 0, activeCompetitions: 0, totalParticipants: 0,
     formatBreakdown: {}, recentCompetitions: [],
@@ -122,7 +124,12 @@ export default function BODashboardScreen({ navigation }: any) {
 
   async function copyCode() {
     if (!currentBox) return;
-    await Share.share({ message: t('bo.dashboard.shareMsg', { code: currentBox.invite_code }) });
+    // Le code n'est plus porté par `currentBox` : on le demande à la RPC au
+    // moment du partage (Phase 3 révoque boxes.invite_code à authenticated).
+    const code = inviteCode ?? await getMyBoxInviteCode(currentBox.id);
+    if (!code) return;
+    setInviteCode(code);
+    await Share.share({ message: t('bo.dashboard.shareMsg', { code }) });
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
   }
@@ -169,7 +176,7 @@ export default function BODashboardScreen({ navigation }: any) {
         <View style={S.inviteCard}>
           <Text style={S.inviteLabel}>{t('bo.dashboard.inviteCode')}</Text>
           <View style={S.inviteRow}>
-            <Text style={S.inviteCode}>{currentBox?.invite_code ?? '------'}</Text>
+            <Text style={S.inviteCode}>{inviteCode ?? '••••••'}</Text>
             <TouchableOpacity style={[S.copyBtn, codeCopied && S.copyBtnDone]} onPress={copyCode} activeOpacity={0.8}>
               <Copy color={codeCopied ? theme.success : theme.accent} size={16} />
               <Text style={[S.copyBtnText, codeCopied && { color: theme.success }]}>

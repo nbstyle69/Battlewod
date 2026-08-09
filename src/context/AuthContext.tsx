@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { BOX_COLUMNS, BOX_MEMBERSHIP_COLUMNS } from '../lib/boxColumns';
 import { User, Box, BoxMemberRole, BoxSubscription } from '../types';
 import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
@@ -115,11 +116,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function fetchProfile(userId: string) {
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      // Colonnes EXPLICITES, jamais `*` : la Phase 3 (3B2) révoque SELECT(email)
+      // sur profiles pour `authenticated` → un select('*') tomberait en 42501 au
+      // login. L'email du compte courant vient de la SESSION auth, pas de la table.
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url, level, role, elo, total_matches, wins, losses, created_at, full_name, bio, personal_records, gender, featured_badges, total_scores_submitted, total_wods_generated, total_timer_sessions, total_messages_sent, total_tournaments, total_tournament_wins, total_friends, referral_code, referred_by')
+        .eq('id', userId)
+        .single();
       if (data) {
-        setUser(data as User);
-        setUserContext(data.id, data.email, data.username);
-        identifyUser(data.id, { email: data.email, username: data.username, role: data.role, level: data.level });
+        const { data: authData } = await supabase.auth.getUser();
+        const email = authData?.user?.email ?? '';
+        const profile = { ...data, email } as User;
+        setUser(profile);
+        setUserContext(profile.id, email, profile.username);
+        identifyUser(profile.id, { email, username: profile.username, role: profile.role, level: profile.level });
         await fetchBox(userId, data.role);
         // Register push token silently
         registerForPushNotifications().then(token => {
@@ -143,13 +154,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Owner box
       if (role === 'box_owner') {
         const { data } = await supabase
-          .from('boxes').select('*').eq('owner_id', userId).maybeSingle();
+          .from('boxes').select(BOX_COLUMNS).eq('owner_id', userId).maybeSingle();
         if (data) entries.push({ box: data as Box, role: 'owner' });
       }
       // Member boxes (always fetch — owner can also be member of other boxes)
       const { data: memberships } = await supabase
         .from('box_members')
-        .select('box_id, role, boxes(*)')
+        .select(BOX_MEMBERSHIP_COLUMNS)
         .eq('member_id', userId)
         .eq('status', 'active');
       if (memberships) {
