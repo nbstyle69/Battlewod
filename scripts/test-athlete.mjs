@@ -17,28 +17,15 @@
  *  Suite 11 — Minuteur            : timer sans vidéo (incrément total_timer_sessions), avec vidéo (même incrément, vidéo locale uniquement)
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import {
+  requireTestTarget, serviceClient, createUser, createOwnedBox, dropBoxAndOwner,
+  onCleanup, runCleanup, installCleanupTraps,
+} from './lib/test-env.mjs';
 
-try {
-  const __dir = dirname(fileURLToPath(import.meta.url));
-  for (const line of readFileSync(join(__dir, '..', '.env'), 'utf-8').split('\n')) {
-    const t = line.trim(); if (!t || t.startsWith('#')) continue;
-    const idx = t.indexOf('='); if (idx === -1) continue;
-    const k = t.slice(0, idx).trim(), v = t.slice(idx + 1).trim();
-    if (!process.env[k]) process.env[k] = v;
-  }
-} catch {}
+requireTestTarget();
+installCleanupTraps();
 
-const SUPABASE_URL = 'https://lkwdlqlbrbxaiydkoxfp.supabase.co';
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!SERVICE_KEY) { console.error('❌  SUPABASE_SERVICE_ROLE_KEY required'); process.exit(1); }
-
-const db = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const db = serviceClient();
 
 const TS  = Date.now();
 const TAG = `ath_${TS}`;
@@ -86,9 +73,17 @@ async function createAthlete(n) {
 async function setup() {
   console.log('\n── Setup: box + 3 athlete agents + test resources ──────────────────────────');
 
-  const { data: b } = await db.from('boxes').select('id,name').limit(1).single();
-  assert(!!b, `Box trouvée: "${b?.name}"`);
-  box = b;
+  // Box jetable avec son propre owner : aucune box existante n'est empruntée.
+  const ownerId = await createUser(db, {
+    email: `owner.${TAG}@test.athlex.io`,
+    password: `AthleX!${TS}`,
+    username: `AthOwner_${TS}`,
+    role: 'box_owner',
+  });
+  const boxId = await createOwnedBox(db, { tag: TAG, ownerId });
+  onCleanup(() => dropBoxAndOwner(db, boxId, ownerId));
+  box = { id: boxId, name: `[TEST] Box ${TAG}` };
+  assert(!!box.id, `Box jetable créée: "${box.name}"`);
 
   [A, B, C] = await Promise.all([createAthlete('A'), createAthlete('B'), createAthlete('C')]);
   assert(A && B && C, '3 athlete agents créés & joints à la box');
@@ -762,6 +757,7 @@ async function main() {
   console.log(`║   Tag: ${TAG.padEnd(62)}║`);
   console.log('╚══════════════════════════════════════════════════════════════════════════╝');
 
+  onCleanup(doCleanup);
   try {
     await setup();
     await suiteProfil();
@@ -776,7 +772,7 @@ async function main() {
     await suiteInterCompetition();
     await suiteMinuteur();
   } finally {
-    await doCleanup();
+    await runCleanup();
   }
 
   const total = passed + failed;
@@ -786,4 +782,4 @@ async function main() {
   if (failed > 0) process.exit(1);
 }
 
-main().catch(e => { console.error('\n💥 Fatal:', e.message); doCleanup().finally(() => process.exit(1)); });
+main().catch(e => { console.error('\n💥 Fatal:', e.message); runCleanup().finally(() => process.exit(1)); });

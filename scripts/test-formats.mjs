@@ -8,43 +8,28 @@
  * Suite D : Ligue Divisions(league_div)  — 32 agents, 4 divs × 8, 4 saisons
  *
  * USAGE
- *   node scripts/test-formats.mjs [--keep-data]
- *   SUPABASE_SERVICE_ROLE_KEY must be in Test/.env
+ *   ./scripts/test-stack.sh up && node scripts/test-formats.mjs [--keep-data]
+ *   Cible fournie par TEST_SUPABASE_URL / TEST_SUPABASE_*_KEY (jamais la prod).
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import {
+  requireTestTarget, serviceClient, signInAs, createUser, createOwnedBox, dropBoxAndOwner,
+  onCleanup, runCleanup, installCleanupTraps, KEEP_DATA,
+} from './lib/test-env.mjs';
 
-try {
-  const __dir = dirname(fileURLToPath(import.meta.url));
-  for (const line of readFileSync(join(__dir, '..', '.env'), 'utf-8').split('\n')) {
-    const t = line.trim(); if (!t || t.startsWith('#')) continue;
-    const idx = t.indexOf('='); if (idx === -1) continue;
-    const k = t.slice(0, idx).trim(), v = t.slice(idx + 1).trim();
-    if (!process.env[k]) process.env[k] = v;
-  }
-} catch {}
+requireTestTarget();
+installCleanupTraps();
 
-const SUPABASE_URL = 'https://lkwdlqlbrbxaiydkoxfp.supabase.co';
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const KEEP_DATA = process.argv.includes('--keep-data');
-
-if (!SERVICE_ROLE_KEY) {
-  console.error('❌  SUPABASE_SERVICE_ROLE_KEY required (add to Test/.env)');
-  process.exit(1);
-}
-
-const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const db = serviceClient();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const TS   = Date.now();
 const TAG  = `fmt_${TS}`;
 const res  = { passed: 0, failed: 0 };
 const ids  = { classique: null, bracket: null, swiss: null, league: null };
+
+/** Client porteur du JWT de l'owner : les RPC de gestion sont gardées par is_box_admin(). */
+let asOwner = db;
 
 const ok   = m => { console.log(`  ✅ ${m}`); res.passed++; };
 const fail = (m, e) => { console.log(`  ❌ ${m}`); if (e?.message) console.log(`     → ${e.message}`); res.failed++; };
@@ -85,19 +70,29 @@ async function deleteAgents() {
   ok('32 agents deleted');
 }
 
-// ── Box ───────────────────────────────────────────────────────────────────────
+// ── Box jetable + owner ───────────────────────────────────────────────────────
+// La suite ne doit jamais emprunter une box existante : elle crée la sienne,
+// avec son propre propriétaire, et s'authentifie avec son JWT.
 let BOX_ID = null;
-async function getBox() {
-  const { data } = await db.from('boxes').select('id,name').limit(1).single();
-  BOX_ID = data?.id ?? null;
-  if (BOX_ID) info(`Box: "${data.name}" (${BOX_ID.slice(0, 8)}...)`);
+let OWNER_ID = null;
+
+async function createBoxAndOwner() {
+  const email = `owner.${TAG}@test.athlex.io`;
+  const password = `AthleX_Fmt_${TS}!`;
+  OWNER_ID = await createUser(db, {
+    email, password, username: `FmtOwner_${TS}`, role: 'box_owner',
+  });
+  BOX_ID = await createOwnedBox(db, { tag: TAG, ownerId: OWNER_ID });
+  onCleanup(() => dropBoxAndOwner(db, BOX_ID, OWNER_ID));
+  ({ client: asOwner } = await signInAs(email, password));
+  info(`Box jetable ${BOX_ID.slice(0, 8)}… détenue par ${email}`);
   return BOX_ID;
 }
 
 async function createTournament(format, extra = {}) {
   const today = new Date().toISOString().split('T')[0];
   const { data, error } = await db.from('tournaments').insert({
-    box_id: BOX_ID, created_by: AGENTS[0].id,
+    box_id: BOX_ID, created_by: OWNER_ID,
     name: `[TEST] ${format.toUpperCase()} ${TAG}`,
     description: 'Auto test — safe to delete',
     status: 'open', level: 'rx', format,
@@ -179,7 +174,7 @@ async function suiteBracket() {
   await registerAll(t.id);
 
   // Generate round 1
-  const { data: r1Count, error: r1Err } = await db.rpc('generate_bracket_round_1', { p_tournament_id: t.id });
+  const { data: r1Count, error: r1Err } = await asOwner.rpc('generate_bracket_round_1', { p_tournament_id: t.id });
   if (!assert(!r1Err, `Round 1 generated (${r1Count} matches)`, r1Err)) return;
   assert(r1Count === 16, `16 matches in round 1 (got ${r1Count})`);
 
@@ -202,7 +197,7 @@ async function suiteBracket() {
 
     const expectedMatches = Math.ceil(pending.length / 2);
     if (round < 5) {
-      const { data: nextCount, error: advErr } = await db.rpc('advance_bracket_round', {
+      const { data: nextCount, error: advErr } = await asOwner.rpc('advance_bracket_round', {
         p_tournament_id: t.id, p_completed_round: round,
       });
       assert(!advErr, `Round ${round} advanced → ${nextCount} match(es) next round`, advErr);
@@ -232,7 +227,7 @@ async function suiteSwiss() {
 
   await registerAll(t.id);
 
-  const { data: r1, error: r1Err } = await db.rpc('generate_bracket_round_1', { p_tournament_id: t.id });
+  const { data: r1, error: r1Err } = await asOwner.rpc('generate_bracket_round_1', { p_tournament_id: t.id });
   if (!assert(!r1Err, `Swiss round 1 generated (${r1} WB matches)`, r1Err)) return;
 
   // Resolve all pending matches (WB + LB) round by round
@@ -255,7 +250,7 @@ async function suiteSwiss() {
     // Only advance WB side
     const wbPending = matches.filter(m => m.side === 'winner');
     if (wbPending.length > 1) {
-      const { error: advErr } = await db.rpc('advance_bracket_round', {
+      const { error: advErr } = await asOwner.rpc('advance_bracket_round', {
         p_tournament_id: t.id, p_completed_round: round,
       });
       if (advErr && !advErr.message?.includes('unfinished')) assert(!advErr, `Swiss advance round ${round}`, advErr);
@@ -370,7 +365,7 @@ async function suiteLeague() {
       .order('points', { ascending: false });
 
     // End season → promote/relegate + snapshot + reset
-    const { data: nextSeason, error: esErr } = await db.rpc('end_season_and_advance', { p_tournament_id: t.id });
+    const { data: nextSeason, error: esErr } = await asOwner.rpc('end_season_and_advance', { p_tournament_id: t.id });
     if (!assert(!esErr, `end_season_and_advance → saison ${nextSeason}`, esErr)) continue;
     assert(nextSeason === season + 1, `current_season avancée: ${season} → ${nextSeason}`);
 
@@ -413,6 +408,7 @@ async function suiteLeague() {
 }
 
 // ── Cleanup ───────────────────────────────────────────────────────────────────
+// Enregistrée via onCleanup() : elle tourne aussi si la suite meurt en route.
 async function cleanup() {
   if (KEEP_DATA) {
     info('--keep-data: DB non nettoyée');
@@ -423,10 +419,9 @@ async function cleanup() {
     return;
   }
   console.log('\n── Cleanup ──────────────────────────────────────────────────────────────────');
-  if (ids.classique) { await db.from('tournaments').delete().eq('id', ids.classique); ok('Classique deleted'); }
-  if (ids.bracket)   { await db.from('tournaments').delete().eq('id', ids.bracket);   ok('Bracket deleted'); }
-  if (ids.swiss)     { await db.from('tournaments').delete().eq('id', ids.swiss);      ok('Swiss deleted'); }
-  if (ids.league)    { await db.from('tournaments').delete().eq('id', ids.league);     ok('League deleted'); }
+  for (const [label, id] of Object.entries(ids)) {
+    if (id) { await db.from('tournaments').delete().eq('id', id); ok(`${label} deleted`); }
+  }
   await deleteAgents();
 }
 
@@ -437,16 +432,16 @@ async function main() {
   console.log(`║  Tag: ${TAG.slice(0, 55).padEnd(55)} ║`);
   console.log('╚══════════════════════════════════════════════════════════════════════════╝');
 
+  onCleanup(cleanup);
   try {
     await createAgents();
-    await getBox();
-    if (!BOX_ID) { console.error('❌  No box found — create one in the BO web first'); process.exit(1); }
+    await createBoxAndOwner();
     await suiteClassique();
     await suiteBracket();
     await suiteSwiss();
     await suiteLeague();
   } finally {
-    await cleanup();
+    await runCleanup();
   }
 
   const total = res.passed + res.failed;
@@ -459,5 +454,5 @@ async function main() {
 
 main().catch(err => {
   console.error('\n💥 Fatal:', err.message ?? err);
-  cleanup().finally(() => process.exit(1));
+  runCleanup().finally(() => process.exit(1));
 });

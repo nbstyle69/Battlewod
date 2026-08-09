@@ -16,28 +16,15 @@
  *  Suite 9 — Dashboard KPIs  : vérif compteurs cohérents
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import {
+  requireTestTarget, serviceClient, createUser, createOwnedBox, dropBoxAndOwner,
+  onCleanup, runCleanup, installCleanupTraps,
+} from './lib/test-env.mjs';
 
-try {
-  const __dir = dirname(fileURLToPath(import.meta.url));
-  for (const line of readFileSync(join(__dir, '..', '.env'), 'utf-8').split('\n')) {
-    const t = line.trim(); if (!t || t.startsWith('#')) continue;
-    const idx = t.indexOf('='); if (idx === -1) continue;
-    const k = t.slice(0, idx).trim(), v = t.slice(idx + 1).trim();
-    if (!process.env[k]) process.env[k] = v;
-  }
-} catch {}
+requireTestTarget();
+installCleanupTraps();
 
-const SUPABASE_URL = 'https://lkwdlqlbrbxaiydkoxfp.supabase.co';
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!SERVICE_KEY) { console.error('❌  SUPABASE_SERVICE_ROLE_KEY required'); process.exit(1); }
-
-const db = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const db = serviceClient();
 
 const TS  = Date.now();
 const TAG = `bo_${TS}`;
@@ -59,17 +46,20 @@ const cleanup = { articles: [], schedules: [], wods: [], programs: [], groups: [
 async function setup() {
   console.log('\n── Setup: box + 1 owner agent + 3 member agents ────────────────────────────');
 
-  // Use existing box
-  const { data: b } = await db.from('boxes').select('id,name,address,website_url,contact_email,phone').limit(1).single();
-  assert(!!b, `Box trouvée: "${b?.name}"`);
-  box = b;
-
-  // Create owner agent
+  // Owner jetable, puis SA box : cette suite modifiait les réglages d'une box
+  // existante (nom, adresse, contact…) avant de tenter de les restaurer.
   const ownerEmail = `bo_owner_${TAG}@test.athlex.io`;
-  const { data: oAuth } = await db.auth.admin.createUser({ email: ownerEmail, password: `AthleX!${TS}`, email_confirm: true });
-  ownerId = oAuth?.user?.id;
+  ownerId = await createUser(db, {
+    email: ownerEmail, password: `AthleX!${TS}`, username: `BOOwner_${TS}`, role: 'box_owner',
+  });
   assert(!!ownerId, 'Owner agent créé');
-  await db.from('profiles').upsert({ id: ownerId, email: ownerEmail, username: `BOOwner_${TS}`, role: 'box_owner', level: 'rx', elo: 1000, total_matches: 0, wins: 0 }, { onConflict: 'id' });
+
+  const boxId = await createOwnedBox(db, { tag: TAG, ownerId });
+  onCleanup(() => dropBoxAndOwner(db, boxId, ownerId));
+  const { data: b } = await db.from('boxes')
+    .select('id,name,address,website_url,contact_email,phone').eq('id', boxId).single();
+  box = b;
+  assert(!!box, `Box jetable créée: "${box?.name}"`);
 
   // Create 3 member agents
   for (let i = 1; i <= 3; i++) {
@@ -444,7 +434,6 @@ async function doCleanup() {
   for (const id of cleanup.memberIds) await db.auth.admin.deleteUser(id);
   if (cleanup.memberIds.length)        ok(`${cleanup.memberIds.length} member agents supprimés`);
 
-  if (ownerId) { await db.auth.admin.deleteUser(ownerId); ok('Owner agent supprimé'); }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -454,6 +443,7 @@ async function main() {
   console.log(`║   Tag: ${TAG.padEnd(62)}║`);
   console.log('╚══════════════════════════════════════════════════════════════════════════╝');
 
+  onCleanup(doCleanup);
   try {
     await setup();
     await suiteSettings();
@@ -466,7 +456,7 @@ async function main() {
     await suiteTournaments();
     await suiteDashboard();
   } finally {
-    await doCleanup();
+    await runCleanup();
   }
 
   const total = passed + failed;
@@ -476,4 +466,4 @@ async function main() {
   if (failed > 0) process.exit(1);
 }
 
-main().catch(e => { console.error('\n💥 Fatal:', e.message); doCleanup().finally(() => process.exit(1)); });
+main().catch(e => { console.error('\n💥 Fatal:', e.message); runCleanup().finally(() => process.exit(1)); });

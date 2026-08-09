@@ -1,7 +1,12 @@
 name: Integration Tests (Supabase)
 
+# Déclenchement MANUEL uniquement.
+#
+# Ce workflow tournait sur push main/master et visait la base de PRODUCTION
+# (URL en dur + service_role) : chaque merge y créait puis y supprimait des
+# comptes, des box, des tournois et des centaines de scores. Il monte désormais
+# sa propre pile Supabase jetable et n'a plus aucun secret de prod.
 on:
-  # Déclenchement manuel depuis GitHub Actions → "Run workflow"
   workflow_dispatch:
     inputs:
       keep_data:
@@ -21,19 +26,13 @@ on:
           - league
           - bo-owner
           - athlete
-
-  # Déclenchement automatique uniquement sur push vers main (pas sur PR)
-  push:
-    branches: [main, master]
-    paths:
-      - 'scripts/test-*.mjs'
-      - 'supabase/migrations/**'
+          - rls
 
 jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -57,43 +56,38 @@ jobs:
             echo "extra_flag=" >> $GITHUB_OUTPUT
           fi
 
-      # ── Run selected suite or all ──────────────────────────────────────────
+      # ── Cible jetable : Postgres + PostgREST + GoTrue locaux, schéma rejoué ──
+      - name: Pile Supabase éphémère (baseline + migrations)
+        run: ./scripts/test-stack.sh up
+
+      - name: Exporter la cible de test
+        run: cat /tmp/athlex-test-stack.env >> $GITHUB_ENV
+
+      # Aucune de ces étapes ne reçoit de secret : la cible est locale au runner.
       - name: Suite — Multi-Agent Tournaments
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'agents' || github.event_name == 'push' }}
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'agents' }}
         run: node scripts/test-agents.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — Tournament Formats (bracket/swiss/league)
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'formats' || github.event_name == 'push' }}
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'formats' }}
         run: node scripts/test-formats.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — League Detailed (32 agents, 5 saisons)
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'league' || github.event_name == 'push' }}
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'league' }}
         run: node scripts/test-league-detailed.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — BO Owner (full lifecycle)
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'bo-owner' || github.event_name == 'push' }}
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'bo-owner' }}
         run: node scripts/test-bo-owner.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — Athlete (app mobile flows)
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'athlete' || github.event_name == 'push' }}
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'athlete' }}
         run: node scripts/test-athlete.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      - name: Suite — RLS
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'rls' }}
+        run: node scripts/test-rls.mjs
+
+      - name: Arrêt de la pile
+        if: always()
+        run: ./scripts/test-stack.sh down

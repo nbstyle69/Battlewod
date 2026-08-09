@@ -7,32 +7,21 @@
  * - Un owner ne peut gérer que sa propre box
  * - Les tables admin sont inaccessibles aux rôles non-admin
  *
- * Usage: node scripts/test-rls.mjs
- * Requires: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env
+ * Usage: ./scripts/test-stack.sh up && node scripts/test-rls.mjs
+ * Cible fournie par TEST_SUPABASE_URL / TEST_SUPABASE_*_KEY (jamais la prod).
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { config } from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import {
+  requireTestTarget, serviceClient, onCleanup, runCleanup, installCleanupTraps,
+} from './lib/test-env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: join(__dirname, '..', '.env') });
-
-const SUPABASE_URL         = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SERVICE_ROLE_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANON_KEY             = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
-  console.error('❌ Missing EXPO_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY or EXPO_PUBLIC_SUPABASE_ANON_KEY in .env');
-  process.exit(1);
-}
+const { url: SUPABASE_URL, anonKey: ANON_KEY } = requireTestTarget();
+installCleanupTraps();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const service = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-});
+const service = serviceClient();
 
 let passed = 0;
 let failed = 0;
@@ -107,15 +96,17 @@ async function testProfileRLS(userA, userB) {
     .single();
 
   // Profiles are typically readable (public leaderboard) — but private fields should be protected
-  // The key test is that UserA cannot UPDATE UserB's profile
-  const { error: updateErr } = await userA.client.from('profiles')
+  // Quand la RLS filtre la cible, PostgREST renvoie error=null ET 0 ligne :
+  // c'est le nombre de lignes touchées qui fait foi, pas l'absence d'erreur.
+  const { data: updated, error: updateErr } = await userA.client.from('profiles')
     .update({ elo: 9999 })
-    .eq('id', userB.userId);
+    .eq('id', userB.userId)
+    .select('id');
 
   await assert(
     'UserA cannot update UserB profile ELO',
-    updateErr !== null,
-    updateErr ? undefined : 'Update succeeded — RLS policy may be missing!',
+    updateErr !== null || (updated ?? []).length === 0,
+    'Update a touché une ligne — RLS policy may be missing!',
   );
 
   // UserA should be able to update their OWN profile
@@ -138,7 +129,7 @@ async function testScoresRLS(userA, userB, boxId) {
     box_id: boxId,
     title: 'RLS Test WOD',
     wod_type: 'for-time',
-    date: new Date().toISOString().slice(0, 10),
+    scheduled_date: new Date().toISOString().slice(0, 10),
   }).select('id').single();
 
   if (!wod) {
@@ -149,7 +140,8 @@ async function testScoresRLS(userA, userB, boxId) {
   // UserA submits a score for themselves — should succeed
   const { error: ownScoreErr } = await userA.client.from('wod_scores').insert({
     wod_id: wod.id,
-    user_id: userA.userId,
+    member_id: userA.userId,
+    box_id: boxId,
     score_type: 'time',
     score_value: 300,
   });
@@ -163,7 +155,8 @@ async function testScoresRLS(userA, userB, boxId) {
   // UserA tries to submit a score on behalf of UserB — should fail (RLS)
   const { error: otherScoreErr } = await userA.client.from('wod_scores').insert({
     wod_id: wod.id,
-    user_id: userB.userId,
+    member_id: userB.userId,
+    box_id: boxId,
     score_type: 'time',
     score_value: 200,
   });
@@ -177,7 +170,7 @@ async function testScoresRLS(userA, userB, boxId) {
   // UserA cannot delete UserB's score
   const { error: deleteErr } = await userA.client.from('wod_scores')
     .delete()
-    .eq('user_id', userB.userId);
+    .eq('member_id', userB.userId);
 
   await assert(
     "UserA cannot delete UserB's scores",
@@ -198,7 +191,7 @@ async function testBoxOwnerRLS(userA, userB, boxA, boxB) {
     box_id: boxB,
     title: 'Injected WOD',
     wod_type: 'amrap',
-    date: new Date().toISOString().slice(0, 10),
+    scheduled_date: new Date().toISOString().slice(0, 10),
   });
 
   await assert(
@@ -212,7 +205,7 @@ async function testBoxOwnerRLS(userA, userB, boxA, boxB) {
     box_id: boxA,
     title: 'Own Box WOD',
     wod_type: 'amrap',
-    date: new Date().toISOString().slice(0, 10),
+    scheduled_date: new Date().toISOString().slice(0, 10),
   }).select('id').single();
 
   await assert(
@@ -265,7 +258,9 @@ async function main() {
 
   try {
     userA = await createTestUser('rls_athlete_a');
+    onCleanup(() => deleteTestUser(userA.userId));
     userB = await createTestUser('rls_athlete_b');
+    onCleanup(() => deleteTestUser(userB.userId));
     console.log(`  ✓ UserA: ${userA.email}`);
     console.log(`  ✓ UserB: ${userB.email}`);
   } catch (e) {
@@ -287,27 +282,28 @@ async function main() {
     boxB = bb?.id;
 
     if (!boxA || !boxB) throw new Error('Box creation returned null');
+    onCleanup(async () => {
+      await service.from('box_members').delete().in('box_id', [boxA, boxB]);
+      await service.from('boxes').delete().in('id', [boxA, boxB]);
+    });
     console.log(`  ✓ BoxA: ${boxA}\n  ✓ BoxB: ${boxB}`);
   } catch (e) {
     console.error('❌ Failed to create test boxes:', e.message);
-    await deleteTestUser(userA.userId).catch(() => {});
-    await deleteTestUser(userB.userId).catch(() => {});
+    await runCleanup();
     process.exit(1);
   }
 
   // Run all test suites
-  await testProfileRLS(userA, userB);
-  await testScoresRLS(userA, userB, boxA);
-  await testBoxOwnerRLS(userA, userB, boxA, boxB);
-  await testAdminTablesRLS(userA);
-
-  // Cleanup
-  console.log('\n🧹 Cleaning up test data...');
-  await service.from('box_members').delete().in('box_id', [boxA, boxB]);
-  await service.from('boxes').delete().in('id', [boxA, boxB]);
-  await deleteTestUser(userA.userId);
-  await deleteTestUser(userB.userId);
-  console.log('  ✓ Done');
+  try {
+    await testProfileRLS(userA, userB);
+    await testScoresRLS(userA, userB, boxA);
+    await testBoxOwnerRLS(userA, userB, boxA, boxB);
+    await testAdminTablesRLS(userA);
+  } finally {
+    console.log('\n🧹 Cleaning up test data...');
+    await runCleanup();
+    console.log('  ✓ Done');
+  }
 
   // Summary
   console.log(`\n${'─'.repeat(50)}`);
@@ -325,5 +321,5 @@ async function main() {
 
 main().catch(e => {
   console.error('Fatal error:', e);
-  process.exit(1);
+  runCleanup().finally(() => process.exit(1));
 });

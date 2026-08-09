@@ -14,7 +14,10 @@
     "test:formats": "node scripts/test-formats.mjs",
     "test:league": "node scripts/test-league-detailed.mjs",
     "test:bo-owner": "node scripts/test-bo-owner.mjs",
-    "test:athlete": "node scripts/test-athlete.mjs"
+    "test:athlete": "node scripts/test-athlete.mjs",
+    "test:rls": "node scripts/test-rls.mjs",
+    "test:stack:up": "./scripts/test-stack.sh up",
+    "test:stack:down": "./scripts/test-stack.sh down"
   },
   "dependencies": {
     "@expo-google-fonts/barlow": "^0.4.1",

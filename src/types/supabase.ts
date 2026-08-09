@@ -1790,6 +1790,7 @@ export type Database = {
       }
       daily_tournament_scores: {
         Row: {
+          capped: boolean
           contest_reason: string | null
           contested_by: string | null
           id: string
@@ -1803,6 +1804,7 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          capped?: boolean
           contest_reason?: string | null
           contested_by?: string | null
           id?: string
@@ -1816,6 +1818,7 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          capped?: boolean
           contest_reason?: string | null
           contested_by?: string | null
           id?: string
@@ -5956,6 +5959,7 @@ export type Database = {
           admin_message: string | null
           ai_analysis: string | null
           athlete_id: string
+          capped: boolean
           deadline_at: string | null
           elo_points: number
           id: string
@@ -5974,6 +5978,7 @@ export type Database = {
           admin_message?: string | null
           ai_analysis?: string | null
           athlete_id: string
+          capped?: boolean
           deadline_at?: string | null
           elo_points?: number
           id?: string
@@ -5992,6 +5997,7 @@ export type Database = {
           admin_message?: string | null
           ai_analysis?: string | null
           athlete_id?: string
+          capped?: boolean
           deadline_at?: string | null
           elo_points?: number
           id?: string
@@ -6708,6 +6714,7 @@ export type Database = {
       wod_scores: {
         Row: {
           box_id: string | null
+          capped: boolean
           id: string
           member_id: string | null
           notes: string | null
@@ -6721,6 +6728,7 @@ export type Database = {
         }
         Insert: {
           box_id?: string | null
+          capped?: boolean
           id?: string
           member_id?: string | null
           notes?: string | null
@@ -6734,6 +6742,7 @@ export type Database = {
         }
         Update: {
           box_id?: string | null
+          capped?: boolean
           id?: string
           member_id?: string | null
           notes?: string | null
@@ -7162,6 +7171,14 @@ export type Database = {
         }[]
       }
       get_box_mate_ids: { Args: never; Returns: string[] }
+      get_box_member_emails: {
+        Args: { p_box_id: string }
+        Returns: {
+          email: string
+          member_id: string
+        }[]
+      }
+      get_my_box_invite_code: { Args: { p_box_id: string }; Returns: string }
       get_my_membership_billing: {
         Args: never
         Returns: {
