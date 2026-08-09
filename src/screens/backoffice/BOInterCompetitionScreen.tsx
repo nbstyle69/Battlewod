@@ -230,7 +230,7 @@ export default function BOInterCompetitionScreen() {
       ]);
       setSwissRounds((rounds ?? []) as SwissRound[]);
       const swIds = [...new Set([
-        ...(pairings ?? []).flatMap((p: { athlete1_id: string; athlete2_id: string | null }) => [p.athlete1_id, p.athlete2_id]),
+        ...(pairings ?? []).flatMap((p: { athlete1_id: string | null; athlete2_id: string | null }) => [p.athlete1_id, p.athlete2_id]),
         ...(standings ?? []).map((s: { athlete_id: string }) => s.athlete_id),
       ])].filter(Boolean) as string[];
       const swProfMap: Record<string, string> = {};
