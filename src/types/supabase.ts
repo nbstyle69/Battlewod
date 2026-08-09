@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          count: number
+          day: string
+          kind: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          day?: string
+          kind: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          kind?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_changelog: {
         Row: {
           body: string
@@ -4377,6 +4413,54 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_entitlements: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          email: string
+          id: string
+          kind: string
+          payload: Json
+          stripe_checkout_session_id: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          kind: string
+          payload: Json
+          stripe_checkout_session_id?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          stripe_checkout_session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_entitlements_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_entitlements_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       personal_records: {
         Row: {
           achieved_at: string | null
@@ -6905,6 +6989,10 @@ export type Database = {
         Args: { p_programming_id: string }
         Returns: boolean
       }
+      bump_ai_usage: {
+        Args: { p_kind: string; p_limit: number; p_user: string }
+        Returns: boolean
+      }
       calculate_elo: {
         Args: { k_factor?: number; loser_elo: number; winner_elo: number }
         Returns: {
@@ -6939,6 +7027,10 @@ export type Database = {
             }
             Returns: Json
           }
+      claim_pending_entitlements: {
+        Args: { p_email: string; p_user_id: string }
+        Returns: number
+      }
       complete_daily_tournament: {
         Args: { p_tournament_id: string }
         Returns: boolean
