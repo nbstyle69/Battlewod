@@ -45,6 +45,8 @@ DECLARE
   v_username text;
   v_try      text;
   v_suffix   int := 0;
+  v_level    text;
+  v_gender   text;
 BEGIN
   -- Ne rien faire si l'inscription ne porte pas de pseudo en métadonnée :
   -- c'est l'app INSTALLÉE (elle insère son profil elle-même). Coexistence.
@@ -55,12 +57,31 @@ BEGIN
   v_username := NEW.raw_user_meta_data->>'username';
   v_try := v_username;
 
+  -- Les CHECK de profiles n'acceptent que scaled|inter|rx|rx+|elite|pro et
+  -- male|female. Une métadonnée absente ou hors liste ferait échouer l'INSERT
+  -- dans auth.users (trigger AFTER), donc l'inscription entière : on retombe
+  -- sur les valeurs par défaut plutôt que de casser le compte.
+  v_level := lower(COALESCE(NULLIF(NEW.raw_user_meta_data->>'level', ''), 'inter'));
+  IF v_level NOT IN ('scaled','inter','rx','rx+','elite','pro') THEN
+    v_level := 'inter';
+  END IF;
+
+  v_gender := lower(NULLIF(NEW.raw_user_meta_data->>'gender', ''));
+  IF v_gender NOT IN ('male','female') THEN
+    v_gender := NULL;
+  END IF;
+
   -- Unicité du pseudo : si collision, on suffixe (robustesse ; l'app
   -- pré-résout déjà, ceci couvre une course entre 2 inscriptions).
   WHILE EXISTS (SELECT 1 FROM public.profiles WHERE lower(username) = lower(v_try)) LOOP
     v_suffix := v_suffix + 1;
     v_try := v_username || v_suffix::text;
-    EXIT WHEN v_suffix > 50;
+    -- Au-delà, un suffixe aléatoire : sortir de la boucle sur un pseudo déjà
+    -- pris ferait échouer l'INSERT, donc l'inscription entière.
+    IF v_suffix > 50 THEN
+      v_try := v_username || floor(random() * 1000000)::text;
+      EXIT;
+    END IF;
   END LOOP;
 
   INSERT INTO public.profiles (id, email, username, level, role, gender, elo, referral_code)
@@ -68,9 +89,9 @@ BEGIN
     NEW.id,
     NEW.email,
     v_try,
-    COALESCE(NEW.raw_user_meta_data->>'level', 'Intermédiaire'),
+    v_level,
     'member',
-    NULLIF(NEW.raw_user_meta_data->>'gender', ''),
+    v_gender,
     1000,
     upper(substr(md5(random()::text || NEW.id::text), 1, 6))
   )
