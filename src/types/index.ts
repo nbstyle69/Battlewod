@@ -182,6 +182,8 @@ export interface WODScore {
   score_value: number;
   rx: boolean;
   scaled: boolean;
+  /** Time cap atteint sans terminer : score_value porte alors les reps. */
+  capped: boolean;
   notes?: string;
   video_url?: string;
   submitted_at: string;
