@@ -1,0 +1,35 @@
+project_id = "battlewod"
+
+[db]
+port = 54322
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[studio]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "https://the-hub-rho.vercel.app/update-password"
+additional_redirect_urls = ["https://the-hub-rho.vercel.app/**"]
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false

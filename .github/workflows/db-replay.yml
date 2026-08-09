@@ -1,0 +1,33 @@
+name: DB replay (base vierge)
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  replay:
+    name: Rejeu baseline + migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Client psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Rejeu sur base vierge
+        run: ./scripts/db-replay.sh
+
+      - name: Rappel
+        if: failure()
+        run: |
+          echo "::error::Une migration n'est pas rejouable sur base vierge."
+          echo "Le schema de prod est reconstruit par supabase/migrations/ :"
+          echo "  - baseline 20260301000000_baseline_prod_schema.sql"
+          echo "  - puis chaque migration suivante, dans l'ordre."
+          echo "Corrige la migration fautive (ou son ordonnancement) avant merge."
+          echo "L'historique d'avant baseline est dans supabase/migrations_archive/, il n'est plus rejoue."
