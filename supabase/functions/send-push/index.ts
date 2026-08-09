@@ -197,9 +197,17 @@ serve(async (req: Request) => {
       typeof body?.pref_key === 'string' && ALLOWED_PREF_KEYS.has(body.pref_key) ? body.pref_key : undefined;
 
     // De-dupe (garde le premier message par user id).
+    // SÉCURITÉ (Lot 6B) : chaque user_id doit être un UUID STRICT. Les valeurs
+    // sont ensuite interpolées dans un filtre PostgREST .or() (authorizeRecipients) ;
+    // un id non-UUID permettait d'injecter une branche de filtre et de contourner
+    // l'autorisation par relation (retour du phishing de masse du Lot 1C-a).
+    // On rejette tout id non conforme À LA SOURCE, avant tout usage.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const byUser = new Map<string, Recipient>();
     for (const r of recipients) {
-      if (r && typeof r.user_id === 'string' && r.user_id && !byUser.has(r.user_id)) byUser.set(r.user_id, r);
+      if (r && typeof r.user_id === 'string' && UUID_RE.test(r.user_id) && !byUser.has(r.user_id)) {
+        byUser.set(r.user_id, r);
+      }
     }
     let userIds = [...byUser.keys()];
     const requested = userIds.length;
