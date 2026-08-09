@@ -19,7 +19,9 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
+// claude-sonnet-4-20250514 a ete retire du catalogue Anthropic : la fonction
+// prenait un 404 « model: ... » sur CHAQUE analyse.
+const ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929';
 
 function buildPrompt(s: {
   tournamentName: string;
@@ -84,7 +86,10 @@ serve(async (req: Request) => {
     // Fetch score details server-side (never trust client-supplied text).
     const { data: score, error: scoreErr } = await admin
       .from('tournament_scores')
-      .select('id, tournament_id, score_value, tiebreak_value, notes, tournament_wod:tournament_wods(title, type), profile:profiles(username, level, elo)')
+      // FK explicite : tournament_scores pointe DEUX fois vers profiles
+      // (athlete_id + validated_by), donc l'embed nu est ambigu (PGRST201) et
+      // la fonction repondait 404 « Score not found » sur TOUS les scores.
+      .select('id, tournament_id, score_value, tiebreak_value, notes, tournament_wod:tournament_wods(title, type), profile:profiles!tournament_scores_athlete_id_fkey(username, level, elo)')
       .eq('id', scoreId)
       .maybeSingle();
     if (scoreErr || !score) return json({ error: 'Score not found' }, 404);
