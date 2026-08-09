@@ -46,18 +46,10 @@ export default function EloHistoryScreen() {
     try {
     const results: EloEntry[] = [];
 
-    // 0. Trigger server-side batch ELO compute (idempotent).
-    //    All logic lives in the `compute-elo-batch` Edge Function; the daily
-    //    pg_cron job covers most cases, this on-demand call ensures freshness
-    //    when the user just finished a WOD.
-    try {
-      const { error: fnErr } = await supabase.functions.invoke('compute-elo-batch', {
-        body: {},
-      });
-      if (fnErr) log.warn('[EloHistory] compute-elo-batch invoke error:', fnErr.message);
-    } catch (e) {
-      log.warn('[EloHistory] compute-elo-batch threw:', e);
-    }
+    // L'ELO est calculé côté serveur par les RPC (compute_wod_elo /
+    // compute_daily_tournament_elo) au moment de la soumission. L'ancien invoke
+    // 'compute-elo-batch' était une edge NON déployée → 404 silencieux à chaque
+    // ouverture (Lot 5.3). Retiré ; l'écran ne fait plus que LIRE l'historique.
 
     // 1. WOD elo_history
     const { data: wodHistory, error: wodErr } = await supabase
