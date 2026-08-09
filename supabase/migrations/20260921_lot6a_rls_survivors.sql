@@ -56,11 +56,19 @@ REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
   ON public.wod_group_access FROM anon;
 
 -- ─── A3 — box_documents : on n'insère que dans SA box (ou un doc perso).
+--   is_box_admin est indispensable en plus de get_user_box_ids : 15 box de prod
+--   ont un owner SANS ligne box_members active sur sa propre box. S'en tenir à
+--   l'appartenance lui interdirait d'importer un document dans SA box — une
+--   régression que le protocole (qui teste un membre) ne verrait pas.
 DROP POLICY IF EXISTS "insert_box_documents" ON public.box_documents;
 CREATE POLICY "insert_box_documents" ON public.box_documents
   FOR INSERT WITH CHECK (
     auth.uid() = uploaded_by
-    AND (box_id IS NULL OR box_id IN (SELECT public.get_user_box_ids()))
+    AND (
+      box_id IS NULL
+      OR box_id IN (SELECT public.get_user_box_ids())
+      OR public.is_box_admin(box_id)
+    )
   );
 
 -- ─── A5 — matchmaking_queue : plus de lecture anonyme de la file.
