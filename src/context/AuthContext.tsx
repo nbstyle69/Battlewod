@@ -239,38 +239,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Le pseudo/niveau/genre passent en MÉTADONNÉE signUp : le trigger serveur
+    // handle_new_user (Phase 0-A) crée le profil à partir de ces champs.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { username: finalUsername, level, gender: gender || null } },
+    });
     if (error) return { error: error.message };
     if (data.user) {
       // Reset onboarding tutorial flag — every new account sees the presentation
       await AsyncStorage.removeItem('@athlex:onboardingDone');
       const role = 'member';
       const referral_code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        email,
-        username: finalUsername,
-        level,
-        role,
-        gender: gender || null,
-        elo: 1000,
-        total_matches: 0,
-        wins: 0,
-        losses: 0,
-        referral_code,
-      });
-      if (profileError) {
-        // Best-effort sign-out so the auth state stays clean even if an orphan was created.
-        await supabase.auth.signOut().catch(() => {});
-        if (profileError.code === '23505' || /duplicate key/i.test(profileError.message)) {
-          return { error: 'Ce pseudo est déjà utilisé. Choisis-en un autre.' };
+      // Le profil est désormais créé SERVEUR par le trigger. On garde un upsert
+      // idempotent en FILET (onConflict:'id', ignoreDuplicates) : si le trigger
+      // a déjà inséré la ligne, c'est un no-op — plus jamais de 23505 sur l'id
+      // (le piège prouvé en Phase 0-A/A.3). Si le trigger n'avait pas tourné,
+      // l'upsert crée la ligne.
+      //
+      // Sans session (confirmation d'e-mail activée), le client reste `anon`, qui
+      // n'a aucun GRANT INSERT sur `profiles` : le filet échouerait forcément.
+      // C'est justement le cas où le trigger a déjà fait le travail.
+      if (data.session) {
+        const { error: profileError } = await supabase.from('profiles').upsert({
+          id: data.user.id,
+          email,
+          username: finalUsername,
+          level,
+          role,
+          gender: gender || null,
+          elo: 1000,
+          total_matches: 0,
+          wins: 0,
+          losses: 0,
+          referral_code,
+        }, { onConflict: 'id', ignoreDuplicates: true });
+        if (profileError) {
+          // Best-effort sign-out so the auth state stays clean even if an orphan was created.
+          await supabase.auth.signOut().catch(() => {});
+          return { error: `Profil: ${profileError.message}` };
         }
-        return { error: `Profil: ${profileError.message}` };
       }
       // Award welcome badge (level_scaled) silently
       awardLevelBadge(data.user.id, 'level_scaled').catch(e => captureError(e, { action: 'awardWelcomeBadge' }));
-      if (!data.session) return { error: 'CONFIRM_EMAIL' };
+      if (!data.session) return { error: 'CONFIRM_EMAIL', finalUsername };
       trackSignUp('email', role, level);
+      // Le pseudo posé en base fait foi : la pré-résolution ci-dessus lit
+      // `profiles` en anon (aucun GRANT SELECT) et ne voit donc aucune
+      // collision — c'est le trigger qui suffixe. Sans cette relecture, l'écran
+      // annoncerait un pseudo différent de celui réellement enregistré.
+      const { data: created } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      if (created?.username) finalUsername = created.username;
       // Profile is now in DB — explicitly refresh user state so navigation triggers
       await fetchProfile(data.user.id);
     }
