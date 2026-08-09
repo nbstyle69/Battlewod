@@ -64,6 +64,22 @@ serve(async (req: Request) => {
         .eq('status', 'active');
       recipientIds = (members ?? []).map((m: any) => m.member_id);
     } else {
+      // SÉCURITÉ (Lot 6B) : une cible nominative doit être un MEMBRE ACTIF de la
+      // box. `box_notifications.target` est un text libre sans FK : sans ce
+      // contrôle, un owner poussait un message signé AthleX à n'importe quel
+      // utilisateur de la plateforme (trou jumeau de celui fermé sur send-push).
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (typeof notif.target !== 'string' || !UUID_RE.test(notif.target)) {
+        return json({ error: 'Invalid target' }, 400);
+      }
+      const { data: member } = await admin
+        .from('box_members')
+        .select('member_id')
+        .eq('box_id', notif.box_id)
+        .eq('member_id', notif.target)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (!member) return json({ error: 'Target is not an active member of this box' }, 403);
       recipientIds = [notif.target];
     }
     if (recipientIds.length === 0) return json({ sent: 0, recipients: 0 });
