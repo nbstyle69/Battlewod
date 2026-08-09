@@ -44,12 +44,18 @@ export default function CommunityScreen() {
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); setRefreshing(false); return; }
+    // 4.1 : profiles n'a pas de colonne box_id (l'ecran etait TOUJOURS vide).
+    // On passe par box_members (membres actifs de la box) puis on lit le profil.
     const { data } = await supabase
-      .from('profiles')
-      .select('id, username, level, elo, wins, total_matches, avatar_url')
+      .from('box_members')
+      .select('profiles:member_id(id, username, level, elo, wins, total_matches, avatar_url)')
       .eq('box_id', currentBox.id)
-      .order('elo', { ascending: false });
-    const list = (data ?? []) as Member[];
+      .eq('status', 'active');
+    const rows = (data ?? []) as { profiles: Member | Member[] | null }[];
+    const list = rows
+      .map(r => (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles))
+      .filter((p): p is Member => !!p)
+      .sort((a, b) => (b.elo ?? 0) - (a.elo ?? 0));
     setMembers(list);
     setFiltered(list);
     setLoading(false);

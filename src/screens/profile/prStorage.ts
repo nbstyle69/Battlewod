@@ -59,9 +59,14 @@ export function readPrDate(
 export function normalizePrRecords(raw: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {};
   const rewritten: Record<string, string> = {};
-  for (const [key, value] of Object.entries(raw)) {
+  for (const [key, rawValue] of Object.entries(raw)) {
     if (key === '_featured_badges') continue;
-    if (typeof value !== 'string') continue;
+    // 4.6 : tolerer les valeurs NUMERIQUES (coercition) au lieu de les jeter —
+    // un PR enregistre comme number etait silencieusement perdu.
+    let value: string;
+    if (typeof rawValue === 'string') value = rawValue;
+    else if (typeof rawValue === 'number' && Number.isFinite(rawValue)) value = String(rawValue);
+    else continue;
     const legacyPrefix = Object.keys(LEGACY_PREFIX_TO_SLUG).find(p => key.startsWith(`${p}_`));
     if (legacyPrefix) {
       const slug = LEGACY_PREFIX_TO_SLUG[legacyPrefix];

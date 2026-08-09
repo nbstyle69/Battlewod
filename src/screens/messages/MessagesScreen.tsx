@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { resolveStorageUrls, isExternalValue } from '../../lib/storageUrl';
+import { lastSeenMessagesKey, markMessagesSeen } from '../../lib/unreadMessages';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { sendNewMessageNotification } from '../../services/notifications';
@@ -245,7 +246,8 @@ export default function MessagesScreen() {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
     });
     if (user && currentBox) {
-      AsyncStorage.setItem(`lastSeenMessages_${user.id}_${currentBox.id}`, new Date().toISOString());
+      AsyncStorage.setItem(lastSeenMessagesKey(user.id, currentBox.id), new Date().toISOString());
+      markMessagesSeen();
     }
   }, [load, user, currentBox]));
 

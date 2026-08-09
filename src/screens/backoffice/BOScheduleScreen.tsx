@@ -58,7 +58,12 @@ function getWeekDates(offset = 0): Date[] {
 }
 
 function toISO(d: Date): string {
-  return d.toISOString().split('T')[0];
+  // Formatage LOCAL, jamais toISOString() : en UTC+1/+2, minuit local devient
+  // la veille en UTC -> toute la grille du back-office etait decalee d'un jour.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export default function BOScheduleScreen({ navigation }: any) {

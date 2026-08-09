@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { cancelClassReminder } from '../../services/notifications';
 
 interface ReservationRow {
   id: string;
@@ -198,7 +199,10 @@ export default function MyReservationsScreen() {
                                   .delete()
                                   .eq('id', item.id);
                                 if (error) Alert.alert(t('common.error'), error.message);
-                                else load();
+                                else {
+                                  await cancelClassReminder(item.schedule_id);
+                                  load();
+                                }
                               },
                             },
                           ],
