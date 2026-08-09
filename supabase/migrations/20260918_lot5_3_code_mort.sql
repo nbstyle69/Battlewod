@@ -45,13 +45,19 @@ END $$;
 -- ── 2. get_user_box_id() : garde d'exécution puis DROP ─────────────────────
 DO $$
 BEGIN
+  IF to_regprocedure('public.get_user_box_id()') IS NULL THEN
+    RAISE NOTICE 'get_user_box_id() deja absente — rien a faire';
+    RETURN;
+  END IF;
+
   -- Aucune policy ne doit la référencer (4A-bis a migré la dernière).
   IF EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
-      AND (coalesce(qual,'') ILIKE '%get_user_box_id(%'
-        OR coalesce(with_check,'') ILIKE '%get_user_box_id(%')
-      AND coalesce(qual,'')||coalesce(with_check,'') NOT ILIKE '%get_user_box_ids(%'
+      -- On neutralise d'abord le pluriel : sinon une policy citant les DEUX
+      -- helpers passerait au travers du garde.
+      AND replace(coalesce(qual,'') || coalesce(with_check,''),
+                  'get_user_box_ids(', '') ILIKE '%get_user_box_id(%'
   ) THEN
     RAISE EXCEPTION 'une policy reference encore get_user_box_id() — ON NE DROPPE PAS';
   END IF;
@@ -59,10 +65,11 @@ BEGIN
   -- Aucune autre fonction ne doit l'appeler.
   IF EXISTS (
     SELECT 1 FROM pg_proc p
-    WHERE p.pronamespace = 'public'::regnamespace AND p.prokind = 'f'
+    WHERE p.pronamespace = 'public'::regnamespace
+      AND p.prokind IN ('f','p')
       AND p.proname <> 'get_user_box_id'
-      AND pg_get_functiondef(p.oid) ILIKE '%get_user_box_id(%'
-      AND pg_get_functiondef(p.oid) NOT ILIKE '%get_user_box_ids(%'
+      AND replace(pg_get_functiondef(p.oid), 'get_user_box_ids(', '')
+          ILIKE '%get_user_box_id(%'
   ) THEN
     RAISE EXCEPTION 'une fonction reference encore get_user_box_id() — ON NE DROPPE PAS';
   END IF;

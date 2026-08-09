@@ -8,7 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "postinstall": "node scripts/postinstall.js",
-    "gen:types": "npx supabase gen types typescript --project-id lkwdlqlbrbxaiydkoxfp | Out-File -Encoding utf8 src/types/supabase.ts",
+    "gen:types": "npx supabase gen types typescript --project-id lkwdlqlbrbxaiydkoxfp > src/types/supabase.ts",
     "test": "jest",
     "test:agents": "node scripts/test-agents.mjs",
     "test:formats": "node scripts/test-formats.mjs",
