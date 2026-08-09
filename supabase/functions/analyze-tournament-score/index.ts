@@ -19,7 +19,9 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
+// claude-sonnet-4-20250514 a ete retire du catalogue Anthropic : la fonction
+// prenait un 404 « model: ... » sur CHAQUE analyse.
+const ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929';
 
 function buildPrompt(s: {
   tournamentName: string;
@@ -79,20 +81,51 @@ serve(async (req: Request) => {
     const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
     if (userErr || !userData?.user) return json({ error: 'Invalid token' }, 401);
 
-    // Staff-only gate.
-    const { data: prof } = await admin
-      .from('profiles').select('role').eq('id', userData.user.id).maybeSingle();
-    if (!prof || !['admin', 'super_admin', 'box_owner'].includes(prof.role)) {
-      return json({ error: 'Not authorized' }, 403);
-    }
+    const callerId = userData.user.id;
 
     // Fetch score details server-side (never trust client-supplied text).
     const { data: score, error: scoreErr } = await admin
       .from('tournament_scores')
-      .select('id, tournament_id, score_value, tiebreak_value, notes, tournament_wod:tournament_wods(title, type), profile:profiles(username, level, elo)')
+      // FK explicite : tournament_scores pointe DEUX fois vers profiles
+      // (athlete_id + validated_by), donc l'embed nu est ambigu (PGRST201) et
+      // la fonction repondait 404 « Score not found » sur TOUS les scores.
+      .select('id, tournament_id, score_value, tiebreak_value, notes, tournament_wod:tournament_wods(title, type), profile:profiles!tournament_scores_athlete_id_fkey(username, level, elo)')
       .eq('id', scoreId)
       .maybeSingle();
     if (scoreErr || !score) return json({ error: 'Score not found' }, 404);
+
+    // AUTORISATION (Lot 6B-2) : admin plateforme OU gestionnaire de la box DU
+    // TOURNOI de ce score. Avant, un box_owner (rôle GLOBAL) pouvait analyser
+    // le score d'une box concurrente → lecture cross-box + coût IA sur des
+    // données qui ne le regardent pas.
+    const { data: prof } = await admin
+      .from('profiles').select('role').eq('id', callerId).maybeSingle();
+    const isPlatformAdmin = prof?.role === 'admin' || prof?.role === 'super_admin';
+    if (!isPlatformAdmin) {
+      const { data: tourn0 } = await admin
+        .from('tournaments').select('box_id').eq('id', score.tournament_id).maybeSingle();
+      const boxId = tourn0?.box_id;
+      let manages = false;
+      if (boxId) {
+        const { data: ownedBox } = await admin
+          .from('boxes').select('id').eq('id', boxId).eq('owner_id', callerId).maybeSingle();
+        if (ownedBox) manages = true;
+        else {
+          const { data: staff } = await admin
+            .from('box_members').select('id')
+            .eq('box_id', boxId).eq('member_id', callerId)
+            .in('role', ['owner', 'coach']).eq('status', 'active').maybeSingle();
+          manages = !!staff;
+        }
+      }
+      if (!manages) return json({ error: 'Not authorized' }, 403);
+    }
+
+    // RATE LIMIT (Lot 6B-2) : 20 analyses / utilisateur / jour, vérifié serveur.
+    const { data: allowed, error: rlErr } = await admin
+      .rpc('bump_ai_usage', { p_user: callerId, p_kind: 'analyze_score', p_limit: 20 });
+    if (rlErr) return json({ error: 'Rate limit check failed' }, 500);
+    if (allowed === false) return json({ error: 'Daily AI limit reached' }, 429);
 
     const { data: tourn } = await admin
       .from('tournaments').select('name').eq('id', score.tournament_id).maybeSingle();
@@ -126,7 +159,9 @@ serve(async (req: Request) => {
     });
     if (!res.ok) {
       const errText = await res.text();
-      return json({ error: `Claude API ${res.status}: ${errText}` }, 502);
+      console.error('Anthropic error', res.status, errText); // log serveur seulement
+      return json({ error: 'AI service unavailable' }, 502);  // pas de fuite au client
+
     }
     const data = await res.json();
     const analysis = (data.content ?? []).map((c: any) => c.text ?? '').join('\n').trim() || 'Analyse indisponible.';

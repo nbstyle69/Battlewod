@@ -176,7 +176,8 @@ async function callClaudePDF(pdfBase64: string, defaultStartDate: string | null)
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Claude API ${res.status}: ${errText}`);
+    console.error('Anthropic error', res.status, errText); // log serveur seulement
+    throw new Error('AI service unavailable');              // pas de fuite au client
   }
   const json = await res.json();
   const text = (json.content ?? []).map((c: any) => c.text ?? '').join('').trim();
@@ -264,6 +265,21 @@ serve(async (req: Request) => {
     if (!auth.ok) {
       return new Response(JSON.stringify({ error: auth.error }), {
         status: auth.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // RATE LIMIT (Lot 6B-2) : 10 imports PDF / utilisateur / jour, vérifié serveur.
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: allowed, error: rlErr } = await admin
+      .rpc('bump_ai_usage', { p_user: auth.userId, p_kind: 'parse_pdf', p_limit: 10 });
+    if (rlErr) {
+      return new Response(JSON.stringify({ error: 'Rate limit check failed' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (allowed === false) {
+      return new Response(JSON.stringify({ error: 'Daily AI limit reached' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
