@@ -7036,6 +7036,10 @@ export type Database = {
             }
             Returns: Json
           }
+      claim_badge: {
+        Args: { p_badge_key: string }
+        Returns: Json
+      }
       claim_pending_entitlements: {
         Args: { p_email: string; p_user_id: string }
         Returns: number
