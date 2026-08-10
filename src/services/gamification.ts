@@ -14,6 +14,20 @@ async function getBadgeTitle(key: string): Promise<{ title: string; icon: string
   return result;
 }
 
+// ── Badges sans source d'attribution ────────────────────────────────
+// claim_badge (20261018) ne peut poser que les badges dont le serveur sait
+// revérifier la condition. Ceux-ci s'appuient sur des compteurs que leur
+// porteur peut écrire (profiles.total_*, athlete_streaks) ou sur un état qui
+// n'est matérialisé nulle part (fin du tutoriel) : personne ne peut les
+// obtenir tant que le lot gamification serveur n'existe pas. On ne les
+// affiche donc pas, sauf à un porteur historique.
+export function isBadgeUnobtainable(badgeKey: string): boolean {
+  return badgeKey === 'timer_50'
+    || badgeKey === 'wod_gen_100'
+    || badgeKey === 'first_step'
+    || badgeKey.startsWith('streak_');
+}
+
 // ── Badge unlock queue (for HomeScreen popup) ────────────────────────
 export interface BadgeQueueItem {
   badge_key: string;

@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import i18n, { setLanguage } from '../../i18n';
 import { LevelColors } from '../../theme/designTokens';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
-import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
+import { getBadgesCatalog, getEarnedBadges, getStreak, isBadgeUnobtainable, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
 import { Program, Gender } from '../../types';
 import { Json } from '../../types/supabase';
@@ -632,17 +632,23 @@ export default function ProfileScreen() {
 
   const earnedKeys = new Set(earnedBadges.map(b => b.badge_key));
   const earnedCount = earnedBadges.length;
-  const totalBadges = badgesCatalog.length;
+  // Un badge sans source d'attribution n'est montré qu'à un porteur historique :
+  // afficher une carte grise pour une condition que rien ne peut satisfaire
+  // promettrait une complétion qui n'existe pas.
+  const visibleCatalog = badgesCatalog.filter(
+    b => !isBadgeUnobtainable(b.badge_key) || earnedKeys.has(b.badge_key),
+  );
+  const totalBadges = visibleCatalog.length;
 
   // Group badges by category — show ALL categories from DB (CATEGORY_ORDER first, unknowns appended)
   const badgesByCategory = (() => {
-    const allCats = [...new Set(badgesCatalog.map(b => b.category))];
+    const allCats = [...new Set(visibleCatalog.map(b => b.category))];
     const ordered = CATEGORY_ORDER.filter(c => allCats.includes(c));
     const extras  = allCats.filter(c => !CATEGORY_ORDER.includes(c));
     return [...ordered, ...extras].map(cat => ({
       key: cat,
       label: t(`profile.badges.categories.${cat}`, { defaultValue: BADGE_CATEGORY_MAP[cat] ?? cat }),
-      badges: badgesCatalog.filter(b => b.category === cat),
+      badges: visibleCatalog.filter(b => b.category === cat),
     }));
   })();
 
