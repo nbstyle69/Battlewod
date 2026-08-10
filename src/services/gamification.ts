@@ -112,10 +112,22 @@ async function awardBadge(userId: string, badgeKey: string): Promise<boolean> {
     .maybeSingle();
   if (existing) return false; // already had it
 
-  const { error } = await supabase
-    .from('athlete_badges')
-    .insert({ athlete_id: userId, badge_key: badgeKey });
-  if (error) return false;
+  const { data: session } = await supabase.auth.getSession();
+  const isSelf = session?.session?.user?.id === userId;
+
+  if (isSelf) {
+    // L'athlète déclenche, le serveur décide : la condition est revérifiée
+    // dans claim_badge() sur des données qu'il ne peut pas écrire.
+    const { data, error } = await supabase.rpc('claim_badge', { p_badge_key: badgeKey });
+    if (error) return false;
+    if (!(data as { awarded?: boolean } | null)?.awarded) return false;
+  } else {
+    // Chemin owner (crédit de score, clôture) : scopé par is_box_admin_of_athlete().
+    const { error } = await supabase
+      .from('athlete_badges')
+      .insert({ athlete_id: userId, badge_key: badgeKey });
+    if (error) return false;
+  }
 
   // Queue badge for HomeScreen popup
   try {

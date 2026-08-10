@@ -24,6 +24,11 @@ jest.mock('../lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => makeChain()),
     rpc: jest.fn().mockResolvedValue({ data: null, error: null }),
+    auth: {
+      // Par défaut : session d'un tiers (chemin owner). Les tests du chemin
+      // athlète repositionnent l'identifiant sur celui du porteur du badge.
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'owner-1' } } } }),
+    },
   },
 }));
 
@@ -225,6 +230,43 @@ describe('checkAndAwardBadges', () => {
   it('treats missing counters as 0 (no false positives)', async () => {
     const result = await checkAndAwardBadges('user-1', {});
     expect(result).toEqual([]);
+  });
+});
+
+// ── Chemin athlète : le serveur décide ────────────────────────────────────────
+
+describe('badge claimed by the athlete themselves', () => {
+  const { supabase } = require('../lib/supabase');
+
+  beforeEach(() => {
+    supabase.from.mockImplementation(() => makeChain());
+    supabase.rpc.mockReset();
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'user-1' } } } });
+  });
+
+  afterAll(() => {
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'owner-1' } } } });
+  });
+
+  it('goes through claim_badge instead of inserting from the client session', async () => {
+    supabase.rpc.mockResolvedValue({ data: { ok: true, awarded: true }, error: null });
+    const result = await checkAndAwardBadges('user-1', { total_scores_submitted: 1 });
+    expect(supabase.rpc).toHaveBeenCalledWith('claim_badge', { p_badge_key: 'first_score' });
+    expect(result).toContain('first_score');
+  });
+
+  it('does not report a badge the server refused', async () => {
+    supabase.rpc.mockResolvedValue({
+      data: { ok: false, awarded: false, reason: 'condition_non_remplie' }, error: null,
+    });
+    const result = await checkAndAwardBadges('user-1', { total_scores_submitted: 1 });
+    expect(result).not.toContain('first_score');
+  });
+
+  it('does not report a badge on RPC error', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission denied' } });
+    const result = await checkAndAwardBadges('user-1', { total_scores_submitted: 1 });
+    expect(result).not.toContain('first_score');
   });
 });
 
