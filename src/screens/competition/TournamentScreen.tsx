@@ -21,7 +21,7 @@ import { AthleteLevel } from '../../types';
 import { CompetitionStackParamList } from '../../navigation';
 import {
   TournamentWOD, TournamentScore,
-  MOVEMENT_BADGE_LEVELS, formatDate,
+  formatDate,
   rankWodScores, cfPoints, parseScoreToNumber, formatScoreDisplay, isTimeScoredType,
 } from '../../utils/tournamentUtils';
 import { trackTournamentJoin } from '../../lib/analytics';

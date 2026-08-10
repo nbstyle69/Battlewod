@@ -13,32 +13,70 @@ export function cfPoints(rank: number): number {
   return CF_GAMES_POINTS[rank - 1] ?? Math.max(1, 30 - (rank - 51));
 }
 
-// ── Movement badge levels ─────────────────────────────────────────────────────
-export const MOVEMENT_BADGE_LEVELS = [
-  { level: 1, reps: 100,   label: 'Débutant',      emoji: '🥉', color: '#CD7F32' },
-  { level: 2, reps: 500,   label: 'Intermédiaire', emoji: '🥈', color: '#C0C0C0' },
-  { level: 3, reps: 1000,  label: 'Confirmé',      emoji: '🥇', color: '#FFD700' },
-  { level: 4, reps: 3000,  label: 'Expert',        emoji: '💎', color: '#60A5FA' },
-  { level: 5, reps: 10000, label: 'Elite',         emoji: '⚡', color: '#111827' },
-];
-
 // ── Normalize movement names ──────────────────────────────────────────────────
+// Les lignes de WOD sont saisies librement : « Pull-ups », « Pull Up »,
+// « 12 Toes-to-bar », « Cal Row »… On canonicalise au singulier, sans trait
+// d'union, avant de consulter la table — sinon chaque variante d'écriture
+// crée sa propre clé et son propre compteur de reps.
 const MOVEMENT_MAP: Record<string, string> = {
   deadlift: 'deadlift', 'soulevé de terre': 'deadlift',
-  'pull-up': 'pull_up', 'pull up': 'pull_up', traction: 'pull_up',
-  'push-up': 'push_up', 'push up': 'push_up', pompe: 'push_up',
-  thruster: 'thruster', burpee: 'burpee', burpees: 'burpee',
-  'box jump': 'box_jump', 'saut sur boite': 'box_jump',
+  'sumo deadlift high pull': 'sdlhp', sdlhp: 'sdlhp',
+  'pull up': 'pull_up', traction: 'pull_up',
+  'chest to bar': 'chest_to_bar', 'chest to bar pull up': 'chest_to_bar', ctb: 'chest_to_bar',
+  'pull over': 'pull_over',
+  'push up': 'push_up', pompe: 'push_up',
+  thruster: 'thruster', 'db thruster': 'db_thruster', 'dumbbell thruster': 'db_thruster',
+  'kb thruster': 'kb_thruster',
+  burpee: 'burpee', 'burpee over the bar': 'burpee', 'bar facing burpee': 'burpee',
+  'burpee box jump': 'burpee_box_jump', 'burpee box jump over': 'burpee_box_jump',
+  'box jump': 'box_jump', 'box jump over': 'box_jump', 'box step up': 'box_jump',
+  'saut sur boite': 'box_jump',
   'kettlebell swing': 'kb_swing', 'kb swing': 'kb_swing',
   'air squat': 'air_squat', squat: 'air_squat',
-  'double under': 'double_under', 'double-under': 'double_under',
-  'toes to bar': 'toes_to_bar', t2b: 'toes_to_bar',
-  'handstand push-up': 'hspu', hspu: 'hspu',
-  'muscle-up': 'muscle_up', 'muscle up': 'muscle_up',
+  'front squat': 'squat', 'back squat': 'squat',
+  'overhead squat': 'overhead_squat', ohs: 'overhead_squat',
+  'goblet squat': 'goblet_squat',
+  'pistol squat': 'pistol_squat', pistol: 'pistol_squat',
+  'double under': 'double_under', 'single under': 'single_under',
+  'toe to bar': 'toes_to_bar', 'toes to bar': 'toes_to_bar', t2b: 'toes_to_bar',
+  'knee to elbow': 'knees_to_elbow', k2e: 'knees_to_elbow',
+  'handstand push up': 'hspu', hspu: 'hspu', 'hspu strict': 'hspu',
+  'strict handstand push up': 'hspu', 'wall facing hspu': 'hspu',
+  'muscle up': 'muscle_up',
+  'bar muscle up': 'bar_muscle_up', 'ring muscle up': 'ring_muscle_up',
+  'ring dip': 'ring_dip', 'ring row': 'ring_row',
   clean: 'clean', épaulé: 'clean',
+  'power clean': 'clean', 'squat clean': 'clean', 'hang clean': 'clean',
+  'hang power clean': 'clean', 'hang squat clean': 'clean',
+  'clean and jerk': 'clean_and_jerk', 'hang clean and jerk': 'clean_and_jerk',
+  'db clean and jerk': 'db_cj', 'kb clean and jerk': 'kb_cj',
   snatch: 'snatch', arraché: 'snatch',
-  row: 'row', aviron: 'row', run: 'run', course: 'run',
+  'power snatch': 'snatch', 'squat snatch': 'snatch', 'hang snatch': 'snatch',
+  'db snatch': 'db_snatch', 'db snatch alt': 'db_snatch', 'dumbbell snatch': 'db_snatch',
+  'kb snatch': 'kb_snatch',
+  'push press': 'press', 'strict press': 'press', 'push jerk': 'press',
+  'shoulder to overhead': 'press', 'shoulder to oh': 'press',
+  'db push press': 'db_push_press',
+  'devil press': 'devil_press',
+  lunge: 'lunge', 'db lunge': 'lunge', 'walking lunge': 'lunge', fente: 'lunge',
+  'turkish get up': 'turkish_get_up',
+  'wall ball': 'wall_ball', 'wall ball shot': 'wall_ball',
+  'wall walk': 'wall_walk',
+  'sit up': 'sit_up', 'v up': 'v_up', 'hollow rock': 'hollow_rock',
+  'mountain climber': 'mountain_climber',
+  'mb slam': 'mb_slam', 'medicine ball slam': 'mb_slam', 'slam ball': 'mb_slam',
+  row: 'row', 'cal row': 'row', aviron: 'row', rameur: 'row', 'cal rameur': 'row',
+  'assault bike': 'bike', 'echo bike': 'bike', 'cal assault bike': 'bike',
+  'cal bike': 'bike', 'bike erg': 'bike',
+  'ski erg': 'ski_erg', 'cal ski erg': 'ski_erg', ski: 'ski_erg',
+  run: 'run', course: 'run',
 };
+
+function singularize(word: string): string {
+  if (/(ches|shes|xes|sses)$/.test(word)) return word.slice(0, -2);
+  if (/[^s]s$/.test(word)) return word.slice(0, -1);
+  return word;
+}
 
 export function normalizeMovement(raw: string): { key: string; label: string } {
   const cleaned = raw.toLowerCase()
@@ -46,6 +84,11 @@ export function normalizeMovement(raw: string): { key: string; label: string } {
     .replace(/\d+\s*(kg|lb|rm|%)/g, '')
     .replace(/\d+/g, '')
     .replace(/[^\w\s-]/g, '')
+    .replace(/-/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map(singularize)
+    .join(' ')
     .trim();
   const key = MOVEMENT_MAP[cleaned] ?? cleaned.replace(/\s+/g, '_');
   const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

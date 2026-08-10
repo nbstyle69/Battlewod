@@ -15,13 +15,13 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { sendTournamentClosedNotification } from '../../services/notifications';
-import { incrementCounter, checkAndAwardBadges } from '../../services/gamification';
+import { incrementCounter, checkAndAwardBadges, movementBadgesCrossed } from '../../services/gamification';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { useAuth } from '../../context/AuthContext';
 import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import {
-  TournamentScore, MOVEMENT_BADGE_LEVELS,
+  TournamentScore,
   rankWodScores, cfPoints, parseScoreToNumber, formatScoreDisplay,
   normalizeMovement, formatDateTime,
 } from '../../utils/tournamentUtils';
@@ -236,13 +236,12 @@ export default function BOTournamentScreen() {
             await supabase.from('movement_rep_counts')
               .insert({ athlete_id: score.athlete_id, movement_key: key, movement_label: label, total_reps: newTotal });
           }
-          for (const tier of MOVEMENT_BADGE_LEVELS) {
-            if (newTotal >= tier.reps && (existing?.total_reps ?? 0) < tier.reps) {
-              const badgeKey = `movement_${key}_level_${tier.level}`;
-              await supabase.from('athlete_badges')
-                .upsert({ athlete_id: score.athlete_id, badge_key: badgeKey }, { onConflict: 'athlete_id,badge_key', ignoreDuplicates: true });
-              newBadges.push(`${tier.emoji} ${label} ${tier.label}`);
-            }
+          const crossed = await movementBadgesCrossed(key, existing?.total_reps ?? 0, newTotal);
+          for (const badge of crossed) {
+            const { error: badgeErr } = await supabase.from('athlete_badges')
+              .upsert({ athlete_id: score.athlete_id, badge_key: badge.badge_key }, { onConflict: 'athlete_id,badge_key', ignoreDuplicates: true });
+            if (badgeErr) { captureError(badgeErr, { screen: 'BOTournament', action: 'awardMovementBadge' }); continue; }
+            newBadges.push(`${badge.icon} ${badge.title}`);
           }
         }
 
