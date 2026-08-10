@@ -203,7 +203,7 @@ export default function BOTournamentScreen() {
       Alert.alert(t('common.error'), t('bo.tournament.noVideo'));
       return;
     }
-    Alert.alert(t('bo.tournament.validateTitle'), `${score.profile?.username} — ${formatScoreDisplay(score.score_value, (score.tw as any)?.type, (score.tw as any)?.reps_per_round)}`, [
+    Alert.alert(t('bo.tournament.validateTitle'), `${score.profile?.username} — ${formatScoreDisplay(score.score_value, (score.tw as any)?.type, (score.tw as any)?.reps_per_round, score.capped)}`, [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('bo.tournament.validate'), onPress: async () => {
         const { error } = await supabase.from('tournament_scores').update({
@@ -671,7 +671,7 @@ export default function BOTournamentScreen() {
                       <Text style={s.scoreWodNm} numberOfLines={1}>{score.tw?.title ?? ''} · {score.tw?.type ?? ''}</Text>
                       <View style={s.scoreCardRow}>
                         <Text style={s.scoreDate}>{formatDateTime(score.submitted_at)}</Text>
-                        <Text style={s.scoreValue}>{formatScoreDisplay(score.score_value, score.tw?.type, (score.tw as any)?.reps_per_round)}</Text>
+                        <Text style={s.scoreValue}>{formatScoreDisplay(score.score_value, score.tw?.type, (score.tw as any)?.reps_per_round, score.capped)}</Text>
                       </View>
                     </View>
                     <View style={s.scoreCardRight}>
@@ -763,7 +763,7 @@ export default function BOTournamentScreen() {
         <View style={s.modalOverlay}>
           <View style={s.modalSheet}>
             <Text style={s.modalTitle}>{t('bo.tournament.rejectScore')}</Text>
-            <Text style={s.modalSub}>{rejectModal?.profile?.username} — {rejectModal ? formatScoreDisplay(rejectModal.score_value, (rejectModal.tw as any)?.type, (rejectModal.tw as any)?.reps_per_round) : ''}</Text>
+            <Text style={s.modalSub}>{rejectModal?.profile?.username} — {rejectModal ? formatScoreDisplay(rejectModal.score_value, (rejectModal.tw as any)?.type, (rejectModal.tw as any)?.reps_per_round, rejectModal.capped) : ''}</Text>
             <TextInput
               style={s.rejectInput}
               value={rejectReason}

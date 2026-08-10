@@ -1,3 +1,4 @@
+import { compareScores, normalizeScore } from './scoreFormat';
 
 // ── CF Games points table ─────────────────────────────────────────────────────
 export const CF_GAMES_POINTS: number[] = [
@@ -189,14 +190,19 @@ export function parseScoreToNumber(
 }
 
 // Human-readable display of a stored score.
-// For Time -> "mm:ss" ; AMRAP/Max Reps -> "123 reps (3 tours + 12)".
+// For Time -> "mm:ss", ou "CAP + X reps" si le temps limite a été atteint.
+// AMRAP/Max Reps -> "123 reps (3 tours + 12)".
 export function formatScoreDisplay(
   value: string | number | null | undefined,
   wodType: string | null | undefined,
   repsPerRound?: number | null,
+  capped?: boolean | null,
 ): string {
   const raw = (value ?? '').toString();
-  if (isTimeScoredType(wodType)) return secondsToTimeString(timeStringToSeconds(raw));
+  if (isTimeScoredType(wodType)) {
+    const n = normalizeScore(timeStringToSeconds(raw), capped, true);
+    return n.capped ? `CAP + ${n.value} reps` : secondsToTimeString(n.value);
+  }
   if (isRepsScoredType(wodType)) {
     const n = parseFloat(raw);
     if (!isNaN(n)) return formatAmrapScore(n, repsPerRound);
@@ -213,6 +219,7 @@ export interface TournamentScore {
   tiebreak_value: number | null;
   video_url: string | null;
   notes: string | null;
+  capped?: boolean | null;
   status: 'pending' | 'validated' | 'rejected';
   submitted_at: string;
   deadline_at: string | null;
@@ -232,23 +239,28 @@ export interface RankedScore extends TournamentScore {
 // ── Rank WOD scores ───────────────────────────────────────────────────────────
 export function rankWodScores(scores: TournamentScore[], wodType: string): RankedScore[] {
   const validated = scores.filter(s => s.status === 'validated');
-  const sorted = [...validated].sort((a, b) => {
-    const aVal = parseScoreToNumber(a.score_value, wodType);
-    const bVal = parseScoreToNumber(b.score_value, wodType);
-    if (isTimeScoredType(wodType)) return aVal - bVal;
-    return bVal - aVal;
-  });
+  // Miroir bit-à-bit de l'ORDER BY serveur (compute_league_wod_elo /
+  // recalc_division_points) : finishers d'abord (temps croissant), puis les
+  // cappés (reps décroissantes).
+  const isTime = isTimeScoredType(wodType);
+  const sorted = [...validated].sort((a, b) => compareScores(
+    { score_value: parseScoreToNumber(a.score_value, wodType), capped: a.capped },
+    { score_value: parseScoreToNumber(b.score_value, wodType), capped: b.capped },
+    isTime,
+  ));
 
   let currentRank = 1;
   return sorted.map((score, idx) => {
     if (idx > 0) {
       const prev = sorted[idx - 1];
-      const sameScore = score.score_value === prev.score_value;
+      const sameScore = score.score_value === prev.score_value
+        && !!score.capped === !!prev.capped;
       const sameTiebreak = score.tiebreak_value === prev.tiebreak_value;
       if (!sameScore || !sameTiebreak) currentRank = idx + 1;
     }
     const isExAequo = sorted.filter(s =>
       s.score_value === score.score_value &&
+      !!s.capped === !!score.capped &&
       s.tiebreak_value === score.tiebreak_value
     ).length > 1;
     return { ...score, rank: currentRank, cfPoints: cfPoints(currentRank), isExAequo };

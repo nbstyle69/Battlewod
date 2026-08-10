@@ -12,6 +12,7 @@ interface ShareScoreCardProps {
   wodType: string | null;
   score: number;
   scoreType: string;
+  capped?: boolean | null;
   rx: boolean;
   rank: number | null;
   totalParticipants: number;
@@ -40,11 +41,11 @@ function medalEmoji(rank: number | null): string {
 }
 
 const ShareScoreCard = forwardRef<View, ShareScoreCardProps>(
-  ({ wodTitle, wodType, score, scoreType, rx, rank, totalParticipants, username, avatarUrl, boxName, date }, ref) => {
+  ({ wodTitle, wodType, score, scoreType, capped, rx, rank, totalParticipants, username, avatarUrl, boxName, date }, ref) => {
     const typeColor = TYPE_COLORS[wodType ?? 'custom'] ?? '#6B7280';
     const typeLabel = TYPE_LABELS[wodType ?? 'custom'] ?? 'WOD';
     const medal = medalEmoji(rank);
-    const formattedScore = formatScoreValue(score, scoreType);
+    const formattedScore = formatScoreValue(score, scoreType, capped);
     const formattedDate = new Date(date).toLocaleDateString('fr-FR', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });

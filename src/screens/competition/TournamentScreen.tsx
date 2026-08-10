@@ -318,6 +318,7 @@ export default function TournamentScreen() {
       existingScore: existing ? {
         tournament_wod_id: existing.tournament_wod_id,
         score_value: existing.score_value,
+        capped: existing.capped,
         video_url: existing.video_url,
         status: existing.status,
       } : null,
@@ -629,7 +630,7 @@ export default function TournamentScreen() {
                     <View style={S.myScoreBadge}>
                       <CheckCircle color={theme.success} size={16} />
                       <View style={{ flex: 1 }}>
-                        <Text style={S.myScoreValue}>{t('tournament.scoreSubmitted', { value: formatScoreDisplay(myScore.score_value, wod.type, wod.reps_per_round) })}</Text>
+                        <Text style={S.myScoreValue}>{t('tournament.scoreSubmitted', { value: formatScoreDisplay(myScore.score_value, wod.type, wod.reps_per_round, myScore.capped) })}</Text>
                         <Text style={S.myScoreStatus}>
                           {myScore.status === 'pending' ? t('tournament.pendingValidation')
                             : myScore.status === 'validated' ? t('tournament.validatedEmoji') : t('tournament.rejectedEmoji')}
@@ -934,7 +935,7 @@ export default function TournamentScreen() {
                             {profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                           </Text>
                         </View>
-                        <Text style={S.rankScore}>{formatScoreDisplay(s.score_value, wod.type, wod.reps_per_round)}</Text>
+                        <Text style={S.rankScore}>{formatScoreDisplay(s.score_value, wod.type, wod.reps_per_round, s.capped)}</Text>
                       </View>
                     );
                   })}
@@ -992,7 +993,7 @@ export default function TournamentScreen() {
 
                   <View style={S.scoreValueRow}>
                     <Zap color={theme.gold} size={14} />
-                    <Text style={S.scoreValue}>{formatScoreDisplay(score.score_value, (score as any).tw?.type, (score as any).tw?.reps_per_round)}</Text>
+                    <Text style={S.scoreValue}>{formatScoreDisplay(score.score_value, (score as any).tw?.type, (score as any).tw?.reps_per_round, score.capped)}</Text>
                     {score.tiebreak_value != null && (
                       <Text style={S.scoreTiebreak}>TB: {score.tiebreak_value}</Text>
                     )}

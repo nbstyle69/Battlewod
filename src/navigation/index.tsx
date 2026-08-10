@@ -415,6 +415,7 @@ export type CompetitionStackParamList = {
     existingScore: {
       tournament_wod_id: string;
       score_value: string;
+      capped?: boolean | null;
       video_url: string | null;
       status: string;
     } | null;
