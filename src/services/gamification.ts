@@ -70,6 +70,79 @@ export interface StreakInfo {
   max_sessions_per_week: number | null;
 }
 
+// ── Badges de mouvement crédités par l'owner ────────────────────────
+// Le crédit de reps du back-office normalise les mouvements avec ses propres
+// clés (`normalizeMovement` de tournamentUtils) ; le catalogue, lui, porte des
+// clés `mv_<préfixe>_<palier>`. Sans cette table, l'owner posait des badges
+// absents du catalogue, donc invisibles partout.
+const OWNER_MOVEMENT_BADGE_PREFIX: Record<string, string> = {
+  air_squat: 'mv_air_squat',        bar_muscle_up: 'mv_bmu',
+  bike: 'mv_bike',                  box_jump: 'mv_box_jump',
+  burpee: 'mv_burpee',              burpee_box_jump: 'mv_burpee_bj',
+  chest_to_bar: 'mv_c2b',           clean: 'mv_clean',
+  clean_and_jerk: 'mv_cj',          db_cj: 'mv_db_cj',
+  db_push_press: 'mv_db_push_press', db_snatch: 'mv_db_snatch',
+  db_thruster: 'mv_db_thruster',    deadlift: 'mv_deadlifts',
+  devil_press: 'mv_devil_press',    double_under: 'mv_du',
+  goblet_squat: 'mv_goblet_squat',  hollow_rock: 'mv_hollow',
+  hspu: 'mv_hspu',                  kb_cj: 'mv_kb_cj',
+  kb_snatch: 'mv_kb_snatch',        kb_swing: 'mv_kb_swing',
+  kb_thruster: 'mv_kb_thruster',    knees_to_elbow: 'mv_k2e',
+  lunge: 'mv_lunge',                mb_slam: 'mv_mb_slam',
+  mountain_climber: 'mv_mtclimber', overhead_squat: 'mv_ohs',
+  pistol_squat: 'mv_pistol',        press: 'mv_press',
+  pull_over: 'mv_pullover',         pull_up: 'mv_pullup',
+  push_up: 'mv_pushup',             ring_dip: 'mv_ring_dip',
+  ring_muscle_up: 'mv_ring_mu',     ring_row: 'mv_ring_row',
+  row: 'mv_row',                    sdlhp: 'mv_sdlhp',
+  single_under: 'mv_su',            sit_up: 'mv_situp',
+  ski_erg: 'mv_ski',                snatch: 'mv_snatch',
+  squat: 'mv_squat',                thruster: 'mv_thrusters',
+  toes_to_bar: 'mv_t2b',            turkish_get_up: 'mv_turkish_gu',
+  v_up: 'mv_vup',                   wall_ball: 'mv_wallball',
+  wall_walk: 'mv_wallwalk',
+};
+
+export interface MovementBadgeTier {
+  badge_key: string;
+  title: string;
+  icon: string;
+}
+
+/**
+ * Badges de mouvement franchis en passant de `prevTotal` à `newTotal` reps.
+ * Les paliers sont lus dans `badges_catalog` : la liste diffère d'un mouvement
+ * à l'autre (100/500/1000/5000 pour les squats, 50/200/500 pour les muscle-ups…)
+ * et rester déclaratif évite de la dupliquer ici.
+ */
+export async function movementBadgesCrossed(
+  movementKey: string,
+  prevTotal: number,
+  newTotal: number,
+): Promise<MovementBadgeTier[]> {
+  // Le back-office écrit tantôt le singulier tantôt le pluriel selon la
+  // ligne de WOD saisie ("10 Thruster" / "10 Thrusters").
+  const prefix = OWNER_MOVEMENT_BADGE_PREFIX[movementKey]
+    ?? OWNER_MOVEMENT_BADGE_PREFIX[movementKey.replace(/s$/, '')];
+  if (!prefix || newTotal <= prevTotal) return [];
+
+  const { data, error } = await supabase
+    .from('badges_catalog')
+    .select('badge_key, title, icon')
+    .eq('category', 'movement');
+  if (error || !data) return [];
+
+  return data
+    .filter(b => {
+      if (!b.badge_key.startsWith(`${prefix}_`)) return false;
+      const suffix = b.badge_key.slice(prefix.length + 1);
+      if (!/^\d+$/.test(suffix)) return false; // ex. mv_total_10k : badge méta
+      const threshold = parseInt(suffix, 10);
+      return threshold > prevTotal && threshold <= newTotal;
+    })
+    .map(b => ({ badge_key: b.badge_key, title: b.title, icon: b.icon }));
+}
+
 // ── Fetch helpers ───────────────────────────────────────────────────
 
 export async function getBadgesCatalog(): Promise<BadgeDef[]> {

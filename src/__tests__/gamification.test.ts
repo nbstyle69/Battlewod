@@ -54,6 +54,7 @@ import {
   checkAndAwardBadges,
   getBadgesCatalog,
   getEarnedBadges,
+  movementBadgesCrossed,
   type BadgeQueueItem,
 } from '../services/gamification';
 
@@ -246,6 +247,45 @@ describe('isBadgeUnobtainable', () => {
     ['level_scaled', 'level_pro', 'first_score', 'first_win', 'podium',
      'champion_5', 'veteran_10', 'social_5', 'chatty_50', 'mv_thrusters_100']
       .forEach(k => expect(isBadgeUnobtainable(k)).toBe(false));
+  });
+});
+
+// ── Badges de mouvement crédités par l'owner ──────────────────────────────────
+
+describe('movementBadgesCrossed', () => {
+  const { supabase } = require('../lib/supabase');
+  const CATALOG = [
+    { badge_key: 'mv_thrusters_100',  title: 'Thrusters 100',  icon: '🥉' },
+    { badge_key: 'mv_thrusters_500',  title: 'Thrusters 500',  icon: '🥈' },
+    { badge_key: 'mv_thrusters_1000', title: 'Thrusters 1000', icon: '🥇' },
+    { badge_key: 'mv_ring_mu_50',     title: 'Ring MU 50',     icon: '🥉' },
+    { badge_key: 'mv_total_10k',      title: 'Total 10k',      icon: '🏆' },
+  ];
+
+  beforeEach(() => {
+    supabase.from.mockImplementation(() => makeChain({
+      eq: jest.fn().mockResolvedValue({ data: CATALOG, error: null }),
+    }));
+  });
+
+  it('returns the catalog keys crossed between the two totals', async () => {
+    const crossed = await movementBadgesCrossed('thruster', 90, 600);
+    expect(crossed.map(b => b.badge_key)).toEqual(['mv_thrusters_100', 'mv_thrusters_500']);
+  });
+
+  it('does not re-award a tier already passed', async () => {
+    expect(await movementBadgesCrossed('thruster', 600, 700)).toEqual([]);
+  });
+
+  it('accepts the plural form written by the back-office', async () => {
+    const crossed = await movementBadgesCrossed('thrusters', 0, 150);
+    expect(crossed.map(b => b.badge_key)).toEqual(['mv_thrusters_100']);
+  });
+
+  it('ignores meta badges and unmapped movements', async () => {
+    expect(await movementBadgesCrossed('ring_mu', 0, 99999)).toEqual([]); // non mappé
+    const crossed = await movementBadgesCrossed('thruster', 0, 99999);
+    expect(crossed.map(b => b.badge_key)).not.toContain('mv_total_10k');
   });
 });
 

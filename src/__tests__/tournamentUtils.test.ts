@@ -108,9 +108,29 @@ describe('normalizeMovement', () => {
   });
 
   it('strips digits from input before lookup', () => {
-    // '5 deadlifts' → remove digits → 'deadlifts' → not in map → key 'deadlifts'
     const r = normalizeMovement('5 deadlifts');
-    expect(r.key).toContain('deadlift');
+    expect(r.key).toBe('deadlift');
+  });
+
+  // Toutes ces lignes existent telles quelles dans les WOD de tournoi en base :
+  // chaque variante d'écriture donnait sa propre clé, donc son propre compteur.
+  it('collapses plural and hyphenated spellings onto one key', () => {
+    const cases: [string, string][] = [
+      ['Pull-ups', 'pull_up'],          ['Pull Up', 'pull_up'],
+      ['Air Squats', 'air_squat'],      ['Wall Balls', 'wall_ball'],
+      ['Toes-to-bar', 'toes_to_bar'],   ['Handstand Push-ups', 'hspu'],
+      ['HSPU Stricts', 'hspu'],         ['Box Jumps', 'box_jump'],
+      ['DB Thrusters', 'db_thruster'],  ['KB Thrusters', 'kb_thruster'],
+      ['Sit-ups', 'sit_up'],            ['Double Unders', 'double_under'],
+      ['Kettlebell Swings', 'kb_swing'], ['Wall Walks', 'wall_walk'],
+      ['Squat Cleans', 'clean'],        ['Power Clean', 'clean'],
+      ['Push Press', 'press'],          ['Shoulder to OH', 'press'],
+      ['Cal Row', 'row'],               ['Cal Assault Bike', 'bike'],
+      ['Chest-to-Bar Pull-ups', 'chest_to_bar'],
+      ['Sumo Deadlift High Pull', 'sdlhp'],
+      ['DB Snatches alt.', 'db_snatch'],
+    ];
+    cases.forEach(([raw, key]) => expect(normalizeMovement(raw).key).toBe(key));
   });
 });
 
