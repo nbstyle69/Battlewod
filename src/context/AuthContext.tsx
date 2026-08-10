@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { BOX_COLUMNS, BOX_MEMBERSHIP_COLUMNS } from '../lib/boxColumns';
+import { readRows } from '../lib/db';
 import { User, Box, BoxMemberRole, BoxSubscription } from '../types';
 import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
@@ -153,16 +154,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const entries: MyBoxEntry[] = [];
       // Owner box
       if (role === 'box_owner') {
-        const { data } = await supabase
-          .from('boxes').select(BOX_COLUMNS).eq('owner_id', userId).maybeSingle();
+        const data = await readRows(
+          supabase.from('boxes').select(BOX_COLUMNS).eq('owner_id', userId).maybeSingle(),
+          { screen: 'AuthContext', action: 'fetchBox.owner' },
+        );
         if (data) entries.push({ box: data as Box, role: 'owner' });
       }
       // Member boxes (always fetch — owner can also be member of other boxes)
-      const { data: memberships } = await supabase
-        .from('box_members')
-        .select(BOX_MEMBERSHIP_COLUMNS)
-        .eq('member_id', userId)
-        .eq('status', 'active');
+      const memberships = await readRows(
+        supabase
+          .from('box_members')
+          .select(BOX_MEMBERSHIP_COLUMNS)
+          .eq('member_id', userId)
+          .eq('status', 'active'),
+        { screen: 'AuthContext', action: 'fetchBox.memberships' },
+      );
       if (memberships) {
         for (const m of memberships) {
           if (m.boxes && !entries.find(e => e.box.id === (m.boxes as any).id)) {
@@ -193,10 +199,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function fetchSubscription(boxId: string) {
     try {
-      const { data } = await supabase.from('box_subscriptions')
-        .select('*')
-        .eq('box_id', boxId)
-        .maybeSingle();
+      const data = await readRows(
+        supabase.from('box_subscriptions').select('*').eq('box_id', boxId).maybeSingle(),
+        { screen: 'AuthContext', action: 'fetchSubscription' },
+      );
       setBoxSubscription(data as BoxSubscription | null);
     } catch (e) {
       captureError(e, { action: 'fetchSubscription', boxId });
@@ -300,11 +306,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // `profiles` en anon (aucun GRANT SELECT) et ne voit donc aucune
       // collision — c'est le trigger qui suffixe. Sans cette relecture, l'écran
       // annoncerait un pseudo différent de celui réellement enregistré.
-      const { data: created } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', data.user.id)
-        .maybeSingle();
+      const created = await readRows(
+        supabase.from('profiles').select('username').eq('id', data.user.id).maybeSingle(),
+        { screen: 'AuthContext', action: 'signUp.readUsername' },
+      );
       if (created?.username) finalUsername = created.username;
       // Profile is now in DB — explicitly refresh user state so navigation triggers
       await fetchProfile(data.user.id);
@@ -321,11 +326,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: joinErr?.message ?? 'Code invalide ou box introuvable' };
     }
 
-    const { data: box } = await supabase
-      .from('boxes')
-      .select('*')
-      .eq('id', boxId)
-      .single();
+    const box = await readRows(
+      supabase.from('boxes').select(BOX_COLUMNS).eq('id', boxId).single(),
+      { screen: 'AuthContext', action: 'joinBox.readBox' },
+    );
     if (!box) return { error: 'Box introuvable' };
 
     const newEntry: MyBoxEntry = { box: box as Box, role: 'member' };
