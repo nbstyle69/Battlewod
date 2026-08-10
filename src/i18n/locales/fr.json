@@ -913,6 +913,15 @@
       "dangerZone": "Zone dangereuse",
       "deleteWarning": "La suppression de ton compte est définitive. Toutes tes données (scores, PR, messages, ELO, badges) seront supprimées."
     },
+    "password": {
+      "title": "Changer le mot de passe",
+      "current": "Mot de passe actuel",
+      "new": "Nouveau mot de passe",
+      "confirm": "Confirmer le nouveau mot de passe",
+      "mismatch": "Les deux mots de passe ne correspondent pas",
+      "wrongCurrent": "Mot de passe actuel incorrect",
+      "changed": "Mot de passe mis à jour"
+    },
     "referral": {
       "copy": "Copier",
       "share": "Partager",

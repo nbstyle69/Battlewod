@@ -12,6 +12,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { LevelColors } from '../../theme/designTokens';
 import { AthleteLevel } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { captureError } from '../../lib/sentry';
 import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
@@ -53,11 +54,14 @@ export default function LeaderboardScreen() {
   const { data: athleteData, isLoading: loadingAthletesQuery } = useFocusQuery(
     ['leaderboard-athletes'],
     async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, username, level, elo, wins, total_matches, avatar_url')
-        .order('elo', { ascending: false })
-        .limit(ATHLETE_PAGE_SIZE);
+      const data = await readRows(
+        supabase
+          .from('profiles')
+          .select('id, username, level, elo, wins, total_matches, avatar_url')
+          .order('elo', { ascending: false })
+          .limit(ATHLETE_PAGE_SIZE),
+        { screen: 'Leaderboard', action: 'loadAthletes' },
+      );
       return (data ?? []).map((p: any, i: number) => ({ ...p, rank: i + 1, isMe: p.id === user?.id }));
     },
     { enabled: mainTab === 0 },
@@ -77,11 +81,14 @@ export default function LeaderboardScreen() {
     setLoadingMore(true);
     const nextPage = athletePage + 1;
     const from = nextPage * ATHLETE_PAGE_SIZE;
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, username, level, elo, wins, total_matches, avatar_url')
-      .order('elo', { ascending: false })
-      .range(from, from + ATHLETE_PAGE_SIZE - 1);
+    const data = await readRows(
+      supabase
+        .from('profiles')
+        .select('id, username, level, elo, wins, total_matches, avatar_url')
+        .order('elo', { ascending: false })
+        .range(from, from + ATHLETE_PAGE_SIZE - 1),
+      { screen: 'Leaderboard', action: 'loadMoreAthletes' },
+    );
     const newItems = (data ?? []).map((p: any, i: number) => ({ ...p, rank: from + i + 1, isMe: p.id === user?.id }));
     setAthletes(prev => [...prev, ...newItems]);
     setAthletePage(nextPage);
@@ -110,15 +117,20 @@ export default function LeaderboardScreen() {
 
     let profilesMap: Record<string, any> = {};
     if (memberUserIds.length > 0) {
-      const { data: profilesData } = await supabase
-        .from('profiles').select('id, elo, username').in('id', memberUserIds);
+      const profilesData = await readRows(
+        supabase.from('profiles').select('id, elo, username').in('id', memberUserIds),
+        { screen: 'Leaderboard', action: 'loadTeamProfiles' },
+      );
       (profilesData ?? []).forEach((p: any) => { profilesMap[p.id] = p; });
     }
 
     const boxIds = [...new Set(teamsData.map((t: any) => t.box_id).filter(Boolean))] as string[];
     let boxMap: Record<string, string> = {};
     if (boxIds.length > 0) {
-      const { data: boxData } = await supabase.from('boxes').select('id, name').in('id', boxIds);
+      const boxData = await readRows(
+        supabase.from('boxes').select('id, name').in('id', boxIds),
+        { screen: 'Leaderboard', action: 'loadTeamBoxes' },
+      );
       (boxData ?? []).forEach((b: any) => { boxMap[b.id] = b.name; });
     }
 
@@ -139,18 +151,25 @@ export default function LeaderboardScreen() {
   const loadBoxes = useCallback(async () => {
     setLoadingBoxes(true);
     try {
-    const { data: boxData } = await supabase.from('boxes').select('id, name, city');
+    const boxData = await readRows(
+      supabase.from('boxes').select('id, name, city'),
+      { screen: 'Leaderboard', action: 'loadBoxes' },
+    );
     if (!boxData?.length) { setBoxes([]); setLoadingBoxes(false); return; }
 
     const boxIds = boxData.map((b: any) => b.id);
-    const { data: membersData } = await supabase
-      .from('box_members').select('box_id, member_id').in('box_id', boxIds).eq('status', 'active');
+    const membersData = await readRows(
+      supabase.from('box_members').select('box_id, member_id').in('box_id', boxIds).eq('status', 'active'),
+      { screen: 'Leaderboard', action: 'loadBoxMembers' },
+    );
 
     const memberIds = [...new Set((membersData ?? []).map((m: any) => m.member_id))] as string[];
     let profilesMap: Record<string, any> = {};
     if (memberIds.length > 0) {
-      const { data: profilesData } = await supabase
-        .from('profiles').select('id, elo, username').in('id', memberIds);
+      const profilesData = await readRows(
+        supabase.from('profiles').select('id, elo, username').in('id', memberIds),
+        { screen: 'Leaderboard', action: 'loadBoxMemberProfiles' },
+      );
       (profilesData ?? []).forEach((p: any) => { profilesMap[p.id] = p; });
     }
 

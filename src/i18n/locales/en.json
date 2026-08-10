@@ -913,6 +913,15 @@
       "dangerZone": "Danger zone",
       "deleteWarning": "Deleting your account is permanent. All your data (scores, PR, messages, ELO, badges) will be deleted."
     },
+    "password": {
+      "title": "Change password",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "mismatch": "The two passwords do not match",
+      "wrongCurrent": "Current password is incorrect",
+      "changed": "Password updated"
+    },
     "referral": {
       "copy": "Copy",
       "share": "Share",

@@ -6,6 +6,7 @@ import {
 import { Settings, ArrowLeft, Save } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -27,11 +28,14 @@ export default function BOSettingsScreen({ navigation }: any) {
     if (!currentBox) return;
     (async () => {
       try {
-      const { data } = await supabase
-        .from('boxes')
-        .select('daily_publish_hour, weekly_publish_day, weekly_publish_hour')
-        .eq('id', currentBox.id)
-        .single();
+      const data = await readRows(
+        supabase
+          .from('boxes')
+          .select('daily_publish_hour, weekly_publish_day, weekly_publish_hour')
+          .eq('id', currentBox.id)
+          .single(),
+        { screen: 'BOSettings', action: 'loadPublishHours' },
+      );
       if (data) {
         setDailyHour(String(data.daily_publish_hour ?? 6).padStart(2, '0'));
         setWeeklyDay(data.weekly_publish_day ?? 0);

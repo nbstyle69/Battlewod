@@ -7,6 +7,7 @@ import {
 import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Users, CalendarClock, Timer, Check, X, UserPlus, Search, Download, ClipboardCheck } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -110,11 +111,14 @@ export default function BOScheduleScreen({ navigation }: any) {
   useEffect(() => {
     if (!currentBox) return;
     (async () => {
-      const { data } = await supabase
-        .from('box_members')
-        .select('member_id, profiles:member_id(username)')
-        .eq('box_id', currentBox.id)
-        .eq('role', 'coach');
+      const data = await readRows(
+        supabase
+          .from('box_members')
+          .select('member_id, profiles:member_id(username)')
+          .eq('box_id', currentBox.id)
+          .eq('role', 'coach'),
+        { screen: 'BOSchedule', action: 'loadCoaches' },
+      );
       setCoaches(
         (data ?? []).map((c: any) => ({
           id: c.member_id,
@@ -130,14 +134,17 @@ export default function BOScheduleScreen({ navigation }: any) {
     const start = toISO(weekDates[0]);
     const end   = toISO(weekDates[6]);
 
-    const { data } = await supabase
-      .from('class_schedules')
-      .select('*')
-      .eq('box_id', currentBox.id)
-      .gte('scheduled_date', start)
-      .lte('scheduled_date', end)
-      .order('scheduled_date')
-      .order('start_time');
+    const data = await readRows(
+      supabase
+        .from('class_schedules')
+        .select('*')
+        .eq('box_id', currentBox.id)
+        .gte('scheduled_date', start)
+        .lte('scheduled_date', end)
+        .order('scheduled_date')
+        .order('start_time'),
+      { screen: 'BOSchedule', action: 'loadSchedules' },
+    );
 
     const rawItems = (data ?? []) as Omit<ClassSchedule, 'confirmed_count' | 'waiting_count'>[];
 
@@ -145,10 +152,13 @@ export default function BOScheduleScreen({ navigation }: any) {
 
     if (rawItems.length > 0) {
       const ids = rawItems.map(s => s.id);
-      const { data: resCounts } = await supabase
-        .from('class_reservations')
-        .select('schedule_id, status')
-        .in('schedule_id', ids);
+      const resCounts = await readRows(
+        supabase
+          .from('class_reservations')
+          .select('schedule_id, status')
+          .in('schedule_id', ids),
+        { screen: 'BOSchedule', action: 'loadReservationCounts' },
+      );
 
       const confirmedMap: Record<string, number> = {};
       const waitingMap:   Record<string, number> = {};
@@ -240,10 +250,13 @@ export default function BOScheduleScreen({ navigation }: any) {
     setAddMemberOpen(false);
     setMemberSearch('');
     try {
-      const { data } = await supabase
-        .from('class_reservations')
-        .select('id, member_id, status, attended, profiles:member_id(username)')
-        .eq('schedule_id', slot.id);
+      const data = await readRows(
+        supabase
+          .from('class_reservations')
+          .select('id, member_id, status, attended, profiles:member_id(username)')
+          .eq('schedule_id', slot.id),
+        { screen: 'BOSchedule', action: 'loadSlotReservations' },
+      );
       setReservations(
         (data ?? []).map((r: any) => ({
           id: r.id,
@@ -274,11 +287,14 @@ export default function BOScheduleScreen({ navigation }: any) {
     if (!currentBox) return;
     setMembersLoading(true);
     try {
-      const { data } = await supabase
-        .from('box_members')
-        .select('member_id, profiles:member_id(username)')
-        .eq('box_id', currentBox.id)
-        .eq('status', 'active');
+      const data = await readRows(
+        supabase
+          .from('box_members')
+          .select('member_id, profiles:member_id(username)')
+          .eq('box_id', currentBox.id)
+          .eq('status', 'active'),
+        { screen: 'BOSchedule', action: 'loadBoxMembers' },
+      );
       setBoxMembers(
         (data ?? []).map((m: any) => ({
           id: m.member_id,
@@ -335,10 +351,13 @@ export default function BOScheduleScreen({ navigation }: any) {
       }
 
       const ids = targetSchedules.map(s => s.id);
-      const { data: allRes } = await supabase
-        .from('class_reservations')
-        .select('schedule_id, member_id, status, attended, profiles:member_id(username)')
-        .in('schedule_id', ids);
+      const allRes = await readRows(
+        supabase
+          .from('class_reservations')
+          .select('schedule_id, member_id, status, attended, profiles:member_id(username)')
+          .in('schedule_id', ids),
+        { screen: 'BOSchedule', action: 'exportCsv' },
+      );
 
       let csv = t('bo.schedule.csvHeader') + '\n';
       for (const s of targetSchedules) {

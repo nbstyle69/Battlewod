@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { sendWodPublishedNotification } from '../../services/notifications';
@@ -86,14 +87,17 @@ export default function BOWODsScreen({ navigation }: any) {
     if (!currentBox) { setLoading(false); return; }
     const start = toISO(weekDates[0]);
     const end   = toISO(weekDates[6]);
-    const { data } = await supabase
-      .from('box_wods')
-      .select('*')
-      .eq('box_id', currentBox.id)
-      .gte('scheduled_date', start)
-      .lte('scheduled_date', end)
-      .order('scheduled_date')
-      .order('sort_order');
+    const data = await readRows(
+      supabase
+        .from('box_wods')
+        .select('*')
+        .eq('box_id', currentBox.id)
+        .gte('scheduled_date', start)
+        .lte('scheduled_date', end)
+        .order('scheduled_date')
+        .order('sort_order'),
+      { screen: 'BOWODs', action: 'load' },
+    );
     setWods((data ?? []) as BoxWOD[]);
     setLoading(false);
     setRefreshing(false);

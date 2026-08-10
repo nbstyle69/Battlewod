@@ -6,6 +6,7 @@ import {
 import { UserX, UserCheck, ChevronLeft, ChevronRight, X, Calendar, Clock, Check, Timer, ShieldCheck } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -93,13 +94,16 @@ export default function BOMembersScreen({ navigation }: any) {
   async function openMemberDetail(member: MemberRow) {
     setSelectedMember(member);
     setResLoading(true);
-    const { data } = await supabase
-      .from('class_reservations')
-      .select('id, status, created_at, schedule:class_schedules(title, scheduled_date, start_time, end_time, coach)')
-      .eq('member_id', member.member_id)
-      .eq('box_id', currentBox!.id)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const data = await readRows(
+      supabase
+        .from('class_reservations')
+        .select('id, status, created_at, schedule:class_schedules(title, scheduled_date, start_time, end_time, coach)')
+        .eq('member_id', member.member_id)
+        .eq('box_id', currentBox!.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      { screen: 'BOMembers', action: 'openMemberDetail' },
+    );
 
     setMemberRes((data ?? []).map((r: any) => ({
       ...r,

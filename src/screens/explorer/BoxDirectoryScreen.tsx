@@ -7,6 +7,7 @@ import { ChevronLeft, Search, MapPin, Users, Map, X } from 'lucide-react-native'
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { readRows } from '../../lib/db';
 import { BOX_COLUMNS } from '../../lib/boxColumns';
 import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -55,11 +56,14 @@ export default function BoxDirectoryScreen() {
       // Fetch real member counts from box_members
       if (list.length > 0) {
         const boxIds = list.map(b => b.id);
-        const { data: members } = await supabase
-          .from('box_members')
-          .select('box_id')
-          .in('box_id', boxIds)
-          .eq('status', 'active');
+        const members = await readRows(
+          supabase
+            .from('box_members')
+            .select('box_id')
+            .in('box_id', boxIds)
+            .eq('status', 'active'),
+          { screen: 'BoxDirectory', action: 'memberCounts' },
+        );
         const countMap: Record<string, number> = {};
         (members ?? []).forEach((m: any) => {
           countMap[m.box_id] = (countMap[m.box_id] ?? 0) + 1;
