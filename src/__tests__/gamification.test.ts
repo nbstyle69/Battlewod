@@ -48,6 +48,7 @@ jest.mock('../lib/sentry', () => ({
 }));
 
 import {
+  isBadgeUnobtainable,
   readBadgeQueue,
   clearBadgeQueue,
   checkAndAwardBadges,
@@ -230,6 +231,21 @@ describe('checkAndAwardBadges', () => {
   it('treats missing counters as 0 (no false positives)', async () => {
     const result = await checkAndAwardBadges('user-1', {});
     expect(result).toEqual([]);
+  });
+});
+
+// ── Badges sans source d'attribution ──────────────────────────────────────────
+
+describe('isBadgeUnobtainable', () => {
+  it('flags the client-counter and tutorial badges', () => {
+    ['timer_50', 'wod_gen_100', 'first_step', 'streak_1w', 'streak_26w']
+      .forEach(k => expect(isBadgeUnobtainable(k)).toBe(true));
+  });
+
+  it('leaves every server-verifiable and owner-credited badge visible', () => {
+    ['level_scaled', 'level_pro', 'first_score', 'first_win', 'podium',
+     'champion_5', 'veteran_10', 'social_5', 'chatty_50', 'mv_thrusters_100']
+      .forEach(k => expect(isBadgeUnobtainable(k)).toBe(false));
   });
 });
 
