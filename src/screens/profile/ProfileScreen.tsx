@@ -5,7 +5,7 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
   Image, Share, Switch, Linking, RefreshControl,
 } from 'react-native';
-import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen, Search, ExternalLink } from 'lucide-react-native';
+import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen, Search, ExternalLink, Lock } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
@@ -22,7 +22,7 @@ import { LevelColors } from '../../theme/designTokens';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { getBadgesCatalog, getEarnedBadges, getStreak, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
 import { HomeStackParamList } from '../../navigation';
-import { Program } from '../../types';
+import { Program, Gender } from '../../types';
 import { Json } from '../../types/supabase';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
@@ -166,7 +166,15 @@ export default function ProfileScreen() {
   const [editEmail, setEditEmail]   = useState(user?.email ?? '');
   const [avatarUrl, setAvatarUrl]   = useState(user?.avatar_url ?? '');
   const [editBio, setEditBio]       = useState(user?.bio ?? '');
+  const [editGender, setEditGender] = useState<Gender | null>(user?.gender ?? null);
   const [saving, setSaving]         = useState(false);
+
+  // ── Changement de mot de passe (3E)
+  const [pwdModal, setPwdModal]     = useState(false);
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd]         = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [changingPwd, setChangingPwd] = useState(false);
   const [pickingPhoto, setPickingPhoto] = useState(false);
 
   // Load my programs
@@ -457,7 +465,11 @@ export default function ProfileScreen() {
     setSaving(true);
     try {
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-      const updates: Record<string, string> = { full_name: fullName, username: editUsername.trim() };
+      const updates: Record<string, string | null> = {
+        full_name: fullName,
+        username: editUsername.trim(),
+        gender: editGender,
+      };
 
       // Upload avatar to Supabase Storage if it's a local file URI
       let finalAvatarUrl = avatarUrl.trim();
@@ -488,7 +500,12 @@ export default function ProfileScreen() {
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
       setSaving(false);
       if (error) { Alert.alert(t('common.error'), error.message); return; }
-      updateUser({ full_name: fullName, avatar_url: avatarUrl.trim() || user.avatar_url, username: editUsername.trim() });
+      updateUser({
+        full_name: fullName,
+        avatar_url: avatarUrl.trim() || user.avatar_url,
+        username: editUsername.trim(),
+        gender: editGender ?? undefined,
+      });
       setEditing(false);
 
       if (emailChanged) {
@@ -520,6 +537,38 @@ export default function ProfileScreen() {
   const eloProgress = nextStep
     ? Math.round(Math.max(0, Math.min(100, ((currentElo - currentStep.min) / (nextStep.min - currentStep.min)) * 100)))
     : 100;
+
+  async function handleChangePassword() {
+    if (!user?.email) return;
+    if (newPwd.length < 6) { Alert.alert(t('common.error'), t('auth.passwordTooShort')); return; }
+    // Vérifié AVANT tout appel réseau.
+    if (newPwd !== confirmPwd) { Alert.alert(t('common.error'), t('profile.password.mismatch')); return; }
+
+    setChangingPwd(true);
+    // Ré-authentification : la session rendue porte le MÊME user, donc le
+    // onAuthStateChange qui suit relance un fetchProfile identique.
+    const { error: reauthErr } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPwd,
+    });
+    if (reauthErr) {
+      setChangingPwd(false);
+      Alert.alert(t('common.error'), t('profile.password.wrongCurrent'));
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPwd });
+    setChangingPwd(false);
+    if (error) {
+      // Jamais le mot de passe, ni en log ni dans Sentry.
+      captureError(new Error(`changePassword: ${error.message}`), { screen: 'Profile', action: 'changePassword' });
+      Alert.alert(t('common.error'), error.message);
+      return;
+    }
+    setPwdModal(false);
+    setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+    Alert.alert(t('common.success'), t('profile.password.changed'));
+  }
 
   async function handleSignOut() {
     Alert.alert(t('profile.alerts.signOutTitle'), t('profile.alerts.signOutMsg'), [
@@ -1073,6 +1122,23 @@ export default function ProfileScreen() {
                     </View>
                   </View>
 
+                  <Text style={S.editLabel}>{t('auth.gender')}</Text>
+                  <View style={S.genderRow}>
+                    {(['male', 'female'] as const).map(g => (
+                      <TouchableOpacity
+                        key={g}
+                        style={[S.genderCard, editGender === g && S.genderCardActive]}
+                        onPress={() => setEditGender(editGender === g ? null : g)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={{ fontSize: 20 }}>{g === 'male' ? '♂' : '♀'}</Text>
+                        <Text style={[S.genderLabel, editGender === g && S.genderLabelActive]}>
+                          {t(g === 'male' ? 'auth.male' : 'auth.female')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
                   <Text style={S.editLabel}>{t('profile.account.emailLabel')}</Text>
                   <TextInput style={S.editInput} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" placeholder={t('profile.account.emailLabel')} placeholderTextColor={theme.textMuted} />
 
@@ -1089,6 +1155,11 @@ export default function ProfileScreen() {
 
                   <TouchableOpacity style={S.saveBtn} onPress={handleSaveProfile} disabled={saving} activeOpacity={0.85}>
                     {saving ? <ActivityIndicator color={theme.background} size="small" /> : <><Check color={theme.background} size={16} /><Text style={S.saveBtnText}>{t('common.save')}</Text></>}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={S.pwdBtn} onPress={() => setPwdModal(true)} activeOpacity={0.85}>
+                    <Lock color={theme.text} size={14} />
+                    <Text style={S.pwdBtnText}>{t('profile.password.title')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1287,6 +1358,54 @@ export default function ProfileScreen() {
               {joining ? <ActivityIndicator color={theme.background} size="small" /> : <><Hash color={theme.background} size={16} /><Text style={S.joinBtnText}>{t('profile.account.join')}</Text></>}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setJoinModal(false)} style={S.modalCancel}>
+              <Text style={S.modalCancelText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Changement de mot de passe ──────────────────────────── */}
+      <Modal visible={pwdModal} transparent animationType="slide" onRequestClose={() => setPwdModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalOverlay}>
+          <View style={S.modalSheet}>
+            <View style={S.modalHandle} />
+            <Text style={S.modalTitle}>{t('profile.password.title')}</Text>
+            <TextInput
+              style={S.editInput}
+              value={currentPwd}
+              onChangeText={setCurrentPwd}
+              placeholder={t('profile.password.current')}
+              placeholderTextColor={theme.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={S.editInput}
+              value={newPwd}
+              onChangeText={setNewPwd}
+              placeholder={t('profile.password.new')}
+              placeholderTextColor={theme.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={S.editInput}
+              value={confirmPwd}
+              onChangeText={setConfirmPwd}
+              placeholder={t('profile.password.confirm')}
+              placeholderTextColor={theme.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={[S.joinBtn, (!currentPwd || !newPwd || !confirmPwd || changingPwd) && { opacity: 0.5 }]}
+              onPress={handleChangePassword}
+              disabled={!currentPwd || !newPwd || !confirmPwd || changingPwd}
+              activeOpacity={0.85}
+            >
+              {changingPwd ? <ActivityIndicator color={theme.background} size="small" /> : <><Lock color={theme.background} size={16} /><Text style={S.joinBtnText}>{t('common.save')}</Text></>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setPwdModal(false); setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); }} style={S.modalCancel}>
               <Text style={S.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
@@ -1530,6 +1649,22 @@ function createStyles(t: AppTheme) {
     gap: 8, backgroundColor: t.accent, borderRadius: 14, padding: 14, marginTop: 4,
   },
   saveBtnText: { color: t.background, fontSize: 14, fontWeight: '700' },
+
+  genderRow: { flexDirection: 'row', gap: 10 },
+  genderCard: {
+    flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10,
+    borderRadius: 12, borderWidth: 1, borderColor: t.border,
+    backgroundColor: isDark ? t.card : t.background,
+  },
+  genderCardActive: { borderColor: t.accent, backgroundColor: t.surface },
+  genderLabel: { fontSize: 12, fontWeight: '600', color: t.textMuted },
+  genderLabelActive: { color: t.text },
+
+  pwdBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 14, borderWidth: 1, borderColor: t.border, padding: 12,
+  },
+  pwdBtnText: { color: t.text, fontSize: 13, fontWeight: '700' },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: t.modalBackdrop },
   modalSheet: {
