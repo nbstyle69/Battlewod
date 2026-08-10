@@ -1302,6 +1302,8 @@
     "seeDetails": "See details"
   },
   "tourWod": {
+    "cappedLabel": "Time cap reached (CAP)",
+    "cappedPlaceholder": "Reps completed at cap",
     "deadlineExpired": "DEADLINE EXPIRED",
     "deadlineExpiredTitle": "Deadline expired",
     "errNoScore": "Enter your score before submitting.",

@@ -48,6 +48,7 @@ interface ContestedDaily {
   athlete_id: string;
   score_value: number;
   score_mode: string;
+  capped: boolean;
   rx: boolean;
   video_url: string | null;
   contest_reason: string | null;
@@ -125,6 +126,7 @@ export default function AdminScreen() {
         athlete_id: s.user_id,
         score_value: s.score_value,
         score_mode: tournament?.score_mode ?? 'time',
+        capped: s.capped ?? false,
         rx: s.rx,
         video_url: s.video_url,
         contest_reason: s.contest_reason,
@@ -452,7 +454,7 @@ export default function AdminScreen() {
                       <Text style={S.scoreWod}>Score soumis</Text>
                       <Text style={S.dailyScoreDetail}>{item.rx ? 'RX' : 'Scaled'}</Text>
                     </View>
-                    <Text style={S.scoreValue}>{formatScoreValue(item.score_value, item.score_mode)}</Text>
+                    <Text style={S.scoreValue}>{formatScoreValue(item.score_value, item.score_mode, item.capped)}</Text>
                   </View>
 
                   {item.contest_reason ? (

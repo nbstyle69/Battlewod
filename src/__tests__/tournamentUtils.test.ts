@@ -178,6 +178,41 @@ describe('rankWodScores', () => {
       expect(result[0].id).toBe('fast');
       expect(result[0].rank).toBe(1);
     });
+
+    it('ranks every finisher ahead of every capped attempt, capped by reps desc', () => {
+      const scores = [
+        makeScore({ id: 'cap_low', score_value: '8', capped: true }),
+        makeScore({ id: 'fin_slow', score_value: '600' }),
+        makeScore({ id: 'cap_high', score_value: '31', capped: true }),
+        makeScore({ id: 'fin_fast', score_value: '420' }),
+      ];
+      const result = rankWodScores(scores, 'For Time');
+      expect(result.map((r) => r.id)).toEqual(['fin_fast', 'fin_slow', 'cap_high', 'cap_low']);
+    });
+
+    it('shares the rank between two capped athletes with the same reps', () => {
+      const scores = [
+        makeScore({ id: 'fin', score_value: '420' }),
+        makeScore({ id: 'cap_a', score_value: '31', capped: true }),
+        makeScore({ id: 'cap_b', score_value: '31', capped: true }),
+        makeScore({ id: 'cap_c', score_value: '8', capped: true }),
+      ];
+      const result = rankWodScores(scores, 'For Time');
+      expect(result.find((r) => r.id === 'cap_a')?.rank).toBe(2);
+      expect(result.find((r) => r.id === 'cap_b')?.rank).toBe(2);
+      expect(result.find((r) => r.id === 'cap_c')?.rank).toBe(4);
+    });
+
+    it('does not tie a capped athlete with a finisher sharing the same score_value', () => {
+      const scores = [
+        makeScore({ id: 'fin', score_value: '100' }),
+        makeScore({ id: 'cap', score_value: '100', capped: true }),
+      ];
+      const result = rankWodScores(scores, 'For Time');
+      expect(result.find((r) => r.id === 'fin')?.rank).toBe(1);
+      expect(result.find((r) => r.id === 'cap')?.rank).toBe(2);
+      expect(result.every((r) => !r.isExAequo)).toBe(true);
+    });
   });
 
   it('assigns cfPoints to each ranked score', () => {

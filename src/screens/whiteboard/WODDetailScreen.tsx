@@ -22,7 +22,7 @@ import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
 import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScoreReminder } from '../../services/notifications';
 import { incrementCounter, logMovementReps } from '../../services/gamification';
-import { formatScoreValue, DNF_BASE } from '../../utils/scoreFormat';
+import { formatScoreValue, normalizeScore, mapForTimeScore } from '../../utils/scoreFormat';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
@@ -59,7 +59,7 @@ function allowedScoreTypes(wodType?: string | null): { types: ScoreType[]; defau
 }
 
 function formatScore(score: WODScore): string {
-  return formatScoreValue(score.score_value, score.score_type);
+  return formatScoreValue(score.score_value, score.score_type, score.capped);
 }
 
 // ── ELO Calculation (delegated to shared utility) ───────────────────────
@@ -201,13 +201,13 @@ export default function WODDetailScreen() {
     setTimeMin('');
     setTimeSec('');
     if (myScore.score_type === 'time') {
-      if (myScore.score_value >= DNF_BASE) {
+      const n = normalizeScore(Math.round(myScore.score_value), myScore.capped, true);
+      if (n.capped) {
         setDnf(true);
-        setCapReps(String(myScore.score_value - DNF_BASE));
+        setCapReps(String(n.value));
       } else {
-        const total = Math.round(myScore.score_value);
-        setTimeMin(String(Math.floor(total / 60)));
-        setTimeSec(String(total % 60));
+        setTimeMin(String(Math.floor(n.value / 60)));
+        setTimeSec(String(n.value % 60));
       }
     } else {
       setScoreInput(String(myScore.score_value));
@@ -236,14 +236,15 @@ export default function WODDetailScreen() {
   async function submitScore() {
     if (!wod || !user || !currentBox) return;
     let value = 0;
+    let capped = false;
     if (scoreType === 'time' && dnf) {
       const reps = parseInt(capReps) || 0;
       if (reps <= 0) { Alert.alert('Score invalide', 'Entre le nombre de répétitions complétées.'); return; }
-      value = DNF_BASE + reps;
+      ({ score_value: value, capped } = mapForTimeScore({ capped: true, reps }));
     } else if (scoreType === 'time') {
-      const m = parseInt(timeMin) || 0;
-      const s = parseInt(timeSec) || 0;
-      value = m * 60 + s;
+      ({ score_value: value, capped } = mapForTimeScore({
+        capped: false, minutes: parseInt(timeMin) || 0, seconds: parseInt(timeSec) || 0,
+      }));
     } else {
       value = parseFloat(scoreInput);
     }
@@ -251,7 +252,7 @@ export default function WODDetailScreen() {
 
     // Cap validation for AMRAP / EMOM / Tabata
     const maxScore = computeMaxScore(wod.wod_type, wod.description, wod.time_cap_seconds, wod.rounds, scoreType);
-    if (maxScore && value > maxScore) {
+    if (maxScore && !capped && value > maxScore) {
       Alert.alert('Score trop élevé', `Le maximum estimé pour ce WOD est de ${maxScore} ${scoreType === 'rounds' ? 'rounds' : 'reps'}. Vérifie ta saisie.`);
       return;
     }
@@ -263,6 +264,7 @@ export default function WODDetailScreen() {
       box_id: currentBox.id,
       score_type: scoreType,
       score_value: value,
+      capped,
       rx: isRx,
       scaled: !isRx,
       notes: noteInput.trim() || null,
@@ -835,6 +837,7 @@ export default function WODDetailScreen() {
                       wodType={wod.wod_type ?? null}
                       score={myScore.score_value}
                       scoreType={myScore.score_type}
+                      capped={myScore.capped}
                       rx={myScore.rx}
                       rank={myRank}
                       totalParticipants={scores.length}

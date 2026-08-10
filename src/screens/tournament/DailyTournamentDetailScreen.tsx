@@ -20,7 +20,7 @@ import { cancelTodayScoreReminder } from '../../services/notifications';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
-import { formatScoreValue } from '../../utils/scoreFormat';
+import { formatScoreValue, mapForTimeScore, compareScores } from '../../utils/scoreFormat';
 import { getScaledMovements } from '../../utils/wodScaling';
 
 import { trackDailyTournamentJoin, trackDailyTournamentScoreSubmit } from '../../lib/analytics';
@@ -36,6 +36,7 @@ interface Participant {
   level: string;
   elo: number;
   score_value: number | null;
+  capped: boolean;
   rx: boolean;
   submitted_at: string | null;
   video_url: string | null;
@@ -63,8 +64,8 @@ interface TournamentDetail {
   is_official?: boolean;
 }
 
-function formatScore(value: number, mode: string): string {
-  return formatScoreValue(value, mode);
+function formatScore(value: number, mode: string, capped?: boolean | null): string {
+  return formatScoreValue(value, mode, capped);
 }
 
 export default function DailyTournamentDetailScreen() {
@@ -86,6 +87,8 @@ export default function DailyTournamentDetailScreen() {
   // Score modal
   const [scoreModal, setScoreModal] = useState(false);
   const [scoreInput, setScoreInput] = useState('');
+  const [scoreCapped, setScoreCapped] = useState(false);
+  const [capReps, setCapReps] = useState('');
   const [timeMin, setTimeMin] = useState('');
   const [timeSec, setTimeSec] = useState('');
   const secRef = useRef<TextInput>(null);
@@ -117,7 +120,7 @@ export default function DailyTournamentDetailScreen() {
 
     const { data: scores } = await supabase
       .from('daily_tournament_scores')
-      .select('user_id, score_value, rx, submitted_at, video_url, status')
+      .select('user_id, score_value, capped, rx, submitted_at, video_url, status')
       .eq('tournament_id', tournamentId);
 
     const scoreMap = new Map((scores ?? []).map((s: any) => [s.user_id, s]));
@@ -131,6 +134,7 @@ export default function DailyTournamentDetailScreen() {
         level: profile?.level ?? 'scaled',
         elo: profile?.elo ?? 1000,
         score_value: score?.score_value ?? null,
+        capped: score?.capped ?? false,
         rx: score?.rx ?? true,
         submitted_at: score?.submitted_at ?? null,
         video_url: score?.video_url ?? null,
@@ -144,11 +148,12 @@ export default function DailyTournamentDetailScreen() {
       if (a.score_value === null && b.score_value === null) return 0;
       if (a.score_value === null) return 1;
       if (b.score_value === null) return -1;
-      const rxDiff = (a.rx ? 0 : 1) - (b.rx ? 0 : 1);
-      if (rxDiff !== 0) return rxDiff;
-      return scoreMode === 'time'
-        ? a.score_value - b.score_value
-        : b.score_value - a.score_value;
+      // Miroir bit-à-bit de l'ORDER BY de compute_daily_tournament_elo.
+      return compareScores(
+        { rx: a.rx, score_value: a.score_value, capped: a.capped },
+        { rx: b.rx, score_value: b.score_value, capped: b.capped },
+        scoreMode === 'time',
+      );
     });
 
     setParticipants(mapped);
@@ -262,15 +267,23 @@ export default function DailyTournamentDetailScreen() {
   }
 
   async function handleSubmitScore() {
-    const hasInput = tournament?.score_mode === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim();
+    const hasInput = tournament?.score_mode === 'time'
+      ? (scoreCapped ? capReps.trim() : (timeMin.trim() || timeSec.trim()))
+      : scoreInput.trim();
     if (!user || !hasInput) return;
     setSubmitting(true);
 
     let value = 0;
+    let capped = false;
     if (tournament?.score_mode === 'time') {
-      const m = parseInt(timeMin) || 0;
-      const s = parseInt(timeSec) || 0;
-      value = m * 60 + s;
+      if (scoreCapped && !(parseInt(capReps) > 0)) {
+        Alert.alert('Score invalide', 'Entre le nombre de répétitions complétées au cap.');
+        setSubmitting(false);
+        return;
+      }
+      ({ score_value: value, capped } = scoreCapped
+        ? mapForTimeScore({ capped: true, reps: parseInt(capReps) || 0 })
+        : mapForTimeScore({ capped: false, minutes: parseInt(timeMin) || 0, seconds: parseInt(timeSec) || 0 }));
     } else {
       value = parseFloat(scoreInput);
     }
@@ -298,7 +311,7 @@ export default function DailyTournamentDetailScreen() {
       null,
       sType,
     );
-    if (maxScore && value > maxScore) {
+    if (maxScore && !capped && value > maxScore) {
       Alert.alert('Score trop élevé', `Le maximum estimé pour ce WOD est de ${maxScore} reps. Vérifie ta saisie.`);
       setSubmitting(false);
       return;
@@ -316,6 +329,7 @@ export default function DailyTournamentDetailScreen() {
       tournament_id: tournamentId,
       user_id: user.id,
       score_value: value,
+      capped,
       rx: scoreRx,
       notes: scoreNotes.trim() || null,
       video_url: videoUrl.trim() || null,
@@ -341,6 +355,10 @@ export default function DailyTournamentDetailScreen() {
     setScoreInput('');
     setScoreNotes('');
     setVideoUrl('');
+    setScoreCapped(false);
+    setCapReps('');
+    setTimeMin('');
+    setTimeSec('');
 
     // Check if all participants scored → complete tournament
     const { count } = await supabase
@@ -479,7 +497,7 @@ export default function DailyTournamentDetailScreen() {
           </View>
           {p.score_value !== null ? (
             <View style={S.scoreCol}>
-              <Text style={S.scoreValue}>{formatScore(p.score_value, tournament!.score_mode)}</Text>
+              <Text style={S.scoreValue}>{formatScore(p.score_value, tournament!.score_mode, p.capped)}</Text>
               <Text style={S.scoreRx}>{p.rx ? 'RX' : 'SC'}</Text>
             </View>
           ) : (
@@ -746,11 +764,34 @@ export default function DailyTournamentDetailScreen() {
             </View>
 
             <Text style={S.modalLabel}>
-              {tournament.score_mode === 'time' ? 'TEMPS (MM:SS)' :
+              {tournament.score_mode === 'time' && scoreCapped ? 'REPS AU CAP' :
+               tournament.score_mode === 'time' ? 'TEMPS (MM:SS)' :
                tournament.score_mode === 'reps' ? 'NOMBRE DE REPS' :
                tournament.score_mode === 'rounds' ? 'NOMBRE DE ROUNDS' : 'POIDS (KG)'}
             </Text>
-            {tournament.score_mode === 'time' ? (
+            {tournament.score_mode === 'time' && (
+              <TouchableOpacity
+                style={S.cappedRow}
+                onPress={() => { setScoreCapped(!scoreCapped); setCapReps(''); setTimeMin(''); setTimeSec(''); }}
+                activeOpacity={0.8}
+              >
+                <View style={[S.cappedCheck, scoreCapped && S.cappedCheckActive]}>
+                  {scoreCapped && <Text style={S.cappedCheckMark}>✓</Text>}
+                </View>
+                <Text style={S.cappedLabel}>Temps limite atteint (CAP)</Text>
+              </TouchableOpacity>
+            )}
+            {tournament.score_mode === 'time' && scoreCapped ? (
+              <TextInput
+                style={S.modalInput}
+                value={capReps}
+                onChangeText={v => setCapReps(v.replace(/\D/g, ''))}
+                keyboardType="number-pad"
+                placeholder="Reps complétées au cap"
+                placeholderTextColor={theme.textMuted}
+                autoFocus
+              />
+            ) : tournament.score_mode === 'time' ? (
               <View style={S.timeRow}>
                 <TextInput
                   style={[S.modalInput, S.timeInput]}
@@ -823,9 +864,9 @@ export default function DailyTournamentDetailScreen() {
             </View>
 
             <TouchableOpacity
-              style={[S.submitBtn, (!(tournament?.score_mode === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting) && { opacity: 0.5 }]}
+              style={[S.submitBtn, (!(tournament?.score_mode === 'time' ? (scoreCapped ? capReps.trim() : (timeMin.trim() || timeSec.trim())) : scoreInput.trim()) || submitting) && { opacity: 0.5 }]}
               onPress={handleSubmitScore}
-              disabled={!(tournament?.score_mode === 'time' ? (timeMin.trim() || timeSec.trim()) : scoreInput.trim()) || submitting}
+              disabled={!(tournament?.score_mode === 'time' ? (scoreCapped ? capReps.trim() : (timeMin.trim() || timeSec.trim())) : scoreInput.trim()) || submitting}
               activeOpacity={0.85}
             >
               {submitting ? <ActivityIndicator color="#fff" size="small" /> : (
@@ -930,6 +971,14 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   eloTxt: { fontSize: 10, color: t.textMuted, fontWeight: '600' },
   scoreCol: { alignItems: 'flex-end' },
   scoreValue: { fontSize: 16, fontWeight: '900', color: t.text },
+  cappedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  cappedCheck: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    borderColor: t.border, alignItems: 'center', justifyContent: 'center',
+  },
+  cappedCheckActive: { backgroundColor: t.accent, borderColor: t.accent },
+  cappedCheckMark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  cappedLabel: { fontSize: 14, fontWeight: '600', color: t.text },
   scoreRx: { fontSize: 9, fontWeight: '800', color: t.accent, marginTop: 1 },
   pendingTxt: { fontSize: 11, color: t.textMuted, fontStyle: 'italic' },
   actions: { gap: 10 },

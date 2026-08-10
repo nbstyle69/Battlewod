@@ -2,13 +2,11 @@ import { supabase } from '../lib/supabase';
 import { log } from '../lib/logger';
 import { syncLevelAndBadges } from '../utils/eloLevels';
 import { WODScore } from '../types';
+import { compareScores } from '../utils/scoreFormat';
 
+// Miroir bit-à-bit de l'ORDER BY de compute_wod_elo / compute_box_elo.
 export function sortScoresRxFirst(scores: WODScore[], isTimeBased: boolean): WODScore[] {
-  return [...scores].sort((a, b) => {
-    const rxDiff = (a.rx ? 0 : 1) - (b.rx ? 0 : 1);
-    if (rxDiff !== 0) return rxDiff;
-    return isTimeBased ? a.score_value - b.score_value : b.score_value - a.score_value;
-  });
+  return [...scores].sort((a, b) => compareScores(a, b, isTimeBased));
 }
 
 interface WodEloRow {

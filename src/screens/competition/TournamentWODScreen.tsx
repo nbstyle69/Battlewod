@@ -66,6 +66,9 @@ export default function TournamentWODScreen() {
   const scoreKind: ScoreKind = isRepsScore ? 'reps' : isTimeScoredType(wod.type) ? 'for-time' : 'free';
   const [canonicalScore, setCanonicalScore] = useState(existingScore?.score_value ?? '');
   const [scoreValid,     setScoreValid]     = useState(!!existingScore?.score_value);
+  // For Time uniquement : temps limite atteint → on stocke les REPS, pas le temps.
+  const [capped,  setCapped]  = useState(!!existingScore?.capped);
+  const [capReps, setCapReps] = useState(existingScore?.capped ? String(existingScore.score_value) : '');
 
   const deadlineHours = (wod.deadline_hours && wod.deadline_hours > 0) ? wod.deadline_hours : 24;
   const deadlineMsRef = useRef<number>(Date.now() + deadlineHours * 3600 * 1000);
@@ -94,8 +97,11 @@ export default function TournamentWODScreen() {
   async function handleSubmit() {
     // Canonical value: total reps (AMRAP/Max Reps), total seconds (For Time),
     // or raw text (loads/other). Ranking consumes the canonical number.
-    const finalScore = canonicalScore.trim();
-    if (!scoreValid)         { Alert.alert(t('common.error'), t('tourWod.errNoScore')); return; }
+    const isCapped = scoreKind === 'for-time' && capped;
+    const finalScore = isCapped ? capReps.trim() : canonicalScore.trim();
+    if (isCapped ? !(parseInt(capReps, 10) > 0) : !scoreValid) {
+      Alert.alert(t('common.error'), t('tourWod.errNoScore')); return;
+    }
     // La vidéo n'est exigée que si la RÈGLE du tournoi l'impose (require_video_proof).
     // Sinon elle est facultative — mais si un lien est saisi, il doit être valide.
     if (requireVideoProof && !urlValid) { Alert.alert(t('common.error'), t('tourWod.errBadUrl')); return; }
@@ -111,6 +117,7 @@ export default function TournamentWODScreen() {
       tournament_wod_id: wod.id,
       athlete_id:        user.id,
       score_value:       finalScore,
+      capped:            isCapped,
       tiebreak_value:    tiebreakValue ? parseFloat(tiebreakValue) : null,
       video_url:         youtubeUrl.trim() || null,
       notes:             notes.trim() || null,
@@ -184,7 +191,7 @@ export default function TournamentWODScreen() {
         <Text style={S.successLabel}>{t('tourWod.wod')}</Text>
         <Text style={S.successValue}>{wod.title}</Text>
         <Text style={[S.successLabel, { marginTop: 12 }]}>{t('tourWod.score')}</Text>
-        <Text style={S.successValue}>{formatScoreDisplay(canonicalScore, wod.type, repsPerRound)}</Text>
+        <Text style={S.successValue}>{formatScoreDisplay(capped ? capReps : canonicalScore, wod.type, repsPerRound, capped)}</Text>
         {tiebreakValue ? (
           <>
             <Text style={[S.successLabel, { marginTop: 12 }]}>{t('tourWod.tiebreak')}</Text>
@@ -262,7 +269,7 @@ export default function TournamentWODScreen() {
         {existingScore && (
           <View style={[S.card, { borderColor: `${theme.warning}40` }]}>
             <Text style={S.cardLabel}>{t('tourWod.prevScore')}</Text>
-            <Text style={S.prevScore}>{formatScoreDisplay(existingScore.score_value, wod.type, repsPerRound)}</Text>
+            <Text style={S.prevScore}>{formatScoreDisplay(existingScore.score_value, wod.type, repsPerRound, existingScore.capped)}</Text>
             {existingScore.video_url ? (
               <TouchableOpacity style={S.ytPrevBtn} onPress={() => Linking.openURL(existingScore.video_url!)}>
                 <Youtube color="#FF0000" size={16} />
@@ -322,14 +329,38 @@ export default function TournamentWODScreen() {
             {wod.type === 'For Time' ? t('tourWod.finalTime') : t('tourWod.finalScore')}
           </Text>
 
-          <ScoreEntryFields
-            kind={scoreKind}
-            movements={wod.movements}
-            repsPerRound={wod.reps_per_round}
-            initialCanonical={existingScore?.score_value ?? null}
-            freePlaceholder={t('tourWod.phDefault')}
-            onChange={(canonical, valid) => { setCanonicalScore(canonical); setScoreValid(valid); }}
-          />
+          {scoreKind === 'for-time' && (
+            <TouchableOpacity
+              style={S.cappedRow}
+              onPress={() => { setCapped(!capped); setCapReps(''); }}
+              activeOpacity={0.8}
+            >
+              <View style={[S.cappedCheck, capped && S.cappedCheckActive]}>
+                {capped && <Text style={S.cappedCheckMark}>✓</Text>}
+              </View>
+              <Text style={S.cappedLabel}>{t('tourWod.cappedLabel')}</Text>
+            </TouchableOpacity>
+          )}
+
+          {scoreKind === 'for-time' && capped ? (
+            <TextInput
+              style={S.cappedInput}
+              value={capReps}
+              onChangeText={v => setCapReps(v.replace(/\D/g, ''))}
+              keyboardType="number-pad"
+              placeholder={t('tourWod.cappedPlaceholder')}
+              placeholderTextColor={theme.textMuted}
+            />
+          ) : (
+            <ScoreEntryFields
+              kind={scoreKind}
+              movements={wod.movements}
+              repsPerRound={wod.reps_per_round}
+              initialCanonical={existingScore?.score_value ?? null}
+              freePlaceholder={t('tourWod.phDefault')}
+              onChange={(canonical, valid) => { setCanonicalScore(canonical); setScoreValid(valid); }}
+            />
+          )}
         </View>
 
         <View style={S.card}>
@@ -445,6 +476,19 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   content: { padding: 16, paddingTop: 14 },
   card:      { backgroundColor: theme.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.cardBorder, gap: 10, marginBottom: 14 },
   cardLabel: { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 1.5 },
+  cappedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, marginBottom: 4 },
+  cappedCheck: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    borderColor: theme.border, alignItems: 'center', justifyContent: 'center',
+  },
+  cappedCheckActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+  cappedCheckMark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  cappedLabel: { fontSize: 14, fontWeight: '600', color: theme.text },
+  cappedInput: {
+    marginTop: 10, backgroundColor: theme.surface, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.border, paddingHorizontal: 14,
+    paddingVertical: 12, color: theme.text, fontSize: 16, fontWeight: '700',
+  },
   cardHint:  { fontSize: 12, color: theme.textMuted, lineHeight: 18 },
   descText:  { fontSize: 14, color: theme.textSecondary, lineHeight: 22 },
   movRow:    { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },

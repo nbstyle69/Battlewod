@@ -19,7 +19,7 @@ import { spacing, borderRadius, typography, shadows } from '../../theme/designTo
 interface Stats {
   memberCount: number;
   todayWOD: { title: string; wod_type: string | null } | null;
-  recentScores: { username: string; score_value: number; score_type: string; rx: boolean; wod_title: string }[];
+  recentScores: { username: string; score_value: number; score_type: string; capped: boolean; rx: boolean; wod_title: string }[];
 }
 
 interface InterBoxStats {
@@ -62,7 +62,7 @@ export default function BODashboardScreen({ navigation }: any) {
       supabase.from('box_wods').select('title, wod_type')
         .eq('box_id', currentBox.id).eq('scheduled_date', today).eq('is_published', true).limit(1),
       supabase.from('wod_scores')
-        .select('score_value, score_type, rx, box_wods(title), profiles(username)')
+        .select('score_value, score_type, capped, rx, box_wods(title), profiles(username)')
         .eq('box_id', currentBox.id)
         .order('submitted_at', { ascending: false })
         .limit(6),
@@ -74,6 +74,7 @@ export default function BODashboardScreen({ navigation }: any) {
         username: s.profiles?.username ?? '?',
         score_value: s.score_value,
         score_type: s.score_type,
+        capped: s.capped ?? false,
         rx: s.rx,
         wod_title: s.box_wods?.title ?? '',
       })),
@@ -243,7 +244,7 @@ export default function BODashboardScreen({ navigation }: any) {
                   </View>
                   <View style={S.scoreRight}>
                     <Text style={S.scoreValue}>
-                      {formatScoreValue(sc.score_value, sc.score_type)}
+                      {formatScoreValue(sc.score_value, sc.score_type, sc.capped)}
                     </Text>
                     <Text style={[S.rxTag, { color: sc.rx ? theme.success : theme.warning }]}>
                       {sc.rx ? t('bo.dashboard.rx') : t('bo.dashboard.scaled')}
