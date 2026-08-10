@@ -68,15 +68,26 @@ CREATE TRIGGER trg_tournament_wod_activation
   FOR EACH ROW EXECUTE FUNCTION public.trg_tournament_wod_activation();
 
 -- ── 3. Balayage périodique pour les opens_at programmés ────────────────────
+-- Motif de planification du repo (cf. 20260617_daily_wod_official) : garde sur
+-- pg_available_extensions, puis unschedule conditionnel avant schedule. Sans
+-- la garde, le rejeu du schéma sur une base sans pg_cron échouerait ici.
 DO $$
 BEGIN
-  PERFORM cron.unschedule('tournament_activation_sweep')
-   WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'tournament_activation_sweep');
-  PERFORM cron.schedule(
-    'tournament_activation_sweep',
-    '*/15 * * * *',
-    $job$SELECT public.sync_tournament_activation()$job$
-  );
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron') THEN
+    CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'tournament_activation_sweep') THEN
+      PERFORM cron.unschedule('tournament_activation_sweep');
+    END IF;
+
+    PERFORM cron.schedule(
+      'tournament_activation_sweep',
+      '*/15 * * * *',
+      $cron$ SELECT public.sync_tournament_activation(); $cron$
+    );
+  ELSE
+    RAISE NOTICE 'pg_cron indisponible — les WOD programmés (opens_at futur) n''activeront pas le tournoi tant que le job n''est pas planifié (le trigger, lui, fonctionne).';
+  END IF;
 END $$;
 
 NOTIFY pgrst, 'reload schema';
