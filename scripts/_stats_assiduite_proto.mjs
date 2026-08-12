@@ -112,6 +112,7 @@ try {
   const coursSemaine = await mkClass(boxA, day(-6), '18:00', 10);
   const coursVieux = await mkClass(boxA, day(-40), '09:00', 10);   // hors fenêtre
   const coursDemain = await mkClass(boxA, day(1), '09:00', 10);    // à venir
+  const coursAujourdhui = await mkClass(boxA, day(0), '12:00', 10); // pas encore passé
   const coursB = await mkClass(boxB, day(-2), '19:00', 30);
 
   await mkResa(boxA, coursHier, assidu, { attended: true });
@@ -119,10 +120,13 @@ try {
   await mkResa(boxA, coursHier, athleteA, { attended: false });    // pointée absente
   await mkResa(boxA, coursVieux, decroche, { attended: true });    // dernière venue : J-40
   await mkResa(boxA, coursDemain, futur);                          // à venir seulement
+  await mkResa(boxA, coursAujourdhui, athleteA);                   // cours du jour, pas encore joué
   await mkResa(boxB, coursB, membreB, { attended: true });
 
   const call = (client, fn, args) => client.rpc(fn, args);
-  const winArgs = { p_box_id: boxA, p_from: day(-30), p_to: day(1) };
+  // La fenêtre inclut volontairement aujourd'hui et demain : c'est la règle
+  // « cours passés seulement » qui doit les écarter, pas les bornes.
+  const winArgs = { p_box_id: boxA, p_from: day(-30), p_to: day(2) };
 
   // ── Lecture autorisée ─────────────────────────────────────────────────────
   const { data: sA, error: eA } = await call(ownerA.client, 'get_box_attendance_summary', winArgs);
@@ -184,6 +188,9 @@ try {
     total === 3 && (heat ?? []).every(h => h.hour === 9 || h.hour === 18), cells);
   check('heatmap : rien de la box B (19h n\'existe pas côté A)',
     !(heat ?? []).some(h => h.hour === 19), cells);
+  check('heatmap et synthèse comptent la même chose (le cours du jour dans aucune des deux)',
+    total === row.reservations_count && !(heat ?? []).some(h => h.hour === 12),
+    `heatmap=${total} synthèse=${row.reservations_count}`);
 
   // ── La fenêtre filtre bien ────────────────────────────────────────────────
   const { data: sOld } = await call(ownerA.client, 'get_box_attendance_summary',

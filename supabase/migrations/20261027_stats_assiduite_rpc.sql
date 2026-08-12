@@ -167,6 +167,10 @@ $$;
 -- `class_schedules.start_time` est du texte ('09:00') : l'heure est extraite du
 -- préfixe. `dow` suit la convention ISO (1 = lundi … 7 = dimanche) pour que
 -- l'écran affiche une semaine qui commence le lundi sans retraiter la valeur.
+--
+-- Même exclusion des cours à venir que la synthèse : les deux chiffres sont lus
+-- côte à côte sur le même écran, un cours du jour compté ici et pas là ferait
+-- deux totaux différents pour la même période.
 
 CREATE OR REPLACE FUNCTION public.get_box_reservation_heatmap(
   p_box_id uuid,
@@ -196,6 +200,7 @@ BEGIN
     AND cr.status = 'confirmed'
     AND cs.scheduled_date >= p_from
     AND cs.scheduled_date <  p_to
+    AND cs.scheduled_date <  current_date
   GROUP BY 1, 2
   ORDER BY 1, 2;
 END;
