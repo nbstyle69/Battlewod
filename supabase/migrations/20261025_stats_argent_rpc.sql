@@ -70,6 +70,17 @@ BEGIN
     WHERE bm.box_id = p_box_id
       AND bm.subscription_status = 'active'
   ),
+  -- Un impayé n'est PAS un abonnement actif : le webhook Stripe bascule le
+  -- membre en `subscription_status = 'past_due'` (et pose `past_due_since`).
+  -- Le compter dans `abos` reviendrait à ne jamais en trouver un seul, et à
+  -- gonfler le MRR d'un montant qui n'est justement pas encaissé.
+  impayes AS (
+    SELECT coalesce(bm.amount_cents, mp.price_cents, 0) AS cents
+    FROM public.box_members bm
+    LEFT JOIN public.membership_plans mp ON mp.id = bm.plan_id
+    WHERE bm.box_id = p_box_id
+      AND bm.subscription_status = 'past_due'
+  ),
   invit AS (
     SELECT coalesce(mp.price_cents, 0) AS cents
     FROM public.box_invitations bi
@@ -93,8 +104,8 @@ BEGIN
     (SELECT count(*)::integer         FROM abos WHERE stripe_subscription_id IS NOT NULL),
     (SELECT coalesce(sum(cents), 0)::bigint FROM abos WHERE stripe_subscription_id IS NULL),
     (SELECT count(*)::integer         FROM abos WHERE stripe_subscription_id IS NULL),
-    (SELECT count(*)::integer         FROM abos WHERE past_due_since IS NOT NULL),
-    (SELECT coalesce(sum(cents), 0)::bigint FROM abos WHERE past_due_since IS NOT NULL),
+    (SELECT count(*)::integer               FROM impayes),
+    (SELECT coalesce(sum(cents), 0)::bigint FROM impayes),
     (SELECT count(*)::integer         FROM invit),
     (SELECT coalesce(sum(cents), 0)::bigint FROM invit),
     -- Résiliations de la période : demandes déposées + résiliations Stripe
@@ -156,7 +167,11 @@ $$;
 -- ── 3. Les personnes derrière les agrégats ────────────────────────────────
 --
 -- Exigence produit : un chiffre qui recouvre des personnes doit mener aux
--- personnes. Deux natures dans une seule liste, distinguées par `kind` :
+-- personnes. `get_box_dunning` sert déjà le panneau d'impayés de l'écran
+-- Abonnés ; on ne le remplace pas, mais la page Statistiques a besoin des deux
+-- natures d'argent en attente dans une seule liste ordonnée par ancienneté,
+-- pour que le gérant traite le plus vieux d'abord quelle qu'en soit l'origine.
+-- Deux natures, distinguées par `kind` :
 --   'past_due'    impayé Stripe en cours (le membre existe déjà) ;
 --   'cash'        invitation comptoir non encaissée (pas encore de membre).
 --
@@ -196,7 +211,7 @@ BEGIN
   LEFT JOIN public.profiles pr ON pr.id = bm.member_id
   LEFT JOIN public.membership_plans mp ON mp.id = bm.plan_id
   WHERE bm.box_id = p_box_id
-    AND bm.past_due_since IS NOT NULL
+    AND bm.subscription_status = 'past_due'
 
   UNION ALL
 

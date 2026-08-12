@@ -97,7 +97,11 @@ try {
   await mkMember(boxA, planA1, { stripe_subscription_id: `sub_zz1_${stamp}`, amount_cents: 6900 });
   await mkMember(boxA, planA2, { stripe_subscription_id: `sub_zz2_${stamp}`, amount_cents: 9900 });
   await mkMember(boxA, planA1, { amount_cents: 6900 });                       // comptoir : pas de sub Stripe
+  // Impayé : le webhook Stripe bascule le membre en `past_due`, il n'est donc
+  // PLUS `active`. Le fixture doit refléter ça, sinon le protocole valide un
+  // agrégat qui ne trouverait jamais rien en production.
   const dunned = await mkMember(boxA, planA2, {
+    subscription_status: 'past_due',
     stripe_subscription_id: `sub_zz3_${stamp}`, amount_cents: 9900,
     past_due_since: iso(now - 5 * 86400000), dunning_attempts: 2,
     last_payment_error: 'card_declined',
@@ -138,8 +142,9 @@ try {
   check('le coach de la box lit la synthèse', !eCoach, eCoach?.message ?? '');
 
   // ── Exactitude ────────────────────────────────────────────────────────────
-  check('MRR Stripe = 6900+9900+9900', Number(rowA.mrr_stripe_cents) === 26700, `${rowA.mrr_stripe_cents}`);
-  check('3 abonnements Stripe comptés', rowA.mrr_stripe_subs === 3, `${rowA.mrr_stripe_subs}`);
+  check('MRR Stripe = 6900+9900 (l\'impayé n\'est pas du MRR)',
+    Number(rowA.mrr_stripe_cents) === 16800, `${rowA.mrr_stripe_cents}`);
+  check('2 abonnements Stripe comptés', rowA.mrr_stripe_subs === 2, `${rowA.mrr_stripe_subs}`);
   check('MRR comptoir isolé = 6900', Number(rowA.mrr_cash_cents) === 6900, `${rowA.mrr_cash_cents}`);
   check('1 impayé, 9900 en jeu',
     rowA.past_due_count === 1 && Number(rowA.past_due_cents) === 9900,
@@ -148,7 +153,7 @@ try {
     rowA.cash_to_collect_count === 1 && Number(rowA.cash_to_collect_cents) === 6900,
     `${rowA.cash_to_collect_count}/${rowA.cash_to_collect_cents}`);
   check('aucun euro de la box B dans les agrégats de A',
-    Number(rowA.mrr_stripe_cents) + Number(rowA.mrr_cash_cents) === 33600,
+    Number(rowA.mrr_stripe_cents) + Number(rowA.mrr_cash_cents) === 23700,
     `total=${Number(rowA.mrr_stripe_cents) + Number(rowA.mrr_cash_cents)}`);
 
   // ── Comparaison de période : la fenêtre filtre bien les flux ──────────────
@@ -157,12 +162,14 @@ try {
   });
   const rowOld = Array.isArray(sOld) ? sOld[0] : sOld;
   check('période passée : 0 nouveau, mais le MRR courant reste un stock',
-    rowOld.new_subs_period === 0 && Number(rowOld.mrr_stripe_cents) === 26700,
+    rowOld.new_subs_period === 0 && Number(rowOld.mrr_stripe_cents) === 16800,
     `new=${rowOld.new_subs_period} mrr=${rowOld.mrr_stripe_cents}`);
 
   // ── Répartition par formule ───────────────────────────────────────────────
   const { data: plans } = await call(ownerA.client, 'get_box_plan_breakdown', { p_box_id: boxA });
   const byName = Object.fromEntries((plans ?? []).map(p => [p.plan_name, p]));
+  check('répartition : l\'impayé ne compte pas dans sa formule',
+    byName['ZZ Illimité']?.subs === 1, `${byName['ZZ Illimité']?.subs}`);
   check('répartition : 2 formules de la box A, aucune de B',
     (plans ?? []).length === 2 && !byName['ZZ B'], (plans ?? []).map(p => p.plan_name).join(','));
   check('répartition : 2x → 2 abonnés / 13800',
