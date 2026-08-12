@@ -151,7 +151,11 @@ BEGIN
   RETURN QUERY
   SELECT mp.id, mp.name, mp.color, mp.price_cents,
          count(bm.id)::integer,
-         coalesce(sum(coalesce(bm.amount_cents, mp.price_cents, 0)), 0)::bigint
+         -- Le LEFT JOIN produit une ligne fantôme pour une formule sans
+         -- abonné : sans ce garde, `coalesce(bm.amount_cents, mp.price_cents)`
+         -- retomberait sur le prix affiché et facturerait un abonné inexistant.
+         coalesce(sum(CASE WHEN bm.id IS NULL THEN 0
+                           ELSE coalesce(bm.amount_cents, mp.price_cents, 0) END), 0)::bigint
   FROM public.membership_plans mp
   LEFT JOIN public.box_members bm
     ON bm.plan_id = mp.id

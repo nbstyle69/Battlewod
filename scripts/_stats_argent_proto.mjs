@@ -81,6 +81,8 @@ try {
   };
   const planA1 = await mkPlan(boxA, 'ZZ 2x', 6900, 1);
   const planA2 = await mkPlan(boxA, 'ZZ Illimité', 9900, 2);
+  // Formule au catalogue mais sans un seul abonné : elle ne doit rien peser.
+  await mkPlan(boxA, 'ZZ Vide', 4900, 3);
   const planB1 = await mkPlan(boxB, 'ZZ B', 12900, 1);
 
   // Membres de la box A : 2 abos Stripe, 1 abo comptoir, 1 impayé.
@@ -170,8 +172,11 @@ try {
   const byName = Object.fromEntries((plans ?? []).map(p => [p.plan_name, p]));
   check('répartition : l\'impayé ne compte pas dans sa formule',
     byName['ZZ Illimité']?.subs === 1, `${byName['ZZ Illimité']?.subs}`);
-  check('répartition : 2 formules de la box A, aucune de B',
-    (plans ?? []).length === 2 && !byName['ZZ B'], (plans ?? []).map(p => p.plan_name).join(','));
+  check('répartition : 3 formules de la box A, aucune de B',
+    (plans ?? []).length === 3 && !byName['ZZ B'], (plans ?? []).map(p => p.plan_name).join(','));
+  check('répartition : une formule sans abonné pèse 0 (et pas son prix)',
+    byName['ZZ Vide']?.subs === 0 && Number(byName['ZZ Vide']?.mrr_cents) === 0,
+    `${byName['ZZ Vide']?.subs}/${byName['ZZ Vide']?.mrr_cents}`);
   check('répartition : 2x → 2 abonnés / 13800',
     byName['ZZ 2x']?.subs === 2 && Number(byName['ZZ 2x']?.mrr_cents) === 13800,
     `${byName['ZZ 2x']?.subs}/${byName['ZZ 2x']?.mrr_cents}`);
