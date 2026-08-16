@@ -56,7 +56,9 @@ serve(async (req: Request) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) return json({ boxes: rows.length, emailed: 0, reason: 'RESEND_API_KEY absent' });
 
-    const FROM = Deno.env.get('RESEND_FROM') ?? 'AthleX <noreply@athlexapp.eu>';
+    // Ce courrier vient de la plateforme, pas de la box : il porte le nom du produit
+    // gérant, à l'inverse des invitations qui partent au nom de la box.
+    const FROM = Deno.env.get('RESEND_FROM_MANAGER') ?? 'AthleX Manager <noreply@athlexapp.eu>';
     const WEB_URL = Deno.env.get('APP_WEB_URL') ?? 'https://athlexapp.eu';
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
