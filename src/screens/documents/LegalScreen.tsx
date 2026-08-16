@@ -137,7 +137,7 @@ function CGUContent({ theme, S }: { theme: AppTheme; S: any }) {
 
       <Text style={S.h2}>11. Contact</Text>
       <Text style={S.p}>
-        Pour toute question : athlex.contact.app@gmail.com
+        Pour toute question : contact@athlexapp.eu
       </Text>
 
       <Text style={S.footer}>© 2026 AthleX. Tous droits réservés.</Text>
@@ -225,7 +225,7 @@ function PrivacyContent({ theme, S }: { theme: AppTheme; S: any }) {
 
       <Text style={S.h2}>11. Contact</Text>
       <Text style={S.p}>
-        Pour toute question : athlex.contact.app@gmail.com
+        Pour toute question : contact@athlexapp.eu
       </Text>
 
       <Text style={S.footer}>© 2026 AthleX. Tous droits réservés.</Text>
