@@ -294,9 +294,15 @@ try {
 
   // ── 10. Un membre exclu ne revient pas par une invitation ─────────────────
 
+  // Depuis 20261029 l'exclusion est refusée dès la création : l'invitation est
+  // donc émise AVANT le bannissement, pour que la garde de consommation — qui
+  // reste le dernier rempart — soit toujours éprouvée.
   const banned = await mkUser('banni');
-  await svc.from('box_members').insert({ box_id: boxA, member_id: banned.id, role: 'member', status: 'banned' });
   const rBan = await invite(ownerA, { p_box_id: boxA, p_email: banned.email, p_cash_collected: true });
+  await svc.from('box_members').insert({ box_id: boxA, member_id: banned.id, role: 'member', status: 'banned' });
+  const rBanCreate = await invite(ownerA, { p_box_id: boxA, p_email: banned.email });
+  check('membre exclu de la box — création d\'invitation : REFUSÉE dès l\'écriture',
+    /MEMBER_BANNED/.test(rBanCreate.error?.message ?? ''), rBanCreate.error?.message ?? 'acceptée (!)');
   const rBanConsume = await banned.client.rpc('consume_box_invitation', { p_token: rBan.data.token });
   check('membre exclu de la box — consommation : REFUSÉE, il reste banni',
     rBanConsume.data?.ok === false && rBanConsume.data.reason === 'membre_exclu'
