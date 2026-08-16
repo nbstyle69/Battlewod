@@ -188,9 +188,11 @@ try {
     rRevC.data?.reason === 'invitation_revoquee' && (await memberRow(boxA, revUser.id)) === null,
     JSON.stringify(rRevC.data));
 
+  // L'invitation est émise avant le bannissement : depuis 20261029 la création
+  // refuse un exclu, et c'est la garde de consommation qu'on éprouve ici.
   const banned = await mkUser('banni');
-  await svc.from('box_members').insert({ box_id: boxA, member_id: banned.id, role: 'member', status: 'banned' });
   const rBan = await invite(ownerA, { p_box_id: boxA, p_email: banned.email, p_cash_collected: true });
+  await svc.from('box_members').insert({ box_id: boxA, member_id: banned.id, role: 'member', status: 'banned' });
   const rBanC = await consumeAsServer(rBan.data.token, banned.id);
   check('membre exclu — la voie serveur ne le réintègre pas',
     rBanC.data?.ok === false && rBanC.data.reason === 'membre_exclu'
