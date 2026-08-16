@@ -13,7 +13,7 @@
       "title": "Rejoins ta box",
       "subtitle": "Bonjour {{username}} !\nPour accéder au contenu, tu dois rejoindre une box avec un code d'invitation ou créer la tienne.",
       "haveCode": "J'ai un code d'invitation",
-      "ownerCta": "Je suis gérant · s'abonner sur athlex.app",
+      "ownerCta": "Je suis gérant · s'abonner sur athlexapp.eu",
       "noCode": "Je n'ai pas de code d'invitation",
       "signOut": "Se déconnecter"
     },
@@ -198,7 +198,7 @@
       "planName": "Plan Complet",
       "perMonth": "/mois",
       "webTitle": "Souscription via le web",
-      "webText": "Pour souscrire au plan complet, rends-toi sur athlex.app depuis un navigateur. Ton abonnement sera automatiquement activé dans l'app dès que le paiement sera confirmé.",
+      "webText": "Pour souscrire au plan complet, rends-toi sur athlexapp.eu depuis un navigateur. Ton abonnement sera automatiquement activé dans l'app dès que le paiement sera confirmé.",
       "subscribe": "Souscrire — 79€/mois",
       "retention": "Tes données (membres, WODs, scores) sont conservées 30 jours.",
       "retentionExtra": "\nSouscris maintenant pour ne rien perdre.",
@@ -237,7 +237,7 @@
       "perMonth": "/mois",
       "annual": "ou 749€/an (2 mois offerts)",
       "iosTitle": "Gestion de l'abonnement via le web",
-      "iosText": "Pour souscrire, modifier ou annuler ton abonnement AthleX Pro, connecte-toi sur athlex.app depuis un navigateur. Les changements sont automatiquement synchronisés dans l'app.",
+      "iosText": "Pour souscrire, modifier ou annuler ton abonnement AthleX Pro, connecte-toi sur athlexapp.eu depuis un navigateur. Les changements sont automatiquement synchronisés dans l'app.",
       "subscribePrice": "Souscrire — 79€/mois",
       "subscribeNow": "Souscrire maintenant",
       "managePlan": "Gérer mon abonnement",
@@ -738,7 +738,7 @@
     "cguLink": "CGU et la Politique de Confidentialité",
     "joinBattle": "REJOINDRE LA BATAILLE",
     "ownerPrompt": "Vous gérez une box ?",
-    "ownerLink": "Créez votre compte sur athlex.app"
+    "ownerLink": "Créez votre compte sur athlexapp.eu"
   },
   "forgot": {
     "title": "Mot de passe oublié",

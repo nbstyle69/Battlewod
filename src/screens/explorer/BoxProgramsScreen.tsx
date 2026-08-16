@@ -11,6 +11,7 @@ import { ExplorerStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { WEB_URL } from '../../lib/urls';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
@@ -28,7 +29,7 @@ interface ProgramItem {
   box_slug: string | null;
 }
 
-const SITE_BASE_URL = 'https://the-hub-rho.vercel.app';
+const SITE_BASE_URL = WEB_URL;
 
 export default function BoxProgramsScreen() {
   const { theme } = useTheme();

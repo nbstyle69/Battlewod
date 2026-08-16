@@ -140,8 +140,8 @@ serve(async (req: Request) => {
     let emailed = 0;
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (RESEND_API_KEY && emails.length) {
-      const FROM = Deno.env.get('RESEND_FROM') ?? 'AthleX <no-reply@athlex.app>';
-      const WEB_URL = Deno.env.get('APP_WEB_URL') ?? 'https://the-hub-rho.vercel.app';
+      const FROM = Deno.env.get('RESEND_FROM') ?? 'AthleX <noreply@athlexapp.eu>';
+      const WEB_URL = Deno.env.get('APP_WEB_URL') ?? 'https://athlexapp.eu';
       const suiviUrl = `${WEB_URL}/suivi`;
 
       const memberIds = [...new Set(emails.map((e) => e.user_id))];

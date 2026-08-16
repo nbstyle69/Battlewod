@@ -13,7 +13,7 @@
       "title": "Join your box",
       "subtitle": "Hello {{username}}!\nTo access the content, you need to join a box with an invite code or create your own.",
       "haveCode": "I have an invite code",
-      "ownerCta": "I'm a manager · subscribe on athlex.app",
+      "ownerCta": "I'm a manager · subscribe on athlexapp.eu",
       "noCode": "I don't have an invite code",
       "signOut": "Sign out"
     },
@@ -198,7 +198,7 @@
       "planName": "Full Plan",
       "perMonth": "/month",
       "webTitle": "Subscribe via the web",
-      "webText": "To subscribe to the full plan, go to athlex.app from a browser. Your subscription will be activated automatically in the app as soon as the payment is confirmed.",
+      "webText": "To subscribe to the full plan, go to athlexapp.eu from a browser. Your subscription will be activated automatically in the app as soon as the payment is confirmed.",
       "subscribe": "Subscribe — €79/month",
       "retention": "Your data (members, WODs, scores) is kept for 30 days.",
       "retentionExtra": "\nSubscribe now so you don't lose anything.",
@@ -237,7 +237,7 @@
       "perMonth": "/month",
       "annual": "or €749/year (2 months free)",
       "iosTitle": "Subscription management via the web",
-      "iosText": "To subscribe, change or cancel your AthleX Pro subscription, sign in at athlex.app from a browser. Changes are automatically synced in the app.",
+      "iosText": "To subscribe, change or cancel your AthleX Pro subscription, sign in at athlexapp.eu from a browser. Changes are automatically synced in the app.",
       "subscribePrice": "Subscribe — €79/month",
       "subscribeNow": "Subscribe now",
       "managePlan": "Manage my subscription",
@@ -738,7 +738,7 @@
     "cguLink": "Terms and Privacy Policy",
     "joinBattle": "JOIN THE BATTLE",
     "ownerPrompt": "You run a box?",
-    "ownerLink": "Create your account on athlex.app"
+    "ownerLink": "Create your account on athlexapp.eu"
   },
   "forgot": {
     "title": "Forgot password",

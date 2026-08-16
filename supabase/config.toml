@@ -28,8 +28,8 @@ enabled = true
 
 [auth]
 enabled = true
-site_url = "https://the-hub-rho.vercel.app/update-password"
-additional_redirect_urls = ["https://the-hub-rho.vercel.app/**"]
+site_url = "https://athlexapp.eu/update-password"
+additional_redirect_urls = ["https://athlexapp.eu/**", "https://www.athlexapp.eu/**"]
 
 [analytics]
 enabled = false

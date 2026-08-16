@@ -5,7 +5,7 @@ import { RootStackParamList } from './index';
 const prefix = Linking.createURL('/');
 
 export const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: [prefix, 'athlex://', 'https://athlex.app'],
+  prefixes: [prefix, 'athlex://', 'https://athlexapp.eu'],
 
   config: {
     screens: {
