@@ -8,8 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { openExternalUrl, pollUntilTrue } from '../../lib/openCheckout';
 import { supabase } from '../../lib/supabase';
-
-const PRICING_URL = 'https://the-hub-rho.vercel.app/pricing';
+import { PRICING_URL } from '../../lib/urls';
 
 export default function BOSubscriptionScreen({ navigation }: any) {
   const { currentBox, boxSubscription, isBoxActive, daysLeftTrial, refreshSubscription } = useAuth();

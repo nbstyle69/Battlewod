@@ -56,7 +56,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "athlex.app",
+              "host": "athlexapp.eu",
               "pathPrefix": "/"
             }
           ],

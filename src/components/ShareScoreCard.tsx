@@ -129,7 +129,7 @@ const ShareScoreCard = forwardRef<View, ShareScoreCardProps>(
               style={styles.footerLogo}
               resizeMode="contain"
             />
-            <Text style={styles.footerText}>athlex.app</Text>
+            <Text style={styles.footerText}>athlexapp.eu</Text>
           </View>
         </View>
       </View>

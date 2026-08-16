@@ -182,7 +182,7 @@ export default function RegisterScreen({ navigation }: Props) {
               onPress={() => Linking.openURL(OWNER_ONBOARDING_URL)}
               activeOpacity={0.7}
               accessibilityRole="link"
-              accessibilityLabel="Créer un compte gérant de box sur athlex.app"
+              accessibilityLabel="Créer un compte gérant de box sur athlexapp.eu"
             >
               <Text style={S.ownerText}>
                 {t('auth.ownerPrompt')}{' '}
