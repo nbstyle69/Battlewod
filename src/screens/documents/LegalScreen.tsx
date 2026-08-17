@@ -50,7 +50,7 @@ function CGUContent({ theme, S }: { theme: AppTheme; S: any }) {
       <Text style={S.h2}>1. Objet</Text>
       <Text style={S.p}>
         Les présentes Conditions Générales d'Utilisation (CGU) régissent l'utilisation de l'application mobile AthleX,
-        éditée par AthleX SAS. En créant un compte, vous acceptez ces CGU dans leur intégralité.
+        éditée par NBS Innovation. En créant un compte, vous acceptez ces CGU dans leur intégralité.
       </Text>
 
       <Text style={S.h2}>2. Inscription</Text>
@@ -102,7 +102,7 @@ function CGUContent({ theme, S }: { theme: AppTheme; S: any }) {
 
       <Text style={S.h2}>5. Propriété intellectuelle</Text>
       <Text style={S.p}>
-        L'application, son design, code et contenu sont la propriété exclusive d'AthleX SAS.
+        L'application, son design, code et contenu sont la propriété exclusive de NBS Innovation.
         Toute reproduction est interdite sans autorisation préalable.
       </Text>
 
@@ -140,7 +140,7 @@ function CGUContent({ theme, S }: { theme: AppTheme; S: any }) {
         Pour toute question : contact@athlexapp.eu
       </Text>
 
-      <Text style={S.footer}>© 2026 AthleX. Tous droits réservés.</Text>
+      <Text style={S.footer}>© 2026 AthleX — NBS Innovation. Tous droits réservés.</Text>
     </>
   );
 }
@@ -228,7 +228,7 @@ function PrivacyContent({ theme, S }: { theme: AppTheme; S: any }) {
         Pour toute question : contact@athlexapp.eu
       </Text>
 
-      <Text style={S.footer}>© 2026 AthleX. Tous droits réservés.</Text>
+      <Text style={S.footer}>© 2026 AthleX — NBS Innovation. Tous droits réservés.</Text>
     </>
   );
 }
