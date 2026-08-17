@@ -18,11 +18,25 @@
 // non liés sont silencieusement écartés (un attaquant ne peut plus viser un
 // inconnu ni toute la base). Les 15 types de notifs de l'app restent couverts.
 //
+// PRÉFÉRENCES (2026-08-16) — la responsabilité est INVERSÉE : le mapping
+// « type de notification → clé de préférence » vit ICI, pas chez l'appelant.
+// Avant, le filtrage dépendait d'un `pref_key` que le client fournissait ou
+// non : 7 des 13 familles n'en passaient aucune et partaient donc malgré les
+// réglages, et le défaut était dans le sens dangereux (envoyer). Désormais la
+// catégorie est OBLIGATOIRE et doit être connue — un appel sans catégorie
+// résoluble est refusé (fail-closed, comme CRON_SECRET sur les crons).
+//
+// La catégorie est résolue dans cet ordre : `category` explicite, `pref_key`
+// (compat historique), puis le `data.type` que TOUS les appels transportent
+// déjà. Cette dernière source est ce qui ferme les trous SANS attendre
+// l'adoption d'une mise à jour de l'app : un téléphone jamais mis à jour voit
+// ses préférences respectées dès le déploiement de cette fonction.
+//
 // Body: {
 //   recipients: Array<{ user_id: string; title: string; body: string; data?: object }>,
-//   pref_key?: string
+//   category?: string,   // ou pref_key (déprécié), ou data.type des recipients
 // }
-// Returns: { sent, recipients, authorized, dropped }
+// Returns: { sent, recipients, authorized, dropped, category, pref_disabled }
 // ------------------------------------------------------------------
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
@@ -33,10 +47,56 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const ALLOWED_PREF_KEYS = new Set([
-  'friend_requests', 'tournament_updates', 'score_updates',
-  'score_comments', 'score_reactions',
-]);
+// Mapping unique : type de notification → colonne de notification_preferences.
+// Toute famille de notification doit figurer ici. Un type absent est refusé,
+// pas envoyé : ajouter une notification force à décider quel réglage la
+// gouverne (c'est précisément l'oubli qui a produit le bug).
+const PREF_BY_TYPE: Record<string, string> = {
+  // Social
+  friend_request: 'friend_requests',
+  friend_accepted: 'friend_requests',
+  new_message: 'group_messages',
+  score_comment: 'score_comments',
+  score_reaction: 'score_reactions',
+  score_overtaken: 'score_updates',
+  // Entraînement
+  wod_published: 'new_wod',
+  // Compétition
+  tournament_closed: 'tournament_updates',
+  tournament_started: 'tournament_updates',
+  tournament_wod_scheduled: 'tournament_updates',
+  tournament_wod_open: 'tournament_updates',
+  tournament_submission_reminder: 'tournament_updates',
+  inter_wod_revealed: 'tournament_updates',
+  inter_bracket_match: 'tournament_updates',
+  inter_bracket_result: 'tournament_updates',
+  inter_pool_match: 'tournament_updates',
+  inter_competition_closed: 'elo_updates',
+  elo_change: 'elo_updates',
+  // Annonces de la box
+  box_notification: 'box_announcements',
+};
+
+// Les clés de préférence sont aussi acceptées comme catégorie : les versions
+// d'app déjà installées envoient `pref_key`, il ne s'agit pas de les casser.
+const PREF_KEYS = new Set<string>(Object.values(PREF_BY_TYPE));
+
+/** Colonne de préférence gouvernant cet appel, ou null si non résoluble. */
+function resolvePrefKey(
+  category: unknown, legacyPrefKey: unknown, types: string[],
+): string | null {
+  for (const raw of [category, legacyPrefKey]) {
+    if (typeof raw === 'string' && raw) {
+      if (PREF_KEYS.has(raw)) return raw;
+      if (PREF_BY_TYPE[raw]) return PREF_BY_TYPE[raw];
+      return null; // catégorie fournie mais inconnue → refus, pas de repli
+    }
+  }
+  const keys = new Set(types.map((t) => PREF_BY_TYPE[t]).filter(Boolean));
+  // Un lot mélangeant deux familles n'a pas de réglage unique : refusé plutôt
+  // que d'en choisir un au hasard.
+  return keys.size === 1 ? [...keys][0] : null;
+}
 
 // Plafond dur : un fan-out légitime (grande box, groupe) reste sous cette borne ;
 // au-delà = abus. Ne coupe aucun envoi réel connu.
@@ -193,8 +253,6 @@ serve(async (req: Request) => {
 
     const body = await req.json().catch(() => null);
     const recipients: Recipient[] = Array.isArray(body?.recipients) ? body.recipients : [];
-    const prefKey: string | undefined =
-      typeof body?.pref_key === 'string' && ALLOWED_PREF_KEYS.has(body.pref_key) ? body.pref_key : undefined;
 
     // De-dupe (garde le premier message par user id).
     // SÉCURITÉ (Lot 6B) : chaque user_id doit être un UUID STRICT. Les valeurs
@@ -214,27 +272,45 @@ serve(async (req: Request) => {
     if (requested === 0) return json({ sent: 0, recipients: 0, authorized: 0, dropped: 0 });
     if (requested > MAX_RECIPIENTS) return json({ error: 'Too many recipients' }, 400);
 
+    // ── CATÉGORIE OBLIGATOIRE (fail-closed) ─────────────────────────────────
+    const types = [...byUser.values()]
+      .map((r) => (typeof r.data?.type === 'string' ? r.data.type as string : ''))
+      .filter(Boolean);
+    const prefKey = resolvePrefKey(body?.category, body?.pref_key, types);
+    if (!prefKey) {
+      return json({ error: 'Unknown or missing notification category', sent: 0 }, 400);
+    }
+
     // ── AUTORISATION : ne garder que les destinataires réellement liés à l'appelant.
     const allowed = await authorizeRecipients(admin, caller, userIds);
     const droppedUnauthorized = userIds.length - allowed.size;
     userIds = userIds.filter((id) => allowed.has(id));
     if (userIds.length === 0) return json({ sent: 0, recipients: 0, authorized: 0, dropped: droppedUnauthorized });
 
-    // Préférence par destinataire (défaut true si absent).
-    if (prefKey) {
-      const { data: prefs } = await admin
-        .from('notification_preferences').select(`user_id, ${prefKey}`).in('user_id', userIds);
-      const disabled = new Set(
-        (prefs ?? []).filter((p: any) => p[prefKey] === false).map((p: any) => p.user_id),
-      );
-      userIds = userIds.filter((id) => !disabled.has(id));
-      if (userIds.length === 0) return json({ sent: 0, recipients: 0, authorized: allowed.size, dropped: droppedUnauthorized });
+    // ── PRÉFÉRENCE par destinataire (ligne absente = tout activé) ───────────
+    const { data: prefs, error: prefsErr } = await admin
+      .from('notification_preferences').select(`user_id, ${prefKey}`).in('user_id', userIds);
+    // Une lecture de préférences en échec ne doit pas se traduire par un envoi :
+    // c'est le défaut dans le sens dangereux qui a produit le bug.
+    if (prefsErr) return json({ error: 'Preferences unavailable', sent: 0 }, 503);
+    const disabled = new Set(
+      (prefs ?? []).filter((p: any) => p[prefKey] === false).map((p: any) => p.user_id),
+    );
+    userIds = userIds.filter((id) => !disabled.has(id));
+    if (userIds.length === 0) {
+      return json({
+        sent: 0, recipients: 0, authorized: allowed.size,
+        dropped: droppedUnauthorized, category: prefKey, pref_disabled: disabled.size,
+      });
     }
 
     const { data: tokens } = await admin
       .from('push_tokens').select('token, user_id').in('user_id', userIds);
     if (!tokens || tokens.length === 0) {
-      return json({ sent: 0, recipients: userIds.length, authorized: allowed.size, dropped: droppedUnauthorized });
+      return json({
+        sent: 0, recipients: userIds.length, authorized: allowed.size,
+        dropped: droppedUnauthorized, category: prefKey, pref_disabled: disabled.size,
+      });
     }
 
     const messages = tokens
@@ -243,7 +319,12 @@ serve(async (req: Request) => {
         const r = byUser.get(t.user_id)!;
         return { to: t.token, sound: 'default', title: r.title, body: r.body ?? '', data: r.data ?? {} };
       });
-    if (messages.length === 0) return json({ sent: 0, recipients: userIds.length, authorized: allowed.size, dropped: droppedUnauthorized });
+    if (messages.length === 0) {
+      return json({
+        sent: 0, recipients: userIds.length, authorized: allowed.size,
+        dropped: droppedUnauthorized, category: prefKey, pref_disabled: disabled.size,
+      });
+    }
 
     let sent = 0;
     for (let i = 0; i < messages.length; i += 100) {
@@ -256,7 +337,10 @@ serve(async (req: Request) => {
       if (res.ok) sent += chunk.length;
     }
 
-    return json({ sent, recipients: userIds.length, authorized: allowed.size, dropped: droppedUnauthorized });
+    return json({
+      sent, recipients: userIds.length, authorized: allowed.size,
+      dropped: droppedUnauthorized, category: prefKey, pref_disabled: disabled.size,
+    });
   } catch (e: any) {
     console.error('send-push error', e);
     return json({ error: e?.message ?? 'Internal error' }, 500);
