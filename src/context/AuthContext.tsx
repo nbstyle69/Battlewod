@@ -9,6 +9,7 @@ import { registerForPushNotifications, savePushToken, removePushToken, scheduleD
 import { awardLevelBadge } from '../services/gamification';
 import { setUserContext, clearUserContext, captureError } from '../lib/sentry';
 import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackDeleteAccount } from '../lib/analytics';
+import { isPurgedAtSignOut } from '../lib/storageKeys';
 
 const BOX_SKIPPED_KEY = '@athlex:boxSkipped';
 const ACTIVE_BOX_KEY = '@athlex:activeBoxId';
@@ -400,10 +401,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setMyBoxes([]);
     setBoxSkipped(false);
     // Purge des clés locales au signOut (3.8) — appareils partagés : box active,
-    // onboarding, tour, messages vus (lastSeenMessages_*), file de badges, etc.
+    // onboarding, messages vus (lastSeenMessages_*), file de badges, etc.
+    // `@athlex:tourDone` en est exclu : le tutoriel guidé décrit l'interface de
+    // l'appareil, pas la session — le rejouer à chaque déconnexion le ferait
+    // réapparaître devant quelqu'un qui l'a déjà vu.
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const toRemove = keys.filter(k => k.startsWith('@athlex:') || k.startsWith('lastSeenMessages_'));
+      const toRemove = keys.filter(isPurgedAtSignOut);
       if (toRemove.length) await AsyncStorage.multiRemove(toRemove);
     } catch (e) { captureError(e, { action: 'signOutPurge' }); }
     // Le cache mémoire des préférences et les rappels déjà posés appartiennent au
