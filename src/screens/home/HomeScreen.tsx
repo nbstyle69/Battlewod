@@ -24,6 +24,7 @@ import { spacing, borderRadius, typography, shadows } from '../../theme/designTo
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { countUnreadChangelog } from '../../lib/changelog';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import { getStreak, StreakInfo, readBadgeQueue, clearBadgeQueue, BadgeQueueItem } from '../../services/gamification';
 import AutoScrollCarousel from '../../components/AutoScrollCarousel';
@@ -127,10 +128,7 @@ export default function HomeScreen() {
         .gt('elo', user.elo ?? 0);
       const streakData = await getStreak(user.id, currentBox?.id);
 
-      const [{ count: totalCl }, { count: readCl }] = await Promise.all([
-        supabase.from('app_changelog').select('id', { count: 'exact', head: true }),
-        supabase.from('changelog_reads').select('changelog_id', { count: 'exact', head: true }).eq('user_id', user.id),
-      ]);
+      const unreadCl = await countUnreadChangelog(user.id, { screen: 'Home', action: 'countUnreadChangelog' });
 
       const boxFilter = currentBox?.id;
       const { data: tourns } = await supabase
@@ -296,7 +294,7 @@ export default function HomeScreen() {
       return {
         rank: (count ?? 0) + 1,
         streak: streakData,
-        unreadChangelog: Math.max(0, (totalCl ?? 0) - (readCl ?? 0)),
+        unreadChangelog: unreadCl,
         competitions: mapped,
         pendingFriends: friendCount ?? 0,
         recentScores: recentScoresMapped,
@@ -434,7 +432,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            onPress={() => { setUnreadChangelog(0); navigation.navigate('Changelog' as never); }}
+            onPress={() => navigation.navigate('Changelog' as never)}
             activeOpacity={0.7}
             style={{ position: 'relative' }}
           >
