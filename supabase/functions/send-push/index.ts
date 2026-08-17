@@ -32,6 +32,14 @@
 // l'adoption d'une mise à jour de l'app : un téléphone jamais mis à jour voit
 // ses préférences respectées dès le déploiement de cette fonction.
 //
+// APPELANT MACHINE (2026-08-16) — un cron n'a pas de JWT utilisateur, donc pas
+// de « relation » avec ses destinataires. L'en-tête `x-cron-secret` (même secret
+// que les crons, fail-closed) identifie un appelant serveur de confiance : il
+// saute l'autorisation par relation, mais PAS la catégorie obligatoire ni le
+// filtrage par préférence. Sans cette voie, les notifications de tournoi
+// devraient refaire leur propre fan-out Expo — c'est-à-dire re-créer un chemin
+// d'envoi qui ne consulte aucune préférence.
+//
 // Body: {
 //   recipients: Array<{ user_id: string; title: string; body: string; data?: object }>,
 //   category?: string,   // ou pref_key (déprécié), ou data.type des recipients
@@ -242,14 +250,23 @@ serve(async (req: Request) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const authHeader = req.headers.get('Authorization');
-    const jwt = (authHeader ?? '').replace(/^Bearer\s+/i, '').trim();
-    if (!jwt) return json({ error: 'Missing token' }, 401);
-
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
-    if (userErr || !userData?.user) return json({ error: 'Invalid token' }, 401);
-    const caller = userData.user.id;
+
+    // Appelant machine : secret présent, configuré et exact. Un secret non
+    // configuré côté fonction ne vaut jamais autorisation (fail-closed).
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const providedSecret = req.headers.get('x-cron-secret');
+    const isMachine = !!cronSecret && !!providedSecret && providedSecret === cronSecret;
+
+    let caller: string | null = null;
+    if (!isMachine) {
+      const authHeader = req.headers.get('Authorization');
+      const jwt = (authHeader ?? '').replace(/^Bearer\s+/i, '').trim();
+      if (!jwt) return json({ error: 'Missing token' }, 401);
+      const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
+      if (userErr || !userData?.user) return json({ error: 'Invalid token' }, 401);
+      caller = userData.user.id;
+    }
 
     const body = await req.json().catch(() => null);
     const recipients: Recipient[] = Array.isArray(body?.recipients) ? body.recipients : [];
@@ -282,7 +299,9 @@ serve(async (req: Request) => {
     }
 
     // ── AUTORISATION : ne garder que les destinataires réellement liés à l'appelant.
-    const allowed = await authorizeRecipients(admin, caller, userIds);
+    const allowed = caller
+      ? await authorizeRecipients(admin, caller, userIds)
+      : new Set(userIds); // appelant machine : le contenu ne vient pas d'un client
     const droppedUnauthorized = userIds.length - allowed.size;
     userIds = userIds.filter((id) => allowed.has(id));
     if (userIds.length === 0) return json({ sent: 0, recipients: 0, authorized: 0, dropped: droppedUnauthorized });

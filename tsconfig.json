@@ -6,5 +6,5 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "exclude": ["supabase/functions"]
+  "exclude": ["supabase/functions", "scripts/_deno_port_wrapper.ts"]
 }

@@ -6184,6 +6184,48 @@ export type Database = {
           },
         ]
       }
+      tournament_notifications_sent: {
+        Row: {
+          athlete_id: string
+          id: string
+          kind: string
+          sent_at: string
+          tournament_id: string
+          wod_id: string | null
+        }
+        Insert: {
+          athlete_id: string
+          id?: string
+          kind: string
+          sent_at?: string
+          tournament_id: string
+          wod_id?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          id?: string
+          kind?: string
+          sent_at?: string
+          tournament_id?: string
+          wod_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_notifications_sent_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_notifications_sent_wod_id_fkey"
+            columns: ["wod_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tournament_participants: {
         Row: {
           athlete_id: string
