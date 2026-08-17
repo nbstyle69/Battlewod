@@ -4,8 +4,11 @@ import {
 } from 'react-native';
 import { ArrowLeft, Sparkles, Bug, RefreshCw } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { writeOk } from '../../lib/db';
+import { CHANGELOG_WINDOW } from '../../lib/changelog';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import GlassBackground from '../../components/glass/GlassBackground';
@@ -29,6 +32,7 @@ export default function ChangelogScreen() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
   const S = createStyles(theme);
 
   const [entries, setEntries]   = useState<ChangelogEntry[]>([]);
@@ -43,7 +47,7 @@ export default function ChangelogScreen() {
         .from('app_changelog')
         .select('id, title, body, type, created_at')
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(CHANGELOG_WINDOW),
       supabase
         .from('changelog_reads')
         .select('changelog_id')
@@ -59,14 +63,23 @@ export default function ChangelogScreen() {
     })));
     setLoading(false);
 
-    // Mark all unread as read
+    // Marque comme lues les nouveautés de la fenêtre affichée — la même que
+    // celle comptée par la cloche. L'échec est remonté, pas avalé : sans ça un
+    // refus d'écriture laisse un badge qui ressuscite sans aucun signal.
     const unread = (changelog ?? []).filter(c => !readSet.has(c.id));
     if (unread.length > 0) {
       const rows = unread.map(c => ({ user_id: user.id, changelog_id: c.id }));
-      await supabase.from('changelog_reads').upsert(rows, { onConflict: 'user_id,changelog_id' });
+      const ok = await writeOk(
+        supabase.from('changelog_reads').upsert(rows, { onConflict: 'user_id,changelog_id' }),
+        { screen: 'Changelog', action: 'markRead' },
+      );
+      if (ok) {
+        setEntries(prev => prev.map(e => ({ ...e, isRead: true })));
+        queryClient.invalidateQueries({ queryKey: ['home'] });
+      }
     }
     } catch (e) { captureError(e, { screen: 'Changelog', action: 'load' }); setLoading(false); }
-  }, [user]);
+  }, [user, queryClient]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
