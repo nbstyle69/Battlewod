@@ -20,8 +20,6 @@ import { View, Image, ActivityIndicator, Platform, StyleSheet } from 'react-nati
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import OnboardingTutorialScreen, { ONBOARDING_KEY } from '../screens/onboarding/OnboardingTutorialScreen';
-import InteractiveTour from '../components/InteractiveTour';
-import { BO_TOUR_STEPS } from '../components/InteractiveTour';
 import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock, Compass } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
 
@@ -824,7 +822,6 @@ export default function AppNavigator() {
   useAndroidNavBar('', mode);
   const [splashDone, setSplashDone] = React.useState(false);
   const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
-  const [showTour, setShowTour] = React.useState(false);
 
   React.useEffect(() => {
     const t = setTimeout(() => setSplashDone(true), 1500);
@@ -852,7 +849,7 @@ export default function AppNavigator() {
 
   // Show tutorial AFTER login (user must be authenticated first)
   if (isAuthenticated && !onboardingDone) {
-    return <OnboardingTutorialScreen onDone={() => { setOnboardingDone(true); setShowTour(true); }} />;
+    return <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />;
   }
   const isSuperAdmin    = user?.role === 'super_admin' || user?.role === 'admin';
   const isBoxOwner      = user?.role === 'box_owner' || boxRole === 'owner';
@@ -861,8 +858,6 @@ export default function AppNavigator() {
   // Legacy 'athlete' users bypass onboarding — only new B2B roles require a box
   // boxSkipped = user explicitly chose to continue without a box
   const needsOnboarding = isAuthenticated && isB2BUser && !currentBox && !boxSkipped;
-
-  const tourSteps = isBoxOwner ? BO_TOUR_STEPS : undefined;
 
   return (
     <View style={styles.rootContainer}>
@@ -889,12 +884,6 @@ export default function AppNavigator() {
           )}
         </RootStack.Navigator>
       </NavigationContainer>
-      {showTour && (
-        <InteractiveTour
-          steps={tourSteps}
-          onComplete={() => setShowTour(false)}
-        />
-      )}
     </View>
   );
 }

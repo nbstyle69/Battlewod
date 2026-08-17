@@ -16,6 +16,7 @@ import { sendWodPublishedNotification } from '../../services/notifications';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD, BoxWODType } from '../../types';
 import DateField from '../../components/DateField';
+import InteractiveTour, { COACH_TOUR_STEPS } from '../../components/InteractiveTour';
 import { MOVEMENT_CATALOG, isWeightedMovement, serializeMovement, parseMovementRow } from '../../utils/movementsCatalog';
 
 const WOD_TYPES: { value: BoxWODType; labelKey: string }[] = [
@@ -53,7 +54,7 @@ function toISO(d: Date): string {
 }
 
 export default function BOWODsScreen({ navigation }: any) {
-  const { user, currentBox } = useAuth();
+  const { user, currentBox, boxRole } = useAuth();
   const { theme } = useTheme();
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === 'en' ? 'en-US' : 'fr-FR';
@@ -592,6 +593,9 @@ export default function BOWODsScreen({ navigation }: any) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      {/* Premier onglet du coach : c'est ici que son tour est expliqué. Le gérant
+          traverse aussi cet écran, son tour vit sur son tableau de bord. */}
+      {boxRole === 'coach' && <InteractiveTour steps={COACH_TOUR_STEPS} />}
     </View>
   );
 }

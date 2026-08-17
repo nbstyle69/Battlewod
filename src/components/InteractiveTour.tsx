@@ -10,10 +10,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { useTheme, AppTheme } from '../context/ThemeContext';
+import { TOUR_DONE_KEY } from '../lib/storageKeys';
 
 const { width: W, height: H } = Dimensions.get('window');
-
-const TOUR_KEY = '@athlex:tourDone';
 
 export interface TourStep {
   label: string;
@@ -96,7 +95,7 @@ export default function InteractiveTour({ steps, onComplete }: Props) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    AsyncStorage.getItem(TOUR_KEY)
+    AsyncStorage.getItem(TOUR_DONE_KEY)
       .then(v => { if (v === 'true') setState('hide'); })
       .catch(() => { /* show by default on error */ });
   }, []);
@@ -126,7 +125,7 @@ export default function InteractiveTour({ steps, onComplete }: Props) {
 
   async function handleDismiss() {
     setState('hide');
-    await AsyncStorage.setItem(TOUR_KEY, 'true');
+    await AsyncStorage.setItem(TOUR_DONE_KEY, 'true');
     onComplete?.();
   }
 
