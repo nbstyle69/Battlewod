@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {
   ArrowLeft, Bell, BellOff, Clock, Users, Trophy, Zap, MessageCircle, Heart,
@@ -82,6 +83,7 @@ export default function NotificationSettingsScreen() {
 
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState<keyof NotificationPrefs | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -91,17 +93,22 @@ export default function NotificationSettingsScreen() {
     });
   }, [user]);
 
+  // L'affichage ne bouge qu'après l'écriture : pendant l'appel les réglages sont
+  // inertes et la ligne en cours porte un indicateur. Un affichage optimiste
+  // montrerait un réglage absent de la base tant que la requête n'a pas répondu
+  // — sur un échec lent, pendant toute sa durée.
   async function update(key: keyof NotificationPrefs, value: boolean | number) {
-    if (!user) return;
-    const previous = prefs;
-    setPrefs({ ...prefs, [key]: value });
+    if (!user || saving) return;
+    setSaving(key);
     try {
       // saveNotificationPrefs annule aussi les rappels déjà programmés sur
       // l'appareil : l'écran n'a pas à connaître cette mécanique.
       await saveNotificationPrefs(user.id, { [key]: value });
+      setPrefs(p => ({ ...p, [key]: value }));
     } catch {
-      setPrefs(previous);
       Alert.alert('Réglage non enregistré', 'Vérifie ta connexion et réessaie.');
+    } finally {
+      setSaving(null);
     }
   }
 
@@ -130,13 +137,17 @@ export default function NotificationSettingsScreen() {
             <Text style={S.rowSub}>{t.sub}</Text>
           </View>
         </View>
-        <Switch
-          value={value}
-          disabled={!master}
-          onValueChange={v => update(t.key, v)}
-          trackColor={{ false: theme.border, true: `${t.color}60` }}
-          thumbColor={value ? t.color : theme.textMuted}
-        />
+        {saving === t.key ? (
+          <ActivityIndicator size="small" color={t.color} style={S.pending} />
+        ) : (
+          <Switch
+            value={value}
+            disabled={!master || saving !== null}
+            onValueChange={v => update(t.key, v)}
+            trackColor={{ false: theme.border, true: `${t.color}60` }}
+            thumbColor={value ? t.color : theme.textMuted}
+          />
+        )}
       </View>
     );
   }
@@ -166,12 +177,17 @@ export default function NotificationSettingsScreen() {
                 </Text>
               </View>
             </View>
-            <Switch
-              value={master}
-              onValueChange={v => update('notifications_enabled', v)}
-              trackColor={{ false: theme.border, true: `${theme.accent}60` }}
-              thumbColor={master ? theme.accent : theme.textMuted}
-            />
+            {saving === 'notifications_enabled' ? (
+              <ActivityIndicator size="small" color={theme.accent} style={S.pending} />
+            ) : (
+              <Switch
+                value={master}
+                disabled={saving !== null}
+                onValueChange={v => update('notifications_enabled', v)}
+                trackColor={{ false: theme.border, true: `${theme.accent}60` }}
+                thumbColor={master ? theme.accent : theme.textMuted}
+              />
+            )}
           </View>
         </View>
 
@@ -186,13 +202,17 @@ export default function NotificationSettingsScreen() {
                 <Text style={S.rowSub}>Notification chaque jour pour t'entraîner</Text>
               </View>
             </View>
-            <Switch
-              value={prefs.daily_reminder && master}
-              disabled={!master}
-              onValueChange={v => update('daily_reminder', v)}
-              trackColor={{ false: theme.border, true: `${theme.accent}60` }}
-              thumbColor={prefs.daily_reminder && master ? theme.accent : theme.textMuted}
-            />
+            {saving === 'daily_reminder' ? (
+              <ActivityIndicator size="small" color={theme.accent} style={S.pending} />
+            ) : (
+              <Switch
+                value={prefs.daily_reminder && master}
+                disabled={!master || saving !== null}
+                onValueChange={v => update('daily_reminder', v)}
+                trackColor={{ false: theme.border, true: `${theme.accent}60` }}
+                thumbColor={prefs.daily_reminder && master ? theme.accent : theme.textMuted}
+              />
+            )}
           </View>
 
           {prefs.daily_reminder && master && (
@@ -200,13 +220,21 @@ export default function NotificationSettingsScreen() {
               <View style={S.rowLeft}>
                 <Clock color={theme.textMuted} size={16} />
                 <Text style={S.rowLabel}>Heure du rappel</Text>
+                {saving === 'reminder_hour' && (
+                  <ActivityIndicator size="small" color={theme.accent} />
+                )}
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={S.hourScroll}>
                 {HOURS.map(h => (
                   <TouchableOpacity
                     key={h}
-                    style={[S.hourChip, prefs.reminder_hour === h && S.hourChipSel]}
+                    style={[
+                      S.hourChip,
+                      prefs.reminder_hour === h && S.hourChipSel,
+                      saving !== null && S.hourChipOff,
+                    ]}
                     onPress={() => update('reminder_hour', h)}
+                    disabled={saving !== null}
                     activeOpacity={0.7}
                   >
                     <Text style={[S.hourTxt, prefs.reminder_hour === h && S.hourTxtSel]}>
@@ -265,6 +293,8 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     marginRight: 6,
   },
   hourChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
+  hourChipOff: { opacity: 0.5 },
+  pending: { width: 51, alignItems: 'flex-end' },
   hourTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
   hourTxtSel: { color: t.accent, fontWeight: '900' },
   testBtn: {
