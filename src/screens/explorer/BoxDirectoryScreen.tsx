@@ -155,8 +155,8 @@ export default function BoxDirectoryScreen() {
           <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>Annuaire des Boxes</Text>
-          <Text style={s.headerSub}>{filtered.length} box{filtered.length > 1 ? 'es' : ''} référencée{filtered.length > 1 ? 's' : ''}</Text>
+          <Text style={s.headerTitle}>Annuaire des Boxs</Text>
+          <Text style={s.headerSub}>{filtered.length} box{filtered.length > 1 ? 's' : ''} référencée{filtered.length > 1 ? 's' : ''}</Text>
         </View>
         <TouchableOpacity
           style={s.mapBtn}

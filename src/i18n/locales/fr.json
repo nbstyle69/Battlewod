@@ -666,7 +666,7 @@
     },
     "programming": {
       "title": "Programmation",
-      "subtitle": "Recevez la programmation d'autres box dans votre Whiteboard, révélée le dimanche 18h.",
+      "subtitle": "Recevez la programmation d'autres boxs dans votre Whiteboard, révélée le dimanche 18h.",
       "searchPlaceholder": "Rechercher une programmation…",
       "free": "Gratuit",
       "allDisciplines": "Toutes",
@@ -786,7 +786,7 @@
       "Dimanche"
     ],
     "personalRecords": "Records personnels",
-    "myBoxes": "Mes boxes",
+    "myBoxes": "Mes boxs",
     "competitions": "Compétitions",
     "tournaments": "Tournois",
     "recentResults": "Résultats récents",
@@ -871,7 +871,7 @@
       "athlete": "Athlète"
     },
     "account": {
-      "myBoxes": "Mes boxes",
+      "myBoxes": "Mes boxs",
       "myPrograms": "Mes programmes",
       "myInfo": "Mes informations",
       "myFriends": "Mes amis ({{count}})",
@@ -1166,7 +1166,7 @@
     "noQualifDesc": "Événements · Inscription externe",
     "seeInterBox": "Voir les compétitions inter-box",
     "interBoxTitle": "🌍 Compétitions Inter-box",
-    "interBoxInfo": "Affronte des athlètes de toutes les box.\n3 WODs révélés progressivement. Soumets tes scores avec preuve vidéo. Le Super Admin valide les résultats.",
+    "interBoxInfo": "Affronte des athlètes de toutes les boxs.\n3 WODs révélés progressivement. Soumets tes scores avec preuve vidéo. Le Super Admin valide les résultats.",
     "finished": "Terminé",
     "alreadyJoined": "Déjà inscrit",
     "alreadyParticipating": "Tu participes déjà."
@@ -1203,7 +1203,7 @@
   },
   "interComp": {
     "title": "Compétitions Inter-box",
-    "subtitle": "Affronte les meilleurs de toutes les box",
+    "subtitle": "Affronte les meilleurs de toutes les boxs",
     "noCompetition": "Aucune compétition disponible",
     "noCompetitionHint": "Les prochaines compétitions inter-box apparaîtront ici.",
     "formatLeague": "Ligue",
@@ -1633,7 +1633,7 @@
       },
       {
         "label": "Explorer",
-        "description": "Des informations concernant les box et les partenaires."
+        "description": "Des informations concernant les boxs et les partenaires."
       },
       {
         "label": "Ma box",
