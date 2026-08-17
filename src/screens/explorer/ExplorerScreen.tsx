@@ -23,7 +23,7 @@ export default function ExplorerScreen() {
         </View>
         <View>
           <Text style={s.headerTitle}>Explorer</Text>
-          <Text style={s.headerSub}>Découvre les boxes, programmes et partenaires</Text>
+          <Text style={s.headerSub}>Découvre les boxs, programmes et partenaires</Text>
         </View>
       </View>
 
@@ -38,7 +38,7 @@ export default function ExplorerScreen() {
             <Building2 color={theme.accent} size={24} />
           </View>
           <View style={s.sectionContent}>
-            <Text style={s.sectionTitle}>Annuaire des Boxes</Text>
+            <Text style={s.sectionTitle}>Annuaire des Boxs</Text>
             <Text style={s.sectionDesc}>Trouve une box près de chez toi, explore la carte</Text>
           </View>
           <ChevronRight color={theme.textMuted} size={20} />

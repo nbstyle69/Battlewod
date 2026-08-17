@@ -99,7 +99,7 @@ export default function BoxProgramsScreen() {
           <ChevronLeft color={theme.text} size={24} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>Programmes des Boxes</Text>
+          <Text style={s.headerTitle}>Programmes des Boxs</Text>
           <Text style={s.headerSub}>{programs.length} programme{programs.length > 1 ? 's' : ''} disponible{programs.length > 1 ? 's' : ''}</Text>
         </View>
       </View>

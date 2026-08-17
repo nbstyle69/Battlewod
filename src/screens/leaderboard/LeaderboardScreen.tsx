@@ -369,7 +369,7 @@ export default function LeaderboardScreen() {
           <ActivityIndicator style={{ marginTop: 40 }} color={theme.accent} />
         ) : (
           <ScrollView contentContainerStyle={S.list} showsVerticalScrollIndicator={false}>
-            <Text style={S.sectionHint}>Classement des box par ELO moyen de leurs athlètes</Text>
+            <Text style={S.sectionHint}>Classement des boxs par ELO moyen de leurs athlètes</Text>
             {boxes.length === 0 ? (
               <View style={{ alignItems: 'center', paddingTop: 40 }}>
                 <MapPin size={40} color={theme.textMuted} />

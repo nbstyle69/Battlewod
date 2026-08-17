@@ -50,7 +50,7 @@ export default function BoxDirectoryMapScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
             <ChevronLeft color={theme.text} size={22} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Carte des Boxes</Text>
+          <Text style={s.headerTitle}>Carte des Boxs</Text>
         </View>
         <Text style={s.emptyText}>
           react-native-maps non installé.{'\n'}Installez-le pour afficher la carte.
@@ -66,8 +66,8 @@ export default function BoxDirectoryMapScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
           <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Carte des Boxes</Text>
-        <Text style={s.headerSub}>{boxes.length} box{boxes.length > 1 ? 'es' : ''}</Text>
+        <Text style={s.headerTitle}>Carte des Boxs</Text>
+        <Text style={s.headerSub}>{boxes.length} box{boxes.length > 1 ? 's' : ''}</Text>
       </View>
 
       <MapView

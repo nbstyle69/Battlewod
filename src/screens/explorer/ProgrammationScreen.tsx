@@ -38,8 +38,8 @@ export default function ProgrammationScreen() {
             <Building2 color="#3B82F6" size={28} />
           </View>
           <View style={s.categoryContent}>
-            <Text style={s.categoryTitle}>Programmes des Boxes</Text>
-            <Text style={s.categoryDesc}>Découvre les programmations proposées par les boxes</Text>
+            <Text style={s.categoryTitle}>Programmes des Boxs</Text>
+            <Text style={s.categoryDesc}>Découvre les programmations proposées par les boxs</Text>
           </View>
           <View style={[s.categoryArrow, { backgroundColor: '#3B82F615' }]}>
             <Text style={[s.categoryArrowTxt, { color: '#3B82F6' }]}>→</Text>
