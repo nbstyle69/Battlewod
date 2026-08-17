@@ -288,13 +288,18 @@ serve(async (req: Request) => {
     if (userIds.length === 0) return json({ sent: 0, recipients: 0, authorized: 0, dropped: droppedUnauthorized });
 
     // ── PRÉFÉRENCE par destinataire (ligne absente = tout activé) ───────────
+    // `notifications_enabled` est l'interrupteur maître : coupé, il l'emporte
+    // sur la clé de famille, quelle qu'elle soit.
     const { data: prefs, error: prefsErr } = await admin
-      .from('notification_preferences').select(`user_id, ${prefKey}`).in('user_id', userIds);
+      .from('notification_preferences')
+      .select(`user_id, notifications_enabled, ${prefKey}`).in('user_id', userIds);
     // Une lecture de préférences en échec ne doit pas se traduire par un envoi :
     // c'est le défaut dans le sens dangereux qui a produit le bug.
     if (prefsErr) return json({ error: 'Preferences unavailable', sent: 0 }, 503);
     const disabled = new Set(
-      (prefs ?? []).filter((p: any) => p[prefKey] === false).map((p: any) => p.user_id),
+      (prefs ?? [])
+        .filter((p: any) => p.notifications_enabled === false || p[prefKey] === false)
+        .map((p: any) => p.user_id),
     );
     userIds = userIds.filter((id) => !disabled.has(id));
     if (userIds.length === 0) {

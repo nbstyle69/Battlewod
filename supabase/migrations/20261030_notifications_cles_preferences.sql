@@ -33,7 +33,12 @@
 -- lignes existantes avec le défaut sans UPDATE explicite.
 -- ============================================================================
 
+-- L'interrupteur maître `notifications_enabled` est également une COLONNE et non
+-- un simple réglage d'écran : un maître appliqué côté app ne couperait que ce
+-- que l'app envoie, alors que les annonces de la box et les déclencheurs
+-- temporels partent du serveur. Il est évalué avant toute clé de famille.
 ALTER TABLE public.notification_preferences
+  ADD COLUMN IF NOT EXISTS notifications_enabled boolean DEFAULT true,
   ADD COLUMN IF NOT EXISTS score_reminder    boolean DEFAULT true,
   ADD COLUMN IF NOT EXISTS class_reminders   boolean DEFAULT true,
   ADD COLUMN IF NOT EXISTS new_wod           boolean DEFAULT true,

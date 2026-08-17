@@ -131,6 +131,7 @@ const cleanup = async () => {
     const naked = await mkUser('nak');     // AUCUNE ligne de préférence
     const partial = await mkUser('par');   // seulement certaines familles coupées
     const stranger = await mkUser('str');  // hors de la box
+    const master = await mkUser('mst');    // interrupteur maître coupé, familles actives
 
     const { data: box, error: bErr } = await svc.from('boxes').insert({
       owner_id: owner.id, name: `ZZ NTF ${stamp}`, slug: `zz-ntf-${stamp}`,
@@ -140,7 +141,7 @@ const cleanup = async () => {
     created.boxes.push(box.id);
 
     await svc.from('box_members').insert(
-      [owner, off, on, naked, partial].map(u => ({
+      [owner, off, on, naked, partial, master].map(u => ({
         box_id: box.id, member_id: u.id,
         role: u.id === owner.id ? 'owner' : 'member', status: 'active',
       })),
@@ -156,6 +157,11 @@ const cleanup = async () => {
     await setPrefs(off.id, ALL_OFF);
     await setPrefs(on.id, Object.fromEntries(Object.keys(ALL_OFF).map(k => [k, true])));
     await setPrefs(partial.id, { new_wod: false, group_messages: true, box_announcements: false });
+    // Toutes les familles actives, seul le maître est coupé : rien ne doit sortir.
+    await setPrefs(master.id, {
+      ...Object.fromEntries(Object.keys(ALL_OFF).map(k => [k, true])),
+      notifications_enabled: false,
+    });
 
     // ═══ send-push ══════════════════════════════════════════════════════════
     fn = await startFunction('send-push');
@@ -230,7 +236,14 @@ const cleanup = async () => {
     check('clés indépendantes · annonces coupées, messages actifs → envoi',
       r9.recipients === 1 && r9.pref_disabled === 0, JSON.stringify(r9));
 
-    // 10. L'autorisation par relation (Lot 1C-a) n'a pas bougé.
+    // 10. Interrupteur maître : il l'emporte sur des familles toutes actives.
+    for (const type of ['wod_published', 'new_message', 'friend_request', 'tournament_closed']) {
+      const r = await push(owner, [rcp(master, type)]);
+      check(`interrupteur maître coupé · ${type} → 0 envoi`,
+        r.recipients === 0 && r.sent === 0 && r.pref_disabled === 1, JSON.stringify(r));
+    }
+
+    // 11. L'autorisation par relation (Lot 1C-a) n'a pas bougé.
     const r10 = await push(owner, [rcp(stranger, 'wod_published')]);
     check('destinataire hors de la box → écarté par l\'autorisation',
       r10.recipients === 0 && r10.sent === 0 && r10.dropped === 1, JSON.stringify(r10));
@@ -251,10 +264,15 @@ const cleanup = async () => {
 
     const nAll = await mkNotif('all');
     const rb1 = await callFn(owner.jwt, { notification_id: nAll });
-    // Membres actifs : owner + off + on + naked + partial = 5.
-    // Coupés : off et partial (box_announcements = false) → 3 retenus.
-    check('annonce à tous · 2 membres l\'ont coupée → 3 retenus sur 5',
-      rb1.recipients === 3 && rb1.pref_disabled === 2, JSON.stringify(rb1));
+    // Membres actifs : owner + off + on + naked + partial + master = 6.
+    // Écartés : off et partial (box_announcements coupé) + master (maître coupé).
+    check('annonce à tous · 3 membres l\'ont coupée (dont 1 par le maître) → 3 retenus sur 6',
+      rb1.recipients === 3 && rb1.pref_disabled === 3, JSON.stringify(rb1));
+
+    const nMaster = await mkNotif(master.id);
+    const rbM = await callFn(owner.jwt, { notification_id: nMaster });
+    check('annonce nominative · interrupteur maître coupé → 0 envoi',
+      rbM.recipients === 0 && rbM.sent === 0 && rbM.pref_disabled === 1, JSON.stringify(rbM));
 
     const nOff = await mkNotif(off.id);
     const rb2 = await callFn(owner.jwt, { notification_id: nOff });

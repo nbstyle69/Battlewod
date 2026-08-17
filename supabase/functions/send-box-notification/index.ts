@@ -93,11 +93,13 @@ serve(async (req: Request) => {
     // Ligne de préférence absente = annonce autorisée (défaut true).
     const { data: prefs, error: prefsErr } = await admin
       .from('notification_preferences')
-      .select('user_id, box_announcements')
+      .select('user_id, notifications_enabled, box_announcements')
       .in('user_id', recipientIds);
     if (prefsErr) return json({ error: 'Preferences unavailable', sent: 0 }, 503);
     const disabled = new Set(
-      (prefs ?? []).filter((p: any) => p.box_announcements === false).map((p: any) => p.user_id),
+      (prefs ?? [])
+        .filter((p: any) => p.notifications_enabled === false || p.box_announcements === false)
+        .map((p: any) => p.user_id),
     );
     recipientIds = recipientIds.filter((id: string) => !disabled.has(id));
     if (recipientIds.length === 0) {
