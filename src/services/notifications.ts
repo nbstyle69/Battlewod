@@ -4,6 +4,18 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { captureError } from '../lib/sentry';
+import {
+  NotificationPrefs,
+  DEFAULT_NOTIFICATION_PREFS,
+  LocalPrefKey,
+  readCachedPrefs,
+  writeCachedPrefs,
+  clearCachedPrefs,
+  isLocalCategoryEnabled,
+} from './notificationPrefsCache';
+
+export type { NotificationPrefs, LocalPrefKey };
+export { DEFAULT_NOTIFICATION_PREFS, clearCachedPrefs, isLocalCategoryEnabled };
 
 // ── Config par défaut ────────────────────────────────────────────────
 Notifications.setNotificationHandler({
@@ -105,6 +117,7 @@ export async function removePushToken(userId: string) {
 export async function scheduleDailyReminder(hour: number = 9) {
   // Annule les rappels existants
   await cancelDailyReminder();
+  if (!(await isLocalCategoryEnabled('daily_reminder'))) return;
 
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -131,34 +144,38 @@ export async function cancelDailyReminder() {
 }
 
 // ── Charger/sauvegarder les préférences ──────────────────────────────
-export interface NotificationPrefs {
-  daily_reminder: boolean;
-  reminder_hour: number;
-  friend_requests: boolean;
-  tournament_updates: boolean;
-  score_updates: boolean;
-  score_comments: boolean;
-  score_reactions: boolean;
-}
-
 export async function getNotificationPrefs(userId: string): Promise<NotificationPrefs> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('notification_preferences')
-    .select('*')
+    // Une seule chaîne littérale : l'inférence de types de supabase-js ne sait
+    // pas lire une concaténation, et retomberait sur un type d'erreur.
+    .select('notifications_enabled, daily_reminder, reminder_hour, score_reminder, class_reminders, friend_requests, group_messages, tournament_updates, elo_updates, new_wod, score_updates, score_comments, score_reactions, box_announcements, badge_unlocks')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
-  const defaults: NotificationPrefs = {
-    daily_reminder: true,
-    reminder_hour: 9,
-    friend_requests: true,
-    tournament_updates: true,
-    score_updates: true,
-    score_comments: true,
-    score_reactions: true,
-  };
-  if (!data) return defaults;
-  return {
+  const defaults = DEFAULT_NOTIFICATION_PREFS;
+  if (error) {
+    captureError(error, { service: 'notifications', action: 'getNotificationPrefs' });
+    // Lecture impossible : on ne touche PAS au cache. Un cache écrasé par les
+    // défauts ferait réapparaître des rappels que l'utilisateur a coupés.
+    return (await readCachedPrefs()) ?? defaults;
+  }
+  if (!data) {
+    await writeCachedPrefs(defaults);
+    return defaults;
+  }
+  // `?? défaut` est légitime ici : une colonne nulle = « aucun choix exprimé »,
+  // et le défaut du produit est d'envoyer. Il ne décide ni d'un droit ni d'un
+  // montant — contrairement au repli `?? ['simple']` des formats de tournoi.
+  const prefs: NotificationPrefs = {
+    notifications_enabled: data.notifications_enabled ?? defaults.notifications_enabled,
+    score_reminder: data.score_reminder ?? defaults.score_reminder,
+    class_reminders: data.class_reminders ?? defaults.class_reminders,
+    group_messages: data.group_messages ?? defaults.group_messages,
+    elo_updates: data.elo_updates ?? defaults.elo_updates,
+    new_wod: data.new_wod ?? defaults.new_wod,
+    box_announcements: data.box_announcements ?? defaults.box_announcements,
+    badge_unlocks: data.badge_unlocks ?? defaults.badge_unlocks,
     daily_reminder: data.daily_reminder ?? defaults.daily_reminder,
     reminder_hour: data.reminder_hour ?? defaults.reminder_hour,
     friend_requests: data.friend_requests ?? defaults.friend_requests,
@@ -167,26 +184,81 @@ export async function getNotificationPrefs(userId: string): Promise<Notification
     score_comments: data.score_comments ?? defaults.score_comments,
     score_reactions: data.score_reactions ?? defaults.score_reactions,
   };
+  await writeCachedPrefs(prefs);
+  return prefs;
 }
 
 export async function saveNotificationPrefs(userId: string, prefs: Partial<NotificationPrefs>) {
-  await supabase
+  const { error } = await supabase
     .from('notification_preferences')
     .upsert(
       { user_id: userId, ...prefs, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' }
     );
+  if (error) {
+    captureError(error, { service: 'notifications', action: 'saveNotificationPrefs' });
+    throw error;
+  }
 
-  // Sync local schedule
-  if (prefs.daily_reminder === false) {
+  // Relecture : le cache alimente les gardes des rappels locaux, il doit
+  // refléter le choix AVANT toute (re)programmation ci-dessous.
+  const full = await getNotificationPrefs(userId);
+
+  // DÉSACTIVER ANNULE CE QUI EST DÉJÀ POSÉ SUR L'APPAREIL.
+  // Ne gouverner que les prochaines programmations laissait sonner les
+  // occurrences déjà planifiées — un déclencheur DAILY sonne indéfiniment.
+  if (!full.notifications_enabled) {
+    await cancelAllLocalReminders();
+    return;
+  }
+  if (!full.score_reminder) await cancelScoreReminder();
+  if (!full.class_reminders) await cancelAllClassReminders();
+  if (!full.tournament_updates) await cancelAllTournamentReminders();
+
+  if (!full.daily_reminder) {
     await cancelDailyReminder();
   } else if (prefs.daily_reminder === true || prefs.reminder_hour !== undefined) {
-    const full = await getNotificationPrefs(userId);
-    if (full.daily_reminder) {
-      await scheduleDailyReminder(full.reminder_hour);
+    await scheduleDailyReminder(full.reminder_hour);
+  }
+  // Réarmement immédiat à la réactivation : sinon « je le rallume » ne produirait
+  // rien avant la prochaine connexion.
+  if (full.score_reminder && (prefs.score_reminder === true || prefs.notifications_enabled === true)) {
+    await scheduleScoreReminder();
+  }
+}
+
+// ── Annulations groupées des rappels locaux ──────────────────────────
+const LOCAL_REMINDER_TYPES = [
+  'daily_reminder', 'score_reminder', 'class_reminder', 'tournament_reminder',
+];
+
+/**
+ * Annule tous les rappels locaux déjà programmés.
+ * Filtre par `data.type` et NON via `cancelAllScheduledNotificationsAsync()` :
+ * les bips du minuteur sont aussi des notifications programmées, et les balayer
+ * casserait un chrono en cours.
+ */
+export async function cancelAllLocalReminders() {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const notif of scheduled) {
+    const type = notif.content.data?.type;
+    if (typeof type === 'string' && LOCAL_REMINDER_TYPES.includes(type)) {
+      await Notifications.cancelScheduledNotificationAsync(notif.identifier);
     }
   }
 }
+
+async function cancelByType(type: string) {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const notif of scheduled) {
+    if (notif.content.data?.type === type) {
+      await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+    }
+  }
+}
+
+export const cancelAllClassReminders = () => cancelByType('class_reminder');
+export const cancelAllTournamentReminders = () => cancelByType('tournament_reminder');
 
 // ── Helper: fan-out des push via la fonction service-role send-push ──
 // push_tokens et notification_preferences sont RLS-lockés par utilisateur,
@@ -199,12 +271,13 @@ interface PushRecipient {
   data?: Record<string, any>;
 }
 
-async function invokePush(recipients: PushRecipient[], prefKey?: string) {
+// La clé de préférence n'est PLUS choisie ici : `send-push` la déduit du
+// `data.type` de chaque message et refuse un type inconnu. Un appelant ne peut
+// donc plus, par omission, faire sauter le réglage de l'utilisateur.
+async function invokePush(recipients: PushRecipient[]) {
   if (!recipients.length) return;
   try {
-    await supabase.functions.invoke('send-push', {
-      body: { recipients, ...(prefKey ? { pref_key: prefKey } : {}) },
-    });
+    await supabase.functions.invoke('send-push', { body: { recipients } });
   } catch (err) {
     captureError(err, { service: 'notifications', action: 'invokePush' });
   }
@@ -227,7 +300,6 @@ export async function sendScoreNotification(
 
   await invokePush(
     [{ user_id: targetUserId, title, body, data: { type: `score_${type}`, targetUserId } }],
-    type === 'comment' ? 'score_comments' : 'score_reactions',
   );
 }
 
@@ -270,7 +342,6 @@ export async function sendFriendRequestNotification(
       body: `${senderUsername} veut t'ajouter en ami !`,
       data: { type: 'friend_request', senderUsername },
     }],
-    'friend_requests',
   );
 }
 
@@ -286,7 +357,6 @@ export async function sendFriendAcceptedNotification(
       body: `${accepterUsername} a accepté ta demande d'ami !`,
       data: { type: 'friend_accepted', accepterUsername },
     }],
-    'friend_requests',
   );
 }
 
@@ -308,7 +378,6 @@ export async function sendTournamentClosedNotification(
         data: { type: 'tournament_closed', tournamentId },
       };
     }),
-    'tournament_updates',
   );
 }
 
@@ -361,7 +430,6 @@ export async function sendScoreOvertakenNotification(
       body: `${senderUsername} t'a dépassé sur "${wodTitle}"`,
       data: { type: 'score_overtaken' },
     })),
-    'score_updates',
   );
 }
 
@@ -378,6 +446,7 @@ export async function scheduleTournamentReminder(
 
   // Cancel existing reminder for this tournament
   await cancelTournamentReminder(tournamentId);
+  if (!(await isLocalCategoryEnabled('tournament_updates'))) return;
 
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -405,6 +474,7 @@ export async function cancelTournamentReminder(tournamentId: string) {
 // ── #8 Rappel 18h "Tu n'as pas soumis ton score" ────────────────────
 export async function scheduleScoreReminder() {
   await cancelScoreReminder();
+  if (!(await isLocalCategoryEnabled('score_reminder'))) return;
 
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -433,6 +503,9 @@ export async function cancelScoreReminder() {
 // Cancel today's score reminder (called after submitting a score)
 export async function cancelTodayScoreReminder() {
   await cancelScoreReminder();
+  // Sans cette garde, « j'ai soumis mon score » re-posait le rappel de demain
+  // alors que l'utilisateur l'avait coupé.
+  if (!(await isLocalCategoryEnabled('score_reminder'))) return;
   // 4.10 : re-programmer un déclencheur DAILY sonne encore aujourd'hui 18h,
   // donc le rappel tombait alors que le score venait d'être soumis. On pose une
   // occurrence unique demain ; le rappel quotidien est ré-armé au démarrage
@@ -472,6 +545,7 @@ export async function scheduleClassReminder(
   startTime: string,
 ) {
   await cancelClassReminder(scheduleId);
+  if (!(await isLocalCategoryEnabled('class_reminders'))) return;
 
   const remindAt = new Date(
     classStartDate(scheduledDate, startTime).getTime() - CLASS_REMINDER_LEAD_MIN * 60 * 1000,

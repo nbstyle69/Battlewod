@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { captureError } from '../lib/sentry';
 import { hapticHeavy } from '../lib/haptics';
+import { isLocalCategoryEnabled } from './notificationPrefsCache';
 
 // ── Badge title cache (avoid re-fetching) ───────────────────────────
 let badgeTitleCache: Record<string, { title: string; icon: string; description: string }> = {};
@@ -228,6 +229,7 @@ async function awardBadge(userId: string, badgeKey: string): Promise<boolean> {
   // Send local notification + haptic for badge unlock
   try {
     hapticHeavy();
+    if (!(await isLocalCategoryEnabled('badge_unlocks'))) return true;
     const { title, icon } = await getBadgeTitle(badgeKey);
     await Notifications.scheduleNotificationAsync({
       content: {

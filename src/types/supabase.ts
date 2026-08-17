@@ -474,6 +474,95 @@ export type Database = {
           },
         ]
       }
+      box_cash_payments: {
+        Row: {
+          amount_cents: number
+          box_id: string
+          collected_at: string
+          collected_by: string | null
+          id: string
+          invitation_id: string | null
+          member_id: string | null
+          plan_id: string | null
+          plan_name: string | null
+          source: string
+        }
+        Insert: {
+          amount_cents: number
+          box_id: string
+          collected_at?: string
+          collected_by?: string | null
+          id?: string
+          invitation_id?: string | null
+          member_id?: string | null
+          plan_id?: string | null
+          plan_name?: string | null
+          source: string
+        }
+        Update: {
+          amount_cents?: number
+          box_id?: string
+          collected_at?: string
+          collected_by?: string | null
+          id?: string
+          invitation_id?: string | null
+          member_id?: string | null
+          plan_id?: string | null
+          plan_name?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_cash_payments_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_cash_payments_collected_by_fkey"
+            columns: ["collected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_cash_payments_collected_by_fkey"
+            columns: ["collected_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_cash_payments_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "box_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_cash_payments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_cash_payments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_cash_payments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       box_documents: {
         Row: {
           box_id: string | null
@@ -636,6 +725,112 @@ export type Database = {
             columns: ["wod_id"]
             isOneToOne: false
             referencedRelation: "box_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      box_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          box_id: string
+          cash_collected: boolean
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          last_send_error: string | null
+          last_sent_at: string | null
+          payment_mode: string
+          plan_id: string | null
+          send_count: number
+          status: string
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          box_id: string
+          cash_collected?: boolean
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          last_send_error?: string | null
+          last_sent_at?: string | null
+          payment_mode?: string
+          plan_id?: string | null
+          send_count?: number
+          status?: string
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          box_id?: string
+          cash_collected?: boolean
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          last_send_error?: string | null
+          last_sent_at?: string | null
+          payment_mode?: string
+          plan_id?: string | null
+          send_count?: number
+          status?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_invitations_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_invitations_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_invitations_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_invitations_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -851,6 +1046,49 @@ export type Database = {
           {
             foreignKeyName: "box_notifications_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      box_owner_email_prefs: {
+        Row: {
+          box_id: string
+          updated_at: string
+          user_id: string
+          weekly_digest: boolean
+        }
+        Insert: {
+          box_id: string
+          updated_at?: string
+          user_id: string
+          weekly_digest?: boolean
+        }
+        Update: {
+          box_id?: string
+          updated_at?: string
+          user_id?: string
+          weekly_digest?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_owner_email_prefs_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_owner_email_prefs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_owner_email_prefs_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "public_leaderboard"
             referencedColumns: ["id"]
@@ -4274,36 +4512,60 @@ export type Database = {
       }
       notification_preferences: {
         Row: {
+          badge_unlocks: boolean | null
+          box_announcements: boolean | null
+          class_reminders: boolean | null
           created_at: string | null
           daily_reminder: boolean | null
+          elo_updates: boolean | null
           friend_requests: boolean | null
+          group_messages: boolean | null
+          new_wod: boolean | null
+          notifications_enabled: boolean | null
           reminder_hour: number | null
           score_comments: boolean | null
           score_reactions: boolean | null
+          score_reminder: boolean | null
           score_updates: boolean | null
           tournament_updates: boolean | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          badge_unlocks?: boolean | null
+          box_announcements?: boolean | null
+          class_reminders?: boolean | null
           created_at?: string | null
           daily_reminder?: boolean | null
+          elo_updates?: boolean | null
           friend_requests?: boolean | null
+          group_messages?: boolean | null
+          new_wod?: boolean | null
+          notifications_enabled?: boolean | null
           reminder_hour?: number | null
           score_comments?: boolean | null
           score_reactions?: boolean | null
+          score_reminder?: boolean | null
           score_updates?: boolean | null
           tournament_updates?: boolean | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          badge_unlocks?: boolean | null
+          box_announcements?: boolean | null
+          class_reminders?: boolean | null
           created_at?: string | null
           daily_reminder?: boolean | null
+          elo_updates?: boolean | null
           friend_requests?: boolean | null
+          group_messages?: boolean | null
+          new_wod?: boolean | null
+          notifications_enabled?: boolean | null
           reminder_hour?: number | null
           score_comments?: boolean | null
           score_reactions?: boolean | null
+          score_reminder?: boolean | null
           score_updates?: boolean | null
           tournament_updates?: boolean | null
           updated_at?: string | null
@@ -5922,6 +6184,48 @@ export type Database = {
           },
         ]
       }
+      tournament_notifications_sent: {
+        Row: {
+          athlete_id: string
+          id: string
+          kind: string
+          sent_at: string
+          tournament_id: string
+          wod_id: string | null
+        }
+        Insert: {
+          athlete_id: string
+          id?: string
+          kind: string
+          sent_at?: string
+          tournament_id: string
+          wod_id?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          id?: string
+          kind?: string
+          sent_at?: string
+          tournament_id?: string
+          wod_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_notifications_sent_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_notifications_sent_wod_id_fkey"
+            columns: ["wod_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_wods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tournament_participants: {
         Row: {
           athlete_id: string
@@ -6975,6 +7279,10 @@ export type Database = {
       }
     }
     Functions: {
+      _consume_box_invitation: {
+        Args: { p_token: string; p_user_id: string }
+        Returns: Json
+      }
       _daily_official_template: {
         Args: { p_date: string }
         Returns: {
@@ -6985,6 +7293,20 @@ export type Database = {
           wod_type: string
         }[]
       }
+      _log_box_cash_payment: {
+        Args: {
+          p_box_id: string
+          p_invitation_id: string
+          p_member_id: string
+          p_plan_id: string
+          p_source: string
+        }
+        Returns: string
+      }
+      accept_box_invitation_after_payment: {
+        Args: { p_invitation_id: string; p_user_id: string }
+        Returns: Json
+      }
       advance_bracket_round: {
         Args: { p_completed_round: number; p_tournament_id: string }
         Returns: number
@@ -6992,6 +7314,10 @@ export type Database = {
       advance_inter_bracket_round: {
         Args: { p_competition_id: string; p_completed_round: number }
         Returns: number
+      }
+      badge_condition_met: {
+        Args: { p_athlete_id: string; p_badge_key: string }
+        Returns: boolean
       }
       book_appointment_slot: { Args: { p_slot_id: string }; Returns: string }
       box_subscribes_programming: {
@@ -7036,10 +7362,7 @@ export type Database = {
             }
             Returns: Json
           }
-      claim_badge: {
-        Args: { p_badge_key: string }
-        Returns: Json
-      }
+      claim_badge: { Args: { p_badge_key: string }; Returns: Json }
       claim_pending_entitlements: {
         Args: { p_email: string; p_user_id: string }
         Returns: number
@@ -7113,6 +7436,28 @@ export type Database = {
           rank: number
         }[]
       }
+      consume_box_invitation: { Args: { p_token: string }; Returns: Json }
+      consume_box_invitation_for: {
+        Args: { p_token: string; p_user_id: string }
+        Returns: Json
+      }
+      create_box_invitation: {
+        Args: {
+          p_box_id: string
+          p_cash_collected?: boolean
+          p_email: string
+          p_first_name?: string
+          p_last_name?: string
+          p_payment_mode?: string
+          p_plan_id?: string
+          p_valid_days?: number
+        }
+        Returns: Json
+      }
+      create_box_invitations_bulk: {
+        Args: { p_box_id: string; p_rows: Json; p_valid_days?: number }
+        Returns: Json
+      }
       delete_user_account: { Args: never; Returns: undefined }
       detect_trial_followups: { Args: never; Returns: number }
       end_season_and_advance: {
@@ -7145,6 +7490,32 @@ export type Database = {
         Args: { p_competition_id: string }
         Returns: number
       }
+      get_box_attendance_people: {
+        Args: { p_box_id: string; p_risk_days?: number }
+        Returns: {
+          joined_at: string
+          kind: string
+          last_class: string
+          member_id: string
+          reservations_total: number
+          username: string
+        }[]
+      }
+      get_box_attendance_summary: {
+        Args: { p_box_id: string; p_from: string; p_to: string }
+        Returns: {
+          attended_count: number
+          capacity_total: number
+          classes_count: number
+          marked_count: number
+          members_active: number
+          members_at_risk: number
+          members_ever_booked: number
+          members_never_booked: number
+          reservations_count: number
+          waiting_count: number
+        }[]
+      }
       get_box_billing: {
         Args: { p_box_id: string }
         Returns: {
@@ -7174,12 +7545,74 @@ export type Database = {
           username: string
         }[]
       }
+      get_box_funnel_summary: {
+        Args: { p_box_id: string; p_from: string; p_to: string }
+        Returns: {
+          invitations_accepted: number
+          invitations_sent: number
+          members_joined: number
+          members_subscribed: number
+          prospects: number
+          prospects_converted: number
+        }[]
+      }
       get_box_mate_ids: { Args: never; Returns: string[] }
       get_box_member_emails: {
         Args: { p_box_id: string }
         Returns: {
           email: string
           member_id: string
+        }[]
+      }
+      get_box_money_people: {
+        Args: { p_box_id: string }
+        Returns: {
+          amount_cents: number
+          detail: string
+          email: string
+          kind: string
+          label: string
+          member_id: string
+          ref_id: string
+          since: string
+        }[]
+      }
+      get_box_money_summary: {
+        Args: { p_box_id: string; p_from: string; p_to: string }
+        Returns: {
+          cancellations_period: number
+          cash_collected_cents: number
+          cash_collected_count: number
+          cash_to_collect_cents: number
+          cash_to_collect_count: number
+          mrr_cash_cents: number
+          mrr_cash_subs: number
+          mrr_stripe_cents: number
+          mrr_stripe_subs: number
+          new_subs_period: number
+          past_due_cents: number
+          past_due_count: number
+          program_revenue_cents: number
+          program_sales_period: number
+        }[]
+      }
+      get_box_plan_breakdown: {
+        Args: { p_box_id: string }
+        Returns: {
+          mrr_cents: number
+          plan_color: string
+          plan_id: string
+          plan_name: string
+          price_cents: number
+          subs: number
+        }[]
+      }
+      get_box_reservation_heatmap: {
+        Args: { p_box_id: string; p_from: string; p_to: string }
+        Returns: {
+          dow: number
+          hour: number
+          reservations: number
         }[]
       }
       get_my_box_invite_code: { Args: { p_box_id: string }; Returns: string }
@@ -7209,6 +7642,19 @@ export type Database = {
         }[]
       }
       get_user_box_ids: { Args: never; Returns: string[] }
+      get_weekly_digest_batch: {
+        Args: { p_days?: number }
+        Returns: {
+          attendances: number
+          box_id: string
+          box_name: string
+          members_at_risk: number
+          new_members: number
+          owner_email: string
+          owner_id: string
+          past_due_count: number
+        }[]
+      }
       increment_movement_stats: {
         Args: {
           p_movement: string
@@ -7218,8 +7664,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      invitation_target_blocker: {
+        Args: { p_box_id: string; p_email: string }
+        Returns: string
+      }
       is_blocked_pair: { Args: { u1: string; u2: string }; Returns: boolean }
       is_box_admin: { Args: { p_box_id: string }; Returns: boolean }
+      is_box_admin_of_athlete: {
+        Args: { p_athlete_id: string }
+        Returns: boolean
+      }
       is_box_coach: { Args: { p_box_id: string }; Returns: boolean }
       is_box_member: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner: { Args: { p_box_id: string }; Returns: boolean }
@@ -7239,11 +7693,20 @@ export type Database = {
       join_box_by_invite: { Args: { p_invite_code: string }; Returns: string }
       manages_box: { Args: { p_box_id: string }; Returns: boolean }
       manages_box_funnel: { Args: { p_box_id: string }; Returns: boolean }
+      mark_box_invitation_paid: {
+        Args: { p_invitation_id: string }
+        Returns: Json
+      }
+      mark_box_invitation_sent: {
+        Args: { p_error?: string; p_invitation_id: string }
+        Returns: Json
+      }
       materialize_box_programming: {
         Args: { p_target_monday?: string }
         Returns: number
       }
       owner_box_count: { Args: { p_owner_id: string }; Returns: number }
+      peek_box_invitation: { Args: { p_token: string }; Returns: Json }
       peer_review_daily_score: {
         Args: {
           p_action: string
@@ -7265,6 +7728,10 @@ export type Database = {
         Args: { p_tournament_id: string }
         Returns: undefined
       }
+      record_member_cash_payment: {
+        Args: { p_box_member_id: string }
+        Returns: Json
+      }
       report_content: {
         Args: {
           p_content_id: string
@@ -7274,6 +7741,10 @@ export type Database = {
           p_reported_user_id: string
         }
         Returns: string
+      }
+      resolve_box_invitation_for_checkout: {
+        Args: { p_token: string }
+        Returns: Json
       }
       resolve_inter_pool_match: {
         Args: {
@@ -7293,9 +7764,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      revoke_box_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: Json
+      }
+      rotate_box_invitation_token: {
+        Args: { p_invitation_id: string; p_valid_days?: number }
+        Returns: Json
+      }
       submit_followup_feedback: {
         Args: { p_comment?: string; p_followup_id: string; p_rating: number }
         Returns: undefined
+      }
+      sync_tournament_activation: { Args: never; Returns: number }
+      tournament_wod_accepts_scores: {
+        Args: { p_tournament_id: string; p_wod_id: string }
+        Returns: boolean
       }
       update_user_elo: {
         Args: {

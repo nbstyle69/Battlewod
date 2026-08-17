@@ -5,7 +5,7 @@ import { BOX_COLUMNS, BOX_MEMBERSHIP_COLUMNS } from '../lib/boxColumns';
 import { readRows } from '../lib/db';
 import { User, Box, BoxMemberRole, BoxSubscription } from '../types';
 import { Session } from '@supabase/supabase-js';
-import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs } from '../services/notifications';
+import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs, clearCachedPrefs, cancelAllLocalReminders } from '../services/notifications';
 import { awardLevelBadge } from '../services/gamification';
 import { setUserContext, clearUserContext, captureError } from '../lib/sentry';
 import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackDeleteAccount } from '../lib/analytics';
@@ -137,11 +137,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         registerForPushNotifications().then(token => {
           if (token) savePushToken(userId, token);
         }).catch(e => captureError(e, { action: 'registerPush' }));
-        // Schedule daily reminder if enabled
+        // Rappels locaux : les préférences sont chargées d'abord (elles alimentent
+        // le cache que les fonctions de programmation consultent), puis chaque
+        // rappel est (re)posé. Chaque schedule* refuse de lui-même si sa clé est
+        // désactivée — l'appelant n'a plus à s'en souvenir.
         getNotificationPrefs(userId).then(prefs => {
           if (prefs.daily_reminder) scheduleDailyReminder(prefs.reminder_hour);
-        }).catch(e => captureError(e, { action: 'scheduleDailyReminder' }));
-        scheduleScoreReminder().catch(e => captureError(e, { action: 'scheduleScoreReminder' }));
+          return scheduleScoreReminder();
+        }).catch(e => captureError(e, { action: 'scheduleLocalReminders' }));
       }
     } catch (e) {
       captureError(e, { action: 'fetchProfile', userId });
@@ -403,6 +406,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const toRemove = keys.filter(k => k.startsWith('@athlex:') || k.startsWith('lastSeenMessages_'));
       if (toRemove.length) await AsyncStorage.multiRemove(toRemove);
     } catch (e) { captureError(e, { action: 'signOutPurge' }); }
+    // Le cache mémoire des préférences et les rappels déjà posés appartiennent au
+    // compte qui se déconnecte : sur un appareil partagé, le suivant hériterait
+    // sinon des réglages et des rappels du précédent.
+    await clearCachedPrefs();
+    await cancelAllLocalReminders().catch(e => captureError(e, { action: 'signOutCancelReminders' }));
   }
 
   async function deleteAccount(): Promise<{ error: string | null }> {

@@ -6,7 +6,7 @@
 //
 // Auth: caller must own the box the notification belongs to.
 // Body: { notification_id: string }
-// Returns: { sent: number, recipients: number }
+// Returns: { sent: number, recipients: number, pref_disabled: number }
 // ------------------------------------------------------------------
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
@@ -82,7 +82,29 @@ serve(async (req: Request) => {
       if (!member) return json({ error: 'Target is not an active member of this box' }, 403);
       recipientIds = [notif.target];
     }
-    if (recipientIds.length === 0) return json({ sent: 0, recipients: 0 });
+    if (recipientIds.length === 0) return json({ sent: 0, recipients: 0, pref_disabled: 0 });
+
+    // ── PRÉFÉRENCES (2026-08-16) ─────────────────────────────────────────────
+    // Cette fonction ne consultait AUCUNE préférence : une annonce du back-office
+    // partait à tous les membres actifs, réglages coupés compris. Elle ne passe
+    // pas par send-push (elle parle à Expo directement, parce qu'un owner n'a de
+    // lien send-push qu'avec ses co-membres), donc corriger send-push ne la
+    // corrigeait pas — le filtre est appliqué ici, sur la même clé.
+    // Ligne de préférence absente = annonce autorisée (défaut true).
+    const { data: prefs, error: prefsErr } = await admin
+      .from('notification_preferences')
+      .select('user_id, notifications_enabled, box_announcements')
+      .in('user_id', recipientIds);
+    if (prefsErr) return json({ error: 'Preferences unavailable', sent: 0 }, 503);
+    const disabled = new Set(
+      (prefs ?? [])
+        .filter((p: any) => p.notifications_enabled === false || p.box_announcements === false)
+        .map((p: any) => p.user_id),
+    );
+    recipientIds = recipientIds.filter((id: string) => !disabled.has(id));
+    if (recipientIds.length === 0) {
+      return json({ sent: 0, recipients: 0, pref_disabled: disabled.size });
+    }
 
     const { data: tokens } = await admin
       .from('push_tokens')
@@ -90,7 +112,7 @@ serve(async (req: Request) => {
       .in('user_id', recipientIds);
 
     const list = (tokens ?? []).map((t: any) => t.token).filter(Boolean);
-    if (list.length === 0) return json({ sent: 0, recipients: recipientIds.length });
+    if (list.length === 0) return json({ sent: 0, recipients: recipientIds.length, pref_disabled: disabled.size });
 
     const messages = list.map((token: string) => ({
       to: token,
@@ -110,7 +132,7 @@ serve(async (req: Request) => {
       if (res.ok) sent += messages.slice(i, i + 100).length;
     }
 
-    return json({ sent, recipients: recipientIds.length });
+    return json({ sent, recipients: recipientIds.length, pref_disabled: disabled.size });
   } catch (e: any) {
     console.error('send-box-notification error', e);
     return json({ error: e?.message ?? 'Internal error' }, 500);

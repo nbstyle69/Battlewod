@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, Alert,
 } from 'react-native';
-import { ArrowLeft, Bell, Clock, Users, Trophy, Zap, MessageCircle, Heart } from 'lucide-react-native';
+import {
+  ArrowLeft, Bell, BellOff, Clock, Users, Trophy, Zap, MessageCircle, Heart,
+  Dumbbell, CalendarClock, TrendingUp, Megaphone, Award,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import {
   NotificationPrefs,
+  DEFAULT_NOTIFICATION_PREFS,
   getNotificationPrefs,
   saveNotificationPrefs,
   registerForPushNotifications,
@@ -17,21 +21,66 @@ import GlassBackground from '../../components/glass/GlassBackground';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+type BoolKey = Exclude<keyof NotificationPrefs, 'reminder_hour' | 'notifications_enabled'>;
+
+interface Toggle {
+  key: BoolKey;
+  label: string;
+  sub: string;
+  Icon: typeof Bell;
+  color: string;
+}
+
+// Chaque clé de la table `notification_preferences` est exposée ici : une clé
+// gouvernée côté serveur mais absente de cet écran serait un réglage que
+// l'utilisateur subit sans pouvoir le changer.
+const GROUPS: { title: string; toggles: Toggle[] }[] = [
+  {
+    title: 'Rappels',
+    toggles: [
+      { key: 'score_reminder', label: 'Rappel de score (18 h)', sub: 'Si tu n\'as pas encore entré ton score du jour', Icon: Clock, color: '#F59E0B' },
+      { key: 'class_reminders', label: 'Rappel de cours', sub: '1 h avant un cours que tu as réservé', Icon: CalendarClock, color: '#06B6D4' },
+    ],
+  },
+  {
+    title: 'Social',
+    toggles: [
+      { key: 'friend_requests', label: 'Demandes d\'amis', sub: 'Demandes reçues et acceptées', Icon: Users, color: '#8B5CF6' },
+      { key: 'group_messages', label: 'Messages de groupe', sub: 'Nouveaux messages dans tes groupes', Icon: MessageCircle, color: '#3B82F6' },
+      { key: 'score_comments', label: 'Commentaires', sub: 'Quand quelqu\'un commente ton score', Icon: MessageCircle, color: '#3B82F6' },
+      { key: 'score_reactions', label: 'Likes & réactions', sub: 'Quand quelqu\'un réagit à ton score', Icon: Heart, color: '#EC4899' },
+    ],
+  },
+  {
+    title: 'Entraînement',
+    toggles: [
+      { key: 'new_wod', label: 'Nouveau WOD', sub: 'Quand ta box publie un WOD', Icon: Dumbbell, color: '#10B981' },
+      { key: 'badge_unlocks', label: 'Badges débloqués', sub: 'Quand tu débloques un badge', Icon: Award, color: '#F97316' },
+    ],
+  },
+  {
+    title: 'Compétition',
+    toggles: [
+      { key: 'tournament_updates', label: 'Tournois', sub: 'Démarrage, ouverture des WOD, rappels, résultats', Icon: Trophy, color: '#EAB308' },
+      { key: 'score_updates', label: 'Scores', sub: 'Quand un score est validé ou que tu es dépassé', Icon: Zap, color: '#EF4444' },
+      { key: 'elo_updates', label: 'ELO & inter-box', sub: 'Gains et pertes d\'ELO, résultats inter-box', Icon: TrendingUp, color: '#6366F1' },
+    ],
+  },
+  {
+    title: 'Annonces de la box',
+    toggles: [
+      { key: 'box_announcements', label: 'Annonces', sub: 'Messages envoyés par ta box', Icon: Megaphone, color: '#14B8A6' },
+    ],
+  },
+];
+
 export default function NotificationSettingsScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { theme } = useTheme();
   const S = createStyles(theme);
 
-  const [prefs, setPrefs] = useState<NotificationPrefs>({
-    daily_reminder: true,
-    reminder_hour: 9,
-    friend_requests: true,
-    tournament_updates: true,
-    score_updates: true,
-    score_comments: true,
-    score_reactions: true,
-  });
+  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -44,9 +93,16 @@ export default function NotificationSettingsScreen() {
 
   async function update(key: keyof NotificationPrefs, value: boolean | number) {
     if (!user) return;
-    const updated = { ...prefs, [key]: value };
-    setPrefs(updated);
-    await saveNotificationPrefs(user.id, { [key]: value });
+    const previous = prefs;
+    setPrefs({ ...prefs, [key]: value });
+    try {
+      // saveNotificationPrefs annule aussi les rappels déjà programmés sur
+      // l'appareil : l'écran n'a pas à connaître cette mécanique.
+      await saveNotificationPrefs(user.id, { [key]: value });
+    } catch {
+      setPrefs(previous);
+      Alert.alert('Réglage non enregistré', 'Vérifie ta connexion et réessaie.');
+    }
   }
 
   async function testPush() {
@@ -61,6 +117,30 @@ export default function NotificationSettingsScreen() {
 
   if (!loaded) return null;
 
+  const master = prefs.notifications_enabled;
+
+  function renderToggle(t: Toggle) {
+    const value = prefs[t.key] && master;
+    return (
+      <View style={S.row} key={t.key}>
+        <View style={S.rowLeft}>
+          <t.Icon color={master ? t.color : theme.textMuted} size={18} />
+          <View style={{ flex: 1 }}>
+            <Text style={[S.rowLabel, !master && S.rowLabelOff]}>{t.label}</Text>
+            <Text style={S.rowSub}>{t.sub}</Text>
+          </View>
+        </View>
+        <Switch
+          value={value}
+          disabled={!master}
+          onValueChange={v => update(t.key, v)}
+          trackColor={{ false: theme.border, true: `${t.color}60` }}
+          thumbColor={value ? t.color : theme.textMuted}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={S.screen}>
       <View style={S.header}>
@@ -72,26 +152,50 @@ export default function NotificationSettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={S.content}>
-        {/* Daily reminder */}
+        {/* Interrupteur maître */}
+        <View style={S.section}>
+          <View style={S.row}>
+            <View style={S.rowLeft}>
+              {master ? <Bell color={theme.accent} size={18} /> : <BellOff color={theme.textMuted} size={18} />}
+              <View style={{ flex: 1 }}>
+                <Text style={S.rowLabel}>Toutes les notifications</Text>
+                <Text style={S.rowSub}>
+                  {master
+                    ? 'Coupe tout d\'un coup, y compris les rappels déjà programmés'
+                    : 'Aucune notification ne t\'est envoyée'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={master}
+              onValueChange={v => update('notifications_enabled', v)}
+              trackColor={{ false: theme.border, true: `${theme.accent}60` }}
+              thumbColor={master ? theme.accent : theme.textMuted}
+            />
+          </View>
+        </View>
+
+        {/* Rappel quotidien + son heure */}
         <View style={S.section}>
           <Text style={S.sectionTitle}>Rappel quotidien</Text>
           <View style={S.row}>
             <View style={S.rowLeft}>
-              <Bell color={theme.accent} size={18} />
-              <View>
-                <Text style={S.rowLabel}>Rappel d'entraînement</Text>
+              <Bell color={master ? theme.accent : theme.textMuted} size={18} />
+              <View style={{ flex: 1 }}>
+                <Text style={[S.rowLabel, !master && S.rowLabelOff]}>Rappel d'entraînement</Text>
                 <Text style={S.rowSub}>Notification chaque jour pour t'entraîner</Text>
               </View>
             </View>
             <Switch
-              value={prefs.daily_reminder}
+              value={prefs.daily_reminder && master}
+              disabled={!master}
               onValueChange={v => update('daily_reminder', v)}
               trackColor={{ false: theme.border, true: `${theme.accent}60` }}
-              thumbColor={prefs.daily_reminder ? theme.accent : theme.textMuted}
+              thumbColor={prefs.daily_reminder && master ? theme.accent : theme.textMuted}
             />
           </View>
 
-          {prefs.daily_reminder && (
+          {prefs.daily_reminder && master && (
             <View style={S.hourSection}>
               <View style={S.rowLeft}>
                 <Clock color={theme.textMuted} size={16} />
@@ -115,90 +219,12 @@ export default function NotificationSettingsScreen() {
           )}
         </View>
 
-        {/* Push categories */}
-        <View style={S.section}>
-          <Text style={S.sectionTitle}>Catégories</Text>
-
-          <View style={S.row}>
-            <View style={S.rowLeft}>
-              <Users color="#8B5CF6" size={18} />
-              <View>
-                <Text style={S.rowLabel}>Demandes d'amis</Text>
-                <Text style={S.rowSub}>Quand quelqu'un t'envoie une demande</Text>
-              </View>
-            </View>
-            <Switch
-              value={prefs.friend_requests}
-              onValueChange={v => update('friend_requests', v)}
-              trackColor={{ false: theme.border, true: '#8B5CF660' }}
-              thumbColor={prefs.friend_requests ? '#8B5CF6' : theme.textMuted}
-            />
+        {GROUPS.map(g => (
+          <View style={S.section} key={g.title}>
+            <Text style={S.sectionTitle}>{g.title}</Text>
+            {g.toggles.map(renderToggle)}
           </View>
-
-          <View style={S.row}>
-            <View style={S.rowLeft}>
-              <Trophy color={theme.gold} size={18} />
-              <View>
-                <Text style={S.rowLabel}>Tournois</Text>
-                <Text style={S.rowSub}>Mises à jour, résultats, nouveaux WODs</Text>
-              </View>
-            </View>
-            <Switch
-              value={prefs.tournament_updates}
-              onValueChange={v => update('tournament_updates', v)}
-              trackColor={{ false: theme.border, true: `${theme.gold}60` }}
-              thumbColor={prefs.tournament_updates ? theme.gold : theme.textMuted}
-            />
-          </View>
-
-          <View style={S.row}>
-            <View style={S.rowLeft}>
-              <Zap color="#EF4444" size={18} />
-              <View>
-                <Text style={S.rowLabel}>Scores</Text>
-                <Text style={S.rowSub}>Quand un score est validé ou battu</Text>
-              </View>
-            </View>
-            <Switch
-              value={prefs.score_updates}
-              onValueChange={v => update('score_updates', v)}
-              trackColor={{ false: theme.border, true: '#EF444460' }}
-              thumbColor={prefs.score_updates ? '#EF4444' : theme.textMuted}
-            />
-          </View>
-
-          <View style={S.row}>
-            <View style={S.rowLeft}>
-              <MessageCircle color="#3B82F6" size={18} />
-              <View>
-                <Text style={S.rowLabel}>Commentaires</Text>
-                <Text style={S.rowSub}>Quand quelqu'un commente ton score</Text>
-              </View>
-            </View>
-            <Switch
-              value={prefs.score_comments}
-              onValueChange={v => update('score_comments', v)}
-              trackColor={{ false: theme.border, true: '#3B82F660' }}
-              thumbColor={prefs.score_comments ? '#3B82F6' : theme.textMuted}
-            />
-          </View>
-
-          <View style={S.row}>
-            <View style={S.rowLeft}>
-              <Heart color="#EC4899" size={18} />
-              <View>
-                <Text style={S.rowLabel}>Likes & réactions</Text>
-                <Text style={S.rowSub}>Quand quelqu'un réagit à ton score</Text>
-              </View>
-            </View>
-            <Switch
-              value={prefs.score_reactions}
-              onValueChange={v => update('score_reactions', v)}
-              trackColor={{ false: theme.border, true: '#EC489960' }}
-              thumbColor={prefs.score_reactions ? '#EC4899' : theme.textMuted}
-            />
-          </View>
-        </View>
+        ))}
 
         {/* Test button */}
         <TouchableOpacity style={S.testBtn} onPress={testPush} activeOpacity={0.8}>
@@ -229,6 +255,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   rowLabel: { fontSize: 13, fontWeight: '700', color: t.text },
+  rowLabelOff: { color: t.textMuted },
   rowSub: { fontSize: 11, color: t.textMuted, marginTop: 1 },
   hourSection: { gap: 8 },
   hourScroll: { marginTop: 4 },
