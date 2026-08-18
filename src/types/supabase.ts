@@ -1247,41 +1247,62 @@ export type Database = {
       }
       box_programming_wods: {
         Row: {
+          block_name: string | null
           created_at: string
           day_of_week: number
           description: string | null
+          emom_interval_minutes: number | null
           id: string
+          leaderboard_enabled: boolean
+          notes: string | null
           programming_id: string
           rounds: number | null
           sort_order: number
+          tabata_rest_seconds: number | null
+          tabata_work_seconds: number | null
           time_cap_seconds: number | null
           title: string
+          video_url: string | null
           week_number: number
           wod_type: string | null
         }
         Insert: {
+          block_name?: string | null
           created_at?: string
           day_of_week: number
           description?: string | null
+          emom_interval_minutes?: number | null
           id?: string
+          leaderboard_enabled?: boolean
+          notes?: string | null
           programming_id: string
           rounds?: number | null
           sort_order?: number
+          tabata_rest_seconds?: number | null
+          tabata_work_seconds?: number | null
           time_cap_seconds?: number | null
           title: string
+          video_url?: string | null
           week_number?: number
           wod_type?: string | null
         }
         Update: {
+          block_name?: string | null
           created_at?: string
           day_of_week?: number
           description?: string | null
+          emom_interval_minutes?: number | null
           id?: string
+          leaderboard_enabled?: boolean
+          notes?: string | null
           programming_id?: string
           rounds?: number | null
           sort_order?: number
+          tabata_rest_seconds?: number | null
+          tabata_work_seconds?: number | null
           time_cap_seconds?: number | null
           title?: string
+          video_url?: string | null
           week_number?: number
           wod_type?: string | null
         }
@@ -7677,6 +7698,7 @@ export type Database = {
       is_box_coach: { Args: { p_box_id: string }; Returns: boolean }
       is_box_member: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner: { Args: { p_box_id: string }; Returns: boolean }
+      is_box_owner_admin: { Args: { p_box_id: string }; Returns: boolean }
       is_box_owner_member: { Args: { p_box_id: string }; Returns: boolean }
       is_box_staff: { Args: { p_box_id: string }; Returns: boolean }
       is_inter_competition_manager: {
