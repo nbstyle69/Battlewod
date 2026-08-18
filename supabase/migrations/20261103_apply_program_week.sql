@@ -106,7 +106,9 @@ BEGIN
   END IF;
 
   RETURN QUERY
-    SELECT s.id, p.id, p.title, pb.name, p.weeks_count, p.days_per_week,
+    -- `weeks_count` / `days_per_week` sont smallint en base : RETURN QUERY est
+    -- strict sur le type, sans cast la fonction lève 42804 pour tout appelant.
+    SELECT s.id, p.id, p.title, pb.name, p.weeks_count::int, p.days_per_week::int,
            s.auto_apply_weekly, s.current_period_end
       FROM public.box_programming_subscriptions s
       JOIN public.box_programming p ON p.id = s.programming_id
