@@ -22,7 +22,7 @@ import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
 import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScoreReminder } from '../../services/notifications';
 import { incrementCounter, logMovementReps } from '../../services/gamification';
-import { formatScoreValue, normalizeScore, mapForTimeScore } from '../../utils/scoreFormat';
+import { formatScoreValue, normalizeScore, mapForTimeScore, formatCap } from '../../utils/scoreFormat';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
@@ -484,7 +484,7 @@ export default function WODDetailScreen() {
             {wod.time_cap_seconds && (
               <View style={S.timeCap}>
                 <Clock color={theme.textMuted} size={12} />
-                <Text style={S.timeCapText}>Cap {Math.floor(wod.time_cap_seconds / 60)} min</Text>
+                <Text style={S.timeCapText}>Cap {formatCap(wod.time_cap_seconds)}</Text>
               </View>
             )}
           </View>

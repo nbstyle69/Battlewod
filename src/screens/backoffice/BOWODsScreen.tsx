@@ -18,6 +18,7 @@ import { BoxWOD, BoxWODType } from '../../types';
 import DateField from '../../components/DateField';
 import InteractiveTour, { COACH_TOUR_STEPS } from '../../components/InteractiveTour';
 import { MOVEMENT_CATALOG, isWeightedMovement, serializeMovement, parseMovementRow } from '../../utils/movementsCatalog';
+import { formatCap, parseCap } from '../../utils/scoreFormat';
 
 const WOD_TYPES: { value: BoxWODType; labelKey: string }[] = [
   { value: 'for-time', labelKey: 'bo.wods.typeForTime' },
@@ -92,7 +93,7 @@ export default function BOWODsScreen({ navigation }: any) {
   // doivent rester lisibles ici, où l'édition est volontairement simple.
   function wodMeta(wod: BoxWOD): string[] {
     const parts: string[] = [];
-    if (wod.time_cap_seconds) parts.push(`Cap ${Math.floor(wod.time_cap_seconds / 60)} min`);
+    if (wod.time_cap_seconds) parts.push(`Cap ${formatCap(wod.time_cap_seconds)}`);
     if (wod.rounds) parts.push(`${wod.rounds} rounds`);
     if (wod.notes) parts.push(t('bo.wods.hasNotes'));
     if (wod.video_url) parts.push(t('bo.wods.hasVideo'));
@@ -138,7 +139,7 @@ export default function BOWODsScreen({ navigation }: any) {
     setMovements(wod.description ? wod.description.split('\n').map(l => l.trim()).filter(Boolean) : []);
     setWodType(wod.wod_type ?? 'amrap');
     setDate(wod.scheduled_date);
-    setTimeCap(wod.time_cap_seconds ? String(Math.floor(wod.time_cap_seconds / 60)) : '');
+    setTimeCap(formatCap(wod.time_cap_seconds));
     setRounds(wod.rounds ? String(wod.rounds) : '');
     setNotes(wod.notes ?? '');
     setBlockName(wod.block_name ?? '');
@@ -168,7 +169,7 @@ export default function BOWODsScreen({ navigation }: any) {
       description: movements.map(l => l.trim()).filter(Boolean).join('\n') || null,
       wod_type: wodType,
       scheduled_date: date,
-      time_cap_seconds: timeCap ? parseInt(timeCap) * 60 : null,
+      time_cap_seconds: parseCap(timeCap),
       rounds: rounds ? parseInt(rounds) : null,
       notes: notes.trim() || null,
       block_name: blockName.trim() || null,
@@ -273,7 +274,7 @@ export default function BOWODsScreen({ navigation }: any) {
             title: cols[1] || t('bo.wods.importedWod'),
             wod_type: cols[2] || 'custom',
             description: cols[3] || null,
-            time_cap_seconds: cols[4] ? parseInt(cols[4]) * 60 : null,
+            time_cap_seconds: cols[4] ? parseCap(cols[4]) : null,
             rounds: cols[5] ? parseInt(cols[5]) : null,
             notes: cols[6] || null,
             block_name: cols[7] || null,
@@ -310,7 +311,7 @@ export default function BOWODsScreen({ navigation }: any) {
         description: r.description || null,
         wod_type: VALID_TYPES.includes(r.wod_type ?? r.type ?? '') ? (r.wod_type ?? r.type) : 'custom',
         scheduled_date: r.scheduled_date ?? r.date ?? toISO(new Date()),
-        time_cap_seconds: r.time_cap_seconds ?? (r.timecap ? parseInt(r.timecap) * 60 : null),
+        time_cap_seconds: r.time_cap_seconds ?? (r.timecap ? parseCap(String(r.timecap)) : null),
         rounds: r.rounds ? parseInt(String(r.rounds)) : null,
         notes: r.notes || null,
         block_name: r.block_name ?? r.block ?? null,
@@ -557,7 +558,7 @@ export default function BOWODsScreen({ navigation }: any) {
               <View style={S.mRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={S.mLabel}>{t('bo.wods.labelTimeCap')}</Text>
-                  <TextInput style={S.mInput} value={timeCap} onChangeText={setTimeCap} keyboardType="numeric" placeholder="20" placeholderTextColor={theme.textMuted} />
+                  <TextInput style={S.mInput} value={timeCap} onChangeText={setTimeCap} keyboardType="numbers-and-punctuation" placeholder="12:30" placeholderTextColor={theme.textMuted} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={S.mLabel}>{t('bo.wods.labelRounds')}</Text>

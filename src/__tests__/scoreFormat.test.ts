@@ -1,5 +1,6 @@
 import {
   formatScoreValue, DNF_BASE, mapForTimeScore, normalizeScore, compareScores,
+  formatCap, parseCap,
 } from '../utils/scoreFormat';
 
 describe('scoreFormat utilities', () => {
@@ -138,6 +139,45 @@ describe('scoreFormat utilities', () => {
 
     test('ex aequo : ordre stable, comparateur nul', () => {
       expect(compareScores(s(20, true), s(20, true), true)).toBe(0);
+    });
+  });
+
+  // ── Time cap mm:ss ───────────────────────────────────────────────────────
+  describe('formatCap / parseCap — aller-retour sans perte', () => {
+    test('formate les secondes en mm:ss', () => {
+      expect(formatCap(750)).toBe('12:30');
+      expect(formatCap(720)).toBe('12:00');
+      expect(formatCap(65)).toBe('1:05');
+      expect(formatCap(0)).toBe('0:00');
+    });
+
+    test('null / undefined → chaîne vide (pas de « 0:00 » inventé)', () => {
+      expect(formatCap(null)).toBe('');
+      expect(formatCap(undefined)).toBe('');
+    });
+
+    test('vide → null : un cap effacé s\'écrit null, pas 0', () => {
+      expect(parseCap('')).toBeNull();
+      expect(parseCap('   ')).toBeNull();
+      expect(parseCap('abc')).toBeNull();
+    });
+
+    test('un nombre nu reste des minutes (compat CSV et saisie rapide)', () => {
+      expect(parseCap('12')).toBe(720);
+      expect(parseCap('20')).toBe(1200);
+    });
+
+    test('mm:ss → secondes exactes', () => {
+      expect(parseCap('12:30')).toBe(750);
+      expect(parseCap('0:45')).toBe(45);
+      expect(parseCap('12:00')).toBe(720);
+    });
+
+    test('aller-retour formatCap → parseCap : identité à la seconde', () => {
+      // Le cas qui réécrivait la donnée : 750 s revenait à 720 s.
+      for (const s of [0, 1, 45, 59, 60, 119, 720, 750, 899, 3600, 3661]) {
+        expect(parseCap(formatCap(s))).toBe(s);
+      }
     });
   });
 });

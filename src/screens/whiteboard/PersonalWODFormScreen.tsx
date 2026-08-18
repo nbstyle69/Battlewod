@@ -16,6 +16,7 @@ import { WhiteboardStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
 import DateField from '../../components/DateField';
+import { formatCap, parseCap } from '../../utils/scoreFormat';
 
 type Nav = NativeStackNavigationProp<WhiteboardStackParamList, 'PersonalWODForm'>;
 type Rt = RouteProp<WhiteboardStackParamList, 'PersonalWODForm'>;
@@ -81,7 +82,7 @@ export default function PersonalWODFormScreen() {
       setDescription(data.description ?? '');
       setWodType((data.wod_type as BoxWODType) ?? 'amrap');
       setDate(data.scheduled_date);
-      setTimeCap(data.time_cap_seconds ? String(Math.floor(data.time_cap_seconds / 60)) : '');
+      setTimeCap(formatCap(data.time_cap_seconds));
       setRounds(data.rounds ? String(data.rounds) : '');
       setEmomInterval(data.emom_interval_minutes ? String(data.emom_interval_minutes) : '1');
       setTabataWork(data.tabata_work_seconds ? String(data.tabata_work_seconds) : '20');
@@ -104,7 +105,7 @@ export default function PersonalWODFormScreen() {
       description: description.trim() || null,
       wod_type: wodType,
       scheduled_date: date,
-      time_cap_seconds: timeCap ? parseInt(timeCap) * 60 : null,
+      time_cap_seconds: parseCap(timeCap),
       rounds: rounds ? parseInt(rounds) : null,
       notes: notes.trim() || null,
       is_published: true,
@@ -229,13 +230,13 @@ export default function PersonalWODFormScreen() {
 
         <View style={S.row}>
           <View style={{ flex: 1 }}>
-            <Text style={S.label}>TIME CAP (min)</Text>
+            <Text style={S.label}>TIME CAP (mm:ss)</Text>
             <TextInput
               style={S.input}
               value={timeCap}
               onChangeText={setTimeCap}
-              keyboardType="numeric"
-              placeholder="20"
+              keyboardType="numbers-and-punctuation"
+              placeholder="12:30"
               placeholderTextColor={theme.textMuted}
             />
           </View>

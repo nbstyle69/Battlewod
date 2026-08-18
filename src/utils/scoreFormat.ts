@@ -59,6 +59,32 @@ export function formatScoreValue(value: number, type: string, capped?: boolean |
 }
 
 /**
+ * Le time cap d'un WOD se saisit et s'affiche en `mm:ss` — comme la saisie de
+ * score — alors que la colonne `time_cap_seconds` est en secondes. `formatCap`
+ * puis `parseCap` doivent redonner la valeur d'origine à la seconde : sinon un
+ * simple « Enregistrer » réécrit la donnée, et 30 secondes comptent sur un
+ * for-time (le cap alimente la convention `capped`).
+ */
+export function formatCap(seconds: number | null | undefined): string {
+  if (seconds == null) return '';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** `mm:ss` → secondes. Un nombre nu est lu comme des minutes (`12` → 720). */
+export function parseCap(text: string): number | null {
+  const raw = text.trim();
+  if (!raw) return null;
+  const [minPart, secPart] = raw.split(':');
+  const minutes = parseInt(minPart, 10);
+  if (Number.isNaN(minutes)) return null;
+  if (secPart === undefined) return minutes * 60;
+  const seconds = parseInt(secPart, 10);
+  return minutes * 60 + (Number.isNaN(seconds) ? 0 : seconds);
+}
+
+/**
  * Comparateur de classement, miroir bit-à-bit de l'ORDER BY serveur :
  * rx d'abord, puis finishers avant capped, puis temps croissant (finishers)
  * / reps décroissantes (capped) / reps décroissantes (non chronométré).
