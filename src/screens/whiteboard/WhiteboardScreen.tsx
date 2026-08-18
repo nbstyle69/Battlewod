@@ -18,6 +18,7 @@ import { captureError } from '../../lib/sentry';
 import { hapticSuccess } from '../../lib/haptics';
 import { recordActivity, logMovementReps } from '../../services/gamification';
 import { computeCompletedMovements } from '../../utils/movementParser';
+import { formatCap } from '../../utils/scoreFormat';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD } from '../../types';
@@ -742,7 +743,7 @@ export default function WhiteboardScreen() {
                       {wod.time_cap_seconds != null && (
                         <View style={S.timeCap}>
                           <Clock color={theme.textMuted} size={12} />
-                          <Text style={S.timeCapText}>{t('whiteboard.cap', { min: Math.floor(wod.time_cap_seconds / 60) })}</Text>
+                          <Text style={S.timeCapText}>{t('whiteboard.cap', { cap: formatCap(wod.time_cap_seconds) })}</Text>
                         </View>
                       )}
                     </View>
@@ -1010,7 +1011,7 @@ export default function WhiteboardScreen() {
                             <View style={S.timeCap}>
                               <Clock color={theme.textMuted} size={12} />
                               <Text style={S.timeCapText}>
-                                {t('whiteboard.cap', { min: Math.floor(wod.time_cap_seconds / 60) })}
+                                {t('whiteboard.cap', { cap: formatCap(wod.time_cap_seconds) })}
                               </Text>
                             </View>
                           )}
@@ -1095,7 +1096,7 @@ export default function WhiteboardScreen() {
                     {wod.time_cap_seconds != null && (
                       <View style={S.timeCap}>
                         <Clock color={theme.textMuted} size={12} />
-                        <Text style={S.timeCapText}>{t('whiteboard.cap', { min: Math.floor(wod.time_cap_seconds / 60) })}</Text>
+                        <Text style={S.timeCapText}>{t('whiteboard.cap', { cap: formatCap(wod.time_cap_seconds) })}</Text>
                       </View>
                     )}
                   </View>
@@ -1152,7 +1153,7 @@ export default function WhiteboardScreen() {
                         {entry.wod.time_cap_seconds != null && (
                           <View style={S.timeCap}>
                             <Clock color={theme.textMuted} size={12} />
-                            <Text style={S.timeCapText}>{t('whiteboard.cap', { min: Math.floor(entry.wod.time_cap_seconds / 60) })}</Text>
+                            <Text style={S.timeCapText}>{t('whiteboard.cap', { cap: formatCap(entry.wod.time_cap_seconds) })}</Text>
                           </View>
                         )}
                       </View>

@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ProgramWOD } from '../../types';
+import { formatCap, parseCap } from '../../utils/scoreFormat';
 
 const WOD_TYPES: { value: string; labelKey: string; color: string }[] = [
   { value: 'for-time', labelKey: 'bo.programEditor.typeForTime', color: '#EF4444' },
@@ -82,7 +83,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
     setFTitle(w.title);
     setFDesc(w.description);
     setFType(w.wod_type ?? 'custom');
-    setFTimeCap(w.time_cap_seconds ? String(Math.floor(w.time_cap_seconds / 60)) : '');
+    setFTimeCap(formatCap(w.time_cap_seconds));
     setFNotes(w.notes ?? '');
     setFDayNumber(w.day_number ?? 1);
     setModalOpen(true);
@@ -99,7 +100,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
       title: fTitle.trim(),
       description: fDesc.trim(),
       wod_type: fType,
-      time_cap_seconds: fTimeCap ? parseInt(fTimeCap) * 60 : null,
+      time_cap_seconds: parseCap(fTimeCap),
       notes: fNotes.trim() || null,
     };
     try {
@@ -274,7 +275,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
               />
 
               <Text style={S.mLabel}>{t('bo.programEditor.labelTimeCap')}</Text>
-              <TextInput style={S.mInput} value={fTimeCap} onChangeText={setFTimeCap} keyboardType="numeric" placeholder="20" placeholderTextColor={theme.textMuted} />
+              <TextInput style={S.mInput} value={fTimeCap} onChangeText={setFTimeCap} keyboardType="numbers-and-punctuation" placeholder="12:30" placeholderTextColor={theme.textMuted} />
 
               <Text style={S.mLabel}>{t('bo.programEditor.labelNotes')}</Text>
               <TextInput style={[S.mInput, { minHeight: 60 }]} value={fNotes} onChangeText={setFNotes} placeholder={t('bo.programEditor.notesPlaceholder')} placeholderTextColor={theme.textMuted} multiline />

@@ -18,6 +18,7 @@ import { BoxWOD, BoxWODType } from '../../types';
 import DateField from '../../components/DateField';
 import InteractiveTour, { COACH_TOUR_STEPS } from '../../components/InteractiveTour';
 import { MOVEMENT_CATALOG, isWeightedMovement, serializeMovement, parseMovementRow } from '../../utils/movementsCatalog';
+import { formatCap, parseCap } from '../../utils/scoreFormat';
 
 const WOD_TYPES: { value: BoxWODType; labelKey: string }[] = [
   { value: 'for-time', labelKey: 'bo.wods.typeForTime' },
@@ -76,6 +77,10 @@ export default function BOWODsScreen({ navigation }: any) {
   const [rounds,      setRounds]      = useState('');
   const [notes,       setNotes]       = useState('');
   const [blockName,   setBlockName]   = useState('');
+  const [videoUrl,    setVideoUrl]    = useState('');
+  const [emomInterval, setEmomInterval] = useState('1');
+  const [tabataWork,  setTabataWork]  = useState('20');
+  const [tabataRest,  setTabataRest]  = useState('10');
   const [published,   setPublished]   = useState(true);
   const [publishMode,  setPublishMode] = useState<'now' | 'scheduled'>('now');
   const [publishHour,  setPublishHour] = useState('06');
@@ -83,6 +88,18 @@ export default function BOWODsScreen({ navigation }: any) {
   const [submitting,  setSubmitting]  = useState(false);
 
   const weekDates = getWeekDates(weekOffset);
+
+  // Les champs enrichis saisis au web (cap, rounds, notes, vidéo, classement)
+  // doivent rester lisibles ici, où l'édition est volontairement simple.
+  function wodMeta(wod: BoxWOD): string[] {
+    const parts: string[] = [];
+    if (wod.time_cap_seconds) parts.push(`Cap ${formatCap(wod.time_cap_seconds)}`);
+    if (wod.rounds) parts.push(`${wod.rounds} rounds`);
+    if (wod.notes) parts.push(t('bo.wods.hasNotes'));
+    if (wod.video_url) parts.push(t('bo.wods.hasVideo'));
+    if (wod.leaderboard_enabled === false) parts.push(t('bo.wods.noLeaderboard'));
+    return parts;
+  }
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
@@ -111,6 +128,7 @@ export default function BOWODsScreen({ navigation }: any) {
     setTitle(''); setMovements([]); setWodType('amrap');
     setDate(selectedDate); setTimeCap(''); setRounds('');
     setNotes(''); setBlockName(''); setPublished(true);
+    setVideoUrl(''); setEmomInterval('1'); setTabataWork('20'); setTabataRest('10');
     setPublishMode('now'); setPublishHour('06'); setPublishMin('00');
     setModalOpen(true);
   }
@@ -121,10 +139,14 @@ export default function BOWODsScreen({ navigation }: any) {
     setMovements(wod.description ? wod.description.split('\n').map(l => l.trim()).filter(Boolean) : []);
     setWodType(wod.wod_type ?? 'amrap');
     setDate(wod.scheduled_date);
-    setTimeCap(wod.time_cap_seconds ? String(Math.floor(wod.time_cap_seconds / 60)) : '');
+    setTimeCap(formatCap(wod.time_cap_seconds));
     setRounds(wod.rounds ? String(wod.rounds) : '');
     setNotes(wod.notes ?? '');
     setBlockName(wod.block_name ?? '');
+    setVideoUrl(wod.video_url ?? '');
+    setEmomInterval(wod.emom_interval_minutes ? String(wod.emom_interval_minutes) : '1');
+    setTabataWork(wod.tabata_work_seconds ? String(wod.tabata_work_seconds) : '20');
+    setTabataRest(wod.tabata_rest_seconds != null ? String(wod.tabata_rest_seconds) : '10');
     setPublished(wod.is_published);
     if (wod.publish_at) {
       const pa = new Date(wod.publish_at);
@@ -147,10 +169,20 @@ export default function BOWODsScreen({ navigation }: any) {
       description: movements.map(l => l.trim()).filter(Boolean).join('\n') || null,
       wod_type: wodType,
       scheduled_date: date,
-      time_cap_seconds: timeCap ? parseInt(timeCap) * 60 : null,
+      time_cap_seconds: parseCap(timeCap),
       rounds: rounds ? parseInt(rounds) : null,
       notes: notes.trim() || null,
       block_name: blockName.trim() || null,
+      video_url: videoUrl.trim() || null,
+      emom_interval_minutes: wodType === 'emom'
+        ? Math.min(5, Math.max(1, parseInt(emomInterval, 10) || 1))
+        : null,
+      tabata_work_seconds: wodType === 'tabata'
+        ? Math.max(5, parseInt(tabataWork, 10) || 20)
+        : null,
+      tabata_rest_seconds: wodType === 'tabata'
+        ? Math.max(0, parseInt(tabataRest, 10) || 10)
+        : null,
       is_published: published,
       publish_at: (published && publishMode === 'scheduled' && date)
         ? `${date}T${publishHour.padStart(2, '0')}:${publishMin.padStart(2, '0')}:00`
@@ -242,7 +274,7 @@ export default function BOWODsScreen({ navigation }: any) {
             title: cols[1] || t('bo.wods.importedWod'),
             wod_type: cols[2] || 'custom',
             description: cols[3] || null,
-            time_cap_seconds: cols[4] ? parseInt(cols[4]) * 60 : null,
+            time_cap_seconds: cols[4] ? parseCap(cols[4]) : null,
             rounds: cols[5] ? parseInt(cols[5]) : null,
             notes: cols[6] || null,
             block_name: cols[7] || null,
@@ -279,7 +311,7 @@ export default function BOWODsScreen({ navigation }: any) {
         description: r.description || null,
         wod_type: VALID_TYPES.includes(r.wod_type ?? r.type ?? '') ? (r.wod_type ?? r.type) : 'custom',
         scheduled_date: r.scheduled_date ?? r.date ?? toISO(new Date()),
-        time_cap_seconds: r.time_cap_seconds ?? (r.timecap ? parseInt(r.timecap) * 60 : null),
+        time_cap_seconds: r.time_cap_seconds ?? (r.timecap ? parseCap(String(r.timecap)) : null),
         rounds: r.rounds ? parseInt(String(r.rounds)) : null,
         notes: r.notes || null,
         block_name: r.block_name ?? r.block ?? null,
@@ -375,8 +407,20 @@ export default function BOWODsScreen({ navigation }: any) {
                         <View key={wod.id} style={[S.wodRow, !wod.is_published && S.wodRowDraft]}>
                           <View style={[S.wodTypeBar, { backgroundColor: tc }]} />
                           <View style={S.wodRowContent}>
-                            <Text style={S.wodRowType}>{(wod.wod_type ?? 'WOD').toUpperCase()}</Text>
+                            <Text style={S.wodRowType}>
+                              {wod.block_name ? `${wod.block_name.toUpperCase()} · ` : ''}
+                              {(wod.wod_type ?? 'WOD').toUpperCase()}
+                              {wod.wod_type === 'emom' && wod.emom_interval_minutes
+                                ? ` ${wod.emom_interval_minutes > 1 ? `E${wod.emom_interval_minutes}MOM` : ''}`
+                                : ''}
+                              {wod.wod_type === 'tabata' && wod.tabata_work_seconds
+                                ? ` ${wod.tabata_work_seconds}/${wod.tabata_rest_seconds ?? 0}s`
+                                : ''}
+                            </Text>
                             <Text style={S.wodRowTitle}>{wod.title}</Text>
+                            {wodMeta(wod).length > 0 && (
+                              <Text style={S.wodRowMeta}>{wodMeta(wod).join(' · ')}</Text>
+                            )}
                             {!wod.is_published && <Text style={S.draftTag}>{t('bo.wods.draft')}</Text>}
                             {wod.is_published && wod.publish_at && new Date(wod.publish_at) > new Date() && (
                               <Text style={[S.draftTag, { color: theme.accent }]}>
@@ -514,7 +558,7 @@ export default function BOWODsScreen({ navigation }: any) {
               <View style={S.mRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={S.mLabel}>{t('bo.wods.labelTimeCap')}</Text>
-                  <TextInput style={S.mInput} value={timeCap} onChangeText={setTimeCap} keyboardType="numeric" placeholder="20" placeholderTextColor={theme.textMuted} />
+                  <TextInput style={S.mInput} value={timeCap} onChangeText={setTimeCap} keyboardType="numbers-and-punctuation" placeholder="12:30" placeholderTextColor={theme.textMuted} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={S.mLabel}>{t('bo.wods.labelRounds')}</Text>
@@ -522,12 +566,44 @@ export default function BOWODsScreen({ navigation }: any) {
                 </View>
               </View>
 
+              {wodType === 'emom' && (
+                <>
+                  <Text style={S.mLabel}>{t('bo.wods.labelEmomInterval')}</Text>
+                  <TextInput style={S.mInput} value={emomInterval} onChangeText={setEmomInterval}
+                    keyboardType="numeric" placeholder="1" placeholderTextColor={theme.textMuted} />
+                </>
+              )}
+
+              {wodType === 'tabata' && (
+                <View style={S.mRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={S.mLabel}>{t('bo.wods.labelTabataWork')}</Text>
+                    <TextInput style={S.mInput} value={tabataWork} onChangeText={setTabataWork}
+                      keyboardType="numeric" placeholder="20" placeholderTextColor={theme.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={S.mLabel}>{t('bo.wods.labelTabataRest')}</Text>
+                    <TextInput style={S.mInput} value={tabataRest} onChangeText={setTabataRest}
+                      keyboardType="numeric" placeholder="10" placeholderTextColor={theme.textMuted} />
+                  </View>
+                </View>
+              )}
+
               <Text style={S.mLabel}>{t('bo.wods.labelNotes')}</Text>
               <TextInput
                 style={[S.mInput, S.mTextarea]}
                 value={notes} onChangeText={setNotes}
                 placeholder={t('bo.wods.notesPlaceholder')}
                 placeholderTextColor={theme.textMuted} multiline
+              />
+
+              <Text style={S.mLabel}>{t('bo.wods.labelVideo')}</Text>
+              <TextInput
+                style={S.mInput}
+                value={videoUrl} onChangeText={setVideoUrl}
+                placeholder={t('bo.wods.videoPlaceholder')}
+                placeholderTextColor={theme.textMuted}
+                autoCapitalize="none" autoCorrect={false}
               />
 
               <View style={S.publishRow}>
@@ -628,6 +704,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   wodRowContent: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 2 },
   wodRowType:  { fontSize: 9, fontWeight: '800', color: theme.textMuted, letterSpacing: 0.8 },
   wodRowTitle: { fontSize: 14, fontWeight: '800', color: theme.text },
+  wodRowMeta:  { fontSize: 10, color: theme.textMuted, marginTop: 2 },
   draftTag:    { fontSize: 9, fontWeight: '700', color: theme.warning, letterSpacing: 0.5 },
   wodRowActions: { flexDirection: 'row', paddingRight: 8, gap: 2 },
   iconBtn:     { padding: 8 },

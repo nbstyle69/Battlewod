@@ -10,6 +10,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ProgramWOD, ProgramScore } from '../../types';
+import { formatCap } from '../../utils/scoreFormat';
 
 const WOD_TYPE_COLORS: Record<string, string> = {
   'for-time': '#EF4444',
@@ -274,7 +275,7 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
               {!!selected?.time_cap_seconds && (
                 <View style={S.metaBadge}>
                   <Clock color={theme.textSecondary} size={13} />
-                  <Text style={S.metaBadgeText}>Cap {Math.floor(selected.time_cap_seconds / 60)} min</Text>
+                  <Text style={S.metaBadgeText}>Cap {formatCap(selected.time_cap_seconds)}</Text>
                 </View>
               )}
             </View>
