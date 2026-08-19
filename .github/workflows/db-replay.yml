@@ -6,10 +6,18 @@ on:
   pull_request:
     branches: [main, master]
 
+# Un rejeu qui se bloque (runner ou image indisponible) laisse sinon la PR en
+# « checks pending » indéfiniment : la révision suivante annule la précédente.
+concurrency:
+  group: db-replay-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   replay:
     name: Rejeu baseline + migrations
     runs-on: ubuntu-latest
+    # Le rejeu complet prend ~1 min : au-dela, c'est un blocage, pas une lenteur.
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
