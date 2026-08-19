@@ -725,6 +725,7 @@
     "tagline": "Compétition • Partout • Maintenant",
     "fillAllFields": "Remplis tous les champs",
     "loginFailed": "Connexion impossible",
+    "profileLoadFailed": "Connexion ouverte, mais ton profil n'a pas pu être chargé. Réessaie ; si le message persiste, envoie-nous la ligne ci-dessous.",
     "email": "Email",
     "password": "Mot de passe",
     "username": "Pseudo",

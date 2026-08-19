@@ -725,6 +725,7 @@
     "tagline": "Compete • Anywhere • Now",
     "fillAllFields": "Fill in all fields",
     "loginFailed": "Sign-in failed",
+    "profileLoadFailed": "You're signed in, but your profile could not be loaded. Try again; if this message persists, send us the line below.",
     "email": "Email",
     "password": "Password",
     "username": "Username",

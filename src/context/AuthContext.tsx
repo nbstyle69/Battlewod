@@ -28,6 +28,11 @@ interface AuthContextType {
   boxSubscription: BoxSubscription | null;
   isBoxActive: boolean;
   daysLeftTrial: number;
+  /**
+   * Session ouverte mais profil non chargé. Sans ce signal, l'app réaffiche
+   * l'écran de connexion sans rien dire : la panne devient invisible.
+   */
+  profileError: string | null;
   switchBox: (boxId: string) => Promise<void>;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
@@ -55,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [boxSkipped, setBoxSkipped] = useState(false);
   const [boxSubscription, setBoxSubscription] = useState<BoxSubscription | null>(null);
   const [loading, setLoading]       = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const isBoxActive = (() => {
     if (!boxSubscription) return true;
@@ -86,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) fetchProfile(session.user.id);
-      else { setUser(null); setCurrentBox(null); setBoxRole(null); setLoading(false); }
+      else { setUser(null); setCurrentBox(null); setBoxRole(null); setProfileError(null); setLoading(false); }
     });
 
     return () => { subscription.unsubscribe(); };
@@ -122,31 +128,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // `personal_records` ne sont plus lisibles en colonne par `authenticated`
       // (Lot 0-bis), donc un `select` qui les mentionne échouerait en 42501.
       // L'email du compte courant vient de la SESSION auth, pas de la table.
-      const { data: rows } = await supabase.rpc('get_my_profile');
+      // L'`error` de la RPC ne lève pas : la destructurer est le seul moyen de
+      // la voir. Sans elle, un refus laissait `user` à `null`, l'app revenait à
+      // l'écran de connexion, et il n'en restait aucune trace — ni à l'écran,
+      // ni dans Sentry. C'est cette cécité qui a rendu la panne du bundle vide
+      // indiscernable d'un mot de passe erroné.
+      const { data: rows, error: rpcError } = await supabase.rpc('get_my_profile');
+      if (rpcError) throw rpcError;
+
       const data = Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
-      if (data) {
-        const { data: authData } = await supabase.auth.getUser();
-        const email = authData?.user?.email ?? '';
-        const profile = { ...data, email } as User;
-        setUser(profile);
-        setUserContext(profile.id, email, profile.username);
-        identifyUser(profile.id, { email, username: profile.username, role: profile.role, level: profile.level });
-        await fetchBox(userId, data.role);
-        // Register push token silently
-        registerForPushNotifications().then(token => {
-          if (token) savePushToken(userId, token);
-        }).catch(e => captureError(e, { action: 'registerPush' }));
-        // Rappels locaux : les préférences sont chargées d'abord (elles alimentent
-        // le cache que les fonctions de programmation consultent), puis chaque
-        // rappel est (re)posé. Chaque schedule* refuse de lui-même si sa clé est
-        // désactivée — l'appelant n'a plus à s'en souvenir.
-        getNotificationPrefs(userId).then(prefs => {
-          if (prefs.daily_reminder) scheduleDailyReminder(prefs.reminder_hour);
-          return scheduleScoreReminder();
-        }).catch(e => captureError(e, { action: 'scheduleLocalReminders' }));
+      if (!data) {
+        // Une session valide sans profil est un état incohérent, pas un vide
+        // ordinaire : le trigger d'inscription doit avoir posé la ligne.
+        throw new Error(`get_my_profile n'a rendu aucune ligne pour ${userId}`);
       }
+      setProfileError(null);
+      const { data: authData } = await supabase.auth.getUser();
+      const email = authData?.user?.email ?? '';
+      const profile = { ...data, email } as User;
+      setUser(profile);
+      setUserContext(profile.id, email, profile.username);
+      identifyUser(profile.id, { email, username: profile.username, role: profile.role, level: profile.level });
+      await fetchBox(userId, data.role);
+      // Register push token silently
+      registerForPushNotifications().then(token => {
+        if (token) savePushToken(userId, token);
+      }).catch(e => captureError(e, { action: 'registerPush' }));
+      // Rappels locaux : les préférences sont chargées d'abord (elles alimentent
+      // le cache que les fonctions de programmation consultent), puis chaque
+      // rappel est (re)posé. Chaque schedule* refuse de lui-même si sa clé est
+      // désactivée — l'appelant n'a plus à s'en souvenir.
+      getNotificationPrefs(userId).then(prefs => {
+        if (prefs.daily_reminder) scheduleDailyReminder(prefs.reminder_hour);
+        return scheduleScoreReminder();
+      }).catch(e => captureError(e, { action: 'scheduleLocalReminders' }));
     } catch (e) {
       captureError(e, { action: 'fetchProfile', userId });
+      setProfileError(e instanceof Error ? e.message : String(e));
     }
     setLoading(false);
   }
@@ -231,21 +249,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const baseUsername = username.trim();
     let finalUsername = baseUsername;
     {
-      const { data: existing } = await supabase
+      // Même famille que `fetchProfile` : si ce sondage échoue en silence, le
+      // pseudo est cru libre, le trigger d'inscription tombe sur la contrainte
+      // d'unicité, et l'utilisateur lit une erreur qui ne parle pas de pseudo.
+      const { data: existing, error: probeError } = await supabase
         .from('profiles')
         .select('id')
         .ilike('username', baseUsername)
         .maybeSingle();
+      if (probeError) {
+        captureError(probeError, { action: 'signUp.usernameProbe' });
+        return { error: `Vérification du pseudo impossible : ${probeError.message}` };
+      }
       if (existing) {
         let attempts = 0;
         while (attempts < 10) {
           const suffix = Math.floor(100 + Math.random() * 9900); // 100..9999
           const candidate = `${baseUsername}${suffix}`;
-          const { data: clash } = await supabase
+          const { data: clash, error: clashError } = await supabase
             .from('profiles')
             .select('id')
             .ilike('username', candidate)
             .maybeSingle();
+          if (clashError) {
+            captureError(clashError, { action: 'signUp.usernameProbe' });
+            return { error: `Vérification du pseudo impossible : ${clashError.message}` };
+          }
           if (!clash) {
             finalUsername = candidate;
             break;
@@ -443,7 +472,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, user, currentBox, boxRole, myBoxes, boxSubscription, isBoxActive, daysLeftTrial,
-      switchBox, loading,
+      profileError, switchBox, loading,
       signIn, signUp, signOut, deleteAccount, resetPassword, updateUser,
       boxSkipped, skipBox, leaveBox,
       joinBox, refreshBox, refreshSubscription,
