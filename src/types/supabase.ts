@@ -1106,6 +1106,7 @@ export type Database = {
           discipline: string | null
           id: string
           is_published: boolean
+          is_template: boolean
           level: string | null
           price_cents: number
           publisher_box_id: string
@@ -1125,6 +1126,7 @@ export type Database = {
           discipline?: string | null
           id?: string
           is_published?: boolean
+          is_template?: boolean
           level?: string | null
           price_cents?: number
           publisher_box_id: string
@@ -1144,6 +1146,7 @@ export type Database = {
           discipline?: string | null
           id?: string
           is_published?: boolean
+          is_template?: boolean
           level?: string | null
           price_cents?: number
           publisher_box_id?: string
@@ -7506,6 +7509,10 @@ export type Database = {
         Returns: Json
       }
       delete_user_account: { Args: never; Returns: undefined }
+      delete_week_template: {
+        Args: { p_template_id: string }
+        Returns: boolean
+      }
       detect_trial_followups: { Args: never; Returns: number }
       end_season_and_advance: {
         Args: { p_tournament_id: string }
@@ -7828,6 +7835,32 @@ export type Database = {
           weeks_count: number
         }[]
       }
+      list_program_week_conflicts: {
+        Args: {
+          p_source_id: string
+          p_source_kind: string
+          p_target_monday: string
+          p_week: number
+        }
+        Returns: {
+          has_results: boolean
+          origin: string
+          origin_title: string
+          scheduled_date: string
+          title: string
+          wod_id: string
+        }[]
+      }
+      list_week_templates: {
+        Args: { p_box_id: string }
+        Returns: {
+          days_count: number
+          template_id: string
+          title: string
+          updated_at: string
+          wods_count: number
+        }[]
+      }
       manages_box: { Args: { p_box_id: string }; Returns: boolean }
       manages_box_funnel: { Args: { p_box_id: string }; Returns: boolean }
       mark_box_invitation_paid: {
@@ -7916,6 +7949,15 @@ export type Database = {
       }
       rotate_box_invitation_token: {
         Args: { p_invitation_id: string; p_valid_days?: number }
+        Returns: Json
+      }
+      save_week_as_template: {
+        Args: {
+          p_box_id: string
+          p_source_monday: string
+          p_template_id?: string
+          p_title?: string
+        }
         Returns: Json
       }
       submit_followup_feedback: {
