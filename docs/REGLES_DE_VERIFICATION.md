@@ -1,6 +1,6 @@
 # Règles de vérification — « la valeur plausible qui ment »
 
-Huit bugs de la même famille ont été attrapés sur six chantiers (invitations, présences,
+Neuf bugs de la même famille ont été attrapés sur six chantiers (invitations, présences,
 statistiques, formats de tournoi, portabilité, sécurité des profils et des paiements).
 Aucun n'était visible à l'écran : chacun affichait un chiffre ou un état **crédible, stable
 et faux**. Un plantage se voit ; une
@@ -11,7 +11,7 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 
 ---
 
-## Les huit occurrences, en une ligne chacune
+## Les neuf occurrences, en une ligne chacune
 
 | Chantier | Ce qui s'affichait | Ce qui était vrai |
 |---|---|---|
@@ -23,6 +23,7 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 | Tournois — formats | « cette box n'a droit qu'au Classique » | colonne absente de la liste de `select`, repli `?? ['simple']` |
 | Profils — fermeture de colonnes | migration « REVOKE » appliquée, catalogue à jour | le grant de **table** rendait le revoke de colonne sans effet |
 | Provenance d'inscription | `UPDATE` refusé, « succès » renvoyé | zéro ligne visible : PostgREST rend 200 sans rien écrire |
+| OTA avant révocation | « l'app se charge, OTA constaté » | l'update n'était pas publié ; l'ancien code marchait encore, la coupe n'était pas passée |
 
 ---
 
@@ -134,6 +135,34 @@ retour au lieu de l'effet. Une garde d'écriture se prouve sur les deux chemins 
 rôle sans policy (nombre de lignes renvoyées = 0) **et** le rôle qui a la policy (erreur
 attendue du trigger) — puis par une **relecture de la ligne** en service_role.
 
+## 10. « Mergé » n'est pas « chez l'utilisateur » : un constat qui ne pouvait pas échouer ne prouve rien
+
+La règle 8 impose de déployer l'app **avant** de révoquer une colonne. L'ordre a été
+respecté sur le papier : PR mergée, puis « relance l'app, vérifie que ton profil se charge »,
+puis révocation. Le profil se chargeait. La révocation est passée. **L'app s'est bloquée à
+la connexion.**
+
+Deux causes empilées :
+
+- **rien ne publiait l'OTA.** Merger sur `master` ne déclenche aucun `eas update` ; le
+  dernier update du canal `production` datait d'avant le chantier. Le client installé lisait
+  donc toujours les colonnes en direct ;
+- **le constat ne pouvait pas échouer.** Au moment de la vérification, la coupe n'était pas
+  encore appliquée : l'ancien code fonctionnait de toute façon. On a fait constater un état
+  qui aurait été identique avec ou sans déploiement — un contrôle positif sans variable.
+
+Ce qui se vérifie, sur un déploiement OTA :
+
+- l'**identité de l'update reçu** par l'appareil (`Updates.updateId` / le message d'update),
+  pas le fait qu'un écran s'affiche ;
+- ou, à défaut, la **conséquence propre au nouveau code** : ici, que le profil arrive par
+  `get_my_profile()` — donc, à l'inverse, que la version installée **échoue** si on coupe.
+  Un constat qui donne le même résultat avant et après le déploiement ne mesure rien.
+
+Corollaire : quand une migration ferme une porte que le client installé emprunte, la
+séquence sûre est **publier → prouver que la publication est arrivée → couper**, et la
+publication doit être automatique ou consignée, jamais laissée à la mémoire de quelqu'un.
+
 ---
 
 ## Check-list avant de dire « ça marche »
@@ -151,6 +180,8 @@ attendue du trigger) — puis par une **relecture de la ligne** en service_role.
 - [ ] Une garde d'écriture est prouvée sur le rôle **sans** policy (0 ligne) et sur celui qui
       en a une (erreur attendue), puis par relecture de la ligne.
 - [ ] Rejeu sur les données réelles après application de la migration, pas seulement en local.
+- [ ] Un déploiement OTA est prouvé par l'**identité de l'update reçu** sur l'appareil, jamais
+      par « l'écran s'affiche » : avant la coupe, l'ancien code s'affiche aussi.
 
 ---
 
