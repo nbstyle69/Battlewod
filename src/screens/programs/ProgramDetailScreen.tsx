@@ -11,6 +11,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ProgramWOD, ProgramScore } from '../../types';
 import { formatCap } from '../../utils/scoreFormat';
+import { annotateStrengthLoads, parseStrengthLine, resolveStrengthLoadKg, StrengthEntry } from '../../utils/strengthBlock';
+import { recordStrengthPRs } from '../../services/strengthPR';
+import { useMyOneRepMax } from '../../hooks/useMyOneRepMax';
 
 const WOD_TYPE_COLORS: Record<string, string> = {
   'for-time': '#EF4444',
@@ -51,6 +54,7 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
   const { user } = useAuth();
   const { theme } = useTheme();
   const S = createStyles(theme);
+  const oneRepMaxFor = useMyOneRepMax();
 
   const totalWeeks = durationWeeks ?? 12;
   const dpw = daysPerWeek ?? 5;
@@ -81,6 +85,9 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
   const [fValue, setFValue] = useState('');
   const [fRx, setFRx] = useState(false);
   const [fNotes, setFNotes] = useState('');
+  // Charges réellement soulevées sur les blocs musculation du WOD ouvert.
+  const [strengthLoads, setStrengthLoads] = useState<Record<number, string>>({});
+  const [strengthEntries, setStrengthEntries] = useState<StrengthEntry[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -142,6 +149,18 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
     } else {
       setFMin(''); setFSec(''); setFValue(''); setFRx(false); setFNotes('');
     }
+    const entries = (w.description ?? '')
+      .split('\n')
+      .map(parseStrengthLine)
+      .filter((e): e is StrengthEntry => e !== null);
+    setStrengthEntries(entries);
+    // La prescription pré-remplit ; un %1RM sans 1RM connu reste vide.
+    const prefill: Record<number, string> = {};
+    entries.forEach((e, i) => {
+      const kg = resolveStrengthLoadKg(e, oneRepMaxFor(e.name));
+      if (kg != null) prefill[i] = String(kg);
+    });
+    setStrengthLoads(prefill);
     setSelected(null);
     setLogOpen(true);
   }
@@ -169,6 +188,20 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
           notes: fNotes.trim() || null,
         }, { onConflict: 'program_wod_id,user_id' });
       if (error) throw error;
+
+      // Les charges réellement soulevées alimentent les 1RM.
+      const performed = strengthEntries
+        .map((e, i) => ({ name: e.name, loadKg: parseFloat((strengthLoads[i] ?? '').replace(',', '.')), reps: e.reps }))
+        .filter(s => Number.isFinite(s.loadKg) && s.loadKg > 0);
+      if (performed.length > 0) {
+        const beaten = await recordStrengthPRs(performed);
+        if (beaten.length > 0) {
+          Alert.alert('Nouveau 1RM 🏋️', beaten
+            .map(b => `${b.movement} : ${b.kg} kg${b.previousKg != null ? ` (avant ${b.previousKg} kg)` : ''}`)
+            .join('\n'));
+        }
+      }
+
       setLogOpen(false);
       load();
     } catch (e: any) {
@@ -281,7 +314,9 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
             </View>
 
             <Text style={S.sectionLabel}>SÉANCE</Text>
-            <Text style={S.detailDesc}>{selected?.description}</Text>
+            <Text style={S.detailDesc}>
+              {annotateStrengthLoads(selected?.description ?? '', oneRepMaxFor)}
+            </Text>
 
             {!!selected?.notes && (
               <>
@@ -358,6 +393,26 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
                 <Text style={S.rxLabel}>Réalisé en RX (prescrit)</Text>
               </TouchableOpacity>
 
+              {strengthEntries.length > 0 && (
+                <>
+                  <Text style={S.mLabel}>CHARGES RÉALISÉES (MUSCULATION)</Text>
+                  {strengthEntries.map((e, i) => (
+                    <View key={i} style={S.strengthRow}>
+                      <Text style={S.strengthName} numberOfLines={1}>{e.name} · {e.sets} × {e.reps}</Text>
+                      <TextInput
+                        style={[S.mInput, S.strengthInput]}
+                        value={strengthLoads[i] ?? ''}
+                        onChangeText={txt => setStrengthLoads(prev => ({ ...prev, [i]: txt }))}
+                        keyboardType="decimal-pad"
+                        placeholder="kg"
+                        placeholderTextColor={theme.textMuted}
+                      />
+                    </View>
+                  ))}
+                  <Text style={S.strengthHint}>La série la plus lourde met à jour ton 1RM si elle le dépasse.</Text>
+                </>
+              )}
+
               <Text style={S.mLabel}>NOTES</Text>
               <TextInput style={[S.mInput, { minHeight: 70, textAlignVertical: 'top' }]} value={fNotes} onChangeText={setFNotes} placeholder="Ressenti, scaling…" placeholderTextColor={theme.textMuted} multiline />
 
@@ -429,6 +484,10 @@ function createStyles(t: AppTheme) {
     logBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
     mLabel: { fontSize: 11, fontWeight: '700', color: t.textMuted, letterSpacing: 0.5, marginTop: 14, marginBottom: 6 },
+    strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
+    strengthName: { flex: 1, fontSize: 13, color: t.textSecondary },
+    strengthInput: { width: 90, textAlign: 'center' },
+    strengthHint: { fontSize: 11, color: t.textMuted, marginTop: 6 },
     mInput: { backgroundColor: t.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: t.text, fontSize: 15, borderWidth: 1, borderColor: t.border },
 
     typeGrid: { flexDirection: 'row', gap: 8 },

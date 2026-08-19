@@ -27,7 +27,7 @@ import { Program, Gender } from '../../types';
 import { Json } from '../../types/supabase';
 import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
-import { prKey, normalizePrRecords, PrCategorySlug } from './prStorage';
+import { prKey, normalizePrRecords, PrCategorySlug, WEIGHTLIFTING_PR_MOVEMENTS } from './prStorage';
 import GymDeclarationSection from '../../components/wod/GymDeclarationSection';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
@@ -39,27 +39,9 @@ const PR_CATEGORIES = [
     label: 'Haltérophilie',
     titleKey: 'weightlifting',
     icon: '🏋️',
-    items: [
-      { movement: 'Back Squat', value: '', unit: 'kg', date: '' },
-      { movement: 'Front Squat', value: '', unit: 'kg', date: '' },
-      { movement: 'Deadlift', value: '', unit: 'kg', date: '' },
-      { movement: 'Bench Press', value: '', unit: 'kg', date: '' },
-      { movement: 'Strict Press', value: '', unit: 'kg', date: '' },
-      { movement: 'Push Press', value: '', unit: 'kg', date: '' },
-      { movement: 'Push Jerk', value: '', unit: 'kg', date: '' },
-      { movement: 'Split Jerk', value: '', unit: 'kg', date: '' },
-      { movement: 'Squat Clean', value: '', unit: 'kg', date: '' },
-      { movement: 'Power Clean', value: '', unit: 'kg', date: '' },
-      { movement: 'Hang Power Clean', value: '', unit: 'kg', date: '' },
-      { movement: 'Hang Squat Clean', value: '', unit: 'kg', date: '' },
-      { movement: 'Squat Snatch', value: '', unit: 'kg', date: '' },
-      { movement: 'Power Snatch', value: '', unit: 'kg', date: '' },
-      { movement: 'Hang Power Snatch', value: '', unit: 'kg', date: '' },
-      { movement: 'Hang Squat Snatch', value: '', unit: 'kg', date: '' },
-      { movement: 'Clean & Jerk', value: '', unit: 'kg', date: '' },
-      { movement: 'Overhead Squat', value: '', unit: 'kg', date: '' },
-      { movement: 'Thruster', value: '', unit: 'kg', date: '' },
-    ],
+    // Une seule liste de libellés : c'est elle qui compose les clés en base et
+    // que l'alimentation automatique des 1RM (services/strengthPR) vise.
+    items: WEIGHTLIFTING_PR_MOVEMENTS.map(movement => ({ movement, value: '', unit: 'kg', date: '' })),
   },
   {
     label: 'Gymnastics',

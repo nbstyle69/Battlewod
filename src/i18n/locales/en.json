@@ -595,6 +595,8 @@
       "movementNamePlaceholder": "Exercise",
       "addMovement": "Add a movement",
       "movementsHint": "Reps + exercise (official list) + load: guarantees athletes' movement badges are counted.",
+      "labelStrength": "Strength",
+      "strengthHint": "Sets × reps × load, written from AthleX Manager. Kept on save.",
       "labelTimeCap": "TIME CAP (mm:ss)",
       "labelRounds": "ROUNDS",
       "labelNotes": "COACH NOTES",
