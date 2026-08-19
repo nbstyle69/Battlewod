@@ -18,7 +18,7 @@ type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'
 
 export default function LoginScreen({ navigation }: Props) {
   const { t } = useTranslation();
-  const { signIn } = useAuth();
+  const { signIn, profileError } = useAuth();
   const { theme, mode } = useTheme();
   const S = createStyles(theme);
   const [email, setEmail] = useState('');
@@ -50,6 +50,15 @@ export default function LoginScreen({ navigation }: Props) {
 
           <View style={S.form}>
             <Text style={S.title}>{t('auth.loginTitle')}</Text>
+
+            {/* Session ouverte, profil illisible : sans ce bandeau, l'écran de
+                connexion réapparaît comme si le mot de passe était faux. */}
+            {profileError && (
+              <View style={S.profileErrorBox}>
+                <Text style={S.profileErrorText}>{t('auth.profileLoadFailed')}</Text>
+                <Text style={S.profileErrorDetail}>{profileError}</Text>
+              </View>
+            )}
 
             <View style={S.inputContainer}>
               <Text style={S.label}>{t('auth.email')}</Text>
@@ -208,6 +217,23 @@ function createStyles(theme: AppTheme) {
     registerHighlight: { 
       color: theme.accent, 
       fontWeight: '700',
+    },
+    profileErrorBox: {
+      backgroundColor: isDark ? 'rgba(220, 38, 38, 0.15)' : 'rgba(220, 38, 38, 0.08)',
+      borderWidth: 1,
+      borderColor: 'rgba(220, 38, 38, 0.4)',
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    profileErrorText: {
+      ...typography.body,
+      color: theme.text,
+    },
+    profileErrorDetail: {
+      ...typography.caption,
+      color: theme.textSecondary,
+      marginTop: spacing.xs,
     },
     buildIdentity: {
       ...typography.caption,
