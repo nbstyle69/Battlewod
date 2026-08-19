@@ -14,6 +14,7 @@ import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { CompetitionStackParamList, TimerType } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { formatDurationLabel } from '../../utils/wodToTimer';
 import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<CompetitionStackParamList, 'PhysicalCompetition'>;
@@ -252,7 +253,7 @@ export default function PhysicalCompetitionScreen() {
                   <Text style={[S.timerBadgeTxt, { color: modeColor }]}>
                     {TIMER_TYPES.find(tt => tt.key === wod.timer_type)?.label ?? wod.timer_type}
                     {' · '}
-                    {t('phys.minutes', { n: Math.round((wod.total_seconds || 0) / 60) })}
+                    {formatDurationLabel(wod.total_seconds || 0)}
                   </Text>
                 </View>
                 {wod.with_camera && (

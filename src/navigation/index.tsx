@@ -234,7 +234,11 @@ export type BlockType = Exclude<TimerType, 'libre' | 'splits'>;
 export type SeqBlock = {
   id: string;
   type: BlockType;
-  durationMin: number;  // amrap/for-time duration (0=unlimited for ft)
+  durationMin: number;  // amrap/for-time duration (0=unlimited for ft) — hérité, arrondi
+  // Durée exacte en secondes : un cap 12:30 ne s'exprime pas en minutes entières.
+  // Quand elle est présente elle fait foi ; `durationMin` reste pour les blocs
+  // déjà en circulation (séquences sérialisées, générateurs en minutes).
+  durationSec?: number;
   emomInterval: number; // 1-5 min, ou 0 = mode PERSO (utilise emomCustomSec)
   emomRounds: number;
   emomCustomSec?: number; // intervalle perso en secondes (mode PERSO)

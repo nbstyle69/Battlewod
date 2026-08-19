@@ -5,6 +5,8 @@ import {
   buildFullSeqBlockFromWOD,
   buildTimerRunParamsFromBlock,
   formatBlockPreconfig,
+  blockDurationSec,
+  formatDurationLabel,
   TIMER_BLOCK_TYPES,
 } from '../utils/wodToTimer';
 import { SeqBlock } from '../navigation';
@@ -127,9 +129,40 @@ describe('buildSeqBlockFromWOD', () => {
     expect(b1.id).not.toBe(b2.id);
   });
 
-  it('rounds time_cap_seconds correctly (1230s → 21min)', () => {
-    const b = buildSeqBlockFromWOD({ wod_type: 'amrap', time_cap_seconds: 1230 } as any);
-    expect(b.durationMin).toBe(21); // Math.round(1230/60)
+  // Un cap de 12:30 arrondi à 13 min donnait 30 secondes de rab à l'athlète :
+  // un score AMRAP faussé, pas un libellé approximatif.
+  it('garde les secondes du time cap à la seconde (750s ≠ 13 min)', () => {
+    const b = buildSeqBlockFromWOD({ wod_type: 'amrap', time_cap_seconds: 750 } as any);
+    expect(b.durationSec).toBe(750);
+    expect(blockDurationSec(b)).toBe(750);
+    expect(blockDurationSec(b)).not.toBe(780);
+  });
+
+  it('for-time garde aussi les secondes du cap', () => {
+    const b = buildSeqBlockFromWOD({ wod_type: 'for-time', time_cap_seconds: 1230 } as any);
+    expect(blockDurationSec(b)).toBe(1230);
+  });
+});
+
+// ── blockDurationSec / formatDurationLabel ────────────────────────────────────
+
+describe('blockDurationSec', () => {
+  it('retombe sur durationMin pour les blocs construits en minutes', () => {
+    expect(blockDurationSec({ durationMin: 12 })).toBe(720);
+    expect(blockDurationSec({ durationMin: 0 })).toBe(0);
+  });
+
+  it('donne la priorité à durationSec', () => {
+    expect(blockDurationSec({ durationMin: 12, durationSec: 750 })).toBe(750);
+    expect(blockDurationSec({ durationMin: 13, durationSec: 0 })).toBe(0);
+  });
+});
+
+describe('formatDurationLabel', () => {
+  it('affiche mm:ss dès qu\'il y a des secondes, min sinon', () => {
+    expect(formatDurationLabel(750)).toBe('12:30');
+    expect(formatDurationLabel(600)).toBe('10 min');
+    expect(formatDurationLabel(1230)).toBe('20:30');
   });
 });
 
@@ -344,6 +377,16 @@ describe('formatBlockPreconfig', () => {
   it('formats for-time with and without cap', () => {
     expect(formatBlockPreconfig({ ...base, type: 'for-time', durationMin: 20 })).toBe('For Time · Cap 20 min');
     expect(formatBlockPreconfig({ ...base, type: 'for-time', durationMin: 0 })).toBe('For Time · Chrono libre');
+  });
+
+  // L'écran de lancement affichait « AMRAP · 13 min » pour un cap de 12:30.
+  it('affiche les secondes du cap au lieu de les arrondir', () => {
+    expect(formatBlockPreconfig({ ...base, type: 'amrap', durationMin: 12, durationSec: 750 }))
+      .toBe('AMRAP · 12:30');
+    expect(formatBlockPreconfig({ ...base, type: 'for-time', durationMin: 12, durationSec: 750 }))
+      .toBe('For Time · Cap 12:30');
+    expect(formatWODPreconfig({ wod_type: 'amrap', time_cap_seconds: 750 } as never))
+      .toBe('AMRAP · 12:30');
   });
 });
 

@@ -19,6 +19,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList, SeqBlock } from '../../navigation';
+import { blockDurationSec } from '../../utils/wodToTimer';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { incrementCounter } from '../../services/gamification';
@@ -634,7 +635,7 @@ export default function TimerRunScreen() {
           switch (blk.type) {
             case 'amrap':
             case 'for-time': {
-              const dur = blk.durationMin > 0 ? blk.durationMin * 60 : 0;
+              const dur = Math.max(0, blockDurationSec(blk));
               if (dur > 0) { cursor += dur; await ticks(cursor); await add(cursor); }
               break;
             }
@@ -1138,7 +1139,8 @@ export default function TimerRunScreen() {
                 break;
               case 'for-time':
                 timerValRef.current += deltaSecs; setTimerVal(timerValRef.current);
-                if (blk.durationMin > 0 && timerValRef.current >= blk.durationMin * 60) seqBlockDone();
+                const capSec = blockDurationSec(blk);
+                if (capSec > 0 && timerValRef.current >= capSec) seqBlockDone();
                 break;
               case 'emom':
                 roundTimeLeftRef.current -= deltaSecs; setRoundTimeLeft(roundTimeLeftRef.current);
@@ -1182,7 +1184,7 @@ export default function TimerRunScreen() {
     currentRoundRef.current = 1; setCurrentRound(1);
     seqPausingRef.current = false; setSeqPausing(false);
     switch (blk.type) {
-      case 'amrap': roundTimeLeftRef.current = blk.durationMin * 60; setRoundTimeLeft(blk.durationMin * 60); break;
+      case 'amrap': { const durSec = blockDurationSec(blk); roundTimeLeftRef.current = durSec; setRoundTimeLeft(durSec); break; }
       case 'for-time': roundTimeLeftRef.current = 0; setRoundTimeLeft(0); break;
       case 'emom': {
         const ivSec = blk.emomInterval === 0 ? (blk.emomCustomSec ?? 90) : blk.emomInterval * 60;
@@ -1328,7 +1330,7 @@ export default function TimerRunScreen() {
       if (seqPausing) return formatTime(seqPauseLeft);
       if (!curBlk) return '00:00';
       if (phase === 'ready') {
-        if (curBlk.type === 'amrap') return formatTime(curBlk.durationMin * 60);
+        if (curBlk.type === 'amrap') return formatTime(blockDurationSec(curBlk));
         if (curBlk.type === 'tabata') return formatTime(curBlk.workSec);
         if (curBlk.type === 'emom') {
           const iv = curBlk.emomInterval === 0 ? (curBlk.emomCustomSec ?? 90) : curBlk.emomInterval * 60;
@@ -1357,11 +1359,11 @@ export default function TimerRunScreen() {
     }
     if (timerType === 'libre' && curBlk) {
       if (curBlk.type === 'amrap') {
-        const total = curBlk.durationMin * 60;
+        const total = blockDurationSec(curBlk);
         return total > 0 ? Math.max(0, 1 - roundTimeLeft / total) : 0;
       }
       if (curBlk.type === 'for-time') {
-        const cap = curBlk.durationMin * 60;
+        const cap = blockDurationSec(curBlk);
         return cap > 0 ? Math.min(1, timerVal / cap) : 0;
       }
       if (curBlk.type === 'emom') {
@@ -1430,7 +1432,7 @@ export default function TimerRunScreen() {
     if (timerType === 'splits') return workTime * rounds;
     if (timerType === 'libre') {
       return seqBlocksRef.current.reduce((acc, blk) => {
-        if (blk.type === 'amrap' || blk.type === 'for-time') return acc + blk.durationMin * 60;
+        if (blk.type === 'amrap' || blk.type === 'for-time') return acc + blockDurationSec(blk);
         if (blk.type === 'emom') {
           const ivSec = blk.emomInterval === 0 ? (blk.emomCustomSec ?? 90) : blk.emomInterval * 60;
           return acc + ivSec * blk.emomRounds;
@@ -1461,7 +1463,7 @@ export default function TimerRunScreen() {
       for (let i = 0; i < seqIdx; i++) {
         const blk = blocks[i];
         if (!blk) continue;
-        if (blk.type === 'amrap' || blk.type === 'for-time') elapsed += blk.durationMin * 60;
+        if (blk.type === 'amrap' || blk.type === 'for-time') elapsed += blockDurationSec(blk);
         else if (blk.type === 'emom') {
           const iv = blk.emomInterval === 0 ? (blk.emomCustomSec ?? 90) : blk.emomInterval * 60;
           elapsed += iv * blk.emomRounds;
@@ -1469,7 +1471,7 @@ export default function TimerRunScreen() {
       }
       if (!curBlk) return elapsed + timerVal;
       if (curBlk.type === 'amrap') {
-        elapsed += Math.max(0, curBlk.durationMin * 60 - roundTimeLeft);
+        elapsed += Math.max(0, blockDurationSec(curBlk) - roundTimeLeft);
       } else if (curBlk.type === 'for-time' || curBlk.type === 'ywyr') {
         elapsed += timerVal;
       } else if (curBlk.type === 'emom') {
