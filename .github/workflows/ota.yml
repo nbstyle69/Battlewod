@@ -1,0 +1,87 @@
+name: OTA publish (production)
+
+# « Mergé » n'est pas « chez l'utilisateur » : sans publication automatique, une
+# migration qui ferme une porte peut atteindre la prod avant le code qui emprunte
+# la nouvelle (docs/REGLES_DE_VERIFICATION.md §10).
+#
+# `push` sur master uniquement : le dépôt est public, et un déclencheur
+# `pull_request` exposerait EXPO_TOKEN aux forks.
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ota-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publier l'update EAS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # Un update JS ne s'applique qu'aux builds du MÊME runtime (policy
+      # appVersion). Publier sur un runtime sans build, ou après un changement de
+      # code natif, produit un update que l'appareil ignore en silence — un
+      # « publié » qui n'est pas un « reçu ».
+      - name: Garde-fou runtime (refuse de publier un update inapplicable)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./app.json').expo.version")
+          echo "runtime visé : $version"
+
+          if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            native=$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- ios android modules)
+            if [ -n "$native" ]; then
+              echo "::error::Code natif modifié ($(echo "$native" | tr '\n' ' ')) — un update JS ne peut pas le porter. Build natif requis, publication annulée."
+              exit 1
+            fi
+          else
+            echo "commit précédent indisponible : garde-fou natif non évaluable, on s'appuie sur le runtime"
+          fi
+
+          npx eas-cli@latest build:list --channel production --limit 30 \
+            --non-interactive --json > builds.json 2>/dev/null
+          if ! node scripts/ota-runtime-guard.mjs builds.json "$version"; then
+            echo "::error::Aucun build terminé sur le runtime $version — l'update serait ignoré par les appareils installés. Publication annulée : lance d'abord un build natif."
+            exit 1
+          fi
+
+      - name: Publier l'update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          subject=$(git log -1 --pretty=%s)
+          npx eas-cli@latest update --branch production --non-interactive \
+            --message "$subject (${GITHUB_SHA:0:7})" --json > update.json
+          cat update.json
+
+      # L'identité publiée est ce qui rend le constat d'appareil falsifiable : on
+      # compare l'ID embarqué (Updates.updateId) à celui-ci.
+      - name: Résumé — identité de l'update publié
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ ! -s update.json ]; then
+            echo "### OTA non publié" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node scripts/ota-summary.mjs update.json "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
