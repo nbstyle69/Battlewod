@@ -47,6 +47,14 @@ jobs:
           version=$(node -p "require('./app.json').expo.version")
           echo "runtime visé : $version"
 
+          # Sans jeton, `build:list` rend une liste vide : le garde-fou
+          # conclurait « aucun build sur ce runtime » et accuserait le runtime
+          # d'un défaut de configuration. On nomme la vraie cause.
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::EXPO_TOKEN absent des secrets du dépôt — impossible d'interroger EAS ni de publier. Publication annulée."
+            exit 1
+          fi
+
           if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             native=$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- ios android modules)
             if [ -n "$native" ]; then
@@ -57,8 +65,13 @@ jobs:
             echo "commit précédent indisponible : garde-fou natif non évaluable, on s'appuie sur le runtime"
           fi
 
-          npx eas-cli@latest build:list --channel production --limit 30 \
-            --non-interactive --json > builds.json 2>/dev/null
+          # L'erreur d'EAS reste visible : une liste vide pour cause d'appel
+          # refusé ne doit pas se lire « pas de build sur ce runtime ».
+          if ! npx eas-cli@latest build:list --channel production --limit 30 \
+                 --non-interactive --json > builds.json; then
+            echo "::error::Appel à EAS (build:list) en échec — jeton invalide ou API indisponible. Publication annulée."
+            exit 1
+          fi
           if ! node scripts/ota-runtime-guard.mjs builds.json "$version"; then
             echo "::error::Aucun build terminé sur le runtime $version — l'update serait ignoré par les appareils installés. Publication annulée : lance d'abord un build natif."
             exit 1
