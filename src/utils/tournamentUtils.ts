@@ -70,6 +70,15 @@ const MOVEMENT_MAP: Record<string, string> = {
   'cal bike': 'bike', 'bike erg': 'bike',
   'ski erg': 'ski_erg', 'cal ski erg': 'ski_erg', ski: 'ski_erg',
   run: 'run', course: 'run',
+  // Formes accolées héritées de l'ancien normaliseur du site (pullup, wallball…) :
+  // elles existent dans les données et dans les saisies libres.
+  'kipping pull up': 'pull_up', 'strict pull up': 'pull_up',
+  'alternating lunge': 'lunge', 'alternating db lunge': 'lunge',
+  'alternating db snatch': 'db_snatch',
+  'strict hspu': 'hspu', 'tall clean': 'clean', 'tall snatch': 'snatch',
+  pullup: 'pull_up', pushup: 'push_up', situp: 'sit_up', boxjump: 'box_jump',
+  wallball: 'wall_ball', wallwalk: 'wall_walk', doubleunder: 'double_under',
+  singleunder: 'single_under', kbswing: 'kb_swing', toes2bar: 'toes_to_bar',
 };
 
 function singularize(word: string): string {
@@ -78,8 +87,22 @@ function singularize(word: string): string {
   return word;
 }
 
+/**
+ * Espace de clés canonique : les valeurs de `MOVEMENT_MAP`, seules clés qu'un
+ * compteur de reps ou un badge sait lire. Une ligne de WOD qui ne s'y résout
+ * pas n'est pas un mouvement (« Rest », « 3 rounds », « WOD du jour »…) : la
+ * compter inventerait une clé que personne ne relit jamais.
+ */
+export const MOVEMENT_KEYS: ReadonlySet<string> = new Set(Object.values(MOVEMENT_MAP));
+
+export function isKnownMovementKey(key: string): boolean {
+  return MOVEMENT_KEYS.has(key);
+}
+
 export function normalizeMovement(raw: string): { key: string; label: string } {
   const cleaned = raw.toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\bfor time\b/g, '')
     .replace(/\d+[-x]\d+[-x]?\d*/g, '')
     .replace(/\d+\s*(kg|lb|rm|%)/g, '')
     .replace(/\d+/g, '')
