@@ -22,8 +22,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # `apt-get update` s'est bloque 50 min sur un runner (miroir injoignable,
+      # sans jamais rendre la main) : l'image des runners fournit deja psql, on
+      # ne va au reseau que s'il manque vraiment, et sous plafond de temps.
       - name: Client psql
+        timeout-minutes: 5
         run: |
+          if command -v psql >/dev/null 2>&1; then
+            psql --version
+            exit 0
+          fi
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
 
