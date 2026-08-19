@@ -22,6 +22,28 @@ const SLUG_TO_LEGACY_PREFIX: Record<PrCategorySlug, string> = Object.fromEntries
   Object.entries(LEGACY_PREFIX_TO_SLUG).map(([label, slug]) => [slug, label]),
 ) as Record<PrCategorySlug, string>;
 
+// Libellés d'haltérophilie de la page Records : ce sont eux qui composent les
+// clés `weightlifting_<Label>` en base. Un seul espace de libellés — l'écran
+// Records ET l'alimentation automatique des 1RM (services/strengthPR) lisent
+// cette liste, sinon un 1RM écrit par une séance atterrirait sur une clé que la
+// page n'affiche pas (leçon du lot 1 sur les clés de mouvement).
+export const WEIGHTLIFTING_PR_MOVEMENTS = [
+  'Back Squat', 'Front Squat', 'Deadlift', 'Bench Press', 'Strict Press',
+  'Push Press', 'Push Jerk', 'Split Jerk', 'Squat Clean', 'Power Clean',
+  'Hang Power Clean', 'Hang Squat Clean', 'Squat Snatch', 'Power Snatch',
+  'Hang Power Snatch', 'Hang Squat Snatch', 'Clean & Jerk', 'Overhead Squat',
+  'Thruster',
+] as const;
+
+const LOWER_TO_WEIGHTLIFTING_LABEL: Record<string, string> = Object.fromEntries(
+  WEIGHTLIFTING_PR_MOVEMENTS.map(m => [m.toLowerCase(), m]),
+);
+
+/** Libellé exact de la page Records pour un nom de mouvement, sinon `null`. */
+export function weightliftingPrLabel(name: string): string | null {
+  return LOWER_TO_WEIGHTLIFTING_LABEL[(name ?? '').toLowerCase().trim()] ?? null;
+}
+
 export function prKey(slug: PrCategorySlug, movement: string): string {
   return `${slug}_${movement}`;
 }

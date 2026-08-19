@@ -595,6 +595,8 @@
       "movementNamePlaceholder": "Exercice",
       "addMovement": "Ajouter un mouvement",
       "movementsHint": "Reps + exercice (liste officielle) + charge : garantit le comptage des badges de mouvement des athlètes.",
+      "labelStrength": "Musculation",
+      "strengthHint": "Séries × reps × charge, écrites depuis AthleX Manager. Conservées à l'enregistrement.",
       "labelTimeCap": "TIME CAP (mm:ss)",
       "labelRounds": "ROUNDS",
       "labelNotes": "NOTES COACH",

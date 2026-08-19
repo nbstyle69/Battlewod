@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, KeyboardAvoidingView, Platform,
@@ -24,6 +24,9 @@ import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScore
 import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { formatScoreValue, normalizeScore, mapForTimeScore, formatCap } from '../../utils/scoreFormat';
 import { computeCompletedMovements } from '../../utils/movementParser';
+import { annotateStrengthLoads, parseStrengthLine, resolveStrengthLoadKg, StrengthEntry } from '../../utils/strengthBlock';
+import { useMyOneRepMax } from '../../hooks/useMyOneRepMax';
+import { recordStrengthPRs } from '../../services/strengthPR';
 import { computeMaxScore } from '../../utils/computeMaxScore';
 import { syncLevelAndBadges } from '../../utils/eloLevels';
 import { trackScoreSubmit } from '../../lib/analytics';
@@ -74,6 +77,7 @@ export default function WODDetailScreen() {
   const route = useRoute<Route>();
   const { wodId, scrollToLeaderboard } = route.params;
   const S = createStyles(theme);
+  const oneRepMaxFor = useMyOneRepMax();
   const scrollRef = useRef<ScrollView>(null);
   const leaderboardY = useRef(0);
 
@@ -95,6 +99,10 @@ export default function WODDetailScreen() {
   const [dnf,        setDnf]        = useState(false);
   const [capReps,    setCapReps]    = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Charges réellement soulevées sur les blocs musculation, par index de bloc.
+  // C'est cette saisie — pas la prescription — qui alimente les 1RM.
+  const [strengthLoads, setStrengthLoads] = useState<Record<number, string>>({});
 
   // Score detail modal
   const [selectedScore, setSelectedScore] = useState<WODScore | null>(null);
@@ -195,7 +203,26 @@ export default function WODDetailScreen() {
     return d;
   })() : false;
 
+  const strengthEntries: StrengthEntry[] = useMemo(() => (
+    (wod?.description ?? '')
+      .split('\n')
+      .map(parseStrengthLine)
+      .filter((e): e is StrengthEntry => e !== null)
+  ), [wod?.description]);
+
+  // La prescription pré-remplit la saisie ; l'athlète corrige ce qu'il a
+  // réellement fait. Un %1RM sans 1RM connu reste vide plutôt qu'inventé.
+  const prefillStrengthLoads = useCallback(() => {
+    const next: Record<number, string> = {};
+    strengthEntries.forEach((e, i) => {
+      const kg = resolveStrengthLoadKg(e, oneRepMaxFor(e.name));
+      if (kg != null) next[i] = String(kg);
+    });
+    setStrengthLoads(next);
+  }, [strengthEntries, oneRepMaxFor]);
+
   function openEditModal() {
+    prefillStrengthLoads();
     if (!myScore) { setModalOpen(true); return; }
     // Pre-fill form with existing score
     setScoreType(myScore.score_type);
@@ -302,6 +329,20 @@ export default function WODDetailScreen() {
       const wodFormat = wod.wod_type === 'for-time' ? 'For Time' : wod.wod_type === 'amrap' ? 'AMRAP' : wod.wod_type === 'emom' ? 'EMOM' : wod.wod_type ?? 'For Time';
       const completed = computeCompletedMovements(lines, wodFormat, value, scoreType);
       logMovementReps(user.id, completed, 'whiteboard', wod.id).catch(e => captureError(e, { action: 'logMovementReps' }));
+    }
+
+    // Les charges réellement soulevées alimentent les 1RM (jamais la prescription).
+    const performed = strengthEntries
+      .map((e, i) => ({ name: e.name, loadKg: parseFloat((strengthLoads[i] ?? '').replace(',', '.')), reps: e.reps }))
+      .filter(s => Number.isFinite(s.loadKg) && s.loadKg > 0);
+    if (performed.length > 0) {
+      recordStrengthPRs(performed)
+        .then(beaten => {
+          if (beaten.length === 0) return;
+          const lines = beaten.map(b => `${b.movement} : ${b.kg} kg${b.previousKg != null ? ` (avant ${b.previousKg} kg)` : ''}`);
+          Alert.alert('Nouveau 1RM 🏋️', lines.join('\n'));
+        })
+        .catch(e => captureError(e, { action: 'recordStrengthPRs' }));
     }
 
     // Snapshot old rankings before reload
@@ -499,7 +540,9 @@ export default function WODDetailScreen() {
             {new Date(wod.scheduled_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </Text>
 
-          {wod.description && <Text style={S.wodDesc}>{wod.description}</Text>}
+          {wod.description && (
+            <Text style={S.wodDesc}>{annotateStrengthLoads(wod.description, oneRepMaxFor)}</Text>
+          )}
           {wod.notes && (
             <View style={S.notesBox}>
               <Text style={S.notesLabel}>Notes coach</Text>
@@ -573,7 +616,7 @@ export default function WODDetailScreen() {
             <EmeraldCTAButton
               icon={<Plus color="#fff" size={18} />}
               size="md"
-              onPress={() => setModalOpen(true)}
+              onPress={() => { prefillStrengthLoads(); setModalOpen(true); }}
               style={{ marginTop: 4 }}
             >
               Entrer mon score
@@ -775,6 +818,30 @@ export default function WODDetailScreen() {
                       autoFocus
                     />
                   )}
+                </>
+              )}
+
+              {strengthEntries.length > 0 && (
+                <>
+                  <Text style={S.modalLabel}>CHARGES RÉALISÉES (MUSCULATION)</Text>
+                  {strengthEntries.map((e, i) => (
+                    <View key={i} style={S.strengthRow}>
+                      <Text style={S.strengthName} numberOfLines={1}>
+                        {e.name} · {e.sets} × {e.reps}
+                      </Text>
+                      <TextInput
+                        style={S.strengthInput}
+                        placeholder="kg"
+                        placeholderTextColor={theme.textMuted}
+                        value={strengthLoads[i] ?? ''}
+                        onChangeText={txt => setStrengthLoads(prev => ({ ...prev, [i]: txt }))}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  ))}
+                  <Text style={S.strengthHint}>
+                    La charge de la série la plus lourde met à jour ton 1RM si elle le dépasse.
+                  </Text>
                 </>
               )}
 
@@ -1162,6 +1229,14 @@ function createStyles(theme: AppTheme) {
   modalBody: { padding: 20, gap: 12 },
   modalWodName: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 4 },
   modalLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, letterSpacing: 1 },
+  strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  strengthName: { flex: 1, fontSize: 13, color: theme.textSecondary },
+  strengthInput: {
+    width: 90, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    borderRadius: borderRadius.md, paddingHorizontal: 10, paddingVertical: 10,
+    fontSize: 14, color: theme.text, textAlign: 'center',
+  },
+  strengthHint: { fontSize: 11, color: theme.textMuted, marginTop: 6 },
   typeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   typeChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,

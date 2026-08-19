@@ -18,6 +18,7 @@ import { BoxWOD, BoxWODType } from '../../types';
 import DateField from '../../components/DateField';
 import InteractiveTour, { COACH_TOUR_STEPS } from '../../components/InteractiveTour';
 import { MOVEMENT_CATALOG, isWeightedMovement, serializeMovement, parseMovementRow } from '../../utils/movementsCatalog';
+import { splitStrengthLines, parseStrengthLine, formatStrengthPrescription } from '../../utils/strengthBlock';
 import { formatCap, parseCap } from '../../utils/scoreFormat';
 
 const WOD_TYPES: { value: BoxWODType; labelKey: string }[] = [
@@ -71,6 +72,10 @@ export default function BOWODsScreen({ navigation }: any) {
   // Form state
   const [title,       setTitle]       = useState('');
   const [movements,   setMovements]   = useState<string[]>([]);
+  // Blocs musculation (« nom d'abord ») : écrits depuis AthleX Manager, ils ne
+  // passent pas par l'éditeur reps+charge qui les mutilerait. Conservés tels
+  // quels à l'enregistrement — un aller-retour depuis le mobile ne les perd pas.
+  const [strengthLines, setStrengthLines] = useState<string[]>([]);
   const [wodType,     setWodType]      = useState<BoxWODType>('amrap');
   const [date,        setDate]        = useState('');
   const [timeCap,     setTimeCap]     = useState('');
@@ -125,7 +130,7 @@ export default function BOWODsScreen({ navigation }: any) {
 
   function openCreate(selectedDate: string) {
     setEditWOD(null);
-    setTitle(''); setMovements([]); setWodType('amrap');
+    setTitle(''); setMovements([]); setStrengthLines([]); setWodType('amrap');
     setDate(selectedDate); setTimeCap(''); setRounds('');
     setNotes(''); setBlockName(''); setPublished(true);
     setVideoUrl(''); setEmomInterval('1'); setTabataWork('20'); setTabataRest('10');
@@ -136,7 +141,10 @@ export default function BOWODsScreen({ navigation }: any) {
   function openEdit(wod: BoxWOD) {
     setEditWOD(wod);
     setTitle(wod.title);
-    setMovements(wod.description ? wod.description.split('\n').map(l => l.trim()).filter(Boolean) : []);
+    const lines = wod.description ? wod.description.split('\n').map(l => l.trim()).filter(Boolean) : [];
+    const split = splitStrengthLines(lines);
+    setMovements(split.wod);
+    setStrengthLines(split.strength);
     setWodType(wod.wod_type ?? 'amrap');
     setDate(wod.scheduled_date);
     setTimeCap(formatCap(wod.time_cap_seconds));
@@ -166,7 +174,7 @@ export default function BOWODsScreen({ navigation }: any) {
       box_id: currentBox.id,
       created_by: user.id,
       title: title.trim(),
-      description: movements.map(l => l.trim()).filter(Boolean).join('\n') || null,
+      description: [...movements, ...strengthLines].map(l => l.trim()).filter(Boolean).join('\n') || null,
       wod_type: wodType,
       scheduled_date: date,
       time_cap_seconds: parseCap(timeCap),
@@ -555,6 +563,26 @@ export default function BOWODsScreen({ navigation }: any) {
               </TouchableOpacity>
               <Text style={S.moveHint}>{t('bo.wods.movementsHint')}</Text>
 
+              {strengthLines.length > 0 && (
+                <>
+                  <Text style={S.mLabel}>{t('bo.wods.labelStrength')}</Text>
+                  {strengthLines.map((line, i) => {
+                    const e = parseStrengthLine(line);
+                    return (
+                      <View key={i} style={S.moveRow}>
+                        <Text style={S.strengthLine}>
+                          {e ? `${e.name} · ${formatStrengthPrescription(e)}` : line}
+                        </Text>
+                        <TouchableOpacity onPress={() => setStrengthLines(l => l.filter((_, idx) => idx !== i))} style={S.moveDel}>
+                          <Trash2 size={16} color={theme.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                  <Text style={S.moveHint}>{t('bo.wods.strengthHint')}</Text>
+                </>
+              )}
+
               <View style={S.mRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={S.mLabel}>{t('bo.wods.labelTimeCap')}</Text>
@@ -736,6 +764,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   moveAdd:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: theme.border },
   moveAddText: { fontSize: 13, fontWeight: '800', color: theme.accent },
   moveHint:    { fontSize: 11, color: theme.textMuted, marginTop: 2 },
+  strengthLine: { flex: 1, fontSize: 13, color: theme.textSecondary },
   typeGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   typeChip:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
   typeChipText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary },

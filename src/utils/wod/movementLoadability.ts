@@ -184,6 +184,19 @@ export function parsePersonalRecords(
   return out;
 }
 
+/**
+ * 1RM de référence d'un mouvement nommé (bloc musculation en `%1RM`).
+ * `null` si le mouvement n'a pas de 1RM connu ou si la valeur est hors plage
+ * physiologique — un pourcentage sans 1RM reste un pourcentage.
+ */
+export function oneRepMaxForMovement(name: string, prs: PRMap): number | null {
+  const canon = PR_LABEL_TO_KEY[name.toLowerCase().trim()];
+  if (!canon) return null;
+  const pr = prs[canon];
+  if (pr == null || pr < PR_SANITY[0] || pr > PR_SANITY[1]) return null;
+  return pr;
+}
+
 // ============================ Pont avec l'affichage (WODSuggestionsScreen) ============================
 //
 // Le moteur émet des mouvements `{ name, prescription, load }` SANS loadKey (le loadKey vit sur
