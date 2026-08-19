@@ -24,6 +24,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD } from '../../types';
 import { WhiteboardStackParamList, SeqBlock } from '../../navigation';
 import {
+  blockDurationSec,
   buildFullSeqBlockFromWOD,
   buildTimerRunParamsFromBlock,
   formatBlockPreconfig,
@@ -170,15 +171,35 @@ export default function WhiteboardScreen() {
             <Text style={S.timerModalLabel}>
               {blk.type === 'amrap' ? t('whiteboard.duration') : t('whiteboard.capMax')}
             </Text>
-            <View style={S.emomStepRow}>
-              <TouchableOpacity style={S.emomStepBtn} onPress={() => updateTimerBlock({ durationMin: Math.max(0, blk.durationMin - 1) })}>
-                <Text style={S.emomStepBtnText}>−</Text>
-              </TouchableOpacity>
-              <Text style={S.emomStepValue}>{blk.durationMin}<Text style={S.emomStepUnit}> {t('whiteboard.minUnit')}</Text></Text>
-              <TouchableOpacity style={S.emomStepBtn} onPress={() => updateTimerBlock({ durationMin: blk.durationMin + 1 })}>
-                <Text style={S.emomStepBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
+            {(() => {
+              // Le cap se règle en minutes ET en secondes : un pas d'une minute
+              // conserve les secondes du WOD, donc lancer sans y toucher ne
+              // réécrit pas un 12:30 en 13:00.
+              const durSec = blockDurationSec(blk);
+              const setDur = (sec: number) => updateTimerBlock({ durationSec: Math.max(0, sec), durationMin: Math.floor(Math.max(0, sec) / 60) });
+              return (
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={S.emomStepRow}>
+                    <TouchableOpacity style={S.emomStepBtn} onPress={() => setDur(durSec - 60)}>
+                      <Text style={S.emomStepBtnText}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={S.emomStepValue}>{Math.floor(durSec / 60)}<Text style={S.emomStepUnit}> {t('whiteboard.minUnit')}</Text></Text>
+                    <TouchableOpacity style={S.emomStepBtn} onPress={() => setDur(durSec + 60)}>
+                      <Text style={S.emomStepBtnText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={S.emomStepRow}>
+                    <TouchableOpacity style={S.emomStepBtn} onPress={() => setDur(durSec % 5 === 0 ? durSec - 5 : Math.floor(durSec / 5) * 5)}>
+                      <Text style={S.emomStepBtnText}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={S.emomStepValue}>{durSec % 60}<Text style={S.emomStepUnit}> {t('whiteboard.secUnit')}</Text></Text>
+                    <TouchableOpacity style={S.emomStepBtn} onPress={() => setDur(durSec % 5 === 0 ? durSec + 5 : Math.ceil(durSec / 5) * 5)}>
+                      <Text style={S.emomStepBtnText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })()}
           </>
         )}
 

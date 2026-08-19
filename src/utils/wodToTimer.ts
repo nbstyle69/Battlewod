@@ -2,9 +2,25 @@
 // preconfigured timer directly from the whiteboard.
 import { BoxWOD } from '../types';
 import { SeqBlock, BlockType } from '../navigation';
+import { formatCap } from './scoreFormat';
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * Durée d'un bloc en secondes. `durationSec` fait foi ; `durationMin` ne sert
+ * qu'aux blocs construits en minutes (générateurs, chrono manuel). Arrondir un
+ * cap de 750 s à 13 min donne 30 secondes de rab à l'athlète — un score faussé,
+ * pas un libellé approximatif.
+ */
+export function blockDurationSec(b: Pick<SeqBlock, 'durationMin' | 'durationSec'>): number {
+  return b.durationSec ?? b.durationMin * 60;
+}
+
+/** `750` → `12:30`, `600` → `10 min`. */
+export function formatDurationLabel(seconds: number): string {
+  return seconds % 60 === 0 ? `${seconds / 60} min` : formatCap(seconds);
 }
 
 /**
@@ -25,7 +41,8 @@ export type EmomOverride = {
 
 export function buildSeqBlockFromWOD(wod: WODConfigFields, emomOverride?: EmomOverride): SeqBlock {
   const type = (wod.wod_type ?? 'for-time') as string;
-  const capMin = wod.time_cap_seconds ? Math.max(0, Math.round(wod.time_cap_seconds / 60)) : 0;
+  const capSec = wod.time_cap_seconds && wod.time_cap_seconds > 0 ? wod.time_cap_seconds : 0;
+  const capMin = Math.floor(capSec / 60);
   const rounds = wod.rounds && wod.rounds > 0 ? wod.rounds : undefined;
   const emomInterval = wod.emom_interval_minutes && wod.emom_interval_minutes > 0 ? wod.emom_interval_minutes : 1;
   const tabWork = wod.tabata_work_seconds && wod.tabata_work_seconds > 0 ? wod.tabata_work_seconds : 20;
@@ -36,6 +53,7 @@ export function buildSeqBlockFromWOD(wod: WODConfigFields, emomOverride?: EmomOv
     id: newId(),
     type: 'for-time',
     durationMin: 0,
+    durationSec: 0,
     emomInterval: 1,
     emomRounds: 10,
     workSec: 20,
@@ -46,7 +64,9 @@ export function buildSeqBlockFromWOD(wod: WODConfigFields, emomOverride?: EmomOv
 
   switch (type) {
     case 'amrap':
-      return { ...base, type: 'amrap', durationMin: capMin > 0 ? capMin : 10 };
+      return capSec > 0
+        ? { ...base, type: 'amrap', durationMin: capMin, durationSec: capSec }
+        : { ...base, type: 'amrap', durationMin: 10, durationSec: 600 };
 
     case 'emom':
       if (emomOverride) {
@@ -69,11 +89,11 @@ export function buildSeqBlockFromWOD(wod: WODConfigFields, emomOverride?: EmomOv
       return { ...base, type: 'tabata', workSec: tabWork, restSec: tabRest, tabRounds: rounds ?? 8 };
 
     case 'for-time':
-      return { ...base, type: 'for-time', durationMin: capMin };
+      return { ...base, type: 'for-time', durationMin: capMin, durationSec: capSec };
 
     // strength / custom / anything else → chrono libre type for-time
     default:
-      return { ...base, type: 'for-time', durationMin: capMin };
+      return { ...base, type: 'for-time', durationMin: capMin, durationSec: capSec };
   }
 }
 
@@ -82,7 +102,8 @@ export function buildSeqBlockFromWOD(wod: WODConfigFields, emomOverride?: EmomOv
  */
 export function formatWODPreconfig(wod: WODConfigFields): string {
   const type = (wod.wod_type ?? 'for-time') as string;
-  const capMin = wod.time_cap_seconds ? Math.max(0, Math.round(wod.time_cap_seconds / 60)) : 0;
+  const capSec = wod.time_cap_seconds && wod.time_cap_seconds > 0 ? wod.time_cap_seconds : 0;
+  const capMin = Math.floor(capSec / 60);
   const rounds = wod.rounds && wod.rounds > 0 ? wod.rounds : undefined;
   const emomInterval = wod.emom_interval_minutes && wod.emom_interval_minutes > 0 ? wod.emom_interval_minutes : 1;
   const tabWork = wod.tabata_work_seconds && wod.tabata_work_seconds > 0 ? wod.tabata_work_seconds : 20;
@@ -90,7 +111,7 @@ export function formatWODPreconfig(wod: WODConfigFields): string {
 
   switch (type) {
     case 'amrap':
-      return `AMRAP · ${capMin > 0 ? capMin : 10} min`;
+      return `AMRAP · ${formatDurationLabel(capSec > 0 ? capSec : 600)}`;
     case 'emom': {
       const label = emomInterval === 1 ? 'EMOM' : `E${emomInterval}MOM`;
       const nRounds = rounds ?? (capMin > 0 ? Math.max(1, Math.floor(capMin / emomInterval)) : 10);
@@ -99,11 +120,11 @@ export function formatWODPreconfig(wod: WODConfigFields): string {
     case 'tabata':
       return `Tabata · ${rounds ?? 8} × ${tabWork}/${tabRest}s`;
     case 'for-time':
-      return capMin > 0 ? `For Time · Cap ${capMin} min` : 'For Time · Chrono libre';
+      return capSec > 0 ? `For Time · Cap ${formatDurationLabel(capSec)}` : 'For Time · Chrono libre';
     case 'strength':
-      return capMin > 0 ? `Strength · ${capMin} min` : 'Strength · Chrono libre';
+      return capSec > 0 ? `Strength · ${formatDurationLabel(capSec)}` : 'Strength · Chrono libre';
     default:
-      return capMin > 0 ? `Chrono · ${capMin} min` : 'Chrono libre';
+      return capSec > 0 ? `Chrono · ${formatDurationLabel(capSec)}` : 'Chrono libre';
   }
 }
 
@@ -127,7 +148,8 @@ const SUPPORTED_BLOCK_TYPES: BlockType[] = ['for-time', 'amrap', 'emom', 'tabata
 export function buildFullSeqBlockFromWOD(wod: WODConfigFields): SeqBlock {
   const rawType = (wod.wod_type ?? 'for-time') as BlockType;
   const type: BlockType = SUPPORTED_BLOCK_TYPES.includes(rawType) ? rawType : 'for-time';
-  const capMin = wod.time_cap_seconds ? Math.max(0, Math.round(wod.time_cap_seconds / 60)) : 0;
+  const capSec = wod.time_cap_seconds && wod.time_cap_seconds > 0 ? wod.time_cap_seconds : 0;
+  const capMin = Math.floor(capSec / 60);
   const rounds = wod.rounds && wod.rounds > 0 ? wod.rounds : undefined;
   const emomInterval = wod.emom_interval_minutes && wod.emom_interval_minutes > 0 ? wod.emom_interval_minutes : 1;
   const tabWork = wod.tabata_work_seconds && wod.tabata_work_seconds > 0 ? wod.tabata_work_seconds : 20;
@@ -137,7 +159,8 @@ export function buildFullSeqBlockFromWOD(wod: WODConfigFields): SeqBlock {
     id: newId(),
     type,
     // amrap: duration; for-time: cap (0 = ∞)
-    durationMin: type === 'amrap' ? (capMin > 0 ? capMin : 10) : capMin,
+    durationMin: type === 'amrap' && capSec === 0 ? 10 : capMin,
+    durationSec: type === 'amrap' && capSec === 0 ? 600 : capSec,
     emomInterval,
     emomRounds: rounds ?? (capMin > 0 ? Math.max(1, Math.floor(capMin / emomInterval)) : 10),
     emomCustomSec: 90,
@@ -150,9 +173,10 @@ export function buildFullSeqBlockFromWOD(wod: WODConfigFields): SeqBlock {
 
 /** Human-readable summary of an edited SeqBlock, e.g. "AMRAP · 10 min". */
 export function formatBlockPreconfig(b: SeqBlock): string {
+  const durSec = blockDurationSec(b);
   switch (b.type) {
     case 'amrap':
-      return `AMRAP · ${b.durationMin > 0 ? b.durationMin : 10} min`;
+      return `AMRAP · ${formatDurationLabel(durSec > 0 ? durSec : 600)}`;
     case 'emom': {
       const isPerso = b.emomInterval === 0;
       const label = isPerso ? 'EMOM PERSO' : b.emomInterval === 1 ? 'EMOM' : `E${b.emomInterval}MOM`;
@@ -164,7 +188,7 @@ export function formatBlockPreconfig(b: SeqBlock): string {
       return 'YWYR · Your Work Your Rest';
     case 'for-time':
     default:
-      return b.durationMin > 0 ? `For Time · Cap ${b.durationMin} min` : 'For Time · Chrono libre';
+      return durSec > 0 ? `For Time · Cap ${formatDurationLabel(durSec)}` : 'For Time · Chrono libre';
   }
 }
 
