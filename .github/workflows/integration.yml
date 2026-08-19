@@ -41,6 +41,7 @@ on:
           - bo-owner
           - athlete
           - rls
+          - templates
 
 concurrency:
   group: integration-${{ github.ref }}
@@ -115,6 +116,10 @@ jobs:
       - name: Suite — RLS
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'rls' }}
         run: node scripts/test-rls.mjs
+
+      - name: Suite — Semaines types (programmation)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'templates' }}
+        run: node scripts/test-templates.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Arrêt de la pile
         if: always()
