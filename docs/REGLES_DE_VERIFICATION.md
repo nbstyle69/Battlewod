@@ -1,8 +1,9 @@
 # Règles de vérification — « la valeur plausible qui ment »
 
-Six bugs de la même famille ont été attrapés sur cinq chantiers (invitations, présences,
-statistiques, formats de tournoi, portabilité). Aucun n'était visible à l'écran : chacun
-affichait un chiffre ou un état **crédible, stable et faux**. Un plantage se voit ; une
+Huit bugs de la même famille ont été attrapés sur six chantiers (invitations, présences,
+statistiques, formats de tournoi, portabilité, sécurité des profils et des paiements).
+Aucun n'était visible à l'écran : chacun affichait un chiffre ou un état **crédible, stable
+et faux**. Un plantage se voit ; une
 valeur plausible se croit, et se croit longtemps.
 
 Ce document liste les règles qui en sortent. Il ne prescrit pas un style de code : il
@@ -10,7 +11,7 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 
 ---
 
-## Les six occurrences, en une ligne chacune
+## Les huit occurrences, en une ligne chacune
 
 | Chantier | Ce qui s'affichait | Ce qui était vrai |
 |---|---|---|
@@ -20,6 +21,8 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 | Stats — assiduité | synthèse `16`, heatmap `17` | la heatmap comptait les cours du jour, pas la synthèse |
 | Stats — funnel | `167 %` de conversion | abonnés hors cohorte de la période |
 | Tournois — formats | « cette box n'a droit qu'au Classique » | colonne absente de la liste de `select`, repli `?? ['simple']` |
+| Profils — fermeture de colonnes | migration « REVOKE » appliquée, catalogue à jour | le grant de **table** rendait le revoke de colonne sans effet |
+| Provenance d'inscription | `UPDATE` refusé, « succès » renvoyé | zéro ligne visible : PostgREST rend 200 sans rien écrire |
 
 ---
 
@@ -94,6 +97,45 @@ héritent alors mécaniquement, y compris ceux qu'on écrira plus tard.
 
 ---
 
+## 8. Un ordre SQL peut répondre « fait » sans rien faire : le grant de table court-circuite le revoke de colonne
+
+```sql
+REVOKE SELECT (email) ON public.profiles FROM authenticated;   -- répond « REVOKE »
+```
+
+L'e-mail restait lu par n'importe quel compte connecté. Postgres **additionne** les
+privilèges : tant que `authenticated` garde le `SELECT` de **table**, un revoke de colonne
+ne retire rien. Pire, le catalogue confirme le mensonge — la ligne disparaît bien de
+`information_schema.column_privileges` — donc une vérification par inspection du catalogue
+valide une fermeture qui n'existe pas. Seule une lecture au vrai JWT la contredit.
+
+Le levier juste est un basculement en liste blanche :
+
+```sql
+REVOKE SELECT ON public.profiles FROM authenticated;
+GRANT  SELECT (id, username, avatar_url, elo, …) ON public.profiles TO authenticated;
+```
+
+Deux conséquences qui se paient plus tard si elles ne sont pas écrites tout de suite :
+
+- la liste devient la **source de vérité** : toute colonne ajoutée ensuite à la table est
+  invisible aux clients jusqu'à son ajout explicite. Ça s'écrit **en tête de la migration**,
+  là où le prochain lecteur de cette table passera ;
+- un droit de colonne révoqué fait échouer **toute** la requête qui la mentionne, pas
+  seulement la colonne. Donc l'app se déploie **avant** la coupe (OTA d'abord, révocation
+  ensuite), sinon un client installé ne charge plus son propre profil.
+
+## 9. « Aucune ligne touchée » se lit « succès » : un code de retour n'est pas un résultat
+
+Le protocole affirmait qu'un client ne pouvait pas requalifier sa `provenance`, et
+l'`UPDATE` répondait « succès ». Vérifié : l'athlète n'a aucune policy `UPDATE`, sa requête
+correspond donc à **zéro ligne**, et PostgREST rend 200. L'assertion mesurait le code de
+retour au lieu de l'effet. Une garde d'écriture se prouve sur les deux chemins réels — le
+rôle sans policy (nombre de lignes renvoyées = 0) **et** le rôle qui a la policy (erreur
+attendue du trigger) — puis par une **relecture de la ligne** en service_role.
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
@@ -104,6 +146,10 @@ héritent alors mécaniquement, y compris ceux qu'on écrira plus tard.
 - [ ] Chaque assertion peut échouer — vérifié en la faisant échouer une fois.
 - [ ] Les mutations sensibles passent par une RPC `SECURITY DEFINER` gardée `is_box_admin`,
       `search_path` fixé, testée au vrai JWT (propriétaire, gérant tiers, athlète, anon).
+- [ ] Une fermeture de colonne est prouvée par une **lecture refusée au vrai JWT**, jamais par
+      le catalogue : `REVOKE` sur colonne ne retire rien tant que le `SELECT` de table est là.
+- [ ] Une garde d'écriture est prouvée sur le rôle **sans** policy (0 ligne) et sur celui qui
+      en a une (erreur attendue), puis par relecture de la ligne.
 - [ ] Rejeu sur les données réelles après application de la migration, pas seulement en local.
 
 ---
