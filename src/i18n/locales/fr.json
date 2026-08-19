@@ -940,6 +940,7 @@
     "alerts": {
       "invalidProgramCode": "Code programme invalide.",
       "programTitle": "Programme",
+      "programStaffOnlyMsg": "L'inscription à ce programme est faite par ta box. Demande à ton coach de t'ajouter : tu le verras alors dans « Mes programmes ».",
       "programIosMsg": "Une fois ton inscription confirmée, ce programme apparaît automatiquement ici, dans « Mes programmes ».",
       "programAndroidMsg": "Ce programme se rejoint depuis la page de la box. Une fois confirmé, il apparaît automatiquement ici.",
       "openBoxPage": "Ouvrir la page box",

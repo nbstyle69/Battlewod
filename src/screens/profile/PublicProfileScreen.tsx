@@ -27,7 +27,6 @@ type FriendStatus = 'none' | 'pending_sent' | 'pending_received' | 'friends';
 interface PublicUser {
   id: string;
   username: string;
-  full_name?: string;
   avatar_url?: string;
   level: string;
   elo: number;
@@ -72,15 +71,16 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
     const data = await readRows(
       supabase
         .from('profiles')
-        .select('id, username, full_name, avatar_url, level, elo, wins, total_matches, bio, personal_records')
+        // Profil public entre athlètes : pseudo, avatar, ELO, badges. Ni nom
+        // civil ni records — ceux-là ne sont lisibles que par soi-même et par
+        // le staff de la box, via get_athlete_private_profile().
+        .select('id, username, avatar_url, level, elo, wins, total_matches, bio')
         .eq('id', userId)
         .single(),
       { screen: 'PublicProfile', action: 'loadProfile' },
     );
     setProfile(data as PublicUser);
     setLoading(false);
-    // Featured badges moved to a dedicated column; fall back to the legacy
-    // personal_records._featured_badges slot for profiles not yet migrated.
     const featuredData = await readRows(
       supabase
         .from('profiles')
@@ -89,9 +89,7 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
         .maybeSingle(),
       { screen: 'PublicProfile', action: 'loadFeaturedBadges' },
     );
-    const keys: string[] = featuredData?.featured_badges?.length
-      ? featuredData.featured_badges
-      : ((data as any)?.personal_records?._featured_badges ?? []);
+    const keys: string[] = featuredData?.featured_badges ?? [];
     if (keys.length > 0) {
       const catalog = await getBadgesCatalog();
       setFeaturedBadges(catalog.filter(b => keys.includes(b.badge_key)));
@@ -258,7 +256,6 @@ export default function PublicProfileScreen({ navigation, route }: Props) {
             fontSize={32}
           />
           <Text style={S.username}>{profile.username}</Text>
-          {profile.full_name ? <Text style={S.fullName}>{profile.full_name}</Text> : null}
           <View style={[S.levelPill, { backgroundColor: `${levelColor}20` }]}>
             <View style={[S.levelDot, { backgroundColor: levelColor }]} />
             <Text style={[S.levelText, { color: levelColor }]}>{level.toUpperCase()}</Text>
@@ -343,7 +340,6 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   avatarLetter: { fontSize: 32, fontWeight: '900', color: theme.text },
   username: { fontSize: 22, fontWeight: '900', color: theme.text },
-  fullName: { fontSize: 14, color: theme.textMuted },
   levelPill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
   levelDot: { width: 6, height: 6, borderRadius: 3 },
   levelText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },

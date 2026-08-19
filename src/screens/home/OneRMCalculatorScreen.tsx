@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassBackground from '../../components/glass/GlassBackground';
 import GlassCard from '../../components/glass/GlassCard';
 import { prKey, readPr } from '../profile/prStorage';
+import { fetchMyPersonalRecords } from '../../services/myProfile';
 
 const STORAGE_KEY = '@athlex:1rm_calc';
 
@@ -91,14 +92,8 @@ export default function OneRMCalculatorScreen() {
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('personal_records')
-        .eq('id', user.id)
-        .single();
-      if (data?.personal_records && typeof data.personal_records === 'object') {
-        setPrData(data.personal_records as Record<string, string>);
-      }
+      const records = await fetchMyPersonalRecords();
+      setPrData(records as Record<string, string>);
     })();
   }, [user?.id]);
 

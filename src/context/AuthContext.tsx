@@ -118,14 +118,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function fetchProfile(userId: string) {
     try {
-      // Colonnes EXPLICITES, jamais `*` : la Phase 3 (3B2) révoque SELECT(email)
-      // sur profiles pour `authenticated` → un select('*') tomberait en 42501 au
-      // login. L'email du compte courant vient de la SESSION auth, pas de la table.
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url, level, role, elo, total_matches, wins, losses, created_at, full_name, bio, personal_records, gender, featured_badges, total_scores_submitted, total_wods_generated, total_timer_sessions, total_messages_sent, total_tournaments, total_tournament_wins, total_friends, referral_code, referred_by')
-        .eq('id', userId)
-        .single();
+      // Lecture de SON profil par RPC : `full_name`, `gender` et
+      // `personal_records` ne sont plus lisibles en colonne par `authenticated`
+      // (Lot 0-bis), donc un `select` qui les mentionne échouerait en 42501.
+      // L'email du compte courant vient de la SESSION auth, pas de la table.
+      const { data: rows } = await supabase.rpc('get_my_profile');
+      const data = Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
       if (data) {
         const { data: authData } = await supabase.auth.getUser();
         const email = authData?.user?.email ?? '';
