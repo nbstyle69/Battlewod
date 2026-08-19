@@ -940,6 +940,7 @@
     "alerts": {
       "invalidProgramCode": "Invalid program code.",
       "programTitle": "Program",
+      "programStaffOnlyMsg": "Your box handles sign-ups for this program. Ask your coach to add you — it will then show up in “My programs”.",
       "programIosMsg": "Once your registration is confirmed, this program appears here automatically, in “My programs”.",
       "programAndroidMsg": "This program is joined from the box page. Once confirmed, it appears here automatically.",
       "openBoxPage": "Open box page",

@@ -17,6 +17,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { GenderTarget } from '../../types';
 import { trackDailyTournamentJoin, trackDailyTournamentCreate } from '../../lib/analytics';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { fetchMyProfile } from '../../services/myProfile';
 
 type Nav = NativeStackNavigationProp<any>;
 
@@ -110,7 +111,7 @@ export default function DailyTournamentsScreen() {
     const t = tournaments.find(x => x.id === tournamentId);
     const gt = (t as any)?.gender_target;
     if (gt && gt !== 'mix') {
-      const { data: profile } = await supabase.from('profiles').select('gender').eq('id', user.id).single();
+      const profile = await fetchMyProfile();
       if (profile?.gender && profile.gender !== gt) {
         const label = gt === 'male' ? 'hommes' : 'femmes';
         Alert.alert('Accès restreint', `Ce tournoi est réservé aux ${label}.`);

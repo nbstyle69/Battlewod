@@ -21,6 +21,7 @@ import i18n, { setLanguage } from '../../i18n';
 import { LevelColors } from '../../theme/designTokens';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { getBadgesCatalog, getEarnedBadges, getStreak, isBadgeUnobtainable, BadgeDef, EarnedBadge, StreakInfo } from '../../services/gamification';
+import { fetchMyProfile, fetchMyPersonalRecords } from '../../services/myProfile';
 import { HomeStackParamList } from '../../navigation';
 import { Program, Gender } from '../../types';
 import { Json } from '../../types/supabase';
@@ -232,25 +233,17 @@ export default function ProfileScreen() {
         .eq('user_id', user.id)
         .maybeSingle();
       if (existing) { Alert.alert(t('profile.alerts.alreadyMemberTitle'), t('profile.alerts.alreadyMemberMsg')); setJoiningProg(false); return; }
-      // For now: free join (Stripe integration later)
-      const today = new Date().toISOString().split('T')[0];
-      const { error } = await supabase.from('program_members').insert({
-        program_id: prog.id,
-        user_id: user.id,
-        start_date: today,
-        amount_cents: prog.price_cents,
-        platform_fee_cents: Math.round(prog.price_cents * 0.04),
-      });
-      if (error) throw error;
-      Alert.alert(t('profile.alerts.welcomeTitle'), t('profile.alerts.joinedProgram', { title: prog.title }));
+      // Programme gratuit : l'app ne s'inscrit plus elle-même. program_members
+      // n'accepte que deux portes, toutes deux vérifiées côté serveur — un
+      // paiement Stripe, ou une inscription par le staff de la box. Un client
+      // qui écrirait la ligne lui-même rendrait « a payé » et « assigné »
+      // indistinguables, et gonflerait le chiffre d'affaires du gérant.
+      Alert.alert(
+        t('profile.alerts.programTitle'),
+        t('profile.alerts.programStaffOnlyMsg'),
+        [{ text: t('common.ok'), style: 'cancel' }],
+      );
       setProgModal(false); setProgCode('');
-      // Refresh programs
-      const { data: refreshed } = await supabase
-        .from('program_members')
-        .select('start_date, status, programs:program_id(id, title, type, duration_weeks, days_per_week, invite_code, price_cents, box_id, is_active, created_at, updated_at, owner_id)')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-      setMyPrograms((refreshed ?? []).map((r: any) => ({ ...r.programs, start_date: r.start_date, status: r.status })).filter(Boolean));
     } catch (e: any) {
       Alert.alert(t('common.error'), e.message);
     }
@@ -263,7 +256,7 @@ export default function ProfileScreen() {
       if (!user) return null;
       const [wodCountRes, prRes, badgesRes, earnedRes, streakRes, friendsRes, featuredRes] = await Promise.all([
         supabase.from('wod_scores').select('id', { count: 'exact', head: true }).eq('member_id', user.id), // 4.1 : la colonne est member_id, pas user_id (compteur bloque a 0)
-        supabase.from('profiles').select('personal_records').eq('id', user.id).single(),
+        fetchMyPersonalRecords(),
         getBadgesCatalog(),
         getEarnedBadges(user.id),
         getStreak(user.id, currentBox?.id),
@@ -273,7 +266,7 @@ export default function ProfileScreen() {
       ]);
       return {
         wodCount: wodCountRes.count ?? 0,
-        prValues: prRes.data?.personal_records ?? {},
+        prValues: prRes,
         badgesCatalog: badgesRes,
         earnedBadges: earnedRes,
         streak: streakRes,
@@ -323,11 +316,13 @@ export default function ProfileScreen() {
     // 4.6b : relire la colonne et ne fusionner QUE les clés modifiées. Écrire
     // l'état local complet écrasait les PR enregistrés ailleurs (web, autre
     // appareil) depuis le chargement de l'écran.
-    const { data, error } = await supabase
-      .from('profiles').select('personal_records').eq('id', user.id).single();
-    if (error) { captureError(error, { screen: 'Profile', action: 'savePRs.read' }); return; }
+    const profile = await fetchMyProfile();
+    if (!profile) {
+      captureError(new Error('get_my_profile a rendu null'), { screen: 'Profile', action: 'savePRs.read' });
+      return;
+    }
 
-    const remote = (data?.personal_records ?? {}) as Record<string, Json>;
+    const remote = (profile.personal_records ?? {}) as Record<string, Json>;
     const merged: Record<string, Json> = { ...remote };
     for (const key of changedKeys) merged[key] = updated[key];
     // Post-migration: PRs and featured badges live in separate storage. Pre-migration:

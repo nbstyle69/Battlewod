@@ -26,6 +26,7 @@ import { getScaledMovements } from '../../utils/wodScaling';
 import { trackDailyTournamentJoin, trackDailyTournamentScoreSubmit } from '../../lib/analytics';
 import { HomeStackParamList, TimerType } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { fetchMyProfile } from '../../services/myProfile';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 type Route = RouteProp<{ DailyTournamentDetail: { tournamentId: string } }, 'DailyTournamentDetail'>;
@@ -244,7 +245,7 @@ export default function DailyTournamentDetailScreen() {
     if (!user) return;
     // Gender check
     if (tournament?.gender_target && tournament.gender_target !== 'mix') {
-      const { data: profile } = await supabase.from('profiles').select('gender').eq('id', user.id).single();
+      const profile = await fetchMyProfile();
       if (profile?.gender && profile.gender !== tournament.gender_target) {
         const label = tournament.gender_target === 'male' ? 'hommes' : 'femmes';
         Alert.alert('Accès restreint', `Ce tournoi est réservé aux ${label}.`);

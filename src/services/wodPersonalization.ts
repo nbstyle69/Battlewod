@@ -12,6 +12,7 @@ import { BodyZone } from '../utils/wod/movementZones';
 import { UserWodProfile, RankedSuggestion, EMPTY_PROFILE } from '../utils/wod/ranker';
 import { parsePersonalRecords } from '../utils/wod/movementLoadability';
 import { GymDeclaration } from '../utils/wod/athleteLevels';
+import { fetchMyPersonalRecords } from './myProfile';
 
 const SIGNATURE_WINDOW_DAYS = 21; // anti-répétition serveur (SPEC §5)
 const ROTATION_WINDOW_DAYS = 14;  // fenêtre d'historique mouvements
@@ -29,7 +30,7 @@ export async function loadWodProfile(userId: string): Promise<UserWodProfile> {
   try {
     const since = new Date(Date.now() - SIGNATURE_WINDOW_DAYS * 86_400_000).toISOString();
 
-    const [settingsQ, prefsQ, feedbackQ, raceQ, profileQ] = await Promise.all([
+    const [settingsQ, prefsQ, feedbackQ, raceQ, myPRs] = await Promise.all([
       supabase.from('user_generation_settings').select('*').eq('user_id', userId).maybeSingle(),
       supabase.from('user_movement_prefs').select('movement, score').eq('user_id', userId),
       supabase.from('user_wod_feedback')
@@ -40,16 +41,14 @@ export async function loadWodProfile(userId: string): Promise<UserWodProfile> {
         .eq('user_id', userId).gte('race_date', new Date().toISOString().slice(0, 10))
         .order('race_date').limit(1),
       // Pont avec la page PR : lecture des 1RM existants (aucune nouvelle table).
-      supabase.from('profiles').select('personal_records').eq('id', userId).maybeSingle(),
+      fetchMyPersonalRecords(),
     ]);
 
     const settings = settingsQ.data ?? null;
 
     // Charges basées sur les PR : normalise profiles.personal_records → PRMap chiffré.
     // {} si la page Records est vide → resolveLoad retombe proprement sur RX.
-    const prs = parsePersonalRecords(
-      (profileQ.data?.personal_records ?? null) as Record<string, unknown> | null,
-    );
+    const prs = parsePersonalRecords(myPRs);
 
     // Déclaration Gymnastique (palier max par famille), stockée dans les settings de génération.
     const gymDeclaration = (settings?.gym_declaration ?? {}) as GymDeclaration;

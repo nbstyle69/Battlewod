@@ -1179,6 +1179,7 @@ export type Database = {
       }
       box_programming_subscriptions: {
         Row: {
+          auto_apply_weekly: boolean
           created_at: string
           created_by: string | null
           current_period_end: string | null
@@ -1191,6 +1192,7 @@ export type Database = {
           week_anchor: string
         }
         Insert: {
+          auto_apply_weekly?: boolean
           created_at?: string
           created_by?: string | null
           current_period_end?: string | null
@@ -1203,6 +1205,7 @@ export type Database = {
           week_anchor?: string
         }
         Update: {
+          auto_apply_weekly?: boolean
           created_at?: string
           created_by?: string | null
           current_period_end?: string | null
@@ -5067,6 +5070,7 @@ export type Database = {
           id: string
           platform_fee_cents: number | null
           program_id: string
+          provenance: string
           purchased_at: string | null
           start_date: string
           status: string | null
@@ -5080,6 +5084,7 @@ export type Database = {
           id?: string
           platform_fee_cents?: number | null
           program_id: string
+          provenance: string
           purchased_at?: string | null
           start_date: string
           status?: string | null
@@ -5093,6 +5098,7 @@ export type Database = {
           id?: string
           platform_fee_cents?: number | null
           program_id?: string
+          provenance?: string
           purchased_at?: string | null
           start_date?: string
           status?: string | null
@@ -7336,6 +7342,17 @@ export type Database = {
         Args: { p_competition_id: string; p_completed_round: number }
         Returns: number
       }
+      apply_program_week: {
+        Args: {
+          p_group_ids?: string[]
+          p_replace?: boolean
+          p_source_id: string
+          p_source_kind: string
+          p_target_monday: string
+          p_week: number
+        }
+        Returns: Json
+      }
       badge_condition_met: {
         Args: { p_athlete_id: string; p_badge_key: string }
         Returns: boolean
@@ -7462,6 +7479,15 @@ export type Database = {
         Args: { p_token: string; p_user_id: string }
         Returns: Json
       }
+      count_program_week_conflicts: {
+        Args: {
+          p_source_id: string
+          p_source_kind: string
+          p_target_monday: string
+          p_week: number
+        }
+        Returns: number
+      }
       create_box_invitation: {
         Args: {
           p_box_id: string
@@ -7510,6 +7536,19 @@ export type Database = {
       generate_inter_swiss_round: {
         Args: { p_competition_id: string }
         Returns: number
+      }
+      get_athlete_private_profile: {
+        Args: { p_user_id: string }
+        Returns: {
+          avatar_url: string
+          elo: number
+          full_name: string
+          gender: string
+          id: string
+          level: string
+          personal_records: Json
+          username: string
+        }[]
       }
       get_box_attendance_people: {
         Args: { p_box_id: string; p_risk_days?: number }
@@ -7585,6 +7624,19 @@ export type Database = {
           member_id: string
         }[]
       }
+      get_box_members_private_profiles: {
+        Args: { p_box_id: string }
+        Returns: {
+          avatar_url: string
+          elo: number
+          full_name: string
+          gender: string
+          level: string
+          member_id: string
+          personal_records: Json
+          username: string
+        }[]
+      }
       get_box_money_people: {
         Args: { p_box_id: string }
         Returns: {
@@ -7645,6 +7697,42 @@ export type Database = {
           id: string
           platform_fee_cents: number
         }[]
+      }
+      get_my_profile: {
+        Args: never
+        Returns: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          elo: number
+          email: string
+          featured_badges: string[]
+          full_name: string | null
+          gender: string | null
+          id: string
+          level: string
+          losses: number
+          personal_records: Json | null
+          referral_code: string | null
+          referred_by: string | null
+          role: string
+          total_friends: number
+          total_matches: number
+          total_messages_sent: number
+          total_scores_submitted: number
+          total_timer_sessions: number
+          total_tournament_wins: number
+          total_tournaments: number
+          total_wods_generated: number
+          username: string
+          wins: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_total_box_count: { Args: never; Returns: number }
       get_tournament_participants: {
@@ -7713,6 +7801,33 @@ export type Database = {
         Returns: boolean
       }
       join_box_by_invite: { Args: { p_invite_code: string }; Returns: string }
+      join_program: {
+        Args: {
+          p_amount_cents?: number
+          p_platform_fee_cents?: number
+          p_program_id: string
+          p_source: string
+          p_start_date?: string
+          p_stripe_checkout_session_id?: string
+          p_stripe_payment_intent?: string
+          p_stripe_subscription_id?: string
+          p_user_id?: string
+        }
+        Returns: string
+      }
+      list_applicable_programmings: {
+        Args: { p_box_id: string }
+        Returns: {
+          auto_apply_weekly: boolean
+          current_period_end: string
+          days_per_week: number
+          programming_id: string
+          publisher_box_name: string
+          subscription_id: string
+          title: string
+          weeks_count: number
+        }[]
+      }
       manages_box: { Args: { p_box_id: string }; Returns: boolean }
       manages_box_funnel: { Args: { p_box_id: string }; Returns: boolean }
       mark_box_invitation_paid: {
@@ -7764,6 +7879,7 @@ export type Database = {
         }
         Returns: string
       }
+      request_is_backend: { Args: never; Returns: boolean }
       resolve_box_invitation_for_checkout: {
         Args: { p_token: string }
         Returns: Json
@@ -7785,6 +7901,14 @@ export type Database = {
           p_scoring_type?: string
         }
         Returns: undefined
+      }
+      resolve_program_week_source: {
+        Args: { p_source_id: string; p_source_kind: string; p_week: number }
+        Returns: {
+          box_id: string
+          created_by: string
+          programming_id: string
+        }[]
       }
       revoke_box_invitation: {
         Args: { p_invitation_id: string }
