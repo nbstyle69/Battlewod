@@ -18,7 +18,7 @@ import { computeAndSaveElo, sortScoresRxFirst } from '../../services/eloCompute'
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
-import { BoxWOD, WODScore, ScoreType, GenderTarget } from '../../types';
+import { BoxWOD, WODScore, ScoreType } from '../../types';
 import { WhiteboardStackParamList } from '../../navigation';
 import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScoreReminder } from '../../services/notifications';
 import { incrementCounter, logMovementReps } from '../../services/gamification';
@@ -31,6 +31,7 @@ import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
 import EmeraldCTAButton from '../../components/glass/EmeraldCTAButton';
 import ReportMenu from '../../components/ReportMenu';
+import { readRows } from '../../lib/db';
 
 type Nav   = NativeStackNavigationProp<WhiteboardStackParamList>;
 type Route = RouteProp<WhiteboardStackParamList, 'WODDetail'>;
@@ -107,7 +108,6 @@ export default function WODDetailScreen() {
 
   // Reaction/comment counts per score
   const [scoreMeta, setScoreMeta] = useState<Record<string, { reactions: number; comments: number }>>({});
-  const [genderFilter, setGenderFilter] = useState<GenderTarget>('mix');
   const [eloDeltas, setEloDeltas] = useState<Record<string, number>>({});
   const [shareModal, setShareModal] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -119,10 +119,16 @@ export default function WODDetailScreen() {
     setWod(w);
 
     if (w) {
-      const { data: scoreData } = await supabase
-        .from('wod_scores')
-        .select('*, profile:profiles(id, username, avatar_url, level, elo, gender)')
-        .eq('wod_id', w.id);
+      // Pas de `gender` ici : le genre d'un autre athlète n'est plus lisible
+      // (Lot 0-bis), et le mentionner ferait échouer TOUTE la requête — donc le
+      // classement entier disparaîtrait en silence. `readRows` remonte le refus.
+      const scoreData = await readRows(
+        supabase
+          .from('wod_scores')
+          .select('*, profile:profiles(id, username, avatar_url, level, elo)')
+          .eq('wod_id', w.id),
+        { screen: 'WODDetail', action: 'load_scores' },
+      );
 
       const list = sortScoresRxFirst((scoreData ?? []) as WODScore[], w.wod_type === 'for-time');
       setScores(list);
@@ -582,23 +588,11 @@ export default function WODDetailScreen() {
             onLayout={e => { leaderboardY.current = e.nativeEvent.layout.y; }}
           >
             <Text style={S.sectionTitle}>Classement · {scores.length} score{scores.length > 1 ? 's' : ''}</Text>
-            <View style={S.genderFilterRow}>
-              {([['mix', 'Tous'], ['male', 'Homme'], ['female', 'Femme']] as [GenderTarget, string][]).map(([val, lbl]) => (
-                <TouchableOpacity
-                  key={val}
-                  style={[S.genderChip, genderFilter === val && S.genderChipActive]}
-                  onPress={() => setGenderFilter(val)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[S.genderChipText, genderFilter === val && S.genderChipTextActive]}>{lbl}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
             <View style={S.leaderboard}>
               {(() => {
                 const rankMap: Record<string, number> = {};
                 scores.forEach((sc, i) => { rankMap[sc.id] = i + 1; });
-                return scores.filter(sc => genderFilter === 'mix' || (sc.profile as any)?.gender === genderFilter).map((sc) => {
+                return scores.map((sc) => {
                 const globalRank = rankMap[sc.id] ?? 1;
                 const isMe = sc.member_id === user?.id;
                 const medal = globalRank === 1 ? '🥇' : globalRank === 2 ? '🥈' : globalRank === 3 ? '🥉' : null;
@@ -1133,14 +1127,6 @@ function createStyles(theme: AppTheme) {
   expiredText: { fontSize: 12, color: theme.textMuted, fontWeight: '600', flex: 1 },
   section: { paddingHorizontal: 16, marginTop: 8 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 12, letterSpacing: -0.2 },
-  genderFilterRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  genderChip: {
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8,
-    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
-  },
-  genderChipActive: { backgroundColor: `${theme.accent}15`, borderColor: theme.accent },
-  genderChipText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
-  genderChipTextActive: { color: theme.accent },
   leaderboard: {
     backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16,
     borderWidth: 1, borderColor: theme.border, overflow: 'hidden',
