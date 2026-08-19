@@ -1,12 +1,26 @@
 name: Integration Tests (Supabase)
 
-# Déclenchement MANUEL uniquement.
+# Ce workflow visait autrefois la base de PRODUCTION (URL en dur +
+# service_role) : chaque merge y créait puis y supprimait des comptes, des box,
+# des tournois et des centaines de scores. Il a été passé en manuel pour cette
+# raison — mais un contrôle que personne ne lance ne protège rien, et il est
+# resté muet dix jours en affichant le rouge d'un défaut déjà corrigé.
 #
-# Ce workflow tournait sur push main/master et visait la base de PRODUCTION
-# (URL en dur + service_role) : chaque merge y créait puis y supprimait des
-# comptes, des box, des tournois et des centaines de scores. Il monte désormais
-# sa propre pile Supabase jetable et n'a plus aucun secret de prod.
+# Il monte maintenant sa propre pile Supabase jetable, locale au runner et sans
+# aucun secret : le retenir n'a plus d'objet.
 on:
+  schedule:
+    # Nocturne : attrape les régressions de schéma qu'aucun push ne touche
+    # directement (une RPC qui dépend d'une policy modifiée ailleurs).
+    - cron: '30 3 * * *'
+
+  push:
+    branches: [master]
+    paths:
+      - 'supabase/**'
+      - 'scripts/**'
+      - '.github/workflows/integration.yml'
+
   workflow_dispatch:
     inputs:
       keep_data:
@@ -28,6 +42,10 @@ on:
           - athlete
           - rls
 
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   integration:
     name: Integration Tests
@@ -47,13 +65,23 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Set keep-data flag
+      # `github.event.inputs.*` est vide hors `workflow_dispatch` : sans ce
+      # repli, les conditions des suites deviennent `'' == 'all'` — fausses — et
+      # le job passe au vert en n'exécutant **aucune** suite. Un vert qui ne
+      # mesure rien est pire que le rouge qu'il remplace.
+      - name: Résoudre les paramètres du run
         id: flags
         run: |
+          set -euo pipefail
+          suite='${{ github.event.inputs.suite }}'
+          [ -n "$suite" ] || suite='all'
+          echo "suite=$suite" >> "$GITHUB_OUTPUT"
+          echo "suite retenue : $suite (événement ${{ github.event_name }})"
+
           if [ "${{ github.event.inputs.keep_data }}" = "true" ]; then
-            echo "extra_flag=--keep-data" >> $GITHUB_OUTPUT
+            echo "extra_flag=--keep-data" >> "$GITHUB_OUTPUT"
           else
-            echo "extra_flag=" >> $GITHUB_OUTPUT
+            echo "extra_flag=" >> "$GITHUB_OUTPUT"
           fi
 
       # ── Cible jetable : Postgres + PostgREST + GoTrue locaux, schéma rejoué ──
@@ -65,27 +93,27 @@ jobs:
 
       # Aucune de ces étapes ne reçoit de secret : la cible est locale au runner.
       - name: Suite — Multi-Agent Tournaments
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'agents' }}
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'agents' }}
         run: node scripts/test-agents.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — Tournament Formats (bracket/swiss/league)
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'formats' }}
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'formats' }}
         run: node scripts/test-formats.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — League Detailed (32 agents, 5 saisons)
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'league' }}
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'league' }}
         run: node scripts/test-league-detailed.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — BO Owner (full lifecycle)
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'bo-owner' }}
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'bo-owner' }}
         run: node scripts/test-bo-owner.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — Athlete (app mobile flows)
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'athlete' }}
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'athlete' }}
         run: node scripts/test-athlete.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Suite — RLS
-        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'rls' }}
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'rls' }}
         run: node scripts/test-rls.mjs
 
       - name: Arrêt de la pile
