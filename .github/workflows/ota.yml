@@ -77,6 +77,11 @@ jobs:
             exit 1
           fi
 
+      # `--environment production` : les EXPO_PUBLIC_* sont inlinées AU MOMENT du
+      # bundle. Sans elles, l'update part sans URL ni clé Supabase — applicable,
+      # reçu, et inerte : l'app affiche la connexion et n'atteint jamais le
+      # serveur. `eas build` lisait ces variables par son profil, `eas update`
+      # ne les lisait pas.
       - name: Publier l'update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -84,8 +89,22 @@ jobs:
           set -euo pipefail
           subject=$(git log -1 --pretty=%s)
           npx eas-cli@latest update --branch production --non-interactive \
+            --environment production \
             --message "$subject (${GITHUB_SHA:0:7})" --json > update.json
           cat update.json
+
+      # On ne fait pas confiance à ce qu'on vient d'envoyer : on retélécharge ce
+      # que le canal sert et on vérifie que le bundle contient de quoi parler au
+      # serveur. Un update publié sans configuration ne se voit nulle part
+      # ailleurs — ni dans le runtime, ni dans les logs de publication.
+      - name: Vérifier le bundle servi (configuration Supabase présente)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./app.json').expo.version")
+          projectId=$(node -p "require('./app.json').expo.extra.eas.projectId")
+          node scripts/ota-verify-bundle.mjs "$projectId" "$version"
 
       # L'identité publiée est ce qui rend le constat d'appareil falsifiable : on
       # compare l'ID embarqué (Updates.updateId) à celui-ci.

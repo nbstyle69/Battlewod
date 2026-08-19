@@ -165,6 +165,47 @@ publication doit être automatique ou consignée, jamais laissée à la mémoire
 
 ---
 
+## 11. « Publié » et « reçu » ne suffisent pas : un bundle peut arriver intact et inerte
+
+La règle 10 a été appliquée : l'OTA est devenu automatique, chaque merge a publié, et
+l'identité de l'update publié figure dans le résumé du job. Les quatre updates suivantes ont
+**enfermé tous les utilisateurs dehors** — écran de connexion immédiat, soumission sans
+message, tous les comptes.
+
+`process.env.EXPO_PUBLIC_*` est **inliné au moment du bundle**. Le runner CI n'avait ni
+`.env` ni les variables d'environnement EAS : `EXPO_PUBLIC_SUPABASE_URL` et
+`EXPO_PUBLIC_SUPABASE_ANON_KEY` valaient `undefined`, `createClient('', '')` levait, et l'app
+n'avait plus aucun client pour parler au serveur. `eas build` lisait ces variables par son
+profil ; `eas update` ne les lit que si on lui passe `--environment`.
+
+Pourquoi rien ne l'a vu :
+
+- le **garde-fou runtime** validait la seule question qu'il posait — l'update est-il
+  applicable ? Il l'était. Applicable et vide ;
+- les **journaux de publication** disaient « Published! », ce qui est vrai ;
+- le **harnais web** exportait depuis une machine où `.env` était chargé : son bundle, lui,
+  avait les clés. Un contrôle qui construit son propre artefact ne teste pas celui qui part ;
+- **côté serveur, rien n'apparaissait** — aucune requête n'atteignait la base. Une panne sans
+  trace ressemble à un problème de compte.
+
+Ce qui se vérifie :
+
+- on **retélécharge le bundle réellement servi** par le canal et on cherche dedans la
+  configuration attendue (`scripts/ota-verify-bundle.mjs`). Le CDN EAS répond `403` sans
+  en-tête : la signature se trouve dans la partie `extensions` du manifeste, et un `403` en
+  HTML se lit comme du JavaScript si on ne regarde que le code de retour ;
+- la **configuration absente lève tôt et se nomme**, plutôt que « supabaseUrl is required. »
+  cinq niveaux plus bas ;
+- l'appareil **affiche l'identité du code qu'il exécute** (écran de connexion) : sans elle,
+  l'enquête repose sur des déductions, et un téléchargement échoué en silence est
+  indistinguable d'un bundle fautif.
+
+Corollaire général : un artefact de déploiement se vérifie **par son contenu**, pas par le
+succès de l'ordre qui l'a produit. « L'ordre a réussi » et « l'artefact est bon » sont deux
+états distincts, exactement comme « mergé » et « chez l'utilisateur ».
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
@@ -182,6 +223,8 @@ publication doit être automatique ou consignée, jamais laissée à la mémoire
 - [ ] Rejeu sur les données réelles après application de la migration, pas seulement en local.
 - [ ] Un déploiement OTA est prouvé par l'**identité de l'update reçu** sur l'appareil, jamais
       par « l'écran s'affiche » : avant la coupe, l'ancien code s'affiche aussi.
+- [ ] Le bundle **réellement servi** contient sa configuration (`ota-verify-bundle.mjs`) : une
+      publication réussie peut livrer un artefact vide, applicable et inerte.
 
 ---
 

@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
+import { buildIdentity } from '../../lib/buildIdentity';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
@@ -111,6 +112,10 @@ export default function LoginScreen({ navigation }: Props) {
               </Text>
             </TouchableOpacity>
           </View>
+
+          <Text style={S.buildIdentity} accessibilityLabel={`Version ${buildIdentity()}`}>
+            {buildIdentity()}
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -203,6 +208,12 @@ function createStyles(theme: AppTheme) {
     registerHighlight: { 
       color: theme.accent, 
       fontWeight: '700',
+    },
+    buildIdentity: {
+      ...typography.caption,
+      color: theme.textMuted,
+      textAlign: 'center',
+      marginTop: spacing.lg,
     },
   });
 }
