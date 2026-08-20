@@ -11,7 +11,7 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 
 ---
 
-## Les neuf occurrences, en une ligne chacune
+## Les occurrences, en une ligne chacune
 
 | Chantier | Ce qui s'affichait | Ce qui était vrai |
 |---|---|---|
@@ -24,6 +24,8 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 | Profils — fermeture de colonnes | migration « REVOKE » appliquée, catalogue à jour | le grant de **table** rendait le revoke de colonne sans effet |
 | Provenance d'inscription | `UPDATE` refusé, « succès » renvoyé | zéro ligne visible : PostgREST rend 200 sans rien écrire |
 | OTA avant révocation | « l'app se charge, OTA constaté » | l'update n'était pas publié ; l'ancien code marchait encore, la coupe n'était pas passée |
+| Lot 4 — RPC de lecture staff | « l'appel anonyme est refusé », `42501` | c'était le *corps* qui refusait ; le grant était ouvert — une barrière sur deux |
+| Grants de fonction | règle écrite « `REVOKE … FROM anon` », appliquée 20 fois | `anon` hérite de `PUBLIC` : la règle prescrivait la moitié sans effet |
 
 ---
 
@@ -237,6 +239,96 @@ l'appel dans les deux dépôts, pas en relisant la migration.
 
 ---
 
+## 13. Un code de retour que plusieurs gardes produisent n'est pas discriminant
+
+L'assertion du lot 4 disait « l'appel non authentifié est refusé », et elle était verte. Elle
+l'était **dans les deux états** :
+
+```
+grant ouvert   → 42501  « Authentification requise »          ← le corps refuse
+grant fermé    → 42501  « permission denied for function … »  ← le grant refuse
+```
+
+Deux barrières étaient prévues, une seule était en place, et le test ne pouvait pas le voir :
+il validait **qu'on refuse**, pas **qui refuse**. Une barrière retirée était invisible.
+
+C'est la même famille que le `?? ['simple']` (règle 1) et que le « succès à zéro ligne »
+(règle 9) : **la valeur observée est correcte, la conclusion qu'on en tire ne l'est pas.**
+Ici, `42501` est bien la bonne réponse — elle ne dit simplement pas ce qu'on lui fait dire.
+
+Donc, sur toute assertion d'autorisation :
+
+- si deux chemins peuvent produire le code observé, l'assertion **nomme la barrière** —
+  par le message, ou par un effet propre à une seule d'entre elles ;
+- le message est un contrat de test acceptable quand il est produit par le moteur
+  (`permission denied for function`), pas quand il vient de notre propre `RAISE` (qu'une
+  refonte réécrit sans prévenir) ;
+
+```js
+assertRefused('l\'appel non authentifié est refusé', anonErr);
+assert('et il est refusé par le grant, pas par le corps de la fonction',
+  (anonErr?.message ?? '').includes('permission denied for function'));
+```
+
+- corollaire de conception : quand deux gardes doivent tenir, **chacune se prouve seule**.
+  Une garde qui n'est vérifiée qu'à travers l'autre peut disparaître sans qu'un test bouge.
+
+---
+
+## 14. Une règle qui s'est déjà oubliée ne se réécrit pas : elle devient un contrôle
+
+`REVOKE … FROM PUBLIC` sur une fonction était **déjà** appliqué dans 20 migrations. Et la
+règle écrite existait — dans la section « spécifique à ce dépôt ». Elle disait :
+
+> Une RPC `SECURITY DEFINER` sans `REVOKE … FROM anon` reste appelable par la clé anon.
+
+La prose nommait donc précisément **la moitié qui ne suffit pas** : `anon` hérite du grant
+implicite de `PUBLIC`, et le revoke nominatif ne retire pas l'héritage. Douze occurrences
+plus tôt, la règle 8 avait déjà dit cela des colonnes (`Postgres additionne les privilèges`) —
+la transposition aux fonctions n'a pas été faite.
+
+Ce que le catalogue a répondu quand on l'a interrogé au lieu de relire le SQL : **la cause
+n'était pas l'oubli**, c'était la naissance. Toute fonction créée dans `public` naît
+atteignable par la clé anonyme, par deux chemins cumulés :
+
+```
+défaut câblé du moteur  : EXECUTE accordé à PUBLIC sur toute fonction neuve
+pg_default_acl          : postgres/public/f → {anon=X, authenticated=X, service_role=X}
+```
+
+Et les deux ne se ferment pas de la même façon — piège mesuré, pas déduit :
+
+```sql
+-- ne ferme QUE anon : le défaut câblé de PUBLIC survit à la forme « IN SCHEMA »
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon;
+-- ferme PUBLIC : seule la forme globale annule le défaut du moteur
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+```
+
+Donc la réponse n'est pas une treizième ligne de prose. C'est une assertion structurelle qui
+**interroge `pg_proc`**, pas nos migrations — `scripts/test-grants.mjs`, suite `grants`,
+incluse dans `all` :
+
+- **R1** — aucune fonction de `public` n'accorde `EXECUTE` à `PUBLIC` (`aclexplode`, `grantee = 0`) ;
+- **R2** — `anon` n'exécute que les fonctions d'une **liste blanche annotée**, chaque entrée
+  portant sa raison (prédicat de policy, page publique). Une liste blanche sans motif
+  redevient l'état qu'on voulait corriger ;
+- **R3** — une fonction créée **sans grant explicite** n'est atteignable ni par `PUBLIC` ni
+  par `anon`. R1 et R2 constatent l'état ; R3 porte sur la cause, donc sur demain ;
+- et les sondes REST à la clé anon exigent le message du **grant** (règle 13), avec un
+  contre-exemple atteignable (`peek_box_invitation`) pour que « tout est refusé » ne passe
+  pas pour un succès (règle 4).
+
+Ce qui distingue un contrôle d'une règle : on l'a fait **échouer**. Grant `PUBLIC` remis sur
+`get_box_dunning` et fonction `zz_probe()` créée → `7 ✅ · 3 ❌`. Et R3 a échoué sur sa
+première version de la migration, ce qui est précisément comment le piège des deux portées
+`ALTER DEFAULT PRIVILEGES` a été trouvé.
+
+Généralisation : **une règle qu'on relit s'oublie, une règle que la CI applique ne s'oublie
+pas.** La deuxième occurrence d'une même famille est le signal qu'il faut sortir de la prose.
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
@@ -258,6 +350,10 @@ l'appel dans les deux dépôts, pas en relisant la migration.
       publication réussie peut livrer un artefact vide, applicable et inerte.
 - [ ] Toute fonction serveur neuve a **un appelant nommé dans une interface**, ou l'annotation
       de la règle 12 dans son en-tête. Et l'annotation est retirée le jour où l'écran arrive.
+- [ ] Aucune assertion d'autorisation ne repose sur le seul **code** de retour quand deux
+      gardes le produisent : on nomme la barrière (message, ou effet propre à une seule).
+- [ ] Une règle qui s'est déjà oubliée une fois devient un **contrôle en CI**, pas une ligne
+      de plus : `node scripts/test-grants.mjs` (suite `grants`, incluse dans `all`).
 
 ---
 
@@ -268,9 +364,12 @@ l'appel dans les deux dépôts, pas en relisant la migration.
 - **`db-fidelity` après chaque application en prod**, sur les huit dimensions (colonnes,
   fonctions, policies, triggers, index, grants table/colonne/routine). Un écart de fonction
   signale d'abord un rejeu local périmé : `KEEP=1 ./scripts/db-replay.sh`, puis on relit.
-- **Grants explicites.** Une RPC `SECURITY DEFINER` sans `REVOKE … FROM anon` reste
-  appelable par la clé anon. Le protocole teste `anon` **et** `authenticated` d'une autre
-  box, pas seulement le cas nominal.
+- **Grants explicites (corrigé — voir règle 14).** Une RPC `SECURITY DEFINER` se ferme par
+  `REVOKE ALL … FROM PUBLIC` **puis** `FROM anon`, puis un `GRANT` nominatif. Le seul
+  `REVOKE … FROM anon` que cette ligne prescrivait auparavant ne suffit pas : `anon` hérite
+  du grant implicite de `PUBLIC`. Le protocole teste `anon` **et** `authenticated` d'une
+  autre box, pas seulement le cas nominal — et `scripts/test-grants.mjs` le vérifie
+  mécaniquement sur tout le schéma.
 - **`SET search_path TO 'public', 'pg_temp'`** sur toute fonction `SECURITY DEFINER`.
 - **Les triggers d'immuabilité ne doivent pas bloquer les cascades.** Un trigger qui refuse
   tout `UPDATE`/`DELETE` casse la suppression de compte (les FK écrivent : `SET NULL`,
