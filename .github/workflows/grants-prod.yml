@@ -1,0 +1,80 @@
+name: Audit grants — PRODUCTION (lecture seule)
+
+# Pourquoi un workflow distinct de `integration.yml` : celui-là monte une pile
+# jetable et ne reçoit aucun secret, par construction. Celui-ci fait l'inverse —
+# il vise la production, avec des identifiants, et strictement en lecture.
+#
+# Ce qu'il ferme : la CI d'intégration repart d'une baseline et rejoue nos
+# migrations, donc elle prouve l'état de *sa* base. Une fonction créée depuis le
+# SQL editor, une extension installée par la plateforme ou un grant posé à la
+# main un soir de dépannage n'y apparaissent jamais. « Vert en CI » n'est pas
+# « fermé en prod ».
+#
+# Aucune écriture : quatre requêtes de catalogue et des appels REST qui doivent
+# être refusés. La règle « prod sans création » est respectée par construction,
+# pas par vigilance.
+on:
+  schedule:
+    # Nocturne, décalé de l'intégration (03:30) pour lire des logs distincts.
+    - cron: '10 4 * * *'
+
+  # Le contrôle suit le code qui le définit : un push qui touche les grants doit
+  # pouvoir vérifier la prod sans attendre la nuit.
+  push:
+    branches: [master]
+    paths:
+      - 'scripts/audit-grants-prod.mjs'
+      - 'scripts/lib/anon-whitelist.mjs'
+      - '.github/workflows/grants-prod.yml'
+
+  workflow_dispatch:
+
+concurrency:
+  group: grants-prod
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit grants (prod)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `psql` sert à interroger le catalogue : pg_default_acl et les ACL de
+      # fonctions ne sont pas exposés par PostgREST.
+      - name: Client PostgreSQL
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      # Le script échoue déjà si une variable manque ; l'étape le dit plus tôt
+      # et nomme la cause, parce qu'un secret absent ressemble sinon à un bug.
+      - name: Vérifier que la cible est configurée
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL_RO }}
+          PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          PROD_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          manquants=''
+          [ -n "${PROD_DB_URL:-}" ] || manquants="$manquants PROD_DB_URL_RO"
+          [ -n "${PROD_SUPABASE_URL:-}" ] || manquants="$manquants PROD_SUPABASE_URL"
+          [ -n "${PROD_SUPABASE_ANON_KEY:-}" ] || manquants="$manquants PROD_SUPABASE_ANON_KEY"
+          if [ -n "$manquants" ]; then
+            echo "::error::Secrets absents :$manquants — l'audit de production ne peut pas s'exécuter."
+            echo "Un audit sans cible n'est pas un audit qui passe : c'est un audit qui échoue."
+            exit 1
+          fi
+
+      - name: R1 / R2 / D1 / D2 + effet à la clé anon
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL_RO }}
+          PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          PROD_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+        run: node scripts/audit-grants-prod.mjs
