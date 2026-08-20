@@ -42,6 +42,7 @@ on:
           - athlete
           - rls
           - templates
+          - strength
 
 concurrency:
   group: integration-${{ github.ref }}
@@ -120,6 +121,10 @@ jobs:
       - name: Suite — Semaines types (programmation)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'templates' }}
         run: node scripts/test-templates.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      - name: Suite — Journal des séries réalisées (suivi athlète)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'strength' }}
+        run: node scripts/test-strength-journal.mjs ${{ steps.flags.outputs.extra_flag }}
 
       - name: Arrêt de la pile
         if: always()

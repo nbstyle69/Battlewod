@@ -24,7 +24,9 @@ import { sendScoreNotification, sendScoreOvertakenNotification, cancelTodayScore
 import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { formatScoreValue, normalizeScore, mapForTimeScore, formatCap } from '../../utils/scoreFormat';
 import { computeCompletedMovements } from '../../utils/movementParser';
-import { annotateStrengthLoads, parseStrengthLine, resolveStrengthLoadKg, StrengthEntry } from '../../utils/strengthBlock';
+import { annotateStrengthLoads, parseStrengthLine, StrengthEntry } from '../../utils/strengthBlock';
+import { buildStrengthGrid, logStrengthSets, StrengthSetDraft } from '../../services/strengthSets';
+import StrengthSetGrid from '../../components/wod/StrengthSetGrid';
 import { useMyOneRepMax } from '../../hooks/useMyOneRepMax';
 import { recordStrengthPRs } from '../../services/strengthPR';
 import { computeMaxScore } from '../../utils/computeMaxScore';
@@ -100,9 +102,10 @@ export default function WODDetailScreen() {
   const [capReps,    setCapReps]    = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Charges réellement soulevées sur les blocs musculation, par index de bloc.
-  // C'est cette saisie — pas la prescription — qui alimente les 1RM.
-  const [strengthLoads, setStrengthLoads] = useState<Record<number, string>>({});
+  // Séries réellement réalisées sur les blocs musculation : une ligne par série
+  // prescrite, pré-remplie. C'est cette saisie — pas la prescription — qui
+  // alimente le journal ET les 1RM.
+  const [strengthDrafts, setStrengthDrafts] = useState<StrengthSetDraft[]>([]);
 
   // Score detail modal
   const [selectedScore, setSelectedScore] = useState<WODScore | null>(null);
@@ -213,12 +216,7 @@ export default function WODDetailScreen() {
   // La prescription pré-remplit la saisie ; l'athlète corrige ce qu'il a
   // réellement fait. Un %1RM sans 1RM connu reste vide plutôt qu'inventé.
   const prefillStrengthLoads = useCallback(() => {
-    const next: Record<number, string> = {};
-    strengthEntries.forEach((e, i) => {
-      const kg = resolveStrengthLoadKg(e, oneRepMaxFor(e.name));
-      if (kg != null) next[i] = String(kg);
-    });
-    setStrengthLoads(next);
+    setStrengthDrafts(buildStrengthGrid(strengthEntries, oneRepMaxFor));
   }, [strengthEntries, oneRepMaxFor]);
 
   function openEditModal() {
@@ -331,18 +329,25 @@ export default function WODDetailScreen() {
       logMovementReps(user.id, completed, 'whiteboard', wod.id).catch(e => captureError(e, { action: 'logMovementReps' }));
     }
 
-    // Les charges réellement soulevées alimentent les 1RM (jamais la prescription).
-    const performed = strengthEntries
-      .map((e, i) => ({ name: e.name, loadKg: parseFloat((strengthLoads[i] ?? '').replace(',', '.')), reps: e.reps }))
-      .filter(s => Number.isFinite(s.loadKg) && s.loadKg > 0);
-    if (performed.length > 0) {
-      recordStrengthPRs(performed)
+    // Les séries réellement réalisées sont journalisées, et ce sont ELLES qui
+    // alimentent les 1RM — jamais les reps prescrites. Le journal d'abord :
+    // chaque série rend son id, et c'est cet id qui rattache un record à la
+    // séance qui l'a établi.
+    if (strengthDrafts.length > 0) {
+      logStrengthSets({
+        userId: user.id,
+        sourceType: 'whiteboard',
+        sourceId: wod.id,
+        sourceTitle: wod.title,
+        drafts: strengthDrafts,
+      })
+        .then(performed => (performed.length > 0 ? recordStrengthPRs(performed) : []))
         .then(beaten => {
           if (beaten.length === 0) return;
           const lines = beaten.map(b => `${b.movement} : ${b.kg} kg${b.previousKg != null ? ` (avant ${b.previousKg} kg)` : ''}`);
           Alert.alert('Nouveau 1RM 🏋️', lines.join('\n'));
         })
-        .catch(e => captureError(e, { action: 'recordStrengthPRs' }));
+        .catch(e => captureError(e, { action: 'logStrengthSets' }));
     }
 
     // Snapshot old rankings before reload
@@ -821,29 +826,12 @@ export default function WODDetailScreen() {
                 </>
               )}
 
-              {strengthEntries.length > 0 && (
-                <>
-                  <Text style={S.modalLabel}>CHARGES RÉALISÉES (MUSCULATION)</Text>
-                  {strengthEntries.map((e, i) => (
-                    <View key={i} style={S.strengthRow}>
-                      <Text style={S.strengthName} numberOfLines={1}>
-                        {e.name} · {e.sets} × {e.reps}
-                      </Text>
-                      <TextInput
-                        style={S.strengthInput}
-                        placeholder="kg"
-                        placeholderTextColor={theme.textMuted}
-                        value={strengthLoads[i] ?? ''}
-                        onChangeText={txt => setStrengthLoads(prev => ({ ...prev, [i]: txt }))}
-                        keyboardType="decimal-pad"
-                      />
-                    </View>
-                  ))}
-                  <Text style={S.strengthHint}>
-                    La charge de la série la plus lourde met à jour ton 1RM si elle le dépasse.
-                  </Text>
-                </>
-              )}
+              <StrengthSetGrid
+                drafts={strengthDrafts}
+                onChange={(index, patch) => setStrengthDrafts(prev =>
+                  prev.map((d, i) => (i === index ? { ...d, ...patch } : d)),
+                )}
+              />
 
               <Text style={S.modalLabel}>NIVEAU</Text>
               <View style={S.rxRow}>
@@ -1229,14 +1217,6 @@ function createStyles(theme: AppTheme) {
   modalBody: { padding: 20, gap: 12 },
   modalWodName: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 4 },
   modalLabel: { fontSize: 11, fontWeight: '700', color: theme.textMuted, letterSpacing: 1 },
-  strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  strengthName: { flex: 1, fontSize: 13, color: theme.textSecondary },
-  strengthInput: {
-    width: 90, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
-    borderRadius: borderRadius.md, paddingHorizontal: 10, paddingVertical: 10,
-    fontSize: 14, color: theme.text, textAlign: 'center',
-  },
-  strengthHint: { fontSize: 11, color: theme.textMuted, marginTop: 6 },
   typeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   typeChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,

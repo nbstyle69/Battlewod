@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabase';
 import { captureError } from '../lib/sentry';
 import { fetchMyProfile } from './myProfile';
 import { PR_SANITY } from '../utils/wod/movementLoadability';
-import { prKey, prDateKey, weightliftingPrLabel } from '../screens/profile/prStorage';
+import { prKey, prDateKey, prSourceKey, weightliftingPrLabel } from '../screens/profile/prStorage';
 import { Json } from '../types/supabase';
 
 export interface PerformedSet {
@@ -21,8 +21,16 @@ export interface PerformedSet {
   name: string;
   /** Charge de la série, en kilos. */
   loadKg: number;
-  /** Répétitions réellement effectuées dans cette série. */
+  /** Répétitions réellement effectuées dans cette série (jamais les prescrites). */
   reps: number;
+  /**
+   * `strength_set_logs.id` de la série, quand elle a été journalisée.
+   *
+   * C'est la provenance du record : un 1RM doit pouvoir se rattacher à la série
+   * qui l'a établi. La déduire de la date la plus proche mentirait dès qu'un
+   * athlète enregistre deux séances le même jour.
+   */
+  logId?: string | null;
 }
 
 export interface RecordedPR {
@@ -46,15 +54,29 @@ export function estimateOneRepMax(loadKg: number, reps: number): number | null {
   return rounded;
 }
 
-/** Meilleur 1RM estimé par mouvement (libellé de la page Records). */
-export function bestOneRepMaxBySet(sets: PerformedSet[]): Record<string, number> {
-  const out: Record<string, number> = {};
+export interface BestSet {
+  kg: number;
+  /** Série qui a produit cet estimé, si elle a été journalisée. */
+  logId: string | null;
+}
+
+/**
+ * Meilleur 1RM estimé par mouvement (libellé de la page Records), avec la série
+ * qui l'a produit.
+ *
+ * Le meilleur estimé n'est pas la série la plus lourde : 100 kg × 5 (117 kg
+ * estimés) bat 110 kg × 1. C'est bien Epley qui arbitre, série par série.
+ */
+export function bestOneRepMaxBySet(sets: PerformedSet[]): Record<string, BestSet> {
+  const out: Record<string, BestSet> = {};
   for (const s of sets) {
     const label = weightliftingPrLabel(s.name);
     if (!label) continue;                       // mouvement sans 1RM de référence
     const est = estimateOneRepMax(s.loadKg, s.reps);
     if (est == null) continue;
-    if (out[label] === undefined || est > out[label]) out[label] = est;
+    if (out[label] === undefined || est > out[label].kg) {
+      out[label] = { kg: est, logId: s.logId ?? null };
+    }
   }
   return out;
 }
@@ -84,7 +106,8 @@ export async function recordStrengthPRs(sets: PerformedSet[]): Promise<RecordedP
   const beaten: RecordedPR[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
-  for (const [movement, kg] of Object.entries(candidates)) {
+  for (const [movement, best] of Object.entries(candidates)) {
+    const kg = best.kg;
     const key = prKey('weightlifting', movement);
     const rawPrev = remote[key];
     const prev = typeof rawPrev === 'string' || typeof rawPrev === 'number'
@@ -94,6 +117,7 @@ export async function recordStrengthPRs(sets: PerformedSet[]): Promise<RecordedP
     if (previousKg != null && kg <= previousKg) continue;
     merged[key] = String(kg);
     merged[prDateKey('weightlifting', movement)] = today;
+    if (best.logId) merged[prSourceKey('weightlifting', movement)] = best.logId;
     beaten.push({ movement, kg, previousKg });
   }
 

@@ -206,6 +206,37 @@ succès de l'ordre qui l'a produit. « L'ordre a réussi » et « l'artefact est
 
 ---
 
+## 12. Une capacité serveur sans appelant doit le dire dans son en-tête
+
+Trois fonctions livrées, gardées, testées — et **jamais exécutées par un utilisateur réel**,
+faute d'un bouton qui les appelle :
+
+| Fonction | Appelants dans les interfaces | État |
+|---|---|---|
+| `join_program(p_source => 'staff')` | aucun (le webhook Stripe n'emprunte que la porte `'stripe'`) | point d'extension, lot 5 |
+| `get_athlete_private_profile()` | aucun avant le lot 4 web | atteignable depuis la fiche athlète de `/members` |
+| `resolve_program_week_source('template')` | aucun avant le lot 3 | exercé par le Whiteboard web |
+
+Un point d'extension assumé est légitime. Ce qui ne l'est pas, c'est qu'il soit
+**indistinguable d'une fonctionnalité livrée** quand on relit le code six mois plus tard :
+la garde est écrite, le test passe, le nom promet un usage — et pourtant aucun chemin réel
+n'y mène. C'est la même famille que le reste de ce document : un état crédible, stable et
+faux, sauf qu'ici ce qui ment est la *présence* de la capacité, pas une valeur.
+
+Donc : une fonction sans appelant dans les interfaces le déclare dans son commentaire
+d'en-tête, avec cette formule exacte —
+
+```sql
+-- Règle 12 : point d'extension, aucun appelant à ce jour, non exercé en production.
+```
+
+Et la formule **part** le jour où un écran l'appelle : une annotation périmée redevient un
+mensonge. Le corollaire de vérification : « la fonction existe et ses tests passent » ne dit
+rien de « un utilisateur peut l'atteindre ». La seconde affirmation se prouve en cherchant
+l'appel dans les deux dépôts, pas en relisant la migration.
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
@@ -225,6 +256,8 @@ succès de l'ordre qui l'a produit. « L'ordre a réussi » et « l'artefact est
       par « l'écran s'affiche » : avant la coupe, l'ancien code s'affiche aussi.
 - [ ] Le bundle **réellement servi** contient sa configuration (`ota-verify-bundle.mjs`) : une
       publication réussie peut livrer un artefact vide, applicable et inerte.
+- [ ] Toute fonction serveur neuve a **un appelant nommé dans une interface**, ou l'annotation
+      de la règle 12 dans son en-tête. Et l'annotation est retirée le jour où l'écran arrive.
 
 ---
 

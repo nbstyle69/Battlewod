@@ -52,6 +52,18 @@ export function prDateKey(slug: PrCategorySlug, movement: string): string {
   return `${slug}_${movement}_date`;
 }
 
+/**
+ * Clé de provenance : `strength_set_logs.id` de la série qui a établi ce record.
+ *
+ * Un record sans provenance n'est pas auditable — ni par l'athlète qui se
+ * demande d'où sort ce chiffre, ni par le coach. La déduire de la date la plus
+ * proche mentirait dès qu'il y a deux séances le même jour ; on stocke donc
+ * l'identifiant exact. Absente = record saisi à la main.
+ */
+export function prSourceKey(slug: PrCategorySlug, movement: string): string {
+  return `${slug}_${movement}_src`;
+}
+
 // Reads a PR value tolerating both the new slug key and the legacy label key.
 export function readPr(
   records: Record<string, string> | undefined,
