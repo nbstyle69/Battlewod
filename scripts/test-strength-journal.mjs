@@ -240,8 +240,13 @@ async function main() {
     (await rpc(ST.client, { p_user_id: athlete })).error);
   assertRefused('le gérant d\'une AUTRE box est refusé (isolation)',
     (await rpc(OB.client, { p_user_id: athlete })).error);
-  assertRefused('l\'appel non authentifié est refusé',
-    (await rpc(anonClient(), { p_user_id: athlete })).error);
+  // La clé anon doit être arrêtée par le grant, avant d'entrer dans le corps : un
+  // « Authentification requise » dirait que seul le fail-closed interne l'a retenue.
+  const anonErr = (await rpc(anonClient(), { p_user_id: athlete })).error;
+  assertRefused('l\'appel non authentifié est refusé', anonErr);
+  assert('et il est refusé par le grant, pas par le corps de la fonction',
+    (anonErr?.message ?? '').includes('permission denied for function'),
+    `message obtenu : ${anonErr?.message ?? '—'}`);
 
   // Un coach exclu ne lit plus : l'autorisation suit le membership, pas l'ancienneté.
   await db.from('box_members').update({ status: 'inactive' })
