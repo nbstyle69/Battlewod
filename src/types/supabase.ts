@@ -5737,6 +5737,69 @@ export type Database = {
           },
         ]
       }
+      strength_set_logs: {
+        Row: {
+          id: string
+          load_kg: number | null
+          movement: string
+          movement_label: string | null
+          performed_at: string
+          prescribed_load_kg: number | null
+          prescribed_reps: number | null
+          reps: number
+          set_index: number
+          source_id: string
+          source_title: string | null
+          source_type: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          load_kg?: number | null
+          movement: string
+          movement_label?: string | null
+          performed_at?: string
+          prescribed_load_kg?: number | null
+          prescribed_reps?: number | null
+          reps: number
+          set_index: number
+          source_id: string
+          source_title?: string | null
+          source_type: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          load_kg?: number | null
+          movement?: string
+          movement_label?: string | null
+          performed_at?: string
+          prescribed_load_kg?: number | null
+          prescribed_reps?: number | null
+          reps?: number
+          set_index?: number
+          source_id?: string
+          source_title?: string | null
+          source_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strength_set_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strength_set_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_admins: {
         Row: {
           created_at: string
@@ -7821,6 +7884,23 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
+      }
+      list_athlete_strength_sets: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: {
+          id: string
+          load_kg: number
+          movement: string
+          movement_label: string
+          performed_at: string
+          prescribed_load_kg: number
+          prescribed_reps: number
+          reps: number
+          set_index: number
+          source_id: string
+          source_title: string
+          source_type: string
+        }[]
       }
       list_applicable_programmings: {
         Args: { p_box_id: string }

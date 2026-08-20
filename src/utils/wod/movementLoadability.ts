@@ -172,7 +172,8 @@ export function parsePersonalRecords(
   const out: PRMap = {};
   if (!records) return out;
   for (const [rawKey, rawVal] of Object.entries(records)) {
-    if (rawKey === '_featured_badges' || rawKey.endsWith('_date')) continue;
+    // `_src` : provenance du record (un uuid de série), jamais une charge.
+    if (rawKey === '_featured_badges' || rawKey.endsWith('_date') || rawKey.endsWith('_src')) continue;
     const label = stripPrefix(rawKey).toLowerCase().trim();
     const canon = PR_LABEL_TO_KEY[label];
     if (!canon) continue;

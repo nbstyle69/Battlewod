@@ -29,6 +29,8 @@ import UserAvatar from '../../components/UserAvatar';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { prKey, normalizePrRecords, PrCategorySlug, WEIGHTLIFTING_PR_MOVEMENTS } from './prStorage';
 import GymDeclarationSection from '../../components/wod/GymDeclarationSection';
+import StrengthHistory from '../../components/profile/StrengthHistory';
+import { fetchMyStrengthSets, groupStrengthSessions } from '../../services/strengthSets';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
@@ -236,7 +238,7 @@ export default function ProfileScreen() {
     ['profile', user?.id],
     async () => {
       if (!user) return null;
-      const [wodCountRes, prRes, badgesRes, earnedRes, streakRes, friendsRes, featuredRes] = await Promise.all([
+      const [wodCountRes, prRes, badgesRes, earnedRes, streakRes, friendsRes, featuredRes, strengthRes] = await Promise.all([
         supabase.from('wod_scores').select('id', { count: 'exact', head: true }).eq('member_id', user.id), // 4.1 : la colonne est member_id, pas user_id (compteur bloque a 0)
         fetchMyPersonalRecords(),
         getBadgesCatalog(),
@@ -245,10 +247,13 @@ export default function ProfileScreen() {
         supabase.from('friendships').select('requester_id, addressee_id, requester:profiles!requester_id(id, username, level, avatar_url), addressee:profiles!addressee_id(id, username, level, avatar_url)').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status', 'accepted'),
         // Dedicated column; errors (data null) if the migration hasn't run yet.
         supabase.from('profiles').select('featured_badges').eq('id', user.id).maybeSingle(),
+        // Journal des séries réalisées : ce qui a produit les 1RM affichés.
+        fetchMyStrengthSets(),
       ]);
       return {
         wodCount: wodCountRes.count ?? 0,
         prValues: prRes,
+        strengthSessions: groupStrengthSessions(strengthRes),
         badgesCatalog: badgesRes,
         earnedBadges: earnedRes,
         streak: streakRes,
@@ -607,6 +612,14 @@ export default function ProfileScreen() {
     });
   }
 
+  // Séries qui ont établi un record : lues dans les clés de provenance
+  // `<catégorie>_<mouvement>_src`, jamais déduites d'une date approchante.
+  const prSourceIds = new Set(
+    Object.entries(prValues)
+      .filter(([k]) => k.endsWith('_src'))
+      .map(([, v]) => v),
+  );
+
   const earnedKeys = new Set(earnedBadges.map(b => b.badge_key));
   const earnedCount = earnedBadges.length;
   // Un badge sans source d'attribution n'est montré qu'à un porteur historique :
@@ -846,6 +859,12 @@ export default function ProfileScreen() {
                 </View>
               );
             })}
+            {!searching && (
+              <StrengthHistory
+                sessions={profileData?.strengthSessions ?? []}
+                prSourceIds={prSourceIds}
+              />
+            )}
           </>
           );
         })()}
