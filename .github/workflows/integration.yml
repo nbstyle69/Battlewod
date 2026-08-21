@@ -44,6 +44,7 @@ on:
           - templates
           - strength
           - wod-access
+          - admin-boxes
           - grants
 
 concurrency:
@@ -134,6 +135,13 @@ jobs:
       - name: Suite — Accès aux WOD restreints (programme / groupe)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'wod-access' }}
         run: node scripts/test-wod-access.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # Le titre qui ouvre ou ferme les routes argent : owner/co-gérant vs coach.
+      # Le contrôle positif (le gérant administre bien sa box) empêche « personne
+      # n'administre rien » de se lire comme un succès.
+      - name: Suite — Résolveur des box administrées (titre owner / coach)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'admin-boxes' }}
+        run: node scripts/test-admin-boxes.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.
