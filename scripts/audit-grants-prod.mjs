@@ -26,7 +26,7 @@
 
 import { execFileSync } from 'child_process';
 import { ANON_WHITELIST, SONDES_ANONYMES } from './lib/anon-whitelist.mjs';
-import { PROD_PROJECT_REF } from './lib/test-env.mjs';
+import { PROD_PROJECT_REF } from './lib/prod-ref.mjs';
 
 const DB_URL = process.env.PROD_DB_URL ?? '';
 const SUPABASE_URL = process.env.PROD_SUPABASE_URL ?? '';

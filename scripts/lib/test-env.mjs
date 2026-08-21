@@ -15,9 +15,10 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { PROD_PROJECT_REF } from './prod-ref.mjs';
 
 /** Ref du projet de production : toute cible qui la contient est refusée. */
-export const PROD_PROJECT_REF = 'lkwdlqlbrbxaiydkoxfp';
+export { PROD_PROJECT_REF };
 
 function loadDotEnv() {
   try {
