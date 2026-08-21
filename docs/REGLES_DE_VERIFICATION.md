@@ -26,6 +26,7 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 | OTA avant révocation | « l'app se charge, OTA constaté » | l'update n'était pas publié ; l'ancien code marchait encore, la coupe n'était pas passée |
 | Lot 4 — RPC de lecture staff | « l'appel anonyme est refusé », `42501` | c'était le *corps* qui refusait ; le grant était ouvert — une barrière sur deux |
 | Grants de fonction | règle écrite « `REVOKE … FROM anon` », appliquée 20 fois | `anon` hérite de `PUBLIC` : la règle prescrivait la moitié sans effet |
+| Grants — filet de CI | « R1/R2 tournent en CI, la règle est tenue » | la CI rejoue nos migrations sur une base neuve : elle ne voit pas la prod |
 
 ---
 
@@ -329,6 +330,45 @@ pas.** La deuxième occurrence d'une même famille est le signal qu'il faut sort
 
 ---
 
+## 15. Un contrôle prouve l'état de la base qu'il interroge — la CI n'est pas la prod
+
+La règle 14 s'est arrêtée une étape trop tôt. R1/R2 tournaient bien en CI, et il a été écrit
+que « le filet reste R1/R2 en CI » — or la CI d'intégration repart d'une baseline et rejoue
+**nos migrations**. Elle prouve donc ce que notre SQL produit, et rien d'autre : elle ne voit
+ni une fonction créée depuis le SQL editor, ni une extension installée par la plateforme, ni
+un grant posé à la main un soir de dépannage. C'est la règle 10 (« mergé n'est pas chez
+l'utilisateur ») appliquée aux contrôles : **vert en CI n'est pas fermé en prod**.
+
+Le même raisonnement disqualifie la sonde par création annulée comme *seul* contrôle du
+défaut de création : elle ne teste que le rôle avec lequel on se connecte. Le catalogue, lui,
+expose le défaut de **tous** les créateurs possibles — dont ceux qu'on ne peut pas modifier.
+
+D'où un second contrôle, `scripts/audit-grants-prod.mjs` (workflow `grants-prod.yml`,
+nocturne), strictement en lecture — donc compatible avec « prod sans création » :
+
+- **R1/R2 sur la prod**, avec la liste blanche **partagée** avec la CI (`lib/anon-whitelist.mjs`) :
+  deux copies divergeraient, et la plus permissive deviendrait la vraie ;
+- **D1** — pour chaque rôle capable de créer dans `public`, `pg_default_acl` doit fermer
+  `PUBLIC` **et** `anon`. Les exceptions sont écrites avec leur raison, et une exception
+  devenue inutile **échoue** : une exception qui survit à sa cause est un trou qu'on croit
+  surveillé ;
+- **D2** — aucune fonction de `public` n'appartient à un rôle d'exception. `supabase_admin`
+  est hors de notre portée (`postgres` n'en est pas membre, `SET ROLE` refusé) : le risque
+  reste **latent** tant qu'aucune fonction n'y naît, et D2 est ce qui le dit le jour où ça
+  change.
+
+Deux exigences de forme, apprises ici : le contrôle **échoue le job** (un `NOTICE` dans un log
+que personne n'ouvre est l'inverse d'un contrôle), et il échoue aussi quand ses **secrets sont
+absents** — un audit sans cible ne passe pas, il échoue.
+
+Et le corollaire de la règle 4, que cet audit rend concret : **une révocation massive sans
+contrôle positif est indistinguable d'une panne massive.** 57 fonctions fermées d'un coup, tous
+les appels anonymes refusés : sans `peek_box_invitation` qui répond et sans les lectures de
+`/box` et `/classement` qui aboutissent, « tout est refusé » se lirait comme un succès alors
+que ce serait la panne des pages publiques.
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
@@ -354,6 +394,11 @@ pas.** La deuxième occurrence d'une même famille est le signal qu'il faut sort
       gardes le produisent : on nomme la barrière (message, ou effet propre à une seule).
 - [ ] Une règle qui s'est déjà oubliée une fois devient un **contrôle en CI**, pas une ligne
       de plus : `node scripts/test-grants.mjs` (suite `grants`, incluse dans `all`).
+- [ ] Un contrôle structurel qui n'existe qu'en CI est doublé d'un **audit de la prod en
+      lecture seule** : `scripts/audit-grants-prod.mjs`, nocturne, qui échoue le job (et qui
+      échoue aussi si sa cible n'est pas configurée).
+- [ ] Toute fermeture massive porte son **contre-exemple positif** : ce qui doit rester
+      atteignable l'est encore, sinon la panne ressemble au succès.
 
 ---
 
