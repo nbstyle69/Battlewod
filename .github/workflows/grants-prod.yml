@@ -72,9 +72,30 @@ jobs:
             exit 1
           fi
 
+      # Le rouge de ce job avait deux causes indistinguables : « une garde a
+      # sauté » et « l'audit n'a pas tourné » (le premier run réel est mort à
+      # l'import d'un paquet non installé, avant la première assertion). Le
+      # script compte donc ses assertions et imprime une sentinelle ; l'étape
+      # exige cette sentinelle, ce qui couvre le cas où *rien* du script ne
+      # s'exécute — aucun compte n'est alors imprimable depuis Node.
       - name: R1 / R2 / D1 / D2 + effet à la clé anon
         env:
           PROD_DB_URL: ${{ secrets.PROD_DB_URL_RO }}
           PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           PROD_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
-        run: node scripts/audit-grants-prod.mjs
+        run: |
+          set -o pipefail
+          node scripts/audit-grants-prod.mjs 2>&1 | tee audit-prod.log
+          code=$?
+          sentinelle=$(grep -o 'AUDIT_PROD_ASSERTIONS=[0-9]*/[0-9]*' audit-prod.log | tail -1 || true)
+          if [ -z "$sentinelle" ]; then
+            echo "::error::L'audit n'a exécuté aucune assertion (pas de ligne AUDIT_PROD_ASSERTIONS) — il est mort avant de constater quoi que ce soit. Ce rouge ne dit rien sur l'état de la prod."
+            exit 1
+          fi
+          echo "$sentinelle"
+          executees=${sentinelle#AUDIT_PROD_ASSERTIONS=}
+          if [ "${executees%/*}" != "${executees#*/}" ]; then
+            echo "::error::Audit incomplet : ${executees} assertion(s) exécutée(s). Distinct d'une garde qui a sauté."
+            exit 1
+          fi
+          exit $code

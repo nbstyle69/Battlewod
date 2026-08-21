@@ -27,6 +27,7 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 | Lot 4 — RPC de lecture staff | « l'appel anonyme est refusé », `42501` | c'était le *corps* qui refusait ; le grant était ouvert — une barrière sur deux |
 | Grants de fonction | règle écrite « `REVOKE … FROM anon` », appliquée 20 fois | `anon` hérite de `PUBLIC` : la règle prescrivait la moitié sans effet |
 | Grants — filet de CI | « R1/R2 tournent en CI, la règle est tenue » | la CI rejoue nos migrations sur une base neuve : elle ne voit pas la prod |
+| Audit de prod — 1er run | job **rouge** (donc « une garde a sauté ») | l'audit est mort à l'import : zéro assertion exécutée, rien de constaté |
 
 ---
 
@@ -369,6 +370,45 @@ que ce serait la panne des pages publiques.
 
 ---
 
+## 16. Un rouge que deux causes produisent ne constate rien — un contrôle compte ses assertions
+
+Premier run réel de l'audit de production dans Actions : **rouge**. Mais pas parce qu'une
+garde avait sauté — le script est mort à l'import d'un paquet que le job n'installe pas (il
+n'a besoin que de `psql` et du `fetch` de Node), donc **avant la première assertion**.
+
+C'est la règle 13 dans une autre robe : là-bas, deux gardes rendaient le même `42501` ; ici,
+deux causes rendent le même job rouge.
+
+```
+audit qui trouve une faille        → job rouge   ← ce qu'on veut voir
+audit qui ne s'exécute pas du tout → job rouge   ← ne dit rien sur l'état de la prod
+```
+
+Tant que ces deux états se ressemblent, la lecture du rouge **dépend de quelqu'un** qui ouvre
+le log et recompte les lignes à la main. Le jour où personne ne lit, l'ambiguïté reste.
+
+Le contrôle du contrôle, en deux couches parce qu'une seule ne couvre pas la mort au
+chargement :
+
+- **dans le script** — une attente chiffrée, **dérivée des listes** et non recopiée
+  (`ASSERTIONS_FIXES + EXCEPTIONS_D1.size + SONDES_ANONYMES.length + …`) ; sous l'attendu,
+  l'échec porte son propre nom (« audit incomplet — 16/17 »), distinct de « une assertion a
+  échoué ». Un `process.on('exit')` imprime le compte même quand le processus meurt entre
+  deux assertions (`psql` injoignable) : un audit interrompu n'a pas « presque réussi » ;
+- **dans le job** — une ligne sentinelle `AUDIT_PROD_ASSERTIONS=n/attendu` dont **l'absence**
+  est un échec nommé. C'est la seule couche qui couvre le cas où rien du fichier ne
+  s'exécute : aucun compte n'est alors imprimable depuis Node.
+
+Fait échouer pour de vrai, comme toujours : une sonde retirée de la boucle → `16/17`, rouge ;
+`psql` retiré du `PATH` → `0/17`, rouge et nommé ; import cassé → sentinelle absente, rouge
+côté job. Et le nominal reste `17/17`.
+
+Généralisation : **un contrôle doit affirmer qu'il a tourné, pas seulement ce qu'il a
+trouvé.** Un compteur d'assertions attendu est à un audit ce que le contre-exemple positif
+(règle 4) est à une révocation massive : ce qui distingue le succès de l'absence de mesure.
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
@@ -399,6 +439,8 @@ que ce serait la panne des pages publiques.
       échoue aussi si sa cible n'est pas configurée).
 - [ ] Toute fermeture massive porte son **contre-exemple positif** : ce qui doit rester
       atteignable l'est encore, sinon la panne ressemble au succès.
+- [ ] Un contrôle affirme **combien d'assertions il a exécutées** et échoue sous l'attendu :
+      « 0 assertion » est un échec *nommé*, distinct d'une garde qui a sauté (règle 16).
 
 ---
 

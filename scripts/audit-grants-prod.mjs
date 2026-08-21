@@ -55,6 +55,49 @@ if (!DB_URL.includes(PROD_PROJECT_REF) || !SUPABASE_URL.includes(PROD_PROJECT_RE
 let passed = 0;
 let failed = 0;
 
+/**
+ * Exceptions assumées au contrôle D1, avec leur raison et ce qui les rendrait
+ * caduques (voir la section D1 plus bas pour le raisonnement complet).
+ *
+ * `supabase_admin` appartient à la plateforme : `postgres` n'en est pas membre
+ * (`pg_has_role` → false, `SET ROLE` refusé), donc ce défaut est hors de notre
+ * portée. Chaque exception coûte une assertion — elle doit rester *nécessaire*.
+ */
+const EXCEPTIONS_D1 = new Map([
+  ['supabase_admin', 'rôle de la plateforme Supabase — non modifiable depuis `postgres`'],
+]);
+
+/**
+ * Nombre d'assertions que cet audit doit exécuter.
+ *
+ * Pourquoi une attente chiffrée : un audit mort au chargement et un audit qui
+ * trouve une faille rendent tous les deux le job rouge. Le signal ne
+ * discrimine donc pas les deux causes (règle 13), et « 0 assertion exécutée »
+ * se lisait comme « une garde a sauté ». Le compte le sépare : sous l'attendu,
+ * l'échec porte son propre nom — l'audit est *incomplet*, il n'a rien constaté.
+ *
+ * Elle est dérivée des listes, pas recopiée : ajouter une sonde met l'attente à
+ * jour, retirer une assertion sans toucher au calcul fait échouer le compte.
+ */
+const ASSERTIONS_FIXES = 7; // R1, R2, obsolescence, surcharges, ≥1 créateur, D2, contre-exemple
+const ASSERTIONS_ATTENDUES = ASSERTIONS_FIXES
+  + 1 // D1 : au moins un rôle créateur non exempté
+  + EXCEPTIONS_D1.size // « l'exception est encore nécessaire », une par exception
+  + SONDES_ANONYMES.length
+  + 2; // lectures REST publiques (boxes, profiles)
+
+// Si le processus meurt entre deux assertions (psql injoignable, exception non
+// rattrapée), personne ne verrait le compte : ce filet l'imprime quand même et
+// nomme l'interruption. Un audit qui s'arrête n'a pas « presque réussi ».
+let termine = false;
+process.on('exit', code => {
+  if (termine) return;
+  const executees = passed + failed;
+  console.log(`\n  ❌ audit interrompu avant la fin — ${executees}/${ASSERTIONS_ATTENDUES} assertion(s) exécutée(s)`);
+  console.log(`AUDIT_PROD_ASSERTIONS=${executees}/${ASSERTIONS_ATTENDUES}`);
+  if (code === 0) process.exitCode = 1;
+});
+
 function assert(label, condition, detail = '') {
   if (condition) {
     console.log(`  ✅ ${label}`);
@@ -168,19 +211,11 @@ const createurs = query(`
   order by 1
 `);
 
-/**
- * Exceptions assumées, avec leur raison et ce qui les rendrait caduques.
- *
- * `supabase_admin` appartient à la plateforme : `postgres` n'en est pas membre
- * (`pg_has_role` → false, `SET ROLE` refusé), donc ce défaut est hors de notre
- * portée. Le laisser échouer chaque nuit ferait d'un contrôle rouge en
- * permanence un contrôle qu'on n'ouvre plus — l'exception est donc écrite ici,
- * et c'est D2 qui garde les dents : le risque est latent, pas réalisé.
- */
-const EXCEPTIONS_D1 = new Map([
-  ['supabase_admin', 'rôle de la plateforme Supabase — non modifiable depuis `postgres`'],
-]);
-
+// Les exceptions D1 sont déclarées en tête (elles pèsent sur le compte attendu
+// d'assertions). Laisser `supabase_admin` échouer chaque nuit ferait d'un
+// contrôle rouge en permanence un contrôle qu'on n'ouvre plus — d'où
+// l'exception écrite, et D2 qui garde les dents : le risque est latent, pas
+// réalisé.
 for (const [role, ligneGlobale, ouverts] of createurs) {
   const ferme = ligneGlobale === 'oui' && ouverts === '';
   const excuse = EXCEPTIONS_D1.get(role);
@@ -287,5 +322,19 @@ for (const [nom, chemin] of lectures) {
   );
 }
 
+// ── Le contrôle du contrôle : combien d'assertions ont réellement tourné ─────
+const executees = passed + failed;
+if (executees < ASSERTIONS_ATTENDUES) {
+  console.log(`  ❌ audit incomplet — ${executees} assertion(s) exécutée(s), ${ASSERTIONS_ATTENDUES} attendues`);
+  console.log('     → un audit qui n\'exécute pas ses assertions ne constate rien : '
+    + 'ce rouge-là ne dit pas qu\'une garde a sauté, il dit que rien n\'a été vérifié.');
+  failed++;
+}
+
+// Ligne sentinelle, lue par le job : elle existe même quand tout est vert, donc
+// son absence est un fait constatable côté workflow — y compris quand le module
+// meurt à l'import et que rien de ce fichier ne s'exécute.
+console.log(`AUDIT_PROD_ASSERTIONS=${executees}/${ASSERTIONS_ATTENDUES}`);
 console.log(`\n=== ${passed} ✅ · ${failed} ❌ ===\n`);
+termine = true;
 process.exit(failed === 0 ? 0 : 1);
