@@ -44,6 +44,7 @@ on:
           - templates
           - strength
           - wod-access
+          - wod-derived
           - admin-boxes
           - grants
 
@@ -135,6 +136,13 @@ jobs:
       - name: Suite — Accès aux WOD restreints (programme / groupe)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'wod-access' }}
         run: node scripts/test-wod-access.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # Fermer le WOD sans fermer ses dérivés est une garde sur deux : le
+      # classement, les complétions, les gains d'ELO, les commentaires et les
+      # réactions d'un WOD restreint passent par la même garde que le WOD.
+      - name: Suite — Lectures dérivées d'un WOD restreint (score, ELO, commentaires)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'wod-derived' }}
+        run: node scripts/test-wod-derived-reads.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Le titre qui ouvre ou ferme les routes argent : owner/co-gérant vs coach.
       # Le contrôle positif (le gérant administre bien sa box) empêche « personne
