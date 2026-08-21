@@ -43,6 +43,7 @@ on:
           - rls
           - templates
           - strength
+          - wod-access
           - grants
 
 concurrency:
@@ -126,6 +127,13 @@ jobs:
       - name: Suite — Journal des séries réalisées (suivi athlète)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'strength' }}
         run: node scripts/test-strength-journal.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # L'autorisation du contenu payant : la policy de box_wods doit refuser,
+      # pas le client. Le contrôle positif (WOD libre visible de tous) est dans
+      # la suite : sans lui, un refus massif se lirait comme un succès.
+      - name: Suite — Accès aux WOD restreints (programme / groupe)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'wod-access' }}
+        run: node scripts/test-wod-access.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.

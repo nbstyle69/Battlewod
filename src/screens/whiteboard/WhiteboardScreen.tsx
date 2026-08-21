@@ -496,6 +496,14 @@ export default function WhiteboardScreen() {
     }
 
     // 3. Filter by group access + program access + visibility mode
+    //
+    // Défense en profondeur assumée, pas autorisation. Depuis la migration
+    // 20261113 (lot 5-A), c'est la policy de `box_wods` qui décide : un WOD
+    // restreint à un programme ou à un groupe n'arrive plus ici si l'appelant
+    // n'y a pas droit. Ce filtre est conservé parce qu'il porte en plus le
+    // raffinement `wod_visibility_mode` (semaine à venir), strictement PLUS
+    // strict que le serveur — il ne peut donc pas rendre visible ce que la base
+    // refuse. Ne jamais s'y fier comme unique barrière : c'était le défaut.
     function canSee(wod: any): boolean {
       if (isStaff) return true;
       const restrictedGroups = accessMap[wod.id];
