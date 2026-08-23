@@ -5120,103 +5120,6 @@ export type Database = {
           },
         ]
       }
-      program_scores: {
-        Row: {
-          created_at: string | null
-          id: string
-          notes: string | null
-          program_wod_id: string
-          rx: boolean | null
-          score_type: string
-          score_value: number
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          notes?: string | null
-          program_wod_id: string
-          rx?: boolean | null
-          score_type?: string
-          score_value: number
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          notes?: string | null
-          program_wod_id?: string
-          rx?: boolean | null
-          score_type?: string
-          score_value?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "program_scores_program_wod_id_fkey"
-            columns: ["program_wod_id"]
-            isOneToOne: false
-            referencedRelation: "program_wods"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      program_wods: {
-        Row: {
-          created_at: string | null
-          day_number: number | null
-          description: string
-          id: string
-          notes: string | null
-          program_id: string
-          scheduled_date: string | null
-          scoring_type: string | null
-          sort_order: number | null
-          time_cap_seconds: number | null
-          title: string
-          week_number: number | null
-          wod_type: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          day_number?: number | null
-          description: string
-          id?: string
-          notes?: string | null
-          program_id: string
-          scheduled_date?: string | null
-          scoring_type?: string | null
-          sort_order?: number | null
-          time_cap_seconds?: number | null
-          title: string
-          week_number?: number | null
-          wod_type?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          day_number?: number | null
-          description?: string
-          id?: string
-          notes?: string | null
-          program_id?: string
-          scheduled_date?: string | null
-          scoring_type?: string | null
-          sort_order?: number | null
-          time_cap_seconds?: number | null
-          title?: string
-          week_number?: number | null
-          wod_type?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "program_wods_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "programs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       programs: {
         Row: {
           box_id: string
@@ -7758,6 +7661,21 @@ export type Database = {
           reservations: number
         }[]
       }
+      get_my_admin_boxes: {
+        Args: never
+        Returns: {
+          allowed_tournament_formats: string[]
+          city: string
+          created_at: string
+          id: string
+          is_active: boolean
+          logo_url: string
+          my_role: string
+          name: string
+          owner_id: string
+          slug: string
+        }[]
+      }
       get_my_box_invite_code: { Args: { p_box_id: string }; Returns: string }
       get_my_membership_billing: {
         Args: never
@@ -7885,6 +7803,19 @@ export type Database = {
         }
         Returns: string
       }
+      list_applicable_programmings: {
+        Args: { p_box_id: string }
+        Returns: {
+          auto_apply_weekly: boolean
+          current_period_end: string
+          days_per_week: number
+          programming_id: string
+          publisher_box_name: string
+          subscription_id: string
+          title: string
+          weeks_count: number
+        }[]
+      }
       list_athlete_strength_sets: {
         Args: { p_limit?: number; p_user_id: string }
         Returns: {
@@ -7900,19 +7831,6 @@ export type Database = {
           source_id: string
           source_title: string
           source_type: string
-        }[]
-      }
-      list_applicable_programmings: {
-        Args: { p_box_id: string }
-        Returns: {
-          auto_apply_weekly: boolean
-          current_period_end: string
-          days_per_week: number
-          programming_id: string
-          publisher_box_name: string
-          subscription_id: string
-          title: string
-          weeks_count: number
         }[]
       }
       list_program_week_conflicts: {
@@ -8058,6 +7976,8 @@ export type Database = {
         }
         Returns: undefined
       }
+      wod_access_allowed: { Args: { p_wod_id: string }; Returns: boolean }
+      wod_in_my_active_program: { Args: { p_wod_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
@@ -8081,6 +8001,7 @@ export type Database = {
           public: boolean | null
           type: Database["storage"]["Enums"]["buckettype"]
           updated_at: string | null
+          versioning_status: string
         }
         Insert: {
           allowed_mime_types?: string[] | null
@@ -8094,6 +8015,7 @@ export type Database = {
           public?: boolean | null
           type?: Database["storage"]["Enums"]["buckettype"]
           updated_at?: string | null
+          versioning_status?: string
         }
         Update: {
           allowed_mime_types?: string[] | null
@@ -8107,6 +8029,7 @@ export type Database = {
           public?: boolean | null
           type?: Database["storage"]["Enums"]["buckettype"]
           updated_at?: string | null
+          versioning_status?: string
         }
         Relationships: []
       }
@@ -8184,9 +8107,12 @@ export type Database = {
       }
       objects: {
         Row: {
+          archived_at: string | null
           bucket_id: string | null
           created_at: string | null
           id: string
+          is_delete_marker: boolean
+          is_versioned: boolean
           last_accessed_at: string | null
           metadata: Json | null
           name: string | null
@@ -8198,9 +8124,12 @@ export type Database = {
           version: string | null
         }
         Insert: {
+          archived_at?: string | null
           bucket_id?: string | null
           created_at?: string | null
           id?: string
+          is_delete_marker?: boolean
+          is_versioned?: boolean
           last_accessed_at?: string | null
           metadata?: Json | null
           name?: string | null
@@ -8212,9 +8141,12 @@ export type Database = {
           version?: string | null
         }
         Update: {
+          archived_at?: string | null
           bucket_id?: string | null
           created_at?: string | null
           id?: string
+          is_delete_marker?: boolean
+          is_versioned?: boolean
           last_accessed_at?: string | null
           metadata?: Json | null
           name?: string | null
