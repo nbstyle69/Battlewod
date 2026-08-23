@@ -107,6 +107,23 @@ export const SONDES_ANONYMES = [
   ['get_tournament_participants', { p_tournament_id: '00000000-0000-0000-0000-000000000000' }],
   ['get_tournament_validated_scores', { p_tournament_id: '00000000-0000-0000-0000-000000000000' }],
   ['get_box_dunning', { p_box_id: '00000000-0000-0000-0000-000000000000' }],
-  ['extend_all_class_schedules', {}],
-  ['generate_class_schedules_from_templates', { p_box_id: '00000000-0000-0000-0000-000000000000' }],
+];
+
+/**
+ * Les mêmes sondes, pour des RPC qui **écrivent**. Elles ne sont pas appelées :
+ * elles sont jugées sur `has_function_privilege`.
+ *
+ * La raison est la même que pour les écritures de tables, et elle vise cet
+ * audit lui-même : appeler la fonction n'apporte une information *nouvelle* que
+ * dans le cas où le grant a régressé — c'est-à-dire précisément le cas où
+ * l'appel réussit. Une sonde qui génère les créneaux de toutes les box en
+ * production le jour où la garde tombe fait de l'audit l'auteur du dégât qu'il
+ * était censé constater.
+ *
+ * Le catalogue, lui, répond sans rien exécuter : le corps de la fonction n'est
+ * jamais atteint, quel que soit l'état du grant.
+ */
+export const SONDES_ANONYMES_MUTANTES = [
+  'extend_all_class_schedules',
+  'generate_class_schedules_from_templates',
 ];

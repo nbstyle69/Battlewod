@@ -286,3 +286,42 @@ export function controlerGrantsTables(query, assert) {
       : '',
   );
 }
+
+/**
+ * Les RPC mutantes de la liste des sondes, jugées sur le catalogue.
+ *
+ * Une sonde qui *appelle* la fonction n'apporte une information nouvelle que
+ * dans l'état où le grant a régressé — donc exactement dans l'état où l'appel
+ * aboutit. En production, cet appel générerait les créneaux de toutes les box :
+ * l'audit deviendrait l'auteur du dégât qu'il constate.
+ *
+ * `has_function_privilege` répond la même chose sans atteindre le corps.
+ */
+export function controlerRpcMutantes(query, assert, fonctions) {
+  for (const fn of fonctions) {
+    const lignes = query(`
+      select p.oid::regprocedure::text,
+             case when has_function_privilege('anon', p.oid, 'EXECUTE')
+                  then 'ouvert' else 'ferme' end
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = '${fn}'
+      order by 1
+    `);
+
+    // Un libellé explicite, pas le rendu d'un booléen : `boolean::text` rend
+    // `true`, et une comparaison à `'t'` était donc verte quel que soit l'état
+    // du grant — un contrôle inconditionnellement vert ne contrôle rien.
+    const ouvertes = lignes.filter(([, droit]) => droit === 'ouvert').map(([sig]) => sig);
+
+    assert(
+      `\`anon\` n'a pas l'EXECUTE sur \`${fn}\` (RPC mutante — jugée sans être appelée)`,
+      lignes.length > 0 && ouvertes.length === 0,
+      lignes.length === 0
+        ? 'fonction absente du schéma : la sonde ne mesure plus rien — '
+          + 'retire-la de la liste ou nomme la fonction qui l\'a remplacée.'
+        : `${ouvertes.length} signature(s) ouverte(s) : ${ouvertes.join(', ')}\n`
+          + '       → cette fonction écrit. La sonde ne l\'appelle pas exprès : '
+          + 'révoque l\'EXECUTE avant de vérifier autre chose.',
+    );
+  }
+}

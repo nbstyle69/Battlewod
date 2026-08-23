@@ -25,8 +25,10 @@
  */
 
 import { execFileSync } from 'child_process';
-import { ANON_WHITELIST, SONDES_ANONYMES } from './lib/anon-whitelist.mjs';
-import { controlerGrantsTables, ASSERTIONS_GRANTS_TABLES } from './lib/controle-grants-tables.mjs';
+import { ANON_WHITELIST, SONDES_ANONYMES, SONDES_ANONYMES_MUTANTES } from './lib/anon-whitelist.mjs';
+import {
+  controlerGrantsTables, controlerRpcMutantes, ASSERTIONS_GRANTS_TABLES,
+} from './lib/controle-grants-tables.mjs';
 import { PROD_PROJECT_REF } from './lib/prod-ref.mjs';
 
 const DB_URL = process.env.PROD_DB_URL ?? '';
@@ -85,6 +87,7 @@ const ASSERTIONS_ATTENDUES = ASSERTIONS_FIXES
   + 1 // D1 : au moins un rôle créateur non exempté
   + EXCEPTIONS_D1.size // « l'exception est encore nécessaire », une par exception
   + SONDES_ANONYMES.length
+  + SONDES_ANONYMES_MUTANTES.length // jugées sur le catalogue, jamais appelées
   + 2 // lectures REST publiques (boxes, profiles)
   + ASSERTIONS_GRANTS_TABLES; // T1..T9 : les grants de tables (lot 5-E)
 
@@ -298,6 +301,11 @@ for (const [fn, body] of SONDES_ANONYMES) {
     `HTTP ${status} — message : ${message || '—'}`,
   );
 }
+
+// Les RPC qui écrivent ne sont pas appelées : leur refus se lit dans le
+// catalogue. Voir `SONDES_ANONYMES_MUTANTES` — une sonde ne doit pas pouvoir
+// devenir l'écriture qu'elle surveille.
+controlerRpcMutantes(query, assert, SONDES_ANONYMES_MUTANTES);
 
 // Le contre-exemple, et il pèse autant que les refus : une révocation massive
 // sans contrôle positif est indistinguable d'une panne massive.

@@ -28,8 +28,10 @@ import {
   requireTestTarget, PROD_PROJECT_REF, serviceClient, createUser, createOwnedBox,
   dropBoxAndOwner, signInAs, onCleanup, installCleanupTraps, runCleanup,
 } from './lib/test-env.mjs';
-import { ANON_WHITELIST, SONDES_ANONYMES, SONDES_ECRITURE_ANONYME } from './lib/anon-whitelist.mjs';
-import { controlerGrantsTables } from './lib/controle-grants-tables.mjs';
+import {
+  ANON_WHITELIST, SONDES_ANONYMES, SONDES_ANONYMES_MUTANTES, SONDES_ECRITURE_ANONYME,
+} from './lib/anon-whitelist.mjs';
+import { controlerGrantsTables, controlerRpcMutantes } from './lib/controle-grants-tables.mjs';
 
 const { url: SUPABASE_URL, anonKey: ANON_KEY } = requireTestTarget();
 
@@ -191,6 +193,11 @@ for (const [fn, body] of SONDES_ANONYMES) {
     `HTTP ${status} — message : ${message || '—'}`,
   );
 }
+
+// Les RPC mutantes de la liste ne sont pas appelées, même ici : le critère doit
+// être le même des deux côtés, sinon la prod serait jugée par un contrôle que la
+// pile n'exerce jamais.
+controlerRpcMutantes(query, assert, SONDES_ANONYMES_MUTANTES);
 
 // Le contre-exemple : une fonction whitelistée doit rester atteignable, sinon
 // « tout est refusé » passerait pour un succès sans rien prouver.
