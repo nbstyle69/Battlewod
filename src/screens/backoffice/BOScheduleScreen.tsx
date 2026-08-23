@@ -8,6 +8,7 @@ import { Plus, ChevronLeft, ChevronRight, Pencil, Trash2, Users, CalendarClock, 
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { readRows } from '../../lib/db';
+import { normalizeTimeString } from '../../lib/timeInput';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -206,6 +207,12 @@ export default function BOScheduleScreen({ navigation }: any) {
     const cap = parseInt(maxCapacity);
     if (isNaN(cap) || cap < 1) { Alert.alert(t('bo.schedule.invalidCapacity')); return; }
 
+    const start = normalizeTimeString(startTime);
+    const end = normalizeTimeString(endTime);
+    if (!start || !end) { Alert.alert(t('bo.schedule.invalidTime')); return; }
+    setStartTime(start);
+    setEndTime(end);
+
     setSubmitting(true);
     const payload = {
       box_id: currentBox.id,
@@ -213,8 +220,8 @@ export default function BOScheduleScreen({ navigation }: any) {
       description: description.trim() || null,
       coach: coach.trim() || null,
       scheduled_date: date,
-      start_time: startTime,
-      end_time: endTime,
+      start_time: start,
+      end_time: end,
       max_capacity: cap,
     };
 
