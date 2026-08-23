@@ -6,6 +6,21 @@ import { hapticHeavy } from '../lib/haptics';
 import { isLocalCategoryEnabled } from './notificationPrefsCache';
 import { normalizeMovement, isKnownMovementKey } from '../utils/tournamentUtils';
 
+// ── Quota de la formule de l'adhérent ────────────────────────────
+// `box_members.plan_id` est nominatif : il ne se lit plus sur la table (lot 6).
+// `get_my_membership_billing()` ne rend que les lignes de `auth.uid()`.
+async function getMyPlanMaxSessions(boxId: string): Promise<number | null> {
+  const { data: rows } = await supabase.rpc('get_my_membership_billing');
+  const mine = (rows ?? []).find(r => r.box_id === boxId && r.status === 'active');
+  if (!mine?.plan_id) return null;
+  const { data: plan } = await supabase
+    .from('membership_plans')
+    .select('max_sessions_per_week')
+    .eq('id', mine.plan_id)
+    .maybeSingle();
+  return plan?.max_sessions_per_week ?? null;
+}
+
 // ── Badge title cache (avoid re-fetching) ───────────────────────────
 let badgeTitleCache: Record<string, { title: string; icon: string; description: string }> = {};
 async function getBadgeTitle(key: string): Promise<{ title: string; icon: string; description: string }> {
@@ -204,16 +219,7 @@ export async function getStreak(userId: string, boxId?: string): Promise<StreakI
   // Fetch the user's plan limit for the current box
   let maxSessions: number | null = null;
   if (boxId) {
-    const { data: membership } = await supabase
-      .from('box_members')
-      .select('plan_id, membership_plans(max_sessions_per_week)')
-      .eq('member_id', userId)
-      .eq('box_id', boxId)
-      .eq('status', 'active')
-      .maybeSingle();
-    if (membership?.membership_plans) {
-      maxSessions = (membership.membership_plans as any).max_sessions_per_week ?? null;
-    }
+    maxSessions = await getMyPlanMaxSessions(boxId);
   }
 
   if (!data) return { current_streak: 0, longest_streak: 0, week_session_count: 0, week_start: '', max_sessions_per_week: maxSessions };
@@ -290,14 +296,7 @@ export async function recordActivity(userId: string, boxId?: string): Promise<st
   // Fetch the user's plan limit (default 3 if no plan assigned)
   let threshold = 3;
   if (boxId) {
-    const { data: membership } = await supabase
-      .from('box_members')
-      .select('plan_id, membership_plans(max_sessions_per_week)')
-      .eq('member_id', userId)
-      .eq('box_id', boxId)
-      .eq('status', 'active')
-      .maybeSingle();
-    const planMax = (membership?.membership_plans as any)?.max_sessions_per_week;
+    const planMax = await getMyPlanMaxSessions(boxId);
     if (planMax != null) threshold = planMax;
   }
 
