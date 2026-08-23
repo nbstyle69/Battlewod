@@ -49,6 +49,7 @@ on:
           - programs-box
           - comptoir-programmes
           - abonnement-programmation
+          - espace-coach
           - grants
 
 concurrency:
@@ -176,6 +177,14 @@ jobs:
       - name: Suite — Abonnement à une programmation (payant, gratuit, prix)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'abonnement-programmation' }}
         run: node scripts/test-abonnement-programmation.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # L'espace coach : le coach programme (semaines types, grille de créneaux)
+      # mais ne lit pas « qui paie quoi », ne publie pas et ne fixe pas de prix.
+      # Contrôles positifs : le gérant et le co-gérant lisent l'abonnement
+      # nominatif, l'adhérent lit le sien, et le coach garde le roster.
+      - name: Suite — Espace coach (programmation, résidu nominatif)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'espace-coach' }}
+        run: node scripts/test-espace-coach.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.

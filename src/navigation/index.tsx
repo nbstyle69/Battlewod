@@ -856,7 +856,10 @@ export default function AppNavigator() {
     return <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />;
   }
   const isSuperAdmin    = user?.role === 'super_admin' || user?.role === 'admin';
-  const isBoxOwner      = user?.role === 'box_owner' || boxRole === 'owner';
+  // Le titre vient de la box ACTIVE, prononcé par le serveur (get_my_admin_boxes).
+  // `profiles.role === 'box_owner'` qualifie le compte, pas la box : un gérant
+  // qui n'est que coach dans la box active n'ouvre pas les onglets gérant.
+  const isBoxOwner      = boxRole === 'owner';
   const isCoach         = boxRole === 'coach';
   const isB2BUser       = user?.role === 'member' || user?.role === 'box_owner';
   // Legacy 'athlete' users bypass onboarding — only new B2B roles require a box

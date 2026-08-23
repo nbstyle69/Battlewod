@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(profile);
       setUserContext(profile.id, email, profile.username);
       identifyUser(profile.id, { email, username: profile.username, role: profile.role, level: profile.level });
-      await fetchBox(userId, data.role);
+      await fetchBox(userId);
       // Register push token silently
       registerForPushNotifications().then(token => {
         if (token) savePushToken(userId, token);
@@ -169,17 +169,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }
 
-  async function fetchBox(userId: string, role: string) {
+  async function fetchBox(userId: string) {
     try {
+      // Le titre est prononcé par le serveur, box par box : `profiles.role`
+      // vaut pour le compte, pas pour la box active. Un `box_owner` qui n'est
+      // que coach dans la box active est un coach dans cette box.
+      const adminRows = await readRows(
+        supabase.rpc('get_my_admin_boxes'),
+        { screen: 'AuthContext', action: 'fetchBox.adminBoxes' },
+      );
+      const staffRole = new Map<string, 'owner' | 'coach'>(
+        (adminRows ?? []).map(r => [r.id, r.my_role === 'owner' ? 'owner' as const : 'coach' as const]),
+      );
+
       const entries: MyBoxEntry[] = [];
-      // Owner box
-      if (role === 'box_owner') {
-        const data = await readRows(
-          supabase.from('boxes').select(BOX_COLUMNS).eq('owner_id', userId).maybeSingle(),
-          { screen: 'AuthContext', action: 'fetchBox.owner' },
-        );
-        if (data) entries.push({ box: data as Box, role: 'owner' });
-      }
       // Member boxes (always fetch — owner can also be member of other boxes)
       const memberships = await readRows(
         supabase
@@ -191,9 +194,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       if (memberships) {
         for (const m of memberships) {
-          if (m.boxes && !entries.find(e => e.box.id === (m.boxes as any).id)) {
-            entries.push({ box: m.boxes as unknown as Box, role: (m.role as BoxMemberRole) ?? 'member' });
+          const box = m.boxes as unknown as Box | null;
+          if (box && !entries.find(e => e.box.id === box.id)) {
+            entries.push({ box, role: staffRole.get(box.id) ?? 'member' });
           }
+        }
+      }
+      // Boxes administrées sans ligne box_members (gérant principal).
+      const missing = (adminRows ?? [])
+        .map(r => r.id)
+        .filter(id => !entries.find(e => e.box.id === id));
+      if (missing.length > 0) {
+        const owned = await readRows(
+          supabase.from('boxes').select(BOX_COLUMNS).in('id', missing),
+          { screen: 'AuthContext', action: 'fetchBox.adminBoxRows' },
+        );
+        for (const b of owned ?? []) {
+          entries.push({ box: b as Box, role: staffRole.get(b.id) ?? 'coach' });
         }
       }
       setMyBoxes(entries);
@@ -204,9 +221,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (active) {
         setCurrentBox(active.box);
         setBoxRole(active.role);
-        if (active.role === 'owner') {
-          await fetchSubscription(active.box.id);
-        }
+        if (active.role === 'owner') await fetchSubscription(active.box.id);
+        else setBoxSubscription(null);
       } else {
         setCurrentBox(null);
         setBoxRole(null);
@@ -234,7 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function refreshBox() {
-    if (user) await fetchBox(user.id, user.role);
+    if (user) await fetchBox(user.id);
   }
 
   async function signIn(email: string, password: string) {
@@ -409,6 +425,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentBox(entry.box);
     setBoxRole(entry.role);
     await AsyncStorage.setItem(ACTIVE_BOX_KEY, boxId);
+    // L'abonnement suit la box active : gardé d'une box à l'autre, il ferait
+    // juger l'accès de la box courante sur le contrat d'une autre.
+    if (entry.role === 'owner') await fetchSubscription(entry.box.id);
+    else setBoxSubscription(null);
   }
 
   async function resetPassword(email: string) {

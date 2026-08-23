@@ -7589,10 +7589,21 @@ export type Database = {
         Args: { p_box_id: string }
         Returns: {
           amount_cents: number
+          commitment_end_date: string
           has_stripe_sub: boolean
           id: string
+          joined_at: string
           member_id: string
+          pause_resumes_at: string
+          pause_started_at: string
+          plan_id: string
           platform_fee_cents: number
+          role: string
+          status: string
+          subscription_cancel_at_period_end: boolean
+          subscription_current_period_end: string
+          subscription_paused: boolean
+          subscription_status: string
         }[]
       }
       get_box_dunning: {
@@ -7718,8 +7729,16 @@ export type Database = {
         Returns: {
           amount_cents: number
           box_id: string
+          commitment_end_date: string
           id: string
-          platform_fee_cents: number
+          joined_at: string
+          pause_resumes_at: string
+          plan_id: string
+          status: string
+          subscription_cancel_at_period_end: boolean
+          subscription_current_period_end: string
+          subscription_paused: boolean
+          subscription_status: string
         }[]
       }
       get_my_profile: {
