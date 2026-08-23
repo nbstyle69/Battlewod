@@ -1,4 +1,4 @@
-import { TIMER_THEMES, ensureContrast, inkOn } from '../theme/timerInk';
+import { TIMER_THEMES, ensureContrast, inkOn, inkOnSecondary } from '../theme/timerInk';
 import { contrast } from '../theme/contrast';
 
 const TEXT_MIN = 4.5;
@@ -28,6 +28,20 @@ describe('encre du minuteur plein écran', () => {
     ['#F59E0B', '#60A5FA', '#4ADE80', '#EF4444'].forEach(domain => {
       expect(contrast(ensureContrast(domain, bg), bg)).toBeGreaterThanOrEqual(GLYPH_MIN);
     });
+  });
+
+  it.each(cases)('%s — l\'encre secondaire reste un texte lisible', (_name, bg) => {
+    expect(contrast(inkOnSecondary(bg), bg)).toBeGreaterThanOrEqual(TEXT_MIN);
+  });
+
+  // « TEMPS FINAL » et l'horloge étaient à opacité fixe : sur le fond « Blanc »
+  // terminé, cela valait 3,81:1 — plausible à l'œil, sous le seuil à la mesure.
+  it('mesure le défaut historique : l\'opacité fixe de l\'encre secondaire', () => {
+    const blanc = TIMER_THEMES.find(t => t.id === 'blanc');
+    expect(blanc).toBeDefined();
+    const bg = blanc!.bgDone;
+    expect(contrast('rgba(0,0,0,0.5)', bg)).toBeLessThan(TEXT_MIN);
+    expect(contrast(inkOnSecondary(bg), bg)).toBeGreaterThanOrEqual(TEXT_MIN);
   });
 
   // Contrôle de régression : le défaut corrigé était un blanc en dur. S'il

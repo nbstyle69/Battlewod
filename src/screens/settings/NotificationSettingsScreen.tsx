@@ -157,6 +157,7 @@ export default function NotificationSettingsScreen() {
 
   return (
     <View style={S.screen}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
           <ArrowLeft color={theme.text} size={22} />

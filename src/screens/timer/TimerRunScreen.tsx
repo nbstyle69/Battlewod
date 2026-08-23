@@ -22,7 +22,7 @@ import { HomeStackParamList, SeqBlock } from '../../navigation';
 import { blockDurationSec } from '../../utils/wodToTimer';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { ensureContrast, inkOn, TIMER_THEMES } from '../../theme/timerInk';
+import { ensureContrast, inkOn, inkOnSecondary, TIMER_THEMES } from '../../theme/timerInk';
 import { incrementCounter } from '../../services/gamification';
 import * as Notifications from 'expo-notifications';
 import { spacing, borderRadius, typography } from '../../theme/designTokens';
@@ -1372,7 +1372,7 @@ export default function TimerRunScreen() {
   // Les surfaces translucides suivent la même encre que le texte : sans ça, un
   // fond vif de mi-échelle recevait un film blanc et un texte noir.
   const isLightBg = onBg1 === '#000000';
-  const onBg2 = isLightBg ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.45)';
+  const onBg2 = inkOnSecondary(currentBg);
   const iconColor = isLightBg ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.8)';
   const pillBg = isLightBg ? 'rgba(0,0,0,0.45)' : accentColor;
   const pillFg = isLightBg ? '#FFFFFF' : '#000000';

@@ -24,6 +24,28 @@ export function inkOn(bg: string): '#000000' | '#FFFFFF' {
 /** Un glyphe ou un grand chiffre reste lisible à partir de 3:1 (WCAG 1.4.11). */
 const GLYPH_MIN = 3;
 
+/** Un texte, même petit et discret, reste lisible à partir de 4,5:1. */
+const TEXT_MIN = 4.5;
+
+/** Opacités candidates de l'encre secondaire, de la plus discrète à la plus franche. */
+const SECONDARY_ALPHAS = [0.5, 0.6, 0.7, 0.8, 0.9];
+
+/**
+ * Encre secondaire (libellés discrets : « TEMPS FINAL », l'horloge, les hints) :
+ * l'encre du fond, atténuée le plus possible sans descendre sous le seuil de
+ * lecture. L'opacité est choisie par mesure, pas fixée à l'œil — `rgba(0,0,0,0.5)`
+ * ne valait que 3,81:1 sur le fond « Blanc » terminé (#E8E8E8).
+ */
+export function inkOnSecondary(bg: string): string {
+  const ink = inkOn(bg);
+  const channels = ink === '#000000' ? '0,0,0' : '255,255,255';
+  for (const alpha of SECONDARY_ALPHAS) {
+    const candidate = `rgba(${channels},${alpha})`;
+    if (contrast(candidate, bg) >= TEXT_MIN) return candidate;
+  }
+  return ink;
+}
+
 /**
  * Rend `color` si elle se détache du fond, sinon l'encre du fond.
  * Utilisée pour les chiffres et les couleurs de domaine du minuteur
