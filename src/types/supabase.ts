@@ -7998,6 +7998,10 @@ export type Database = {
         Args: { p_comment?: string; p_followup_id: string; p_rating: number }
         Returns: undefined
       }
+      subscribe_free_programming: {
+        Args: { p_programming_id: string; p_subscriber_box_id: string }
+        Returns: Json
+      }
       sync_tournament_activation: { Args: never; Returns: number }
       tournament_wod_accepts_scores: {
         Args: { p_tournament_id: string; p_wod_id: string }

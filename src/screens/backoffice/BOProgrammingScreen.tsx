@@ -102,11 +102,9 @@ export default function BOProgrammingScreen({ navigation }: any) {
     if (!currentBox || !user) return;
     setSubscribing(item.id);
     try {
-      const { error } = await supabase.from('box_programming_subscriptions').insert({
-        programming_id: item.id,
-        subscriber_box_id: currentBox.id,
-        status: 'active',
-        created_by: user.id,
+      const { error } = await supabase.rpc('subscribe_free_programming', {
+        p_programming_id: item.id,
+        p_subscriber_box_id: currentBox.id,
       });
       if (error) throw error;
       setSubscribedIds((prev) => new Set(prev).add(item.id));
