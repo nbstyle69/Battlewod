@@ -15,6 +15,7 @@ import { hapticSuccess } from '../../lib/haptics';
 import { useAuth } from '../../context/AuthContext';
 import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { HUES, hue } from '../../theme/hues';
 import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { cancelTodayScoreReminder } from '../../services/notifications';
 import { computeCompletedMovements } from '../../utils/movementParser';
@@ -490,7 +491,7 @@ export default function DailyTournamentDetailScreen() {
               <Text style={[S.levelTxt, { color: pLevelColor }]}>{p.level.toUpperCase()}</Text>
               <Text style={S.eloTxt}>{p.elo} ELO</Text>
               {isCompleted && eloDeltas[p.user_id] != null && (
-                <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[p.user_id] > 0 ? '#22c55e' : eloDeltas[p.user_id] < 0 ? '#ef4444' : theme.textMuted }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: eloDeltas[p.user_id] > 0 ? hue(theme.mode, 'positive') : eloDeltas[p.user_id] < 0 ? hue(theme.mode, 'negative') : theme.textMuted }}>
                   {eloDeltas[p.user_id] > 0 ? '+' : ''}{eloDeltas[p.user_id]}
                 </Text>
               )}
@@ -523,7 +524,7 @@ export default function DailyTournamentDetailScreen() {
                     Alert.alert('Erreur vidéo', e?.message ?? 'Erreur inconnue');
                   }
                 }} activeOpacity={0.8}>
-                  <Youtube color="#FF0000" size={14} />
+                  <Youtube color={hue(theme.mode, 'youtube')} size={14} />
                   <Text style={S.videoBtnTxt}>Vidéo</Text>
                 </TouchableOpacity>
               ) : (
@@ -578,8 +579,8 @@ export default function DailyTournamentDetailScreen() {
         <View style={S.badges}>
           {isOfficial && (
             <View style={[S.badge, { backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
-              <Flame color="#fff" size={10} />
-              <Text style={[S.badgeTxt, { color: '#fff' }]}>WOD DU JOUR</Text>
+              <Flame color={theme.onAccent} size={10} />
+              <Text style={[S.badgeTxt, { color: theme.onAccent }]}>WOD DU JOUR</Text>
             </View>
           )}
           <View style={[S.badge, { backgroundColor: `${theme.accent}12` }]}>
@@ -594,14 +595,14 @@ export default function DailyTournamentDetailScreen() {
               <Text style={[S.badgeTxt, { color: theme.textMuted }]}>{tournament.duration} min</Text>
             </View>
           )}
-          <View style={[S.badge, { backgroundColor: isCompleted ? '#EF444418' : `${theme.accent}15` }]}>
-            <Text style={[S.badgeTxt, { color: isCompleted ? '#EF4444' : theme.accent }]}>
+          <View style={[S.badge, { backgroundColor: isCompleted ? `${hue(theme.mode, 'red')}18` : `${theme.accent}15` }]}>
+            <Text style={[S.badgeTxt, { color: isCompleted ? hue(theme.mode, 'red') : theme.accentText }]}>
               {isCompleted ? 'TERMINÉ' : timeLeft()}
             </Text>
           </View>
           {tournament.gender_target && tournament.gender_target !== 'mix' && (
-            <View style={[S.badge, { backgroundColor: tournament.gender_target === 'male' ? '#3B82F620' : '#EC489920' }]}>
-              <Text style={[S.badgeTxt, { color: tournament.gender_target === 'male' ? '#3B82F6' : '#EC4899' }]}>
+            <View style={[S.badge, { backgroundColor: `${hue(theme.mode, tournament.gender_target === 'male' ? 'blue' : 'pink')}20` }]}>
+              <Text style={[S.badgeTxt, { color: hue(theme.mode, tournament.gender_target === 'male' ? 'blue' : 'pink') }]}>
                 {tournament.gender_target === 'male' ? '♂ Homme' : '♀ Femme'}
               </Text>
             </View>
@@ -695,17 +696,17 @@ export default function DailyTournamentDetailScreen() {
               !hasScored ? (
                 <>
                   <TouchableOpacity style={S.actionBtn} onPress={handleLaunchWOD} activeOpacity={0.85}>
-                    <Play color="#fff" size={16} />
+                    <Play color={theme.onAccent} size={16} />
                     <Text style={S.actionBtnTxt}>Lancer le WOD</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={S.secondaryBtn} onPress={() => { setScoreRx(boardTab === 'rx'); setScoreModal(true); }} activeOpacity={0.85}>
-                    <Edit3 color={theme.accent} size={16} />
+                    <Edit3 color={theme.accentText} size={16} />
                     <Text style={S.secondaryBtnTxt}>Entrer mon score manuellement</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <View style={S.doneBadge}>
-                  <Check color={theme.accent} size={16} />
+                  <Check color={theme.accentText} size={16} />
                   <Text style={S.doneTxt}>Score soumis ✓</Text>
                 </View>
               )
@@ -713,9 +714,9 @@ export default function DailyTournamentDetailScreen() {
             <>
             {!hasJoined && !isFull && (
               <TouchableOpacity style={S.actionBtn} onPress={handleJoin} disabled={joining} activeOpacity={0.85}>
-                {joining ? <ActivityIndicator color="#fff" size="small" /> : (
+                {joining ? <ActivityIndicator color={theme.onAccent} size="small" /> : (
                   <>
-                    <Users color="#fff" size={16} />
+                    <Users color={theme.onAccent} size={16} />
                     <Text style={S.actionBtnTxt}>Rejoindre</Text>
                   </>
                 )}
@@ -724,18 +725,18 @@ export default function DailyTournamentDetailScreen() {
             {hasJoined && !hasScored && (
               <>
                 <TouchableOpacity style={S.actionBtn} onPress={handleLaunchWOD} activeOpacity={0.85}>
-                  <Play color="#fff" size={16} />
+                  <Play color={theme.onAccent} size={16} />
                   <Text style={S.actionBtnTxt}>Lancer le WOD</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={S.secondaryBtn} onPress={() => setScoreModal(true)} activeOpacity={0.85}>
-                  <Edit3 color={theme.accent} size={16} />
+                  <Edit3 color={theme.accentText} size={16} />
                   <Text style={S.secondaryBtnTxt}>Entrer mon score manuellement</Text>
                 </TouchableOpacity>
               </>
             )}
             {hasScored && (
               <View style={S.doneBadge}>
-                <Check color={theme.accent} size={16} />
+                <Check color={theme.accentText} size={16} />
                 <Text style={S.doneTxt}>Score soumis ✓</Text>
               </View>
             )}
@@ -870,9 +871,9 @@ export default function DailyTournamentDetailScreen() {
               disabled={!(tournament?.score_mode === 'time' ? (scoreCapped ? capReps.trim() : (timeMin.trim() || timeSec.trim())) : scoreInput.trim()) || submitting}
               activeOpacity={0.85}
             >
-              {submitting ? <ActivityIndicator color="#fff" size="small" /> : (
+              {submitting ? <ActivityIndicator color={theme.onAccent} size="small" /> : (
                 <>
-                  <Check color="#fff" size={16} />
+                  <Check color={theme.onAccent} size={16} />
                   <Text style={S.submitBtnTxt}>Valider mon score</Text>
                 </>
               )}
@@ -951,7 +952,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9 },
   segmentBtnSel: { backgroundColor: t.accent },
   segmentTxt: { fontSize: 13, fontWeight: '800', color: t.textMuted },
-  segmentTxtSel: { color: '#fff', fontWeight: '900' },
+  segmentTxtSel: { color: t.onAccent, fontWeight: '900' },
   wodHeader: { fontSize: 12, fontWeight: '800', color: t.textSecondary },
   wodLine: { fontSize: 13, fontWeight: '600', color: t.text },
   scoringRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
@@ -978,27 +979,27 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     borderColor: t.border, alignItems: 'center', justifyContent: 'center',
   },
   cappedCheckActive: { backgroundColor: t.accent, borderColor: t.accent },
-  cappedCheckMark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  cappedCheckMark: { color: t.onAccent, fontSize: 14, fontWeight: '700' },
   cappedLabel: { fontSize: 14, fontWeight: '600', color: t.text },
-  scoreRx: { fontSize: 9, fontWeight: '800', color: t.accent, marginTop: 1 },
+  scoreRx: { fontSize: 9, fontWeight: '800', color: t.accentText, marginTop: 1 },
   pendingTxt: { fontSize: 11, color: t.textMuted, fontStyle: 'italic' },
   actions: { gap: 10 },
   actionBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: t.accent, borderRadius: 12, padding: 14,
   },
-  actionBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  actionBtnTxt: { color: t.onAccent, fontSize: 14, fontWeight: '900' },
   secondaryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: `${t.accent}12`, borderRadius: 12, padding: 14,
     borderWidth: 1.5, borderColor: `${t.accent}30`,
   },
-  secondaryBtnTxt: { color: t.accent, fontSize: 13, fontWeight: '800' },
+  secondaryBtnTxt: { color: t.accentText, fontSize: 13, fontWeight: '800' },
   doneBadge: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: `${t.accent}12`, borderRadius: 12, padding: 14,
   },
-  doneTxt: { fontSize: 14, fontWeight: '800', color: t.accent },
+  doneTxt: { fontSize: 14, fontWeight: '800', color: t.accentText },
   winnerCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: `${t.gold}12`, borderRadius: 14, padding: 16,
@@ -1029,12 +1030,12 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   },
   rxBtnSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
   rxTxt: { fontSize: 13, fontWeight: '700', color: t.textMuted },
-  rxTxtSel: { color: t.accent, fontWeight: '900' },
+  rxTxtSel: { color: t.accentText, fontWeight: '900' },
   submitBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: t.accent, borderRadius: 12, padding: 14,
   },
-  submitBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  submitBtnTxt: { color: t.onAccent, fontSize: 14, fontWeight: '900' },
   // Player card with actions
   playerCard: {
     backgroundColor: t.card, borderRadius: 12,
@@ -1044,9 +1045,9 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   playerActionsTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   videoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: '#FF000012', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: `${HUES.youtube[t.mode]}12`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
   },
-  videoBtnTxt: { fontSize: 11, fontWeight: '700', color: '#FF0000' },
+  videoBtnTxt: { fontSize: 11, fontWeight: '700', color: HUES.youtube[t.mode] },
   noVideoTag: { backgroundColor: t.surface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   noVideoTxt: { fontSize: 11, fontWeight: '600', color: t.textMuted },
   statusTag: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },

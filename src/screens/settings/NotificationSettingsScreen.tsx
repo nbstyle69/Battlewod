@@ -10,6 +10,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import { HueName, hue } from '../../theme/hues';
 import {
   NotificationPrefs,
   DEFAULT_NOTIFICATION_PREFS,
@@ -29,7 +30,8 @@ interface Toggle {
   label: string;
   sub: string;
   Icon: typeof Bell;
-  color: string;
+  /** Couleur de catégorie — teinte de domaine, résolue selon le thème. */
+  hue: HueName;
 }
 
 // Chaque clé de la table `notification_preferences` est exposée ici : une clé
@@ -39,38 +41,38 @@ const GROUPS: { title: string; toggles: Toggle[] }[] = [
   {
     title: 'Rappels',
     toggles: [
-      { key: 'score_reminder', label: 'Rappel de score (18 h)', sub: 'Si tu n\'as pas encore entré ton score du jour', Icon: Clock, color: '#F59E0B' },
-      { key: 'class_reminders', label: 'Rappel de cours', sub: '1 h avant un cours que tu as réservé', Icon: CalendarClock, color: '#06B6D4' },
+      { key: 'score_reminder', label: 'Rappel de score (18 h)', sub: 'Si tu n\'as pas encore entré ton score du jour', Icon: Clock, hue: 'amber' },
+      { key: 'class_reminders', label: 'Rappel de cours', sub: '1 h avant un cours que tu as réservé', Icon: CalendarClock, hue: 'cyan' },
     ],
   },
   {
     title: 'Social',
     toggles: [
-      { key: 'friend_requests', label: 'Demandes d\'amis', sub: 'Demandes reçues et acceptées', Icon: Users, color: '#8B5CF6' },
-      { key: 'group_messages', label: 'Messages de groupe', sub: 'Nouveaux messages dans tes groupes', Icon: MessageCircle, color: '#3B82F6' },
-      { key: 'score_comments', label: 'Commentaires', sub: 'Quand quelqu\'un commente ton score', Icon: MessageCircle, color: '#3B82F6' },
-      { key: 'score_reactions', label: 'Likes & réactions', sub: 'Quand quelqu\'un réagit à ton score', Icon: Heart, color: '#EC4899' },
+      { key: 'friend_requests', label: 'Demandes d\'amis', sub: 'Demandes reçues et acceptées', Icon: Users, hue: 'violet' },
+      { key: 'group_messages', label: 'Messages de groupe', sub: 'Nouveaux messages dans tes groupes', Icon: MessageCircle, hue: 'blue' },
+      { key: 'score_comments', label: 'Commentaires', sub: 'Quand quelqu\'un commente ton score', Icon: MessageCircle, hue: 'blue' },
+      { key: 'score_reactions', label: 'Likes & réactions', sub: 'Quand quelqu\'un réagit à ton score', Icon: Heart, hue: 'pink' },
     ],
   },
   {
     title: 'Entraînement',
     toggles: [
-      { key: 'new_wod', label: 'Nouveau WOD', sub: 'Quand ta box publie un WOD', Icon: Dumbbell, color: '#10B981' },
-      { key: 'badge_unlocks', label: 'Badges débloqués', sub: 'Quand tu débloques un badge', Icon: Award, color: '#F97316' },
+      { key: 'new_wod', label: 'Nouveau WOD', sub: 'Quand ta box publie un WOD', Icon: Dumbbell, hue: 'emerald' },
+      { key: 'badge_unlocks', label: 'Badges débloqués', sub: 'Quand tu débloques un badge', Icon: Award, hue: 'orange' },
     ],
   },
   {
     title: 'Compétition',
     toggles: [
-      { key: 'tournament_updates', label: 'Tournois', sub: 'Démarrage, ouverture des WOD, rappels, résultats', Icon: Trophy, color: '#EAB308' },
-      { key: 'score_updates', label: 'Scores', sub: 'Quand un score est validé ou que tu es dépassé', Icon: Zap, color: '#EF4444' },
-      { key: 'elo_updates', label: 'ELO & inter-box', sub: 'Gains et pertes d\'ELO, résultats inter-box', Icon: TrendingUp, color: '#6366F1' },
+      { key: 'tournament_updates', label: 'Tournois', sub: 'Démarrage, ouverture des WOD, rappels, résultats', Icon: Trophy, hue: 'yellow' },
+      { key: 'score_updates', label: 'Scores', sub: 'Quand un score est validé ou que tu es dépassé', Icon: Zap, hue: 'red' },
+      { key: 'elo_updates', label: 'ELO & inter-box', sub: 'Gains et pertes d\'ELO, résultats inter-box', Icon: TrendingUp, hue: 'indigo' },
     ],
   },
   {
     title: 'Annonces de la box',
     toggles: [
-      { key: 'box_announcements', label: 'Annonces', sub: 'Messages envoyés par ta box', Icon: Megaphone, color: '#14B8A6' },
+      { key: 'box_announcements', label: 'Annonces', sub: 'Messages envoyés par ta box', Icon: Megaphone, hue: 'teal' },
     ],
   },
 ];
@@ -128,24 +130,25 @@ export default function NotificationSettingsScreen() {
 
   function renderToggle(t: Toggle) {
     const value = prefs[t.key] && master;
+    const tint = hue(theme.mode, t.hue);
     return (
       <View style={S.row} key={t.key}>
         <View style={S.rowLeft}>
-          <t.Icon color={master ? t.color : theme.textMuted} size={18} />
+          <t.Icon color={master ? tint : theme.textMuted} size={18} />
           <View style={{ flex: 1 }}>
             <Text style={[S.rowLabel, !master && S.rowLabelOff]}>{t.label}</Text>
             <Text style={S.rowSub}>{t.sub}</Text>
           </View>
         </View>
         {saving === t.key ? (
-          <ActivityIndicator size="small" color={t.color} style={S.pending} />
+          <ActivityIndicator size="small" color={tint} style={S.pending} />
         ) : (
           <Switch
             value={value}
             disabled={!master || saving !== null}
             onValueChange={v => update(t.key, v)}
-            trackColor={{ false: theme.border, true: `${t.color}60` }}
-            thumbColor={value ? t.color : theme.textMuted}
+            trackColor={{ false: theme.border, true: `${tint}60` }}
+            thumbColor={value ? tint : theme.textMuted}
           />
         )}
       </View>
@@ -256,7 +259,7 @@ export default function NotificationSettingsScreen() {
 
         {/* Test button */}
         <TouchableOpacity style={S.testBtn} onPress={testPush} activeOpacity={0.8}>
-          <Bell color="#fff" size={16} />
+          <Bell color={theme.onAccent} size={16} />
           <Text style={S.testBtnTxt}>Tester les notifications</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -296,10 +299,10 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   hourChipOff: { opacity: 0.5 },
   pending: { width: 51, alignItems: 'flex-end' },
   hourTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
-  hourTxtSel: { color: t.accent, fontWeight: '900' },
+  hourTxtSel: { color: t.accentText, fontWeight: '900' },
   testBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: t.accent, borderRadius: 12, padding: 14,
   },
-  testBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  testBtnTxt: { color: t.onAccent, fontSize: 14, fontWeight: '900' },
 }); }
