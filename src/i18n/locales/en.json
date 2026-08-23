@@ -514,6 +514,7 @@
       "today": "Today",
       "addSlot": "+ Add a slot",
       "invalidCapacity": "Invalid capacity",
+      "invalidTime": "Invalid time — expected HH:MM (e.g. 09:00)",
       "deleteTitle": "Delete this slot?",
       "alreadyRegistered": "Already registered",
       "alreadyRegisteredMsg": "This member is already registered for this slot.",

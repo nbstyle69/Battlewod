@@ -514,6 +514,7 @@
       "today": "Aujourd'hui",
       "addSlot": "+ Ajouter un créneau",
       "invalidCapacity": "Capacité invalide",
+      "invalidTime": "Heure invalide — format attendu HH:MM (ex. 09:00)",
       "deleteTitle": "Supprimer ce créneau ?",
       "alreadyRegistered": "Déjà inscrit",
       "alreadyRegisteredMsg": "Ce membre est déjà inscrit à ce créneau.",

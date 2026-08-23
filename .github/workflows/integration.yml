@@ -50,6 +50,7 @@ on:
           - comptoir-programmes
           - abonnement-programmation
           - espace-coach
+          - heures
           - grants
 
 concurrency:
@@ -185,6 +186,14 @@ jobs:
       - name: Suite — Espace coach (programmation, résidu nominatif)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'espace-coach' }}
         run: node scripts/test-espace-coach.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # Les heures de créneau sont du texte que tous les lecteurs parsent comme
+      # `HH:MM` (instant par concaténation, tri de chaînes, déduplication de la
+      # génération). La garde refuse les autres graphies — nommément, et même au
+      # service_role : une contrainte n'est pas une policy.
+      - name: Suite — Format HH:MM des heures de début
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'heures' }}
+        run: node scripts/test-heures.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.
