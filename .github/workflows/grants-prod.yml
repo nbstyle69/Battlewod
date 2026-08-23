@@ -25,6 +25,7 @@ on:
     paths:
       - 'scripts/audit-grants-prod.mjs'
       - 'scripts/lib/anon-whitelist.mjs'
+      - 'scripts/lib/controle-grants-tables.mjs'
       - '.github/workflows/grants-prod.yml'
 
   workflow_dispatch:
