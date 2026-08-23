@@ -25,7 +25,10 @@
  */
 
 import { execFileSync } from 'child_process';
-import { ANON_WHITELIST, SONDES_ANONYMES } from './lib/anon-whitelist.mjs';
+import { ANON_WHITELIST, SONDES_ANONYMES, SONDES_ANONYMES_MUTANTES } from './lib/anon-whitelist.mjs';
+import {
+  controlerGrantsTables, controlerRpcMutantes, ASSERTIONS_GRANTS_TABLES,
+} from './lib/controle-grants-tables.mjs';
 import { PROD_PROJECT_REF } from './lib/prod-ref.mjs';
 
 const DB_URL = process.env.PROD_DB_URL ?? '';
@@ -84,7 +87,9 @@ const ASSERTIONS_ATTENDUES = ASSERTIONS_FIXES
   + 1 // D1 : au moins un rôle créateur non exempté
   + EXCEPTIONS_D1.size // « l'exception est encore nécessaire », une par exception
   + SONDES_ANONYMES.length
-  + 2; // lectures REST publiques (boxes, profiles)
+  + SONDES_ANONYMES_MUTANTES.length // jugées sur le catalogue, jamais appelées
+  + 2 // lectures REST publiques (boxes, profiles)
+  + ASSERTIONS_GRANTS_TABLES; // T1..T9 : les grants de tables (lot 5-E)
 
 // Si le processus meurt entre deux assertions (psql injoignable, exception non
 // rattrapée), personne ne verrait le compte : ce filet l'imprime quand même et
@@ -297,6 +302,11 @@ for (const [fn, body] of SONDES_ANONYMES) {
   );
 }
 
+// Les RPC qui écrivent ne sont pas appelées : leur refus se lit dans le
+// catalogue. Voir `SONDES_ANONYMES_MUTANTES` — une sonde ne doit pas pouvoir
+// devenir l'écriture qu'elle surveille.
+controlerRpcMutantes(query, assert, SONDES_ANONYMES_MUTANTES);
+
 // Le contre-exemple, et il pèse autant que les refus : une révocation massive
 // sans contrôle positif est indistinguable d'une panne massive.
 const publique = await appelAnonyme('peek_box_invitation', { p_token: 'audit-inexistant' });
@@ -305,6 +315,23 @@ assert(
   publique.status === 200 && !publique.message.includes('permission denied'),
   `HTTP ${publique.status} — message : ${publique.message || '—'}`,
 );
+
+// ── Grants de tables (lot 5-E) ───────────────────────────────────────────
+// L'angle mort symétrique de cet audit : R1/R2/D1/D2 énumèrent des fonctions.
+// Les grants de *tables* n'y figuraient pas — et `anon` en détenait d'écriture
+// sur 101 tables de public, ce qu'aucun contrôle ne disait.
+console.log('\n=== Grants de tables — PRODUCTION (lecture seule) ===\n');
+controlerGrantsTables(query, assert);
+
+// Pas de sonde d'écriture ici, et c'est un choix mesuré. Une sonde d'écriture
+// *tente* une écriture : si le grant était encore là et la RLS permissive,
+// l'audit nocturne créerait en production la ligne qu'il prétend interdire. Et
+// son critère ne discriminait rien — un `POST` a rendu 201 sans écrire (un
+// trigger `BEFORE` qui renvoie NULL avale la ligne) et un `DELETE` sur un filtre
+// inexistant rend 204. Ici la production est jugée sur le catalogue (ce qu'elle
+// *est*) ; le geste réel, avec comptage avant/après, est joué par
+// `test-grants.mjs` sur la pile jetable, où une ligne écrite est sans
+// conséquence et donc constatable.
 
 const lectures = [
   ['boxes', 'boxes?select=id&limit=1'],
