@@ -3,15 +3,20 @@ import { NavigationContainer, NavigatorScreenParams, DefaultTheme } from '@react
 
 // Dark navigation theme to avoid a white background flash between screens before
 // each screen's content has mounted.
-const NAV_DARK_THEME = {
-  ...DefaultTheme,
-  dark: true,
-  colors: {
-    ...DefaultTheme.colors,
-    background: '#0a0a0a',
-    card: '#0a0a0a',
-  },
-};
+// Le fond de coque suit le thème : figé en sombre, il laissait le mode clair
+// écrire de l'encre claire sur du noir sur les écrans qui n'ont pas de fond propre.
+function navThemeFor(mode: 'light' | 'dark', background: string) {
+  return {
+    ...DefaultTheme,
+    dark: mode === 'dark',
+    colors: { ...DefaultTheme.colors, background, card: background },
+  };
+}
+
+function useShellScreenOptions() {
+  const { theme } = useTheme();
+  return { headerShown: false, contentStyle: { backgroundColor: theme.background } } as const;
+}
 import { navigationRef } from './navigationRef';
 import { linking } from './linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -487,8 +492,9 @@ const BOProfileStack    = createNativeStackNavigator<BOProfileStackParamList>();
 const CoachTab          = createBottomTabNavigator<CoachTabParamList>();
 
 function AuthNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <AuthStack.Navigator screenOptions={shell}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
@@ -498,8 +504,9 @@ function AuthNavigator() {
 }
 
 function OnboardingNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <OnbStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <OnbStack.Navigator screenOptions={shell}>
       <OnbStack.Screen name="Waiting"   component={WaitingScreen} />
       <OnbStack.Screen name="JoinBox"   component={JoinBoxScreen} />
     </OnbStack.Navigator>
@@ -508,8 +515,9 @@ function OnboardingNavigator() {
 
 function HomeNavigator() {
   const { user } = useAuth();
+  const shell = useShellScreenOptions();
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <HomeStack.Navigator screenOptions={shell}>
       <HomeStack.Screen name="HomeList" component={HomeScreen} />
       <HomeStack.Screen name="BoxInfo" component={BoxInfoScreen} />
       <HomeStack.Screen name="Changelog" component={ChangelogScreen} />
@@ -539,8 +547,9 @@ function HomeNavigator() {
 }
 
 function WODNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <WODStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <WODStack.Navigator screenOptions={shell}>
       <WODStack.Screen name="WODList" component={WODScreen} />
       <WODStack.Screen name="WODGenerator" component={WODGeneratorScreen} />
       <WODStack.Screen name="WODGenPro" component={WODGenProScreen} />
@@ -553,8 +562,9 @@ function WODNavigator() {
 }
 
 function WhiteboardNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <WhiteboardStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <WhiteboardStack.Navigator screenOptions={shell}>
       <WhiteboardStack.Screen name="WhiteboardMain" component={WhiteboardScreen} />
       <WhiteboardStack.Screen name="WODDetail"      component={WODDetailScreen} />
       <WhiteboardStack.Screen name="BoxRanking"     component={BoxRankingScreen} />
@@ -570,8 +580,9 @@ function WhiteboardNavigator() {
 }
 
 function CommunityNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <CommunityStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <CommunityStack.Navigator screenOptions={shell}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
       <CommunityStack.Screen name="PublicProfile" component={PublicProfileScreen} />
     </CommunityStack.Navigator>
@@ -579,8 +590,9 @@ function CommunityNavigator() {
 }
 
 function ReservationNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <ResStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <ResStack.Navigator screenOptions={shell}>
       <ResStack.Screen name="ReservationMain" component={ReservationScreen} />
       <ResStack.Screen name="MyReservations" component={MyReservationsScreen} />
     </ResStack.Navigator>
@@ -588,8 +600,9 @@ function ReservationNavigator() {
 }
 
 function ExplorerNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <ExplStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <ExplStack.Navigator screenOptions={shell}>
       <ExplStack.Screen name="ExplorerMain" component={ExplorerScreen} />
       <ExplStack.Screen name="Programmation" component={ProgrammationScreen} />
       <ExplStack.Screen name="BoxDirectory" component={BoxDirectoryScreen} />
@@ -603,8 +616,9 @@ function ExplorerNavigator() {
 }
 
 function CompetitionNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <CompStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <CompStack.Navigator screenOptions={shell}>
       <CompStack.Screen name="CompetitionList"    component={CompetitionScreen} />
       <CompStack.Screen name="PhysicalCompetition" component={PhysicalCompetitionScreen} />
       <CompStack.Screen name="TimerRun"            component={TimerRunScreen} />
@@ -622,8 +636,9 @@ function CompetitionNavigator() {
 }
 
 function BODashboardNavigator() {
+  const shell = useShellScreenOptions();
   return (
-    <BODashStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <BODashStack.Navigator screenOptions={shell}>
       <BODashStack.Screen name="Dashboard"    component={BODashboardScreen} />
       <BODashStack.Screen name="WODs"          component={BOWODsScreen} />
       <BODashStack.Screen name="Members"       component={BOMembersScreen} />
@@ -693,8 +708,9 @@ function BoxOwnerTabs() {
 
 function BOProfileNavigator() {
   const { user } = useAuth();
+  const shell = useShellScreenOptions();
   return (
-    <BOProfileStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+    <BOProfileStack.Navigator screenOptions={shell}>
       <BOProfileStack.Screen name="ProfileMain" component={user?.role === 'admin' || user?.role === 'super_admin' ? AdminScreen : ProfileScreen} />
       <BOProfileStack.Screen name="EloHistory" component={EloHistoryScreen} />
       <BOProfileStack.Screen name="WODDetail" component={WODDetailScreen} />
@@ -820,6 +836,7 @@ function MainTabs() {
 export default function AppNavigator() {
   const { session, user, currentBox, boxRole, loading, boxSkipped, isBoxActive, boxSubscription } = useAuth();
   const { theme, mode } = useTheme();
+  const shell = useShellScreenOptions();
   // Set the Android system navigation bar style ONCE, globally, so every page
   // (Auth, Onboarding, Main tabs, Timer, modals…) keeps the exact same transparent
   // edge-to-edge bar with readable buttons — no more per-page variance.
@@ -868,8 +885,8 @@ export default function AppNavigator() {
 
   return (
     <View style={styles.rootContainer}>
-      <NavigationContainer ref={navigationRef} linking={linking} theme={NAV_DARK_THEME}>
-        <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+      <NavigationContainer ref={navigationRef} linking={linking} theme={navThemeFor(mode, theme.background)}>
+        <RootStack.Navigator screenOptions={shell}>
           {!isAuthenticated ? (
             // ── Not logged in ──────────────────────────────
             <RootStack.Screen name="Auth" component={AuthNavigator} />
