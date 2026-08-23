@@ -209,8 +209,13 @@ async function main() {
   const anonRead = await readDay(anonClient(), box);
   assert('aucun WOD de box à la clé anon',
     anonRead.titles.length === 0, `vu : ${JSON.stringify(anonRead.titles)}`);
-  assert('et le refus porte le message du grant, pas un silence',
-    (anonRead.error?.message ?? '').includes('permission denied for function'),
+  // Depuis le lot 5-C, `anon` n'a plus aucun grant sur `box_wods` : la barrière
+  // est nommée une étape plus tôt (la table, avant même l'évaluation de la
+  // policy) au lieu du grant EXECUTE de la garde. Strictement plus strict, donc
+  // les deux messages sont acceptables — ce qui n'est pas acceptable, c'est un
+  // « zéro ligne » silencieux (règle 13).
+  assert('et le refus nomme sa barrière, pas un silence',
+    /permission denied for (function|table)/.test(anonRead.error?.message ?? ''),
     anonRead.error?.message ?? 'aucune erreur');
 }
 

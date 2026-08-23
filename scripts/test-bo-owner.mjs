@@ -252,15 +252,22 @@ async function suitePrograms() {
   assert(!pErr && prog, 'CREATE programme', pErr);
   if (prog) cleanup.programs.push(prog.id);
 
-  // ADD WOD to program
-  const { data: pw, error: pwErr } = await db.from('program_wods').insert({
-    program_id: prog?.id, day_number: 1, week_number: 1,
-    title: 'Jour 1 — Squat', description: '5x5 Back Squat 80%', wod_type: 'strength', sort_order: 0,
+  // ADD WOD to program — chemin canonique : un box_wods daté, rattaché par
+  // wod_program_access. Le contenu d'un programme n'a plus de schéma à lui.
+  const { data: pw, error: pwErr } = await db.from('box_wods').insert({
+    box_id: box.id, scheduled_date: new Date().toISOString().slice(0, 10),
+    title: 'Jour 1 — Squat', description: '5x5 Back Squat 80%', wod_type: 'strength',
+    sort_order: 0, is_published: true,
   }).select('id').single();
-  assert(!pwErr && pw, 'ADD WOD au programme (J1S1)', pwErr);
+  assert(!pwErr && pw, 'ADD WOD au programme (box_wods)', pwErr);
+
+  const { error: linkErr } = await db.from('wod_program_access')
+    .insert({ wod_id: pw?.id, program_id: prog?.id });
+  assert(!linkErr, 'RATTACHER le WOD au programme (wod_program_access)', linkErr);
 
   // READ WOD count
-  const { count: wodCount } = await db.from('program_wods').select('*', { count: 'exact', head: true }).eq('program_id', prog?.id);
+  const { count: wodCount } = await db.from('wod_program_access')
+    .select('wod_id', { count: 'exact', head: true }).eq('program_id', prog?.id);
   assert(wodCount === 1, `Programme: ${wodCount} WOD attaché`);
 
   // UPDATE program (deactivate)
@@ -270,7 +277,7 @@ async function suitePrograms() {
   assert(pr?.is_active === false, 'Programme désactivé ✓');
 
   // DELETE program WOD
-  const { error: delWodErr } = await db.from('program_wods').delete().eq('id', pw?.id);
+  const { error: delWodErr } = await db.from('box_wods').delete().eq('id', pw?.id);
   assert(!delWodErr, 'DELETE WOD du programme', delWodErr);
 }
 
@@ -420,7 +427,7 @@ async function doCleanup() {
   for (const id of cleanup.wods)      await db.from('box_wods').delete().eq('id', id);
   if (cleanup.wods.length)             ok(`${cleanup.wods.length} WOD(s) supprimé(s)`);
 
-  for (const id of cleanup.programs)  { await db.from('program_wods').delete().eq('program_id', id); await db.from('programs').delete().eq('id', id); }
+  for (const id of cleanup.programs)  { await db.from('wod_program_access').delete().eq('program_id', id); await db.from('programs').delete().eq('id', id); }
   if (cleanup.programs.length)         ok(`${cleanup.programs.length} programme(s) supprimé(s)`);
 
   for (const id of cleanup.groups)    { await db.from('message_group_members').delete().eq('group_id', id); await db.from('message_groups').delete().eq('id', id); }

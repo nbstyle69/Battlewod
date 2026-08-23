@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusQuery } from '../../hooks/useFocusQuery';
@@ -19,6 +19,7 @@ import { hapticSuccess } from '../../lib/haptics';
 import { recordActivity, logMovementReps } from '../../services/gamification';
 import { computeCompletedMovements } from '../../utils/movementParser';
 import { formatCap } from '../../utils/scoreFormat';
+import { listProgramWodsByProgram } from '../../services/programContent';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { BoxWOD } from '../../types';
@@ -554,47 +555,46 @@ export default function WhiteboardScreen() {
         if (!memberships || memberships.length === 0) { setProgramWods([]); return; }
 
         const entries: ProgWodEntry[] = [];
-        const DAY_NAMES = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+        // Le contenu vendu vit dans `box_wods`, rattaché par `wod_program_access` :
+        // un seul chemin, daté au calendrier, pour les deux types de programme.
+        const parProgramme = await listProgramWodsByProgram(
+          (memberships as any[]).map(m => m.program_id),
+        );
 
         for (const m of memberships as any[]) {
           const prog = m.programs;
           if (!prog) continue;
+          const duJour = (parProgramme[prog.id] ?? []).filter(w => w.scheduled_date === selectedDate);
+          if (duJour.length === 0) continue;
 
-          if (prog.type === 'fixed') {
-            const startDate = new Date(m.start_date + 'T00:00:00');
-            const selDate = new Date(selectedDate + 'T00:00:00');
-            const diffDays = Math.floor((selDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays < 0) continue;
-            const dayNumber = diffDays + 1;
-            const totalDays = (prog.duration_weeks ?? 6) * 7;
-            if (dayNumber > totalDays) continue;
-            const weekNum = Math.ceil(dayNumber / 7);
-            const dayInWeek = ((dayNumber - 1) % 7);
+          // Semaine relative à l'inscription de l'athlète, quand elle est connue.
+          let weekNumber = 0;
+          if (m.start_date) {
+            const debut = new Date(m.start_date + 'T00:00:00');
+            const jours = Math.floor((new Date(selectedDate + 'T00:00:00').getTime() - debut.getTime()) / 86400000);
+            weekNumber = jours >= 0 ? Math.floor(jours / 7) + 1 : 0;
+          }
 
-            const { data: wods } = await supabase
-              .from('program_wods')
-              .select('id, title, description, wod_type, time_cap_seconds')
-              .eq('program_id', prog.id)
-              .eq('day_number', dayNumber)
-              .order('sort_order');
-            for (const w of (wods ?? []) as any[]) {
-              entries.push({ programTitle: prog.title, weekNumber: weekNum, dayLabel: `S${weekNum} ${DAY_NAMES[dayInWeek]}`, wod: w });
-            }
-          } else {
-            // ongoing: match by scheduled_date
-            const { data: wods } = await supabase
-              .from('program_wods')
-              .select('id, title, description, wod_type, time_cap_seconds, week_number')
-              .eq('program_id', prog.id)
-              .eq('scheduled_date', selectedDate)
-              .order('sort_order');
-            for (const w of (wods ?? []) as any[]) {
-              entries.push({ programTitle: prog.title, weekNumber: w.week_number ?? 0, dayLabel: '', wod: w });
-            }
+          for (const w of duJour) {
+            entries.push({
+              programTitle: prog.title,
+              weekNumber,
+              dayLabel: weekNumber > 0 ? `S${weekNumber}` : '',
+              wod: {
+                id: w.id,
+                title: w.title,
+                description: w.description ?? '',
+                wod_type: w.wod_type ?? 'custom',
+                time_cap_seconds: w.time_cap_seconds ?? undefined,
+              },
+            });
           }
         }
         setProgramWods(entries);
-      } catch (_) { setProgramWods([]); }
+      } catch (e) {
+        captureError(e, { screen: 'Whiteboard', action: 'fetchProgramWods' });
+        setProgramWods([]);
+      }
     })();
   }, [user, selectedDate]);
 
@@ -602,6 +602,14 @@ export default function WhiteboardScreen() {
     if (wodData) { setDayWODs(wodData); setLoading(false); setRefreshing(false); }
     else if (wodQueryLoading) setLoading(true);
   }, [wodData, wodQueryLoading]);
+
+  // Le WOD d'un programme EST un WOD de box : pour un acheteur qui est aussi
+  // membre de la box vendeuse, il arrive par les deux listes. On ne l'affiche
+  // qu'une fois, dans la liste du jour qui porte score et complétion.
+  const programWodsHorsBox = useMemo(() => {
+    const idsBox = new Set(dayWODs.map(w => w.id));
+    return programWods.filter(e => !idsBox.has(e.wod.id));
+  }, [programWods, dayWODs]);
 
   // Fetch user's completions + submitted scores for the visible WODs
   useEffect(() => {
@@ -1159,7 +1167,7 @@ export default function WhiteboardScreen() {
           </View>
 
           {/* ── Programme WODs ─────────────────────── */}
-          {programWods.length > 0 && programWods.reduce<{ title: string; wods: ProgWodEntry[] }[]>((acc, entry) => {
+          {programWodsHorsBox.length > 0 && programWodsHorsBox.reduce<{ title: string; wods: ProgWodEntry[] }[]>((acc, entry) => {
             const existing = acc.find(g => g.title === entry.programTitle);
             if (existing) existing.wods.push(entry);
             else acc.push({ title: entry.programTitle, wods: [entry] });

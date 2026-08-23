@@ -18,10 +18,11 @@ const stripComments = (code: string) =>
   code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 const service = stripComments(read('services/strengthSets.ts'));
-const screens = [
-  'screens/whiteboard/WODDetailScreen.tsx',
-  'screens/programs/ProgramDetailScreen.tsx',
-];
+
+// Depuis le lot 5-C, le contenu d'un programme EST un `box_wods` : la saisie a
+// donc un seul écran, celui du WOD. `ProgramDetailScreen` n'est plus un écran de
+// saisie, il délègue — d'où les deux verrous distincts ci-dessous.
+const screens = ['screens/whiteboard/WODDetailScreen.tsx'];
 
 describe('journal des séries et crédit de badges restent séparés', () => {
   it('le service du journal n’écrit que dans strength_set_logs', () => {
@@ -31,7 +32,26 @@ describe('journal des séries et crédit de badges restent séparés', () => {
     expect(service).not.toContain('user_movement_stats');
   });
 
-  it('les deux écrans de saisie envoient les séries au journal, pas au crédit', () => {
+  it('le lecteur de programme n’ouvre pas un second chemin de saisie', () => {
+    const code = stripComments(read('screens/programs/ProgramDetailScreen.tsx'));
+    // Il lit les scores pour cocher les jours faits, il n'en écrit aucun.
+    expect(code).not.toMatch(/from\('wod_scores'\)[\s\S]{0,200}?(upsert|insert|update)\(/);
+    expect(code).not.toContain('StrengthSetGrid');
+    expect(code).not.toContain('logStrengthSets(');
+    expect(code).not.toContain('recordStrengthPRs(');
+    // …et la délégation ne doit pas être un cul-de-sac : tout stack qui monte
+    // ProgramDetail monte aussi WODDetail.
+    expect(code).toContain("navigation.navigate('WODDetail'");
+    const nav = read('navigation/index.tsx');
+    const stacks = nav.match(/<(\w+)\.Screen name="ProgramDetail"/g) ?? [];
+    expect(stacks.length).toBeGreaterThan(0);
+    for (const stack of stacks) {
+      const nom = stack.replace(/^<(\w+)\.Screen.*$/, '$1');
+      expect(nav).toContain(`<${nom}.Screen name="WODDetail"`);
+    }
+  });
+
+  it('l’écran de saisie envoie les séries au journal, pas au crédit', () => {
     for (const file of screens) {
       const code = stripComments(read(file));
       expect(code).toContain('logStrengthSets(');

@@ -1,21 +1,18 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, RefreshControl,
+  Modal, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Check, Clock, StickyNote } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { ProgramWOD, ProgramScore } from '../../types';
-import { formatCap } from '../../utils/scoreFormat';
-import { annotateStrengthLoads, parseStrengthLine, StrengthEntry } from '../../utils/strengthBlock';
-import { recordStrengthPRs } from '../../services/strengthPR';
-import { buildStrengthGrid, logStrengthSets, StrengthSetDraft } from '../../services/strengthSets';
-import StrengthSetGrid from '../../components/wod/StrengthSetGrid';
+import { WODScore } from '../../types';
+import { formatCap, formatScoreValue } from '../../utils/scoreFormat';
+import { annotateStrengthLoads } from '../../utils/strengthBlock';
 import { useMyOneRepMax } from '../../hooks/useMyOneRepMax';
+import { listProgramWods, ProgramWod } from '../../services/programContent';
 
 const WOD_TYPE_COLORS: Record<string, string> = {
   'for-time': '#EF4444',
@@ -27,28 +24,20 @@ const WOD_TYPE_COLORS: Record<string, string> = {
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-// Scoring options offered to the athlete when logging a result.
-const SCORE_TYPES: { value: string; label: string; hint: string }[] = [
-  { value: 'time', label: 'Temps', hint: 'mm:ss' },
-  { value: 'reps', label: 'Reps', hint: 'nombre' },
-  { value: 'load', label: 'Charge', hint: 'kg' },
-];
-
-// Default scoring type inferred from the WOD type.
-function defaultScoreType(wodType?: string): string {
-  if (wodType === 'for-time' || wodType === 'emom') return 'time';
-  if (wodType === 'strength') return 'load';
-  return 'reps';
+/** Lundi (ISO) de la semaine d'une date `YYYY-MM-DD`, au même format. */
+function lundiDe(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  const jour = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - jour);
+  return d.toISOString().slice(0, 10);
 }
 
-function formatScore(s: ProgramScore): string {
-  if (s.score_type === 'time') {
-    const m = Math.floor(s.score_value / 60);
-    const sec = s.score_value % 60;
-    return `${m}:${String(sec).padStart(2, '0')}`;
-  }
-  if (s.score_type === 'load') return `${s.score_value} kg`;
-  return `${s.score_value} reps`;
+function libelleSemaine(lundi: string): string {
+  const d = new Date(lundi + 'T00:00:00');
+  const fin = new Date(d);
+  fin.setDate(fin.getDate() + 6);
+  const fmt = (x: Date) => `${x.getDate()}/${x.getMonth() + 1}`;
+  return `${fmt(d)} – ${fmt(fin)}`;
 }
 
 export default function ProgramDetailScreen({ navigation, route }: any) {
@@ -58,63 +47,43 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
   const S = createStyles(theme);
   const oneRepMaxFor = useMyOneRepMax();
 
-  const totalWeeks = durationWeeks ?? 12;
   const dpw = daysPerWeek ?? 5;
 
-  const [wods, setWods] = useState<ProgramWOD[]>([]);
-  const [scores, setScores] = useState<Record<string, ProgramScore>>({});
+  const [wods, setWods] = useState<ProgramWod[]>([]);
+  const [scores, setScores] = useState<Record<string, WODScore>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Une lecture refusée ou en panne ne doit pas ressembler à « pas de séance » :
+  // c'est exactement ce qui a laissé l'athlète devant une page vide sans signal.
+  const [erreur, setErreur] = useState<string | null>(null);
 
-  // Current week derived from the athlete's start_date (day 1 = start_date).
-  const currentWeek = useMemo(() => {
-    if (!startDate) return 1;
-    const start = new Date(startDate + 'T00:00:00');
-    const days = Math.floor((Date.now() - start.getTime()) / 86400000);
-    return Math.max(1, Math.floor(days / 7) + 1);
-  }, [startDate]);
-
-  const [weekIdx, setWeekIdx] = useState(0);
-
-  // Detail modal
-  const [selected, setSelected] = useState<ProgramWOD | null>(null);
-  // Log modal
-  const [logOpen, setLogOpen] = useState(false);
-  const [logWod, setLogWod] = useState<ProgramWOD | null>(null);
-  const [fScoreType, setFScoreType] = useState('reps');
-  const [fMin, setFMin] = useState('');
-  const [fSec, setFSec] = useState('');
-  const [fValue, setFValue] = useState('');
-  const [fRx, setFRx] = useState(false);
-  const [fNotes, setFNotes] = useState('');
-  // Charges réellement soulevées sur les blocs musculation du WOD ouvert.
-  const [strengthDrafts, setStrengthDrafts] = useState<StrengthSetDraft[]>([]);
-  const [strengthEntries, setStrengthEntries] = useState<StrengthEntry[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [selected, setSelected] = useState<ProgramWod | null>(null);
 
   const load = useCallback(async () => {
+    setErreur(null);
     try {
-      const { data: wodData } = await supabase
-        .from('program_wods')
-        .select('*')
-        .eq('program_id', programId)
-        .order('day_number')
-        .order('sort_order');
-      const list = (wodData ?? []) as ProgramWOD[];
+      const list = await listProgramWods(programId);
       setWods(list);
 
       if (user && list.length > 0) {
-        const { data: scoreData } = await supabase
-          .from('program_scores')
-          .select('*')
-          .eq('user_id', user.id)
-          .in('program_wod_id', list.map(w => w.id));
-        const map: Record<string, ProgramScore> = {};
-        (scoreData ?? []).forEach((s: any) => { map[s.program_wod_id] = s as ProgramScore; });
+        const { data: scoreData, error } = await supabase
+          .from('wod_scores')
+          .select('id, wod_id, member_id, score_type, score_value, rx, capped, notes, submitted_at')
+          .eq('member_id', user.id)
+          .in('wod_id', list.map(w => w.id));
+        if (error) throw error;
+        const map: Record<string, WODScore> = {};
+        for (const s of scoreData ?? []) {
+          if (s.wod_id) map[s.wod_id] = s as WODScore;
+        }
         setScores(map);
+      } else {
+        setScores({});
       }
-    } catch (e: any) {
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
       captureError(e, { screen: 'ProgramDetail', action: 'load' });
+      setErreur(message);
     }
     setLoading(false);
     setRefreshing(false);
@@ -122,95 +91,42 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Start on the athlete's current week (clamped to the program length).
+  // Les semaines existantes viennent du contenu réellement publié, pas d'un
+  // compteur théorique : une semaine sans séance ne s'invente pas.
+  const semaines = useMemo(() => {
+    const parLundi = new Map<string, ProgramWod[]>();
+    for (const w of wods) {
+      const lundi = lundiDe(w.scheduled_date);
+      const liste = parLundi.get(lundi);
+      if (liste) liste.push(w); else parLundi.set(lundi, [w]);
+    }
+    return [...parLundi.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([lundi, liste]) => ({ lundi, wods: liste }));
+  }, [wods]);
+
+  const [weekIdx, setWeekIdx] = useState(0);
+
+  // On ouvre sur la semaine en cours si le programme en a une, sinon sur la
+  // première publiée — un athlète qui achète après le début tombe sur du
+  // contenu, jamais sur du vide.
   useEffect(() => {
-    const target = progType === 'fixed' ? Math.min(currentWeek, totalWeeks) : currentWeek;
-    setWeekIdx(target - 1);
-  }, [currentWeek, progType, totalWeeks]);
+    if (semaines.length === 0) return;
+    const lundiAujourdhui = lundiDe(new Date().toISOString().slice(0, 10));
+    const idx = semaines.findIndex(s => s.lundi >= lundiAujourdhui);
+    setWeekIdx(idx >= 0 ? idx : semaines.length - 1);
+  }, [semaines]);
 
-  const weekStart = weekIdx * 7;
-  const weekDays = Array.from({ length: 7 }, (_, i) => weekStart + i + 1);
-  const wodsForDay = (dayNum: number) => wods.filter(w => w.day_number === dayNum);
+  const semaine = semaines[weekIdx];
+  const lundiAujourdhui = lundiDe(new Date().toISOString().slice(0, 10));
 
-  function openLog(w: ProgramWOD) {
-    const existing = scores[w.id];
-    setLogWod(w);
-    const st = existing?.score_type ?? defaultScoreType(w.wod_type);
-    setFScoreType(st);
-    if (existing) {
-      if (existing.score_type === 'time') {
-        setFMin(String(Math.floor(existing.score_value / 60)));
-        setFSec(String(existing.score_value % 60));
-        setFValue('');
-      } else {
-        setFValue(String(existing.score_value));
-        setFMin(''); setFSec('');
-      }
-      setFRx(existing.rx);
-      setFNotes(existing.notes ?? '');
-    } else {
-      setFMin(''); setFSec(''); setFValue(''); setFRx(false); setFNotes('');
-    }
-    const entries = (w.description ?? '')
-      .split('\n')
-      .map(parseStrengthLine)
-      .filter((e): e is StrengthEntry => e !== null);
-    setStrengthEntries(entries);
-    // Une ligne par série prescrite, pré-remplie ; un %1RM sans 1RM connu reste vide.
-    setStrengthDrafts(buildStrengthGrid(entries, oneRepMaxFor));
-    setSelected(null);
-    setLogOpen(true);
-  }
-
-  async function saveScore() {
-    if (!logWod || !user) return;
-    let value = 0;
-    if (fScoreType === 'time') {
-      value = (parseInt(fMin || '0') * 60) + parseInt(fSec || '0');
-    } else {
-      value = parseInt(fValue || '0');
-    }
-    if (!value || value <= 0) { Alert.alert('Score invalide', 'Renseigne ton résultat.'); return; }
-
-    setSubmitting(true);
-    try {
-      const { error } = await supabase
-        .from('program_scores')
-        .upsert({
-          program_wod_id: logWod.id,
-          user_id: user.id,
-          score_type: fScoreType,
-          score_value: value,
-          rx: fRx,
-          notes: fNotes.trim() || null,
-        }, { onConflict: 'program_wod_id,user_id' });
-      if (error) throw error;
-
-      // Les séries réellement réalisées sont journalisées, et ce sont ELLES qui
-      // alimentent les 1RM — jamais les reps prescrites.
-      if (strengthDrafts.length > 0) {
-        const performed = await logStrengthSets({
-          userId: user.id,
-          sourceType: 'program',
-          sourceId: logWod.id,
-          sourceTitle: logWod.title,
-          drafts: strengthDrafts,
-        });
-        const beaten = performed.length > 0 ? await recordStrengthPRs(performed) : [];
-        if (beaten.length > 0) {
-          Alert.alert('Nouveau 1RM 🏋️', beaten
-            .map(b => `${b.movement} : ${b.kg} kg${b.previousKg != null ? ` (avant ${b.previousKg} kg)` : ''}`)
-            .join('\n'));
-        }
-      }
-
-      setLogOpen(false);
-      load();
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message);
-    }
-    setSubmitting(false);
-  }
+  const wodsDuJour = (offset: number) => {
+    if (!semaine) return [];
+    const d = new Date(semaine.lundi + 'T00:00:00');
+    d.setDate(d.getDate() + offset);
+    const iso = d.toISOString().slice(0, 10);
+    return semaine.wods.filter(w => w.scheduled_date === iso);
+  };
 
   const doneCount = Object.keys(scores).length;
 
@@ -223,48 +139,68 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
         <View style={{ flex: 1 }}>
           <Text style={S.headerTitle} numberOfLines={1}>{programTitle}</Text>
           <Text style={S.headerSub}>
-            {progType === 'fixed' ? `${totalWeeks} semaines · ${dpw}j/sem` : `Ongoing · ${dpw}j/sem`}
+            {progType === 'fixed' ? `${durationWeeks ?? semaines.length} semaines · ${dpw}j/sem` : `Ongoing · ${dpw}j/sem`}
+            {startDate ? ` · depuis le ${startDate.split('-').reverse().join('/')}` : ''}
             {doneCount > 0 ? ` · ${doneCount} WOD${doneCount > 1 ? 's' : ''} fait${doneCount > 1 ? 's' : ''}` : ''}
           </Text>
         </View>
       </View>
 
-      {/* Week navigation */}
-      <View style={S.weekNav}>
-        <TouchableOpacity onPress={() => setWeekIdx(w => Math.max(0, w - 1))} style={S.weekArrow} disabled={weekIdx === 0}>
-          <ChevronLeft color={weekIdx === 0 ? theme.textMuted : theme.text} size={20} />
-        </TouchableOpacity>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={S.weekLabel}>Semaine {weekIdx + 1}{progType === 'fixed' ? ` / ${totalWeeks}` : ''}</Text>
-          {weekIdx + 1 === currentWeek && <Text style={S.weekNow}>Semaine en cours</Text>}
+      {semaines.length > 0 && (
+        <View style={S.weekNav}>
+          <TouchableOpacity onPress={() => setWeekIdx(w => Math.max(0, w - 1))} style={S.weekArrow} disabled={weekIdx === 0}>
+            <ChevronLeft color={weekIdx === 0 ? theme.textMuted : theme.text} size={20} />
+          </TouchableOpacity>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={S.weekLabel}>
+              Semaine {weekIdx + 1} / {semaines.length} · {libelleSemaine(semaine.lundi)}
+            </Text>
+            {semaine.lundi === lundiAujourdhui && <Text style={S.weekNow}>Semaine en cours</Text>}
+          </View>
+          <TouchableOpacity
+            onPress={() => setWeekIdx(w => Math.min(semaines.length - 1, w + 1))}
+            style={S.weekArrow}
+            disabled={weekIdx >= semaines.length - 1}
+          >
+            <ChevronRight color={weekIdx >= semaines.length - 1 ? theme.textMuted : theme.text} size={20} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={() => setWeekIdx(w => progType === 'fixed' ? Math.min(totalWeeks - 1, w + 1) : w + 1)}
-          style={S.weekArrow}
-          disabled={progType === 'fixed' && weekIdx >= totalWeeks - 1}
-        >
-          <ChevronRight color={progType === 'fixed' && weekIdx >= totalWeeks - 1 ? theme.textMuted : theme.text} size={20} />
-        </TouchableOpacity>
-      </View>
+      )}
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.accent} />
+      ) : erreur ? (
+        <View style={S.emptyBlock}>
+          <Text style={S.emptyTitle}>Programmation indisponible</Text>
+          <Text style={S.emptyText}>{erreur}</Text>
+          <TouchableOpacity style={S.retryBtn} onPress={() => { setLoading(true); load(); }}>
+            <Text style={S.retryText}>Réessayer</Text>
+          </TouchableOpacity>
+        </View>
+      ) : semaines.length === 0 ? (
+        <View style={S.emptyBlock}>
+          <Text style={S.emptyTitle}>Aucune séance publiée</Text>
+          <Text style={S.emptyText}>
+            Ton coach n'a pas encore publié de séance sur ce programme. Elles apparaîtront ici dès
+            qu'il les mettra en ligne.
+          </Text>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
         >
-          {weekDays.map((dayNum, i) => {
-            const dayWods = wodsForDay(dayNum);
+          {DAY_LABELS.map((label, i) => {
+            const dayWods = wodsDuJour(i);
             const isRest = dayWods.length === 0;
             return (
-              <View key={dayNum} style={S.dayBlock}>
+              <View key={label} style={S.dayBlock}>
                 <View style={S.dayHeader}>
-                  <Text style={S.dayLabel}>{DAY_LABELS[i]} — Jour {dayNum}</Text>
+                  <Text style={S.dayLabel}>{label}</Text>
                   {isRest && <Text style={S.restBadge}>Repos</Text>}
                 </View>
                 {dayWods.map(w => {
-                  const tc = WOD_TYPE_COLORS[w.wod_type] ?? '#6B7280';
+                  const tc = WOD_TYPE_COLORS[w.wod_type ?? 'custom'] ?? '#6B7280';
                   const score = scores[w.id];
                   return (
                     <TouchableOpacity key={w.id} style={S.wodRow} onPress={() => setSelected(w)} activeOpacity={0.7}>
@@ -277,7 +213,9 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
                       {score ? (
                         <View style={S.doneChip}>
                           <Check color={theme.success} size={12} />
-                          <Text style={S.doneText}>{formatScore(score)}</Text>
+                          <Text style={S.doneText}>
+                            {formatScoreValue(score.score_value, score.score_type, score.capped)}
+                          </Text>
                         </View>
                       ) : (
                         <ChevronRight color={theme.textMuted} size={16} />
@@ -291,7 +229,6 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
         </ScrollView>
       )}
 
-      {/* WOD detail modal */}
       <Modal visible={!!selected} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelected(null)}>
         <View style={S.modalContainer}>
           <View style={S.modalHeader}>
@@ -334,88 +271,33 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
               <View style={S.myScoreCard}>
                 <Text style={S.myScoreLabel}>TON RÉSULTAT</Text>
                 <Text style={S.myScoreValue}>
-                  {formatScore(scores[selected.id])}{scores[selected.id].rx ? ' · RX' : ''}
+                  {formatScoreValue(
+                    scores[selected.id].score_value,
+                    scores[selected.id].score_type,
+                    scores[selected.id].capped,
+                  )}{scores[selected.id].rx ? ' · RX' : ''}
                 </Text>
               </View>
             )}
 
-            <TouchableOpacity style={S.logBtn} onPress={() => selected && openLog(selected)} activeOpacity={0.85}>
+            {/* La saisie de score, la grille de force, les 1RM et le classement
+                vivent dans l'écran de WOD : un seul chemin de score, celui du
+                contenu canonique. Dupliquer ici ferait diverger les deux. */}
+            <TouchableOpacity
+              style={S.logBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                const wodId = selected?.id;
+                setSelected(null);
+                if (wodId) navigation.navigate('WODDetail', { wodId });
+              }}
+            >
               <Text style={S.logBtnText}>
-                {selected && scores[selected.id] ? 'Modifier mon résultat' : 'Enregistrer mon résultat'}
+                {selected && scores[selected.id] ? 'Voir / modifier mon résultat' : 'Ouvrir la séance'}
               </Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
-      </Modal>
-
-      {/* Log score modal */}
-      <Modal visible={logOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLogOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <View style={S.modalContainer}>
-            <View style={S.modalHeader}>
-              <Text style={S.modalTitle} numberOfLines={1}>{logWod?.title}</Text>
-              <TouchableOpacity onPress={() => setLogOpen(false)}>
-                <Text style={S.modalCancel}>Annuler</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={S.modalBody} keyboardShouldPersistTaps="handled">
-              <Text style={S.mLabel}>TYPE DE SCORE</Text>
-              <View style={S.typeGrid}>
-                {SCORE_TYPES.map(t => (
-                  <TouchableOpacity
-                    key={t.value}
-                    style={[S.scoreChip, fScoreType === t.value && S.scoreChipActive]}
-                    onPress={() => setFScoreType(t.value)}
-                  >
-                    <Text style={[S.scoreChipText, fScoreType === t.value && S.scoreChipTextActive]}>{t.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {fScoreType === 'time' ? (
-                <>
-                  <Text style={S.mLabel}>TEMPS</Text>
-                  <View style={S.timeRow}>
-                    <TextInput style={[S.mInput, { flex: 1 }]} value={fMin} onChangeText={setFMin} keyboardType="numeric" placeholder="min" placeholderTextColor={theme.textMuted} />
-                    <Text style={S.timeColon}>:</Text>
-                    <TextInput style={[S.mInput, { flex: 1 }]} value={fSec} onChangeText={setFSec} keyboardType="numeric" placeholder="sec" placeholderTextColor={theme.textMuted} />
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={S.mLabel}>{fScoreType === 'load' ? 'CHARGE (kg)' : 'REPS'}</Text>
-                  <TextInput style={S.mInput} value={fValue} onChangeText={setFValue} keyboardType="numeric" placeholder={fScoreType === 'load' ? '80' : '120'} placeholderTextColor={theme.textMuted} />
-                </>
-              )}
-
-              <TouchableOpacity style={S.rxRow} onPress={() => setFRx(v => !v)} activeOpacity={0.7}>
-                <View style={[S.checkbox, fRx && S.checkboxOn]}>
-                  {fRx && <Check color="#fff" size={13} />}
-                </View>
-                <Text style={S.rxLabel}>Réalisé en RX (prescrit)</Text>
-              </TouchableOpacity>
-
-              <StrengthSetGrid
-                drafts={strengthDrafts}
-                onChange={(index, patch) => setStrengthDrafts(prev =>
-                  prev.map((d, i) => (i === index ? { ...d, ...patch } : d)),
-                )}
-              />
-
-              <Text style={S.mLabel}>NOTES</Text>
-              <TextInput style={[S.mInput, { minHeight: 70, textAlignVertical: 'top' }]} value={fNotes} onChangeText={setFNotes} placeholder="Ressenti, scaling…" placeholderTextColor={theme.textMuted} multiline />
-
-              <TouchableOpacity
-                style={[S.saveBtn, submitting && S.saveBtnDisabled]}
-                onPress={saveScore}
-                disabled={submitting}
-                activeOpacity={0.85}
-              >
-                {submitting ? <ActivityIndicator color="#fff" /> : <Text style={S.saveBtnText}>Enregistrer</Text>}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -424,28 +306,35 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: t.background },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12, backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border },
-    back: { padding: 4, marginRight: 8 },
-    headerTitle: { fontSize: 18, fontWeight: '800', color: t.text },
-    headerSub: { fontSize: 12, color: t.textSecondary, marginTop: 2 },
 
-    weekNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border },
-    weekArrow: { padding: 6 },
-    weekLabel: { fontSize: 16, fontWeight: '700', color: t.text },
-    weekNow: { fontSize: 11, color: t.accent, fontWeight: '700', marginTop: 1 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 50, paddingBottom: 12, gap: 6, borderBottomWidth: 1, borderBottomColor: t.border },
+    back: { padding: 6 },
+    headerTitle: { fontSize: 17, fontWeight: '800', color: t.text },
+    headerSub: { fontSize: 12, color: t.textMuted, marginTop: 2 },
 
-    dayBlock: { marginBottom: 2 },
-    dayHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border },
-    dayLabel: { flex: 1, fontSize: 14, fontWeight: '700', color: t.text },
-    restBadge: { fontSize: 11, color: t.textMuted, fontWeight: '700', backgroundColor: t.surface, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+    weekNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: t.border },
+    weekArrow: { padding: 8 },
+    weekLabel: { fontSize: 15, fontWeight: '800', color: t.text },
+    weekNow: { fontSize: 11, color: t.accent, fontWeight: '700', marginTop: 2 },
 
-    wodRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: t.background },
-    wodTypeBar: { width: 3, height: '80%', minHeight: 30, borderRadius: 2, marginRight: 10 },
-    wodContent: { flex: 1 },
+    emptyBlock: { padding: 24, alignItems: 'center', gap: 8 },
+    emptyTitle: { fontSize: 16, fontWeight: '800', color: t.text, marginTop: 24 },
+    emptyText: { fontSize: 14, color: t.textSecondary, textAlign: 'center', lineHeight: 20 },
+    retryBtn: { marginTop: 12, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: t.border },
+    retryText: { color: t.text, fontWeight: '700', fontSize: 14 },
+
+    dayBlock: { paddingHorizontal: 16, paddingTop: 16 },
+    dayHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+    dayLabel: { fontSize: 13, fontWeight: '800', color: t.textSecondary, letterSpacing: 0.3 },
+    restBadge: { fontSize: 11, color: t.textMuted, fontWeight: '600' },
+
+    wodRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: t.card, borderRadius: 12, marginBottom: 8, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
+    wodTypeBar: { width: 4, alignSelf: 'stretch' },
+    wodContent: { flex: 1, padding: 12 },
     wodType: { fontSize: 10, fontWeight: '800', color: t.textMuted, letterSpacing: 0.5 },
-    wodTitle: { fontSize: 14, fontWeight: '700', color: t.text, marginTop: 1 },
-    wodDesc: { fontSize: 12, color: t.textSecondary, marginTop: 2 },
-    doneChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${t.success}18`, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8 },
+    wodTitle: { fontSize: 15, fontWeight: '700', color: t.text, marginTop: 2 },
+    wodDesc: { fontSize: 13, color: t.textSecondary, marginTop: 2 },
+    doneChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${t.success}18`, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 12 },
     doneText: { fontSize: 12, fontWeight: '700', color: t.success },
 
     modalContainer: { flex: 1, backgroundColor: t.background },
@@ -471,26 +360,5 @@ function createStyles(t: AppTheme) {
 
     logBtn: { backgroundColor: t.accent, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
     logBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-
-    mLabel: { fontSize: 11, fontWeight: '700', color: t.textMuted, letterSpacing: 0.5, marginTop: 14, marginBottom: 6 },
-    mInput: { backgroundColor: t.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: t.text, fontSize: 15, borderWidth: 1, borderColor: t.border },
-
-    typeGrid: { flexDirection: 'row', gap: 8 },
-    scoreChip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: t.border },
-    scoreChipActive: { borderColor: t.accent, backgroundColor: t.accent },
-    scoreChipText: { fontSize: 13, fontWeight: '700', color: t.textSecondary },
-    scoreChipTextActive: { color: '#fff' },
-
-    timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    timeColon: { fontSize: 20, fontWeight: '800', color: t.text },
-
-    rxRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 },
-    checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
-    checkboxOn: { backgroundColor: t.accent, borderColor: t.accent },
-    rxLabel: { fontSize: 14, fontWeight: '600', color: t.text },
-
-    saveBtn: { backgroundColor: t.accent, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
-    saveBtnDisabled: { opacity: 0.5 },
-    saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   });
 }
