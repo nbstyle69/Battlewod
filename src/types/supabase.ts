@@ -485,6 +485,7 @@ export type Database = {
           member_id: string | null
           plan_id: string | null
           plan_name: string | null
+          program_id: string | null
           source: string
         }
         Insert: {
@@ -497,6 +498,7 @@ export type Database = {
           member_id?: string | null
           plan_id?: string | null
           plan_name?: string | null
+          program_id?: string | null
           source: string
         }
         Update: {
@@ -509,6 +511,7 @@ export type Database = {
           member_id?: string | null
           plan_id?: string | null
           plan_name?: string | null
+          program_id?: string | null
           source?: string
         }
         Relationships: [
@@ -559,6 +562,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_cash_payments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]
@@ -7291,11 +7301,28 @@ export type Database = {
       }
       _log_box_cash_payment: {
         Args: {
+          p_amount_cents?: number
           p_box_id: string
           p_invitation_id: string
+          p_label?: string
           p_member_id: string
           p_plan_id: string
+          p_program_id?: string
           p_source: string
+        }
+        Returns: string
+      }
+      _upsert_program_member: {
+        Args: {
+          p_amount_cents?: number
+          p_platform_fee_cents?: number
+          p_program_id: string
+          p_provenance: string
+          p_start_date: string
+          p_stripe_checkout_session_id?: string
+          p_stripe_payment_intent?: string
+          p_stripe_subscription_id?: string
+          p_user_id: string
         }
         Returns: string
       }
@@ -7319,6 +7346,15 @@ export type Database = {
           p_source_kind: string
           p_target_monday: string
           p_week: number
+        }
+        Returns: Json
+      }
+      assign_program_cash: {
+        Args: {
+          p_amount_cents: number
+          p_program_id: string
+          p_start_date?: string
+          p_user_id: string
         }
         Returns: Json
       }
