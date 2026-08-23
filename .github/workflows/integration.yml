@@ -48,6 +48,7 @@ on:
           - admin-boxes
           - programs-box
           - comptoir-programmes
+          - abonnement-programmation
           - grants
 
 concurrency:
@@ -167,6 +168,14 @@ jobs:
       - name: Suite — Payé au comptoir (programmes, journal, surfaces d'argent)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'comptoir-programmes' }}
         run: node scripts/test-comptoir-programmes.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # Une offre payante ne s'obtient pas sans payer : `status='active'` est
+      # réservé au backend signé, la RPC du gratuit relit le prix dans l'offre.
+      # Contrôles positifs : le webhook active toujours, et le coach lit
+      # toujours le catalogue publié.
+      - name: Suite — Abonnement à une programmation (payant, gratuit, prix)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'abonnement-programmation' }}
+        run: node scripts/test-abonnement-programmation.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.
