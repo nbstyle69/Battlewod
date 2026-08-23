@@ -409,6 +409,51 @@ trouvé.** Un compteur d'assertions attendu est à un audit ce que le contre-exe
 
 ---
 
+## 17. Couleurs de domaine ≠ décoration — un nettoyage aveugle est le bug inverse
+
+La refonte monochrome sort les littéraux de couleur des écrans et les remplace par des
+jetons de thème. Appliquée sans distinction, elle **grise du sens** : la médaille d'or et la
+médaille de bronze deviennent la même nuance, la défaite ressemble à la victoire, un
+avertissement ne s'avertit plus.
+
+```
+#C9A227 sur un cadre décoratif     → littéral à sortir     (le jeton dit la même chose)
+#C9A227 sur une médaille           → couleur de DOMAINE    (le jeton dit autre chose)
+LevelColors, victoire/défaite,
+warning, erreur, statut            → couleur de DOMAINE
+```
+
+Une couleur de domaine porte une **information que le texte ne porte pas** : c'est le test.
+Si la retirer oblige à lire une étiquette pour retrouver le sens, elle n'était pas de la
+décoration. Les couleurs de domaine se **centralisent** (une source nommée par domaine) mais
+ne se neutralisent pas.
+
+Corollaire pour le contrôle qui refuse un hexadécimal en dur : sa liste d'exemption est
+nominative — fichiers de thème **et** fichiers de couleurs de domaine — et non « tout ce qui
+est rouge encore présent ». Une exemption large rendrait le contrôle indolore ; une exemption
+absente le rendrait faux, donc désactivé au premier écran légitime.
+
+---
+
+## 18. Un contrôle qui écrit doit pouvoir être rejoué — sa mutation inverse aussi
+
+La suite du `CHECK` `HH:MM` insère exprès des heures hors format et exige le refus. Sous
+**mutation inverse** (contraintes retirées) ces insertions **réussissent** — et le nettoyage,
+écrit pour les ids que la suite retenait, ne retenait justement rien de ces lignes-là. Résultat
+mesuré : le rejeu de la migration a échoué sur la base de test, `« is violated by some row »`,
+pour des lignes créées par le contrôle lui-même.
+
+```
+nominal   : insertion refusée → aucune ligne → nettoyage sans objet     ← le cas qu'on teste
+mutation  : insertion ACCEPTÉE → ligne résiduelle → migration bloquée   ← le cas qu'on oublie
+```
+
+Le nettoyage d'un contrôle adversarial se déclare donc **sur le critère, pas sur le résultat** :
+`delete().eq('name', nomDeLaFixture)` avant les tentatives, et non `delete().eq('id', …)`
+après chacune — puisque, précisément, l'état sabotté produit des lignes qu'on n'attendait pas.
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
@@ -441,6 +486,10 @@ trouvé.** Un compteur d'assertions attendu est à un audit ce que le contre-exe
       atteignable l'est encore, sinon la panne ressemble au succès.
 - [ ] Un contrôle affirme **combien d'assertions il a exécutées** et échoue sous l'attendu :
       « 0 assertion » est un échec *nommé*, distinct d'une garde qui a sauté (règle 16).
+- [ ] Un nettoyage monochrome laisse intactes les couleurs qui **portent l'information**
+      (médailles, `LevelColors`, victoire/défaite, warning, erreur, statut) — règle 17.
+- [ ] Le nettoyage d'un contrôle adversarial porte sur le **critère de fixture**, pas sur les
+      ids retenus : sous mutation inverse, l'écriture refusée réussit (règle 18).
 
 ---
 
