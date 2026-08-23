@@ -46,6 +46,10 @@ describe.each(THEMES)('contraste — thème %s', (mode, t) => {
     expect(contrast(t.accentText, `${t.accent}12`, t.background)).toBeGreaterThanOrEqual(GLYPH_MIN);
   });
 
+  it('l\'encre du bouton d\'appel à l\'action est lisible sur sa surface', () => {
+    expect(contrast(t.text, t.ctaBg, t.background)).toBeGreaterThanOrEqual(TEXT_MIN);
+  });
+
   const hueNames = Object.keys(HUES) as HueName[];
   it.each(hueNames)('la couleur de domaine « %s » est lisible en texte', (name) => {
     expect(onCard(hue(mode, name))).toBeGreaterThanOrEqual(TEXT_MIN);
@@ -60,6 +64,10 @@ describe('contraste — le contrôle sait échouer', () => {
 
   it('mesure le défaut historique : la teinte sombre d\'une catégorie sur carte claire', () => {
     expect(contrast(HUES.yellow.dark, lightTheme.card, lightTheme.background)).toBeLessThan(GLYPH_MIN);
+  });
+
+  it('mesure le défaut historique : #fff sur la surface du CTA clair', () => {
+    expect(contrast('#ffffff', lightTheme.ctaBg, lightTheme.background)).toBeLessThan(2);
   });
 
   it('compose bien les cartes translucides (sinon tout passerait)', () => {

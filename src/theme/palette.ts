@@ -82,8 +82,10 @@ export const lightTheme: AppTheme = {
   // Assombri d'un cran pour garder une hiérarchie avec textMuted, qui monte.
   textSecondary: '#4b5563',
   // #9ca3af ne donnait que 2,5:1 sur une carte claire : les sous-titres de
-  // réglages et les métadonnées étaient à la limite du visible.
-  textMuted: '#6b7280',
+  // réglages et les métadonnées étaient à la limite du visible. #6b7280 passait
+  // le seuil de 4,5:1 par 0,03 sur les blocs mesurés — une surface intercalée de
+  // plus le refaisait tomber, donc la marge est prise ici, pas espérée.
+  textMuted: '#646b78',
   border: 'rgba(148,163,184,0.20)',
   tabBar: 'rgba(255,255,255,0.85)',
   tabBarBorder: 'rgba(148,163,184,0.22)',
