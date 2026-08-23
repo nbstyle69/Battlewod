@@ -89,7 +89,8 @@ try {
 
   const box = must(await svc.from('boxes').insert({
     name: `zz_l6_box_${stamp}`, owner_id: owner.id, city: 'Test', invite_code: `ZL6${String(stamp).slice(-6)}`,
-  }).select('id').single(), 'boxes');
+    slug: `zz-l6-box-${stamp}`,
+  }).select('id, slug').single(), 'boxes');
   cleanup.unshift(() => svc.from('boxes').delete().eq('id', box.id));
 
   const otherBox = must(await svc.from('boxes').insert({
@@ -310,10 +311,39 @@ try {
   check("gérant d'une AUTRE box refusé sur get_box_billing",
     refus(foreignBilling.error, 'refus|denied|gérant'), true);
 
+  const anonClient = createClient(SB_URL, ANON, { auth: { persistSession: false } });
+
   const selfBilling = await athlete.client.rpc('get_my_membership_billing');
   const selfLignes = selfBilling.data ?? [];
   check('contrôle positif : l\'adhérent lit SON abonnement', selfLignes[0]?.subscription_status, 'active');
   check('… et rien que le sien', selfLignes.every(r => r.plan_id === plan.id || r.plan_id == null), true);
+  // L'espace /compte affiche le montant et l'échéance : la RPC doit les porter,
+  // sinon la page tombe sur « — » sans erreur, ce qui ressemble à un décor.
+  check("… avec le montant et l'échéance que /compte affiche",
+    selfLignes[0]?.amount_cents === 6900 && selfLignes[0]?.subscription_current_period_end != null, true);
+
+  // /compte lit ensuite la formule et la box à SA clé (la jointure implicite du
+  // service_role a disparu). La formule d'un adhérent peut être désactivée par
+  // le gérant : `public_read_active_plans` ne la servirait plus, `member_see_plans`
+  // si — donc on la désactive exprès avant de lire.
+  must(await svc.from('membership_plans').update({ is_active: false })
+    .eq('id', plan.id).select('id').single(), 'désactivation de la formule');
+  const selfPlan = await athlete.client.from('membership_plans')
+    .select('name, color, price_cents').eq('id', plan.id).maybeSingle();
+  check("l'adhérent lit sa formule même désactivée (nom et prix affichés)",
+    selfPlan.data?.price_cents, 6900);
+  const anonPlanInactive = await anonClient.from('membership_plans')
+    .select('price_cents').eq('id', plan.id).maybeSingle();
+  check('… là où la clé anon ne la voit plus (la lecture vient bien du titre de membre)',
+    anonPlanInactive.data, null);
+  must(await svc.from('membership_plans').update({ is_active: true })
+    .eq('id', plan.id).select('id').single(), 'réactivation de la formule');
+
+  const selfBox = await athlete.client.from('boxes')
+    .select('id, name, slug, terms_pdf_url').eq('id', box.id).maybeSingle();
+  check("l'adhérent lit les colonnes de box dont /compte a besoin",
+    selfBox.data?.id === box.id && selfBox.data?.slug === box.slug, true);
+  if (selfBox.error) note('refus', selfBox.error.message.slice(0, 120));
 
   // L'assignation de formule est un geste de gérant : la fermeture en lecture ne
   // doit pas l'emporter, et elle ne doit pas s'ouvrir au coach.
@@ -331,7 +361,6 @@ try {
   // Le tarif d'une formule, lui, est public : `public_read_active_plans` le sert
   // à la page publique d'une box. Le cacher au coach serait un décor — il le lit
   // sans session. C'est mesuré, pas supposé.
-  const anonClient = createClient(SB_URL, ANON, { auth: { persistSession: false } });
   const anonPlan = await anonClient.from('membership_plans').select('price_cents').eq('id', plan.id).maybeSingle();
   const coachPlan = await coach.client.from('membership_plans').select('price_cents').eq('id', plan.id).maybeSingle();
   check('le tarif d\'une formule est public (sans session)', anonPlan.data?.price_cents, 6900);
