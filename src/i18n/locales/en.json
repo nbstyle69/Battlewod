@@ -435,6 +435,8 @@
       "headerOngoing": "Ongoing program",
       "week": "Week {{n}}",
       "duplicateTo": "Duplicate to week {{n}}",
+      "duplicateNext": "Duplicate to next week",
+      "unknownBox": "Program box not found",
       "dayHeader": "{{day}} — Day {{n}}",
       "rest": "Rest",
       "addWod": "+ Add a WOD",

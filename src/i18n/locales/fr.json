@@ -435,6 +435,8 @@
       "headerOngoing": "Programme ongoing",
       "week": "Semaine {{n}}",
       "duplicateTo": "Dupliquer vers semaine {{n}}",
+      "duplicateNext": "Dupliquer vers la semaine suivante",
+      "unknownBox": "Box du programme introuvable",
       "dayHeader": "{{day}} — Jour {{n}}",
       "rest": "Repos",
       "addWod": "+ Ajouter un WOD",

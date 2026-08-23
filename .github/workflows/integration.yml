@@ -46,6 +46,7 @@ on:
           - wod-access
           - wod-derived
           - admin-boxes
+          - programs-box
           - grants
 
 concurrency:
@@ -150,6 +151,13 @@ jobs:
       - name: Suite — Résolveur des box administrées (titre owner / coach)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'admin-boxes' }}
         run: node scripts/test-admin-boxes.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # Un programme appartient à sa box (pas à une personne), son contenu vit
+      # dans box_wods, et dispenser de payer reste une décision d'argent. Le
+      # contrôle positif : le WOD sans restriction reste visible des membres.
+      - name: Suite — Programmes administrés par la box (contenu, grants, staff)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'programs-box' }}
+        run: node scripts/test-programs-par-box.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.

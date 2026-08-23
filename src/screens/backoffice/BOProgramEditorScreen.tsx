@@ -9,8 +9,29 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
-import { ProgramWOD } from '../../types';
 import { formatCap, parseCap } from '../../utils/scoreFormat';
+import {
+  listProgramWods, createProgramWod, updateProgramWod, deleteProgramWod,
+  duplicateProgramWeek, ProgramWod,
+} from '../../services/programContent';
+
+/** Lundi (ISO) de la semaine d'une date `YYYY-MM-DD`. */
+function lundiDe(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+function decalerJours(iso: string, jours: number): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + jours);
+  return d.toISOString().slice(0, 10);
+}
+
+function jourCourt(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return `${d.getDate()}/${d.getMonth() + 1}`;
+}
 
 const WOD_TYPES: { value: string; labelKey: string; color: string }[] = [
   { value: 'for-time', labelKey: 'bo.programEditor.typeForTime', color: '#EF4444' },
@@ -30,11 +51,14 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
   const totalWeeks = durationWeeks ?? 12;
   const dpw = daysPerWeek ?? 5;
 
-  const [wods, setWods] = useState<ProgramWOD[]>([]);
+  const [wods, setWods] = useState<ProgramWod[]>([]);
   const [loading, setLoading] = useState(true);
+  // La box du programme : c'est elle qui porte le WOD canonique.
+  const [boxId, setBoxId] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
   const [weekIdx, setWeekIdx] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editWod, setEditWod] = useState<ProgramWOD | null>(null);
+  const [editWod, setEditWod] = useState<ProgramWod | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Form
@@ -43,91 +67,93 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
   const [fType, setFType] = useState('custom');
   const [fTimeCap, setFTimeCap] = useState('');
   const [fNotes, setFNotes] = useState('');
-  const [fDayNumber, setFDayNumber] = useState(1);
+  const [fDate, setFDate] = useState(lundiDe(new Date().toISOString().slice(0, 10)));
 
   const load = useCallback(async () => {
+    setErreur(null);
     try {
-      const { data } = await supabase
-        .from('program_wods')
-        .select('*')
-        .eq('program_id', programId)
-        .order('day_number')
-        .order('sort_order');
-      setWods((data ?? []) as ProgramWOD[]);
-    } catch (e: any) {
+      const { data: prog, error: erreurProg } = await supabase
+        .from('programs')
+        .select('box_id')
+        .eq('id', programId)
+        .single();
+      if (erreurProg) throw erreurProg;
+      setBoxId(prog.box_id);
+      setWods(await listProgramWods(programId));
+    } catch (e) {
       captureError(e, { screen: 'BOProgramEditor', action: 'load' });
+      setErreur(e instanceof Error ? e.message : String(e));
     }
     setLoading(false);
   }, [programId]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Days for current week
-  const weekStart = weekIdx * 7;
-  const weekDays = Array.from({ length: 7 }, (_, i) => weekStart + i + 1);
+  // Le contenu est daté au calendrier : la navigation va de semaine civile en
+  // semaine civile, à partir de la semaine en cours.
+  const lundiSemaine = decalerJours(lundiDe(new Date().toISOString().slice(0, 10)), weekIdx * 7);
+  const weekDates = Array.from({ length: 7 }, (_, i) => decalerJours(lundiSemaine, i));
 
-  function wodsForDay(dayNum: number) {
-    return wods.filter(w => w.day_number === dayNum);
+  function wodsForDate(date: string) {
+    return wods.filter(w => w.scheduled_date === date);
   }
 
-  function openCreate(dayNumber: number) {
+  function openCreate(date: string) {
     setEditWod(null);
     setFTitle(''); setFDesc(''); setFType('custom');
     setFTimeCap(''); setFNotes('');
-    setFDayNumber(dayNumber);
+    setFDate(date);
     setModalOpen(true);
   }
 
-  function openEdit(w: ProgramWOD) {
+  function openEdit(w: ProgramWod) {
     setEditWod(w);
     setFTitle(w.title);
-    setFDesc(w.description);
+    setFDesc(w.description ?? '');
     setFType(w.wod_type ?? 'custom');
     setFTimeCap(formatCap(w.time_cap_seconds));
     setFNotes(w.notes ?? '');
-    setFDayNumber(w.day_number ?? 1);
+    setFDate(w.scheduled_date);
     setModalOpen(true);
   }
 
   async function save() {
     if (!fTitle.trim() || !fDesc.trim()) return;
+    if (!boxId) { Alert.alert(t('common.error'), t('bo.programEditor.unknownBox')); return; }
     setSubmitting(true);
-    const weekNumber = Math.ceil(fDayNumber / 7);
-    const payload: any = {
-      program_id: programId,
-      day_number: fDayNumber,
-      week_number: weekNumber,
+    const input = {
       title: fTitle.trim(),
       description: fDesc.trim(),
       wod_type: fType,
       time_cap_seconds: parseCap(fTimeCap),
       notes: fNotes.trim() || null,
+      scheduled_date: fDate,
     };
     try {
       if (editWod) {
-        const { error } = await supabase.from('program_wods').update(payload).eq('id', editWod.id);
-        if (error) throw error;
+        await updateProgramWod(editWod.id, { ...input, sort_order: editWod.sort_order });
       } else {
-        const dayCount = wodsForDay(fDayNumber).length;
-        payload.sort_order = dayCount;
-        const { error } = await supabase.from('program_wods').insert(payload);
-        if (error) throw error;
+        await createProgramWod(programId, boxId, { ...input, sort_order: wodsForDate(fDate).length });
       }
       setModalOpen(false);
       load();
-    } catch (e: any) {
-      Alert.alert(t('common.error'), e.message);
+    } catch (e) {
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : String(e));
     }
     setSubmitting(false);
   }
 
-  async function deleteWod(w: ProgramWOD) {
+  async function deleteWod(w: ProgramWod) {
     Alert.alert(t('bo.programEditor.deleteWodTitle'), w.title, [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'), style: 'destructive',
         onPress: async () => {
-          await supabase.from('program_wods').delete().eq('id', w.id);
+          try {
+            await deleteProgramWod(w.id);
+          } catch (e) {
+            Alert.alert(t('common.error'), e instanceof Error ? e.message : String(e));
+          }
           load();
         },
       },
@@ -135,22 +161,15 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
   }
 
   async function duplicateWeek() {
-    const currentWods = wods.filter(w => (w.day_number ?? 0) > weekStart && (w.day_number ?? 0) <= weekStart + 7);
+    const currentWods = weekDates.flatMap(wodsForDate);
     if (currentWods.length === 0) { Alert.alert(t('bo.programEditor.emptyTitle'), t('bo.programEditor.emptyWeekMsg')); return; }
-    const nextWeekStart = weekStart + 7;
-    const inserts = currentWods.map(w => ({
-      program_id: programId,
-      day_number: (w.day_number ?? 1) + 7,
-      week_number: (w.week_number ?? 1) + 1,
-      title: w.title,
-      description: w.description,
-      wod_type: w.wod_type,
-      time_cap_seconds: w.time_cap_seconds,
-      notes: w.notes,
-      sort_order: w.sort_order,
-    }));
-    const { error } = await supabase.from('program_wods').insert(inserts);
-    if (error) { Alert.alert(t('common.error'), error.message); return; }
+    if (!boxId) { Alert.alert(t('common.error'), t('bo.programEditor.unknownBox')); return; }
+    try {
+      await duplicateProgramWeek(programId, boxId, currentWods);
+    } catch (e) {
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : String(e));
+      return;
+    }
     setWeekIdx(prev => prev + 1);
     load();
   }
@@ -171,43 +190,45 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
 
       {/* Week navigation */}
       <View style={S.weekNav}>
-        <TouchableOpacity onPress={() => setWeekIdx(w => Math.max(0, w - 1))} style={S.weekArrow} disabled={weekIdx === 0}>
-          <ChevronLeft color={weekIdx === 0 ? theme.textMuted : theme.text} size={20} />
+        <TouchableOpacity onPress={() => setWeekIdx(w => w - 1)} style={S.weekArrow}>
+          <ChevronLeft color={theme.text} size={20} />
         </TouchableOpacity>
-        <Text style={S.weekLabel}>{t('bo.programEditor.week', { n: weekIdx + 1 })}{progType === 'fixed' ? ` / ${totalWeeks}` : ''}</Text>
-        <TouchableOpacity
-          onPress={() => setWeekIdx(w => progType === 'fixed' ? Math.min(totalWeeks - 1, w + 1) : w + 1)}
-          style={S.weekArrow}
-          disabled={progType === 'fixed' && weekIdx >= totalWeeks - 1}
-        >
-          <ChevronRight color={progType === 'fixed' && weekIdx >= totalWeeks - 1 ? theme.textMuted : theme.text} size={20} />
+        <Text style={S.weekLabel}>
+          {jourCourt(lundiSemaine)} – {jourCourt(weekDates[6])}
+        </Text>
+        <TouchableOpacity onPress={() => setWeekIdx(w => w + 1)} style={S.weekArrow}>
+          <ChevronRight color={theme.text} size={20} />
         </TouchableOpacity>
       </View>
 
       {/* Duplicate week */}
       <TouchableOpacity style={S.dupBtn} onPress={duplicateWeek} activeOpacity={0.7}>
         <Copy color={theme.accent} size={14} />
-        <Text style={S.dupText}>{t('bo.programEditor.duplicateTo', { n: weekIdx + 2 })}</Text>
+        <Text style={S.dupText}>{t('bo.programEditor.duplicateNext')}</Text>
       </TouchableOpacity>
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.accent} />
+      ) : erreur ? (
+        <View style={S.errorBlock}>
+          <Text style={S.errorText}>{erreur}</Text>
+        </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
-          {weekDays.map((dayNum, i) => {
-            const dayWods = wodsForDay(dayNum);
+          {weekDates.map((date, i) => {
+            const dayWods = wodsForDate(date);
             const isRest = i >= dpw;
             return (
-              <View key={dayNum} style={S.dayBlock}>
+              <View key={date} style={S.dayBlock}>
                 <View style={[S.dayHeader, isRest && { opacity: 0.4 }]}>
-                  <Text style={S.dayLabel}>{t('bo.programEditor.dayHeader', { day: DAY_LABELS[i], n: dayNum })}</Text>
+                  <Text style={S.dayLabel}>{DAY_LABELS[i]} {jourCourt(date)}</Text>
                   {isRest && <Text style={S.restBadge}>{t('bo.programEditor.rest')}</Text>}
-                  <TouchableOpacity onPress={() => openCreate(dayNum)} style={S.addDayBtn}>
+                  <TouchableOpacity onPress={() => openCreate(date)} style={S.addDayBtn}>
                     <Plus color={theme.accent} size={16} />
                   </TouchableOpacity>
                 </View>
                 {dayWods.length === 0 ? (
-                  <TouchableOpacity style={S.emptyDay} onPress={() => openCreate(dayNum)} activeOpacity={0.7}>
+                  <TouchableOpacity style={S.emptyDay} onPress={() => openCreate(date)} activeOpacity={0.7}>
                     <Text style={S.emptyDayText}>{t('bo.programEditor.addWod')}</Text>
                   </TouchableOpacity>
                 ) : (
@@ -244,7 +265,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={S.modalContainer}>
             <View style={S.modalHeader}>
-              <Text style={S.modalTitle}>{editWod ? t('bo.programEditor.editWod') : t('bo.programEditor.dayN', { n: fDayNumber })}</Text>
+              <Text style={S.modalTitle}>{editWod ? t('bo.programEditor.editWod') : jourCourt(fDate)}</Text>
               <TouchableOpacity onPress={() => setModalOpen(false)}>
                 <Text style={S.modalCancel}>{t('common.cancel')}</Text>
               </TouchableOpacity>
@@ -318,6 +339,9 @@ function createStyles(t: AppTheme) {
     dayLabel: { flex: 1, fontSize: 14, fontWeight: '700', color: t.text },
     restBadge: { fontSize: 11, color: t.error, fontWeight: '700', backgroundColor: `${t.error}18`, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginRight: 8 },
     addDayBtn: { padding: 4 },
+
+    errorBlock: { padding: 20 },
+    errorText: { fontSize: 14, color: t.error, lineHeight: 20 },
 
     emptyDay: { paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: t.border },
     emptyDayText: { fontSize: 13, color: t.textMuted },
