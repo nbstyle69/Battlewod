@@ -47,6 +47,7 @@ on:
           - wod-derived
           - admin-boxes
           - programs-box
+          - comptoir-programmes
           - grants
 
 concurrency:
@@ -158,6 +159,14 @@ jobs:
       - name: Suite — Programmes administrés par la box (contenu, grants, staff)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'programs-box' }}
         run: node scripts/test-programs-par-box.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # L'encaissement comptoir d'un programme : qui le tient, où va le montant,
+      # et les deux surfaces d'argent dans les deux sens — une ligne comptoir
+      # fait monter « Programmes » sans être recomptée en « comptoir », une
+      # ligne staff ne fait monter ni l'un ni l'autre.
+      - name: Suite — Payé au comptoir (programmes, journal, surfaces d'argent)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'comptoir-programmes' }}
+        run: node scripts/test-comptoir-programmes.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.
