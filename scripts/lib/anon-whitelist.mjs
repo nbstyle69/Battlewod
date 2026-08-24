@@ -29,6 +29,8 @@ export const ANON_WHITELIST = new Map([
   ['can_join_inter_competition', 'prédicat de policy — 1 policy'],
   ['box_subscribes_programming', 'prédicat de policy — 1 policy'],
   ['peek_box_invitation', 'page publique /rejoindre/[token] : lue sans session par construction'],
+  ['list_public_trial_slots', 'tunnel Essai : anon ne lit ni class_schedules ni class_reservations — le calendrier public passe par cette RPC'],
+  ['book_trial_slot', 'tunnel Essai : la seule écriture publique du produit, entièrement vérifiée côté serveur'],
 ]);
 
 /**
