@@ -110,26 +110,22 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Classement ELO public (`/classement`) avec recherche par pseudo | 16 août 2026 |
 | Phase 1 design mobile : quatre écrans lisibles en clair et en sombre, encre mesurée, couleurs de domaine préservées | 24 août 2026 |
 | Marketplace et Programmes athlètes portent enfin deux noms distincts (renommage d'affichage) | 24 août 2026 |
+| Les programmes d'une box redeviennent visibles — et vendables — sur sa page publique | 24 août 2026 |
+| Toute box créée reçoit un identifiant d'URL : plus aucune box active absente de l'annuaire | 24 août 2026 |
+| `/compte` montre l'adhésion même sans abonnement en ligne (formule attribuée ou payée à la box) | 24 août 2026 |
+| Une lecture publique refusée se voit : elle ne se rend plus en liste vide plausible | 24 août 2026 |
+| Une relance de prospect fautive ne coupe plus les relances de toutes les box | 24 août 2026 |
 
 ---
 
 ## En cours
 
-**Correctifs du balayage back-office (fournée D1-D5).** Le balayage complet du back-office en
-production a rendu sa carte le 24 août. Trois écarts sont diagnostiqués mais **non encore
-corrigés** :
+**Offre Essai (tunnel d'acquisition de prospects).** La reconnaissance est faite, les
+décisions sont prises, rien n'est encore écrit : un visiteur laissera nom, e-mail et
+téléphone sans créer de compte, choisira un cours ayant de la place, et arrivera dans
+Prospects avec son dossier. L'essai est gratuit par construction.
 
-1. **Les programmes n'apparaissent pas sur la page publique d'une box.** Trois programmes
-   actifs en base, zéro à l'écran, et aucune erreur visible. La lecture publique est refusée
-   par le serveur, l'erreur est ignorée, le bloc disparaît. Un programme payant est donc
-   invendable depuis cette page. Cause établie, correctif à écrire.
-2. **Deux box sur trois sont invisibles dans l'annuaire public** parce qu'elles n'ont pas
-   d'identifiant d'URL (« slug »). Leur abonnement n'y est pour rien.
-3. **`/compte` cache l'adhésion** quand il n'y a pas d'abonnement Stripe : 25 des 39 adhérents
-   actifs de la box test voient « Trouve ta box » alors qu'ils sont membres.
-
-**Ce qui bloque :** rien de technique. C'est l'ordre des correctifs qui reste à trancher, et
-c'est une décision de Nab.
+**Ce qui bloque :** rien. C'est le chantier suivant dans la file.
 
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
@@ -142,7 +138,7 @@ service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie
 
 L'ordre est décidé ; il ne se réarbitre pas au fil de l'eau.
 
-1. **Fournée D1-D5** — les correctifs du balayage back-office ci-dessus.
+1. **Offre Essai** — le tunnel d'acquisition décrit ci-dessus (web uniquement).
 2. **Phase 1 design** — terminée côté mobile ; reste la même passe côté web.
 3. **Build + soumission Apple** — un binaire qui porte les correctifs de la fournée, puis
    soumission.
