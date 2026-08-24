@@ -51,6 +51,7 @@ on:
           - abonnement-programmation
           - espace-coach
           - heures
+          - essai
           - grants
 
 concurrency:
@@ -194,6 +195,15 @@ jobs:
       - name: Suite — Format HH:MM des heures de début
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'heures' }}
         run: node scripts/test-heures.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # Le tunnel Essai est la seule écriture publique du produit : les refus
+      # sont nommés, la place est réellement décomptée, et les coordonnées ne
+      # sont pas dans la table que tout adhérent de la box lit. Contrôles
+      # positifs et négatifs dans la même suite — dont « le plan_type inventé
+      # reste refusé », sans quoi on aurait ouvert le CHECK au lieu de l'étendre.
+      - name: Suite — Offre Essai (tunnel public, prospects, capacité)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'essai' }}
+        run: node scripts/test-essai-lot-base.mjs ${{ steps.flags.outputs.extra_flag }}
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.

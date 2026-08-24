@@ -120,12 +120,24 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 
 ## En cours
 
-**Offre Essai (tunnel d'acquisition de prospects).** La reconnaissance est faite, les
-décisions sont prises, rien n'est encore écrit : un visiteur laissera nom, e-mail et
-téléphone sans créer de compte, choisira un cours ayant de la place, et arrivera dans
-Prospects avec son dossier. L'essai est gratuit par construction.
+**Offre Essai (tunnel d'acquisition de prospects).** Le socle serveur est écrit : le
+visiteur peut réserver sans compte, l'essai est gratuit parce que la base refuse un essai
+payant, un cours complet est refusé au lieu de mettre le visiteur en liste d'attente sans le
+dire, et ses coordonnées ne sont pas dans la table que tout adhérent de la box peut lire.
 
-**Ce qui bloque :** rien. C'est le chantier suivant dans la file.
+**Ce qui reste :** les écrans. Le bouton « Essai » et le calendrier sur la page publique de
+la box, le 4e type d'offre dans « Nouvelle offre », l'affichage des prospects sans compte
+dans Prospects, la mention « Essai » dans la liste de présence du coach, l'e-mail de
+confirmation, et le fait de ne plus compter un essai comme un adhérent dans les
+statistiques.
+
+**Ce qui bloque :** rien. Ce socle n'est pas encore en production : il y sera appliqué au
+merge, et il ne montera dans la liste du haut qu'une fois constaté sur la base réelle.
+
+**Une limite nommée plutôt que supposée :** le plafond par adresse e-mail est tenu par la
+base (donc prouvable). Le plafond par adresse Internet du visiteur sera tenu par le site
+web : la base n'a pas accès à cette information, et une limite supposée n'est pas une
+limite.
 
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
