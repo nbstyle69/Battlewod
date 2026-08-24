@@ -22,7 +22,7 @@ export default function ProgrammationScreen() {
           <ChevronLeft color={theme.text} size={24} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>Programmation</Text>
+          <Text style={s.headerTitle}>Programmes</Text>
           <Text style={s.headerSub}>Choisis ton type d'entraînement</Text>
         </View>
       </View>

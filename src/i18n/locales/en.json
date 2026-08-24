@@ -387,7 +387,7 @@
       "repsCount": "{{count}} reps"
     },
     "programs": {
-      "title": "Programs",
+      "title": "Athlete programs",
       "deleteTitle": "Delete?",
       "deleteMsg": "\"{{title}}\" and all its WODs will be deleted.",
       "copied": "Copied!",
@@ -477,7 +477,7 @@
       "qaManageMembers": "Manage members",
       "qaTournaments": "Tournaments & Scores",
       "qaInterBox": "Inter-box",
-      "qaPrograms": "Programs",
+      "qaPrograms": "Athlete programs",
       "interBox": "Inter-box",
       "competitions": "Competitions",
       "inProgress": "In progress",
@@ -498,7 +498,7 @@
       "qaNotifications": "Notifications",
       "qaArticles": "News",
       "qaPublication": "Publication",
-      "qaProgramming": "Programming"
+      "qaProgramming": "Marketplace"
     },
     "schedule": {
       "title": "Schedule & Slots",
@@ -678,8 +678,8 @@
       "confirmReject": "Confirm rejection"
     },
     "programming": {
-      "title": "Programming",
-      "subtitle": "Receive other boxes' programming in your Whiteboard, revealed Sunday 6pm.",
+      "title": "Marketplace",
+      "subtitle": "Buy or sell programming between boxes. What you get lands in your Whiteboard, revealed Sunday 6pm.",
       "searchPlaceholder": "Search programming…",
       "free": "Free",
       "allDisciplines": "All",
@@ -1107,7 +1107,7 @@
     "subtitle": "Build your custom WOD",
     "history": "History",
     "favorites": "Favorites",
-    "programming": "Programming",
+    "programming": "Programs",
     "category": "Category",
     "duration": "Duration",
     "intention": "Intent",

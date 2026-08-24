@@ -387,7 +387,7 @@
       "repsCount": "{{count}} reps"
     },
     "programs": {
-      "title": "Programmes",
+      "title": "Programmes athlètes",
       "deleteTitle": "Supprimer ?",
       "deleteMsg": "\"{{title}}\" et tous ses WODs seront supprimés.",
       "copied": "Copié !",
@@ -477,7 +477,7 @@
       "qaManageMembers": "Gérer les membres",
       "qaTournaments": "Tournois & Scores",
       "qaInterBox": "Inter-box",
-      "qaPrograms": "Programmes",
+      "qaPrograms": "Programmes athlètes",
       "interBox": "Inter-box",
       "competitions": "Compétitions",
       "inProgress": "En cours",
@@ -498,7 +498,7 @@
       "qaNotifications": "Notifications",
       "qaArticles": "Actualités",
       "qaPublication": "Publication",
-      "qaProgramming": "Programmation"
+      "qaProgramming": "Marketplace"
     },
     "schedule": {
       "title": "Horaires & Créneaux",
@@ -678,8 +678,8 @@
       "confirmReject": "Confirmer le rejet"
     },
     "programming": {
-      "title": "Programmation",
-      "subtitle": "Recevez la programmation d'autres boxs dans votre Whiteboard, révélée le dimanche 18h.",
+      "title": "Marketplace",
+      "subtitle": "Achète ou vends des programmations entre box. Ce que tu reçois arrive dans ton Whiteboard, révélé le dimanche 18h.",
       "searchPlaceholder": "Rechercher une programmation…",
       "free": "Gratuit",
       "allDisciplines": "Toutes",
@@ -1107,7 +1107,7 @@
     "subtitle": "Crée ton WOD sur mesure",
     "history": "Historique",
     "favorites": "Favoris",
-    "programming": "Programmation",
+    "programming": "Programmes",
     "category": "Catégorie",
     "duration": "Durée",
     "intention": "Intention",
