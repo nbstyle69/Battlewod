@@ -22,6 +22,7 @@ import { HomeStackParamList, SeqBlock } from '../../navigation';
 import { blockDurationSec } from '../../utils/wodToTimer';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { ensureContrast, inkOn, inkOnSecondary, TIMER_THEMES } from '../../theme/timerInk';
 import { incrementCounter } from '../../services/gamification';
 import * as Notifications from 'expo-notifications';
 import { spacing, borderRadius, typography } from '../../theme/designTokens';
@@ -113,19 +114,6 @@ const DEFAULT_DISPLAY: TimerDisplayOpts = {
   bipsEnabled: true, allowRotation: false, themeId: 'noir', beepVolume: 1,
 };
 
-// Ensure digit color contrasts with background — returns safe color
-function ensureContrast(digitColor: string, bgColor: string): string {
-  const lum = (hex: string) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return (r * 299 + g * 587 + b * 114) / 1000;
-  };
-  const diff = Math.abs(lum(digitColor) - lum(bgColor));
-  if (diff < 60) return lum(bgColor) > 128 ? '#000000' : '#FFFFFF';
-  return digitColor;
-}
-
 // Phase-specific accent colors for visual feedback
 const PHASE_COLORS = {
   prepare: '#38BDF8',  // cyan-blue
@@ -134,20 +122,6 @@ const PHASE_COLORS = {
   done:    '#FACC15',  // gold
   ready:   '#FFFFFF',  // white
 };
-
-// ─── Timer themes ──────────────────────────────────────────────────────────────
-const TIMER_THEMES = [
-  { id: 'emerald',  label: 'Lime',     emoji: '🌿', digitColor: '#003300', bgCountdown: '#2DB80E', bgRunning: '#39FF14', bgDone: '#55FF33', accent: '#003300' },
-  { id: 'fire',     label: 'Orange',   emoji: '🔥', digitColor: '#4d1a00', bgCountdown: '#CC5200', bgRunning: '#FF6600', bgDone: '#FF8833', accent: '#4d1a00' },
-  { id: 'electric', label: 'Cyan Blue',emoji: '⚡', digitColor: '#003344', bgCountdown: '#0099CC', bgRunning: '#00BFFF', bgDone: '#33CCFF', accent: '#003344' },
-  { id: 'midnight', label: 'Violet',   emoji: '🌙', digitColor: '#FFFFFF', bgCountdown: '#AA00DD', bgRunning: '#CC00FF', bgDone: '#DD33FF', accent: '#FFFFFF' },
-  { id: 'ocean',    label: 'Cyan',     emoji: '🌊', digitColor: '#003333', bgCountdown: '#00CCCC', bgRunning: '#00FFFF', bgDone: '#33FFFF', accent: '#003333' },
-  { id: 'solar',    label: 'Yellow',   emoji: '☀️', digitColor: '#333300', bgCountdown: '#CCCC00', bgRunning: '#FFFF00', bgDone: '#FFFF44', accent: '#333300' },
-  { id: 'neon',     label: 'Pink',     emoji: '🩷', digitColor: '#FFFFFF', bgCountdown: '#CC0073', bgRunning: '#FF0090', bgDone: '#FF33AA', accent: '#FFFFFF' },
-  { id: 'rage',     label: 'Red',      emoji: '🔴', digitColor: '#FFFFFF', bgCountdown: '#CC0000', bgRunning: '#FF1414', bgDone: '#FF4444', accent: '#FFFFFF' },
-  { id: 'noir',     label: 'Noir',     emoji: '⬛', digitColor: '#39FF14', bgCountdown: '#000000', bgRunning: '#000000', bgDone: '#111111', accent: '#FFFFFF' },
-  { id: 'blanc',    label: 'Blanc',    emoji: '⬜', digitColor: '#000000', bgCountdown: '#EEEEEE', bgRunning: '#FFFFFF', bgDone: '#E8E8E8', accent: '#000000' },
-];
 
 // Curated palette — near-duplicate shades removed (only one per color family kept):
 // #FFD700≈#FFFF00 · #FF4500≈#FF6600 · #FF1493≈#FF0090 · #00E5FF≈#00FFFF · #10ff9f≈#00FF80
@@ -1394,25 +1368,27 @@ export default function TimerRunScreen() {
   // accentColor = toujours la couleur choisie par l'utilisateur (digits)
   // phaseColor = uniquement pour labels, arc stroke, badges, total bar
   const accentColor = displayOpts.digitColor;
-  const bgLum = (() => {
-    const h = currentBg.replace('#','');
-    if (h.length < 6) return 0;
-    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
-    return (r*299 + g*587 + b*114)/1000;
-  })();
-  const onBg1 = bgLum > 128 ? '#000000' : '#FFFFFF';
-  const onBg2 = bgLum > 128 ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.45)';
-  const iconColor = bgLum > 128 ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.8)';
-  const pillBg = bgLum > 128 ? 'rgba(0,0,0,0.45)' : accentColor;
-  const pillFg = bgLum > 128 ? '#FFFFFF' : '#000000';
-  const rDoneBg = bgLum > 128 ? 'rgba(0,0,0,0.75)' : accentColor;
-  const rDoneFg = bgLum > 128 ? '#FFFFFF' : '#000000';
-  const rCurBg  = bgLum > 128 ? '#000000' : '#FFFFFF';
-  const rCurFg  = bgLum > 128 ? '#FFFFFF' : '#000000';
-  const rIdleBg = bgLum > 128 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.08)';
-  const rIdleFg = bgLum > 128 ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.35)';
-  const rBorder = bgLum > 128 ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.15)';
-  const barTrack = bgLum > 128 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.08)';
+  const onBg1 = inkOn(currentBg);
+  // Les surfaces translucides suivent la même encre que le texte : sans ça, un
+  // fond vif de mi-échelle recevait un film blanc et un texte noir.
+  const isLightBg = onBg1 === '#000000';
+  const onBg2 = inkOnSecondary(currentBg);
+  const iconColor = isLightBg ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.8)';
+  const pillBg = isLightBg ? 'rgba(0,0,0,0.45)' : accentColor;
+  const pillFg = isLightBg ? '#FFFFFF' : '#000000';
+  const rDoneBg = isLightBg ? 'rgba(0,0,0,0.75)' : accentColor;
+  const rDoneFg = isLightBg ? '#FFFFFF' : '#000000';
+  const rCurBg  = isLightBg ? '#000000' : '#FFFFFF';
+  const rCurFg  = isLightBg ? '#FFFFFF' : '#000000';
+  const rIdleBg = isLightBg ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.08)';
+  const rIdleFg = isLightBg ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.35)';
+  const rBorder = isLightBg ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.15)';
+  const barTrack = isLightBg ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.08)';
+  // Le fond du minuteur est une couleur choisie par l'athlète : elle peut être
+  // blanche, jaune ou fluo. Les commandes (icônes, glyphe play/stop, boutons
+  // contextuels) sont donc encrées d'après la luminance du fond, pas en blanc.
+  const ctrlInk = withCamera ? '#FFFFFF' : onBg1;
+  const ctrlBtnBg = isLightBg && !withCamera ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.15)';
 
   // Phase label text — only show TRAVAIL/REPOS for types with work/rest phases
   const hasWorkRest = timerType === 'tabata' || timerType === 'ywyr'
@@ -1655,7 +1631,7 @@ export default function TimerRunScreen() {
               {/* ── CENTRE : temps final ── */}
               <View style={{ alignItems: 'center', gap: 4 }}>
                 <Text style={{ fontSize: 10, fontWeight: '800', color: onBg2, letterSpacing: 4, textTransform: 'uppercase' }}>TEMPS FINAL</Text>
-                <Text style={[styles.sessionTime, { color: '#FFFFFF' }]}>{mainTime}</Text>
+                <Text style={[styles.sessionTime, { color: withCamera ? '#FFFFFF' : onBg1 }]}>{mainTime}</Text>
                 {videoTitle ? <Text style={[styles.sessionTitle, { color: onBg1 }]} numberOfLines={2}>{videoTitle}</Text> : null}
                 {withCamera && <Text style={[styles.sessionDate, { color: onBg2 }]}>{clockStr}</Text>}
                 {withCamera && (
@@ -1666,8 +1642,8 @@ export default function TimerRunScreen() {
                 )}
                 {/* Bouton recommencer centré sous le timer */}
                 <TouchableOpacity onPress={handleReset} style={[styles.resetBtn, { marginTop: 8,
-                  backgroundColor: bgLum > 128 ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)',
-                  borderColor: bgLum > 128 ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)' }]} activeOpacity={0.8}>
+                  backgroundColor: isLightBg ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)',
+                  borderColor: isLightBg ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)' }]} activeOpacity={0.8}>
                   <RotateCcw color={iconColor} size={26} />
                 </TouchableOpacity>
               </View>
@@ -1718,8 +1694,8 @@ export default function TimerRunScreen() {
                 )}
                 <TouchableOpacity onPress={handleClose} style={[styles.closeResultBtn, { width: '100%', alignItems: 'center',
                   borderRadius: 16, paddingVertical: 12,
-                  backgroundColor: withCamera ? 'rgba(255,255,255,0.15)' : (bgLum > 128 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)'),
-                  borderColor: withCamera ? 'rgba(255,255,255,0.25)' : (bgLum > 128 ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)') }]} activeOpacity={0.8}>
+                  backgroundColor: withCamera ? 'rgba(255,255,255,0.15)' : (isLightBg ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)'),
+                  borderColor: withCamera ? 'rgba(255,255,255,0.25)' : (isLightBg ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)') }]} activeOpacity={0.8}>
                   <Text style={[styles.closeResultText, { color: withCamera ? '#FFFFFF' : onBg1 }]}>Fermer</Text>
                 </TouchableOpacity>
               </View>
@@ -1740,7 +1716,7 @@ export default function TimerRunScreen() {
                   {/* TOP BAR */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10,
                     paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 }}>
-                    <TouchableOpacity onPress={handleClose} style={styles.iconBtn}>
+                    <TouchableOpacity onPress={handleClose} style={[styles.iconBtn, { backgroundColor: ctrlBtnBg }]}>
                       <X color={iconColor} size={24} />
                     </TouchableOpacity>
                     <View style={{ backgroundColor: pillBg, paddingHorizontal: 14,
@@ -1760,7 +1736,7 @@ export default function TimerRunScreen() {
                       <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 10,
                         backgroundColor: innerPhase === 'work' ? 'rgba(245,158,11,0.15)' : 'rgba(96,165,250,0.15)' }}>
                         <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 2,
-                          color: innerPhase === 'work' ? '#F59E0B' : '#60A5FA' }}>
+                          color: ensureContrast(innerPhase === 'work' ? '#F59E0B' : '#60A5FA', currentBg) }}>
                           {innerPhase === 'work' ? '● TRAVAIL' : '● REPOS'}
                         </Text>
                       </View>
@@ -1770,7 +1746,7 @@ export default function TimerRunScreen() {
                       letterSpacing: 0.5, fontVariant: ['tabular-nums'] as any }}>
                       {formatTime(totalElapsed)}
                     </Text>
-                    <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.iconBtn} activeOpacity={0.7}>
+                    <TouchableOpacity onPress={() => setShowSettings(true)} style={[styles.iconBtn, { backgroundColor: ctrlBtnBg }]} activeOpacity={0.7}>
                       <Settings color={iconColor} size={20} />
                     </TouchableOpacity>
                   </View>
@@ -1834,26 +1810,26 @@ export default function TimerRunScreen() {
                     <View style={{ position: 'absolute', right: 18, bottom: 98,
                       width: 70, alignItems: 'center', gap: 8 }}>
                       {phase === 'ready' && (
-                        <Text style={[styles.readyHint, { fontSize: 8, textAlign: 'center', maxWidth: 72 }]}>
+                        <Text style={[styles.readyHint, { fontSize: 8, textAlign: 'center', maxWidth: 72, color: onBg2 }]}>
                           {'APPUIE\nPOUR\nDÉMARRER'}
                         </Text>
                       )}
                       {showEndWorkBtn && (
                         <TouchableOpacity onPress={ywyrEndWork}
                           style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
-                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center' }]}>FIN DU{"\n"}TRAVAIL</Text>
+                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center', color: ensureContrast('#4ADE80', currentBg) }]}>FIN DU{"\n"}TRAVAIL</Text>
                         </TouchableOpacity>
                       )}
                       {showYwyrEndBtn && (
                         <TouchableOpacity onPress={handleStop}
                           style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6, backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.5)' }]} activeOpacity={0.8}>
-                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center', color: '#EF4444' }]}>TERMINER</Text>
+                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center', color: ensureContrast('#EF4444', currentBg) }]}>TERMINER</Text>
                         </TouchableOpacity>
                       )}
                       {showEndBlockBtn && (
                         <TouchableOpacity onPress={libreEndForTimeBlock}
                           style={[styles.ywyrBtn, { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
-                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center' }]}>FIN DU{"\n"}BLOC</Text>
+                          <Text style={[styles.ywyrBtnText, { fontSize: 9, textAlign: 'center', color: ensureContrast('#4ADE80', currentBg) }]}>FIN DU{"\n"}BLOC</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -1876,9 +1852,9 @@ export default function TimerRunScreen() {
                   >
                     {isYwyrSolo && phase === 'running'
                       ? (innerPhase === 'work'
-                          ? <RotateCcw color="#fff" size={24} />
-                          : <Play color="#fff" size={26} fill="#fff" />)
-                      : isActive ? <Square color="#fff" size={24} fill="#fff" /> : <Play color="#fff" size={26} fill="#fff" />}
+                          ? <RotateCcw color={ctrlInk} size={24} />
+                          : <Play color={ctrlInk} size={26} fill={ctrlInk} />)
+                      : isActive ? <Square color={ctrlInk} size={24} fill={ctrlInk} /> : <Play color={ctrlInk} size={26} fill={ctrlInk} />}
                   </TouchableOpacity>
 
                 </View>
@@ -2037,7 +2013,7 @@ export default function TimerRunScreen() {
                   <View style={{ marginHorizontal: 20, marginTop: 8, padding: 14, borderRadius: 14,
                     backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 1,
                     borderColor: 'rgba(245,158,11,0.3)' }}>
-                    <Text style={{ color: 'rgba(245,158,11,0.7)', fontSize: 10, fontWeight: '900',
+                    <Text style={{ color: ensureContrast('#F59E0B', currentBg), fontSize: 10, fontWeight: '900',
                       letterSpacing: 2, marginBottom: 3 }}>SUIVANT</Text>
                     <Text style={{ color: onBg1, fontSize: 15, fontWeight: '700' }}>{nextExercise}</Text>
                   </View>
@@ -2060,9 +2036,9 @@ export default function TimerRunScreen() {
                   >
                     {isYwyrSolo && phase === 'running'
                       ? (innerPhase === 'work'
-                          ? <RotateCcw color="#fff" size={28} />
-                          : <Play color="#fff" size={30} fill="#fff" />)
-                      : isActive ? <Square color="#fff" size={28} fill="#fff" /> : <Play color="#fff" size={30} fill="#fff" />}
+                          ? <RotateCcw color={ctrlInk} size={28} />
+                          : <Play color={ctrlInk} size={30} fill={ctrlInk} />)
+                      : isActive ? <Square color={ctrlInk} size={28} fill={ctrlInk} /> : <Play color={ctrlInk} size={30} fill={ctrlInk} />}
                   </TouchableOpacity>
                   {/* fixed-height hint slot so the button stays put between play↔stop */}
                   <View style={{ height: 18, justifyContent: 'center' }}>

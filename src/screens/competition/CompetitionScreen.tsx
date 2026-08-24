@@ -309,7 +309,7 @@ export default function CompetitionScreen() {
               >
                 <View style={S.officialBadgeRow}>
                   <View style={S.officialBadge}>
-                    <Flame color="#fff" size={13} />
+                    <Flame color={theme.onAccent} size={13} />
                     <Text style={S.officialBadgeTxt}>{t('competition.wodOfDay')}</Text>
                   </View>
                   <Text style={S.officialTime}>{timeLeft(officialWod.ends_at)}</Text>
@@ -324,7 +324,7 @@ export default function CompetitionScreen() {
                     </Text>
                   </View>
                   <View style={[S.officialCta, officialWod.has_scored && { backgroundColor: `${theme.accent}15` }]}>
-                    <Text style={[S.officialCtaTxt, officialWod.has_scored && { color: theme.accent }]}>
+                    <Text style={[S.officialCtaTxt, officialWod.has_scored && { color: theme.accentText }]}>
                       {officialWod.has_scored ? t('competition.wodOfDayScored') : t('competition.wodOfDayPlay')}
                     </Text>
                   </View>
@@ -342,7 +342,7 @@ export default function CompetitionScreen() {
               style={[S.createButton, S.createGradient]}
               onPress={() => navigation.navigate('DailyTournaments')}
             >
-                <Plus color="#fff" size={20} />
+                <Plus color={theme.text} size={20} />
                 <Text style={S.createText}>{t('competition.createDaily')}</Text>
             </TouchableOpacity>
 
@@ -408,7 +408,7 @@ export default function CompetitionScreen() {
                       </TouchableOpacity>
                     ) : m.has_joined ? (
                       <View style={[S.joinButton, { backgroundColor: `${theme.accent}15` }]}>
-                        <Text style={[S.joinButtonText, { color: theme.accent }]}>{t('competition.joined')}</Text>
+                        <Text style={[S.joinButtonText, { color: theme.accentText }]}>{t('competition.joined')}</Text>
                       </View>
                     ) : null}
                   </TouchableOpacity>
@@ -468,7 +468,7 @@ export default function CompetitionScreen() {
               style={[S.createButton, S.createGradient, { backgroundColor: 'rgba(201,162,39,0.25)', borderColor: 'rgba(201,162,39,0.8)' }]}
               onPress={() => navigation.navigate('InterCompetitionList')}
             >
-              <Globe2 color="#fff" size={20} />
+              <Globe2 color={theme.text} size={20} />
               <Text style={S.createText}>{t('competition.seeInterBox')}</Text>
             </TouchableOpacity>
             <View style={[S.physInfoBox, { borderColor: '#C9A22725', backgroundColor: '#C9A22710' }]}>
@@ -517,7 +517,7 @@ function createStyles(theme: AppTheme) {
     backgroundColor: theme.ctaBg,
     borderWidth: 2, borderColor: theme.ctaBorder,
   },
-  createText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  createText: { color: theme.text, fontWeight: '700', fontSize: 15 },
   vsAvatar: {
     width: 46, height: 46, borderRadius: 16,
     backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center',
@@ -569,7 +569,7 @@ function createStyles(theme: AppTheme) {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
   },
-  officialBadgeTxt: { fontSize: 11, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
+  officialBadgeTxt: { fontSize: 11, fontWeight: '900', color: theme.onAccent, letterSpacing: 0.3 },
   officialTime: { fontSize: 12, fontWeight: '800', color: theme.accent },
   officialName: { fontSize: 18, fontWeight: '900', color: theme.text },
   officialSub: { fontSize: 12, fontWeight: '600', color: theme.textMuted, marginTop: 2 },
@@ -577,7 +577,7 @@ function createStyles(theme: AppTheme) {
   officialParticipants: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   officialParticipantsTxt: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
   officialCta: { backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
-  officialCtaTxt: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  officialCtaTxt: { fontSize: 12, fontWeight: '800', color: theme.onAccent },
   miniCard: {
     backgroundColor: isDark ? theme.card : theme.card, borderRadius: 16, padding: 16,
     marginBottom: 10, borderWidth: 1, borderColor: theme.border,
@@ -595,7 +595,7 @@ function createStyles(theme: AppTheme) {
     borderRadius: 14, padding: 12, alignItems: 'center',
     backgroundColor: theme.accent, marginTop: 4,
   },
-  joinButtonText: { color: '#fff', fontWeight: '700', fontSize: 13, letterSpacing: 0.5 },
+  joinButtonText: { color: theme.onAccent, fontWeight: '700', fontSize: 13, letterSpacing: 0.5 },
   emptyBox:   { alignItems: 'center', paddingTop: 48, gap: 10 },
   emptyEmoji: { fontSize: 36 },
   emptyText:  { fontSize: 14, color: theme.textMuted, textAlign: 'center' },
