@@ -1332,6 +1332,93 @@ export type Database = {
           },
         ]
       }
+      box_prospects: {
+        Row: {
+          box_id: string
+          converted_member_id: string | null
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string | null
+          notes: string | null
+          phone: string | null
+          plan_id: string | null
+          schedule_id: string | null
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          box_id: string
+          converted_member_id?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          plan_id?: string | null
+          schedule_id?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          box_id?: string
+          converted_member_id?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          plan_id?: string | null
+          schedule_id?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_prospects_box_id_fkey"
+            columns: ["box_id"]
+            isOneToOne: false
+            referencedRelation: "boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_prospects_converted_member_id_fkey"
+            columns: ["converted_member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_prospects_converted_member_id_fkey"
+            columns: ["converted_member_id"]
+            isOneToOne: false
+            referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_prospects_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_prospects_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       box_subscriptions: {
         Row: {
           box_id: string
@@ -1675,7 +1762,9 @@ export type Database = {
           created_at: string | null
           credit_id: string | null
           id: string
+          is_trial: boolean
           member_id: string | null
+          prospect_id: string | null
           schedule_id: string | null
           status: string
         }
@@ -1685,7 +1774,9 @@ export type Database = {
           created_at?: string | null
           credit_id?: string | null
           id?: string
+          is_trial?: boolean
           member_id?: string | null
+          prospect_id?: string | null
           schedule_id?: string | null
           status?: string
         }
@@ -1695,7 +1786,9 @@ export type Database = {
           created_at?: string | null
           credit_id?: string | null
           id?: string
+          is_trial?: boolean
           member_id?: string | null
+          prospect_id?: string | null
           schedule_id?: string | null
           status?: string
         }
@@ -1726,6 +1819,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "public_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_reservations_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "box_prospects"
             referencedColumns: ["id"]
           },
           {
@@ -7363,6 +7463,17 @@ export type Database = {
         Returns: boolean
       }
       book_appointment_slot: { Args: { p_slot_id: string }; Returns: string }
+      book_trial_slot: {
+        Args: {
+          p_box_id: string
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_phone?: string
+          p_schedule_id: string
+        }
+        Returns: Json
+      }
       box_subscribes_programming: {
         Args: { p_programming_id: string }
         Returns: boolean
@@ -7904,6 +8015,10 @@ export type Database = {
           wod_id: string
         }[]
       }
+      list_public_trial_slots: {
+        Args: { p_box_id: string; p_days?: number }
+        Returns: Json
+      }
       list_week_templates: {
         Args: { p_box_id: string }
         Returns: {
@@ -8013,6 +8128,7 @@ export type Database = {
         }
         Returns: Json
       }
+      slugify_box_name: { Args: { p_name: string }; Returns: string }
       submit_followup_feedback: {
         Args: { p_comment?: string; p_followup_id: string; p_rating: number }
         Returns: undefined
