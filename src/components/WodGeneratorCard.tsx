@@ -1628,7 +1628,7 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
       {/* Programmation button */}
       <TouchableOpacity style={s.progBtn} onPress={() => navigation.navigate('Explorer', { screen: 'Programmation' })} activeOpacity={0.8}>
         <BookOpen color={theme.accent} size={16} />
-        <Text style={s.progBtnTxt}>Programmation</Text>
+        <Text style={s.progBtnTxt}>Programmes</Text>
         <ChevronRight color={theme.textSecondary} size={14} />
       </TouchableOpacity>
 
