@@ -75,6 +75,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Annuaire public des box et page publique de box (`/box`, `/box/[slug]`) | 16 août 2026 |
 | Facturation du gérant : Solo, puis Multi à +29 €/box au-delà de la première | 16 août 2026 |
 | Suivi des prospects après une séance d'essai : feedback, RDV, relances push et e-mail | 16 août 2026 |
+| Socle serveur de l'offre Essai : un visiteur sans compte réserve un cours, l'essai est gratuit parce que la base refuse un essai payant, un cours complet est refusé au lieu de faire espérer | 24 août 2026 |
 
 ### Sécurité et rôles
 
@@ -90,6 +91,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Notifications : préférences réellement respectées, rappels annulés quand on les désactive, tournoi notifié aux seuls participants | 17 août 2026 |
 | Audit nocturne des droits sur la vraie base de production, en lecture seule, qui compte ses propres contrôles | 21 août 2026 |
 | Les heures sont écrites au format `HH:MM` et le serveur refuse le reste — le tri reste juste demain | 23 août 2026 |
+| Les coordonnées d'un prospect sont hors de la table que tout adhérent de la box peut lire, et la clé publique n'y a aucun droit — même en lecture | 24 août 2026 |
 
 ### Mises à jour de l'app (OTA) et livraison
 
@@ -120,10 +122,10 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 
 ## En cours
 
-**Offre Essai (tunnel d'acquisition de prospects).** Le socle serveur est écrit : le
-visiteur peut réserver sans compte, l'essai est gratuit parce que la base refuse un essai
-payant, un cours complet est refusé au lieu de mettre le visiteur en liste d'attente sans le
-dire, et ses coordonnées ne sont pas dans la table que tout adhérent de la box peut lire.
+**Offre Essai (tunnel d'acquisition de prospects).** Le socle serveur est en production
+depuis le 24 août, et il y est constaté sur la vraie base : le type d'offre « Essai » est
+accepté à 0 €, refusé à 30 € ; une réservation sans adhérent et sans prospect est refusée ;
+la table des prospects est fermée à la clé publique, en lecture comme en écriture.
 
 **Ce qui reste :** les écrans. Le bouton « Essai » et le calendrier sur la page publique de
 la box, le 4e type d'offre dans « Nouvelle offre », l'affichage des prospects sans compte
@@ -131,8 +133,12 @@ dans Prospects, la mention « Essai » dans la liste de présence du coach, l'e-
 confirmation, et le fait de ne plus compter un essai comme un adhérent dans les
 statistiques.
 
-**Ce qui bloque :** rien. Ce socle n'est pas encore en production : il y sera appliqué au
-merge, et il ne montera dans la liste du haut qu'une fois constaté sur la base réelle.
+**Ce qui bloque :** rien.
+
+**Ce qui n'est pas constaté en production, et je ne le compte pas :** une réservation
+d'essai réussie. Aucune box n'a encore d'offre Essai active, donc la production répond
+`offre_essai_absente` — un refus nommé, pas une panne. Le chemin heureux est prouvé sur une
+base jetable, pas sur la vraie : il le sera au premier essai réservé depuis les écrans.
 
 **Une limite nommée plutôt que supposée :** le plafond par adresse e-mail est tenu par la
 base (donc prouvable). Le plafond par adresse Internet du visiteur sera tenu par le site
