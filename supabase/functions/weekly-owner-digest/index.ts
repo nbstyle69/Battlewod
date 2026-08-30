@@ -30,6 +30,7 @@ interface DigestRow {
   attendances: number;
   members_at_risk: number;
   past_due_count: number;
+  trials: number;
 }
 
 serve(async (req: Request) => {
@@ -73,6 +74,9 @@ serve(async (req: Request) => {
         [`${r.attendances}`, r.attendances > 1 ? 'présences pointées' : 'présence pointée', '/schedules'],
         [`${r.members_at_risk}`, r.members_at_risk > 1 ? 'membres à relancer' : 'membre à relancer', '/stats'],
         [`${r.past_due_count}`, r.past_due_count > 1 ? 'impayés' : 'impayé', '/subscribers'],
+        // L'acquisition a sa ligne : un essai n'est pas une présence d'adhérent,
+        // et le gérant a un écran où le relancer.
+        [`${r.trials ?? 0}`, (r.trials ?? 0) > 1 ? 'essais réservés' : 'essai réservé', '/prospects'],
       ];
 
       const html = `<!DOCTYPE html><html><body style="margin:0;background:#000;font-family:Arial,Helvetica,sans-serif;color:#fff">
