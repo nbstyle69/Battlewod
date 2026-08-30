@@ -9,6 +9,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { openExternalUrl, pollUntilTrue } from '../../lib/openCheckout';
 import { supabase } from '../../lib/supabase';
 import { PRICING_URL } from '../../lib/urls';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 export default function BOPaywallScreen() {
   const { currentBox, signOut, refreshSubscription } = useAuth();
@@ -53,6 +54,7 @@ export default function BOPaywallScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <ScrollView contentContainerStyle={S.inner} showsVerticalScrollIndicator={false}>
         <View style={S.lockIcon}>
           <Lock color={theme.error} size={40} />
@@ -128,7 +130,7 @@ export default function BOPaywallScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   inner: {
     flexGrow: 1, justifyContent: 'center', alignItems: 'center',
     paddingHorizontal: 28, paddingVertical: 48, gap: 20,

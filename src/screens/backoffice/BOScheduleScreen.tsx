@@ -13,6 +13,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import DateField from '../../components/DateField';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface ClassSchedule {
   id: string;
@@ -393,6 +394,7 @@ export default function BOScheduleScreen({ navigation }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <Text style={S.headerTitle}>{t('bo.schedule.title')}</Text>
         <Text style={S.headerSub}>{currentBox?.name ?? ''}</Text>
@@ -738,7 +740,7 @@ export default function BOScheduleScreen({ navigation }: any) {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container:       { flex: 1, backgroundColor: t.background },
+    container:       { flex: 1, backgroundColor: 'transparent' },
     header:          { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
     headerTitle:     { fontSize: 26, fontWeight: '900', color: t.text, letterSpacing: -0.5 },
     headerSub:       { fontSize: 13, color: t.textMuted, marginTop: 2 },

@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface Article {
   id: string;
@@ -136,6 +137,7 @@ export default function BOArticlesScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -143,6 +145,7 @@ export default function BOArticlesScreen() {
 
   return (
     <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <GlassBackground />
       <View style={S.header}>
         <Newspaper color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.articles.title')}</Text>
@@ -226,7 +229,7 @@ export default function BOArticlesScreen() {
 }
 
 function styles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

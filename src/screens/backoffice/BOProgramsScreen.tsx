@@ -12,6 +12,7 @@ import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { Program } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 function genCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -143,6 +144,7 @@ export default function BOProgramsScreen({ navigation }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.text} size={22} />
@@ -285,7 +287,7 @@ export default function BOProgramsScreen({ navigation }: any) {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12, backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border },
     back: { padding: 4, marginRight: 8 },
     headerTitle: { flex: 1, fontSize: 20, fontWeight: '800', color: t.text },

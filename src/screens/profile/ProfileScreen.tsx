@@ -31,6 +31,7 @@ import { prKey, normalizePrRecords, PrCategorySlug, WEIGHTLIFTING_PR_MOVEMENTS }
 import GymDeclarationSection from '../../components/wod/GymDeclarationSection';
 import StrengthHistory from '../../components/profile/StrengthHistory';
 import { fetchMyStrengthSets, groupStrengthSessions } from '../../services/strengthSets';
+import { inkOn } from '../../theme/ink';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Profile'>;
 
@@ -978,7 +979,7 @@ export default function ProfileScreen() {
                 <Text style={S.noBoxText}>{t('profile.account.noBox')}</Text>
               )}
               <TouchableOpacity style={S.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
-                <Hash color={theme.background} size={16} />
+                <Hash color={theme.text} size={16} />
                 <Text style={S.joinBtnText}>{t('profile.account.joinBox')}</Text>
               </TouchableOpacity>
               {myBoxes.some(e => e.role === 'member') && (
@@ -1041,7 +1042,7 @@ export default function ProfileScreen() {
                 <Text style={S.noBoxText}>{t('profile.account.noProgram')}</Text>
               )}
               <TouchableOpacity style={S.joinBtn} onPress={() => setProgModal(true)} activeOpacity={0.8}>
-                <BookOpen color={theme.background} size={16} />
+                <BookOpen color={theme.text} size={16} />
                 <Text style={S.joinBtnText}>{t('profile.account.joinProgram')}</Text>
               </TouchableOpacity>
             </View>
@@ -1156,7 +1157,7 @@ export default function ProfileScreen() {
                   />
 
                   <TouchableOpacity style={S.saveBtn} onPress={handleSaveProfile} disabled={saving} activeOpacity={0.85}>
-                    {saving ? <ActivityIndicator color={theme.background} size="small" /> : <><Check color={theme.background} size={16} /><Text style={S.saveBtnText}>{t('common.save')}</Text></>}
+                    {saving ? <ActivityIndicator color={theme.onAccent} size="small" /> : <><Check color={theme.onAccent} size={16} /><Text style={S.saveBtnText}>{t('common.save')}</Text></>}
                   </TouchableOpacity>
 
                   <TouchableOpacity style={S.pwdBtn} onPress={() => setPwdModal(true)} activeOpacity={0.85}>
@@ -1303,8 +1304,8 @@ export default function ProfileScreen() {
                   <Text style={S.referralBtnText}>{t('profile.referral.copy')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[S.referralBtn, S.referralBtnShare]} onPress={handleShareReferral} disabled={!referralCode} activeOpacity={0.8}>
-                  <Share2 color={theme.background} size={15} />
-                  <Text style={[S.referralBtnText, { color: theme.background }]}>{t('profile.referral.share')}</Text>
+                  <Share2 color={theme.onAccent} size={15} />
+                  <Text style={[S.referralBtnText, { color: theme.onAccent }]}>{t('profile.referral.share')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1322,7 +1323,7 @@ export default function ProfileScreen() {
                 activeOpacity={0.8}
               >
                 {deleting ? (
-                  <ActivityIndicator color={theme.background} size="small" />
+                  <ActivityIndicator color={inkOn(theme.error)} size="small" />
                 ) : (
                   <Text style={S.deleteAccountText}>{t('profile.deleteAccount')}</Text>
                 )}
@@ -1357,7 +1358,7 @@ export default function ProfileScreen() {
               disabled={!joinCode.trim() || joining}
               activeOpacity={0.85}
             >
-              {joining ? <ActivityIndicator color={theme.background} size="small" /> : <><Hash color={theme.background} size={16} /><Text style={S.joinBtnText}>{t('profile.account.join')}</Text></>}
+              {joining ? <ActivityIndicator color={theme.text} size="small" /> : <><Hash color={theme.text} size={16} /><Text style={S.joinBtnText}>{t('profile.account.join')}</Text></>}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setJoinModal(false)} style={S.modalCancel}>
               <Text style={S.modalCancelText}>{t('common.cancel')}</Text>
@@ -1405,7 +1406,7 @@ export default function ProfileScreen() {
               disabled={!currentPwd || !newPwd || !confirmPwd || changingPwd}
               activeOpacity={0.85}
             >
-              {changingPwd ? <ActivityIndicator color={theme.background} size="small" /> : <><Lock color={theme.background} size={16} /><Text style={S.joinBtnText}>{t('common.save')}</Text></>}
+              {changingPwd ? <ActivityIndicator color={theme.text} size="small" /> : <><Lock color={theme.text} size={16} /><Text style={S.joinBtnText}>{t('common.save')}</Text></>}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setPwdModal(false); setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); }} style={S.modalCancel}>
               <Text style={S.modalCancelText}>{t('common.cancel')}</Text>
@@ -1432,12 +1433,12 @@ export default function ProfileScreen() {
               autoFocus
             />
             <TouchableOpacity
-              style={[S.joinBtn, { backgroundColor: theme.accent }, (!progCode.trim() || joiningProg) && { opacity: 0.5 }]}
+              style={[S.joinBtn, (!progCode.trim() || joiningProg) && { opacity: 0.5 }]}
               onPress={handleJoinProgram}
               disabled={!progCode.trim() || joiningProg}
               activeOpacity={0.85}
             >
-              {joiningProg ? <ActivityIndicator color={theme.background} size="small" /> : <><BookOpen color={theme.background} size={16} /><Text style={S.joinBtnText}>{t('profile.account.join')}</Text></>}
+              {joiningProg ? <ActivityIndicator color={theme.text} size="small" /> : <><BookOpen color={theme.text} size={16} /><Text style={S.joinBtnText}>{t('profile.account.join')}</Text></>}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setProgModal(false)} style={S.modalCancel}>
               <Text style={S.modalCancelText}>{t('common.cancel')}</Text>
@@ -1615,7 +1616,7 @@ function createStyles(t: AppTheme) {
     gap: 8, backgroundColor: t.ctaBg, borderRadius: 14, padding: 14,
     borderWidth: 1.5, borderColor: t.ctaBorder,
   },
-  joinBtnText: { color: t.background, fontSize: 14, fontWeight: '700' },
+  joinBtnText: { color: t.text, fontSize: 14, fontWeight: '700' },
   manageSubBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: 'transparent', borderRadius: 14, padding: 13,
@@ -1650,7 +1651,7 @@ function createStyles(t: AppTheme) {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: t.accent, borderRadius: 14, padding: 14, marginTop: 4,
   },
-  saveBtnText: { color: t.background, fontSize: 14, fontWeight: '700' },
+  saveBtnText: { color: t.onAccent, fontSize: 14, fontWeight: '700' },
 
   genderRow: { flexDirection: 'row', gap: 10 },
   genderCard: {

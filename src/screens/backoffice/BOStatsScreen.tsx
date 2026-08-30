@@ -9,6 +9,7 @@ import { readRows } from '../../lib/db';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface WeeklyParticipation { week: string; count: number }
 interface TopAthlete { username: string; score_count: number; user_id: string }
@@ -155,6 +156,7 @@ export default function BOStatsScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -162,6 +164,7 @@ export default function BOStatsScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <BarChart3 color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.stats.title')}</Text>
@@ -283,7 +286,7 @@ export default function BOStatsScreen() {
 }
 
 function styles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

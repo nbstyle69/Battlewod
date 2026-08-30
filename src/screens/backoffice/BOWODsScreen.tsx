@@ -20,6 +20,7 @@ import InteractiveTour, { COACH_TOUR_STEPS } from '../../components/InteractiveT
 import { MOVEMENT_CATALOG, isWeightedMovement, serializeMovement, parseMovementRow } from '../../utils/movementsCatalog';
 import { splitStrengthLines, parseStrengthLine, formatStrengthPrescription } from '../../utils/strengthBlock';
 import { formatCap, parseCap } from '../../utils/scoreFormat';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const WOD_TYPES: { value: BoxWODType; labelKey: string }[] = [
   { value: 'for-time', labelKey: 'bo.wods.typeForTime' },
@@ -356,6 +357,7 @@ export default function BOWODsScreen({ navigation }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.text} size={22} />
@@ -705,7 +707,7 @@ export default function BOWODsScreen({ navigation }: any) {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 16, paddingBottom: 14,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
