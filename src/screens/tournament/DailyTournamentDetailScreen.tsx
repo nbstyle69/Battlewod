@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { LevelColors } from '../../theme/designTokens';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { HUES, hue } from '../../theme/hues';
+import { inkOn } from '../../theme/ink';
 import { incrementCounter, logMovementReps } from '../../services/gamification';
 import { cancelTodayScoreReminder } from '../../services/notifications';
 import { computeCompletedMovements } from '../../utils/movementParser';
@@ -584,7 +585,7 @@ export default function DailyTournamentDetailScreen() {
             </View>
           )}
           <View style={[S.badge, { backgroundColor: `${theme.accent}12` }]}>
-            <Text style={[S.badgeTxt, { color: theme.accent }]}>{tournament.wod_type}</Text>
+            <Text style={[S.badgeTxt, { color: theme.accentText }]}>{tournament.wod_type}</Text>
           </View>
           <View style={[S.badge, { backgroundColor: `${levelColor}20` }]}>
             <Text style={[S.badgeTxt, { color: levelColor }]}>{tournament.level.toUpperCase()}</Text>
@@ -612,7 +613,7 @@ export default function DailyTournamentDetailScreen() {
         {/* Reward / official banner */}
         {isOfficial ? (
           <View style={S.rewardCard}>
-            <Flame color={theme.accent} size={18} />
+            <Flame color={theme.accentText} size={18} />
             <Text style={S.rewardTxt}>WOD du Jour officiel · classement RX / Scaled · ouvert à toute la communauté</Text>
           </View>
         ) : (
@@ -648,7 +649,7 @@ export default function DailyTournamentDetailScreen() {
             <Text style={S.wodTitle}>{tournament.wod_name}</Text>
             {isOfficial && (
               <View style={[S.wodVariantTag, { backgroundColor: `${theme.accent}15` }]}>
-                <Text style={[S.wodVariantTxt, { color: theme.accent }]}>{boardTab === 'rx' ? 'RX' : 'SCALED'}</Text>
+                <Text style={[S.wodVariantTxt, { color: theme.accentText }]}>{boardTab === 'rx' ? 'RX' : 'SCALED'}</Text>
               </View>
             )}
           </View>
@@ -905,7 +906,7 @@ export default function DailyTournamentDetailScreen() {
               multiline
             />
             <TouchableOpacity style={S.contestConfirmBtn} onPress={handleContestScore} activeOpacity={0.85}>
-              <AlertTriangle color="#fff" size={16} />
+              <AlertTriangle color={inkOn(theme.error)} size={16} />
               <Text style={S.contestConfirmTxt}>Confirmer la contestation</Text>
             </TouchableOpacity>
             <TouchableOpacity style={S.modalCancelBtn} onPress={() => setContestModal(null)}>
@@ -1077,7 +1078,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: t.error, borderRadius: 12, padding: 14,
   },
-  contestConfirmTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  contestConfirmTxt: { color: inkOn(t.error), fontSize: 14, fontWeight: '900' },
   modalCancelBtn: { alignItems: 'center', padding: 12 },
   modalCancelTxt: { fontSize: 14, color: t.textMuted, fontWeight: '700' },
 }); }

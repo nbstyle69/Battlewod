@@ -295,7 +295,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
     marginRight: 6,
   },
   hourChipSel: { backgroundColor: `${t.accent}15`, borderColor: t.accent },
-  hourChipOff: { opacity: 0.5 },
+  hourChipOff: { backgroundColor: t.surfaceAlt, borderStyle: 'dashed' },
   pending: { width: 51, alignItems: 'flex-end' },
   hourTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
   hourTxtSel: { color: t.accentText, fontWeight: '900' },

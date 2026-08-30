@@ -17,6 +17,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { scheduleTournamentReminder } from '../../services/notifications';
 import { LevelColors } from '../../theme/designTokens';
+import { hue } from '../../theme/hues';
+import { darkTheme } from '../../theme/palette';
 import { AthleteLevel } from '../../types';
 import { CompetitionStackParamList } from '../../navigation';
 import {
@@ -355,13 +357,14 @@ export default function TournamentScreen() {
                 {(tournament.level ?? 'RX').toUpperCase()}
               </Text>
             </View>
+            {/* L'en-tête est un dégradé sombre dans les deux thèmes : son encre vient du thème sombre. */}
             <View style={[S.statusBadge, {
-              backgroundColor: tournament.status === 'open' ? `${theme.success}20`
-                : tournament.status === 'active' ? `${theme.accent}20` : `${theme.textMuted}20`,
+              backgroundColor: tournament.status === 'open' ? `${darkTheme.success}20`
+                : tournament.status === 'active' ? `${darkTheme.accent}20` : `${darkTheme.textMuted}20`,
             }]}>
               <Text style={[S.statusBadgeText, {
-                color: tournament.status === 'open' ? theme.success
-                  : tournament.status === 'active' ? theme.accent : theme.textMuted,
+                color: tournament.status === 'open' ? darkTheme.success
+                  : tournament.status === 'active' ? darkTheme.accent : darkTheme.textMuted,
               }]}>
                 {tournament.status === 'open' ? t('tournament.badgeOpen') : tournament.status === 'active' ? t('tournament.statusActive') : t('tournament.statusClosed')}
               </Text>
@@ -505,8 +508,8 @@ export default function TournamentScreen() {
               <TouchableOpacity style={[S.registerBtn, S.registerBtnInner, registering && { opacity: 0.6 }]} onPress={handleRegister}
                 disabled={registering} activeOpacity={0.85}>
                 {registering
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Zap color="#fff" size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? t('tournament.joinLeague') : t('tournament.registerToTournament')}</Text></>}
+                  ? <ActivityIndicator color={theme.text} size="small" />
+                  : <><Zap color={theme.text} size={18} /><Text style={S.registerBtnText}>{tournament?.format === 'league_div' ? t('tournament.joinLeague') : t('tournament.registerToTournament')}</Text></>}
               </TouchableOpacity>
             )}
             {isRegistered && (
@@ -539,14 +542,14 @@ export default function TournamentScreen() {
             {/* Format banner */}
             {(tournament.format === 'bracket' || tournament.format === 'swiss' || tournament.format === 'league_div') && (
               <View style={[S.card, { borderColor: '#A855F740', borderWidth: 1, backgroundColor: 'rgba(168,85,247,0.06)' }]}>
-                <Text style={[S.cardLabel, { color: '#A855F7' }]}>{t('tournament.format')}</Text>
+                <Text style={[S.cardLabel, { color: hue(theme.mode, 'violet') }]}>{t('tournament.format')}</Text>
                 <Text style={[S.descText, { fontWeight: '900' }]}>
                   {tournament.format === 'bracket' ? t('tournament.formatBracket') :
                    tournament.format === 'swiss'   ? t('tournament.formatSwiss') :
                                                      t('tournament.formatLeagueDiv')}
                 </Text>
                 {tournament.require_video_proof && (
-                  <Text style={[S.ruleText, { color: '#F59E0B', marginTop: 8 }]}>
+                  <Text style={[S.ruleText, { color: hue(theme.mode, 'amber'), marginTop: 8 }]}>
                     {t('tournament.videoProofRequired')}
                   </Text>
                 )}
@@ -637,7 +640,7 @@ export default function TournamentScreen() {
                         </Text>
                         {(myScore as any).admin_message ? (
                           <View style={S.adminMsgBox}>
-                            <MessageSquare color={theme.accent} size={12} />
+                            <MessageSquare color={theme.accentText} size={12} />
                             <Text style={S.adminMsgText}>{(myScore as any).admin_message}</Text>
                           </View>
                         ) : null}
@@ -646,7 +649,7 @@ export default function TournamentScreen() {
                   )}
                   {canDo && (
                     <TouchableOpacity style={[S.wodActionBtn, S.wodActionBtnInner]} onPress={() => goToWOD(wod)} activeOpacity={0.85}>
-                      <Timer color="#fff" size={16} />
+                      <Timer color={theme.text} size={16} />
                       <Text style={S.wodActionBtnText}>{t('tournament.launchWod')}</Text>
                     </TouchableOpacity>
                   )}
@@ -658,7 +661,7 @@ export default function TournamentScreen() {
                   )}
                   {myScore?.status === 'rejected' && (
                     <TouchableOpacity style={[S.wodActionBtn, S.wodActionBtnRejected]} onPress={() => goToWOD(wod)} activeOpacity={0.85}>
-                      <Timer color="#fff" size={16} />
+                      <Timer color={theme.text} size={16} />
                       <Text style={S.wodActionBtnText}>{t('tournament.submitAgain')}</Text>
                     </TouchableOpacity>
                   )}
@@ -673,7 +676,7 @@ export default function TournamentScreen() {
           <>
             {isAdmin && (
               <View style={S.adminBanner}>
-                <Shield color={theme.accent} size={14} />
+                <Shield color={theme.accentText} size={14} />
                 <Text style={S.adminBannerText}>{t('tournament.adminBanner')}</Text>
               </View>
             )}
@@ -699,7 +702,7 @@ export default function TournamentScreen() {
                   </View>
                   <View style={S.partInfo}>
                     <View style={S.partNameRow}>
-                      <Text style={[S.partName, isMe && { color: theme.accent }]}>
+                      <Text style={[S.partName, isMe && { color: theme.accentText }]}>
                         {p.profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                       </Text>
                       {p.profile?.level && (
@@ -806,7 +809,7 @@ export default function TournamentScreen() {
                     />
                     <View style={S.rankInfo}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Text style={[S.rankName, isMe && { color: theme.accent }]}>
+                        <Text style={[S.rankName, isMe && { color: theme.accentText }]}>
                           {p.profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                         </Text>
                         {myDiv && (
@@ -867,7 +870,7 @@ export default function TournamentScreen() {
                         />
                         <View style={S.rankInfo}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <Text style={[S.rankName, isMe && { color: theme.accent }]}>
+                            <Text style={[S.rankName, isMe && { color: theme.accentText }]}>
                               {m.profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                             </Text>
                             {isPromoted && (
@@ -931,7 +934,7 @@ export default function TournamentScreen() {
                           textColor={theme.text}
                         />
                         <View style={S.rankInfo}>
-                          <Text style={[S.rankName, isMe && { color: theme.accent }]}>
+                          <Text style={[S.rankName, isMe && { color: theme.accentText }]}>
                             {profile?.username ?? '?'}{isMe ? t('tournament.youSuffix') : ''}
                           </Text>
                         </View>
@@ -958,7 +961,7 @@ export default function TournamentScreen() {
                 Alert.alert('✅', t('tournament.leaderboardRecalculated'));
               }}
               activeOpacity={0.8}>
-              <RotateCcw color={theme.accent} size={13} />
+              <RotateCcw color={theme.accentText} size={13} />
               <Text style={S.recalcBtnText}>{t('tournament.recalcLeaderboard')}</Text>
             </TouchableOpacity>
 
@@ -1061,7 +1064,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   tab:           { paddingHorizontal: 16, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive:     { borderBottomColor: theme.accent },
   tabText:       { fontSize: 13, fontWeight: '600', color: theme.textMuted },
-  tabTextActive: { color: theme.accent, fontWeight: '700' },
+  tabTextActive: { color: theme.accentText, fontWeight: '700' },
   content: { padding: 16, paddingTop: 14, paddingBottom: 120 },
   card:      { backgroundColor: theme.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.cardBorder, gap: 8, marginBottom: 14 },
   cardLabel: { fontSize: 10, fontWeight: '800', color: theme.textMuted, letterSpacing: 1.5 },
@@ -1077,7 +1080,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   ruleText:  { fontSize: 13, color: theme.textSecondary, lineHeight: 22 },
   registerBtn:      { marginBottom: 12 },
   registerBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, padding: 18, backgroundColor: theme.ctaBg, borderWidth: 2, borderColor: theme.ctaBorder },
-  registerBtnText:  { color: '#fff', fontSize: 16, fontWeight: '900' },
+  registerBtnText:  { color: theme.text, fontSize: 16, fontWeight: '900' },
   registeredBlock:  { marginBottom: 12, gap: 8 },
   registeredBadge:  { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: `${theme.success}15`, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: `${theme.success}30` },
   registeredText:   { fontSize: 14, fontWeight: '700', color: theme.success },
@@ -1092,7 +1095,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   wodCardClosed: { opacity: 0.7 },
   wodCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   wodIndexBadge: { backgroundColor: `${theme.accent}15`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  wodIndexText:  { fontSize: 11, fontWeight: '800', color: theme.accent },
+  wodIndexText:  { fontSize: 11, fontWeight: '800', color: theme.accentText },
   wodTypeBadge:  { backgroundColor: theme.surface, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3 },
   wodTypeText:   { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
   wodDurationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -1100,11 +1103,11 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   wodStatusPill:  { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   wodStatusText:  { fontSize: 10, fontWeight: '700' },
   wodStageBadge:  { backgroundColor: 'rgba(168,85,247,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  wodStageText:   { fontSize: 10, fontWeight: '800', color: '#C4A0F5' },
+  wodStageText:   { fontSize: 10, fontWeight: '800', color: hue(theme.mode, 'violet') },
   wodDivBadge:    { backgroundColor: 'rgba(168,85,247,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  wodDivText:     { fontSize: 10, fontWeight: '800', color: '#C4A0F5' },
+  wodDivText:     { fontSize: 10, fontWeight: '800', color: hue(theme.mode, 'violet') },
   wodGenBadge:    { backgroundColor: 'rgba(59,130,246,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  wodGenText:     { fontSize: 10, fontWeight: '800', color: '#7FB0F5' },
+  wodGenText:     { fontSize: 10, fontWeight: '800', color: hue(theme.mode, 'blue') },
   wodTitle:      { fontSize: 17, fontWeight: '900', color: theme.text },
   wodDesc:       { fontSize: 13, color: theme.textSecondary, lineHeight: 20 },
   movementsBox:  { backgroundColor: theme.surface, borderRadius: 10, padding: 12, gap: 3 },
@@ -1121,16 +1124,16 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   wodActionBtn:      { marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14, backgroundColor: theme.ctaBg, borderWidth: 1.5, borderColor: theme.ctaBorder },
   wodActionBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14, backgroundColor: theme.ctaBg, borderWidth: 1.5, borderColor: theme.ctaBorder },
   wodActionBtnRejected: { backgroundColor: 'rgba(239,68,68,0.25)', borderColor: 'rgba(239,68,68,0.8)' },
-  wodActionBtnText:  { color: '#fff', fontSize: 14, fontWeight: '900' },
+  wodActionBtnText:  { color: theme.text, fontSize: 14, fontWeight: '900' },
   wodLockedBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, padding: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
   wodLockedText: { fontSize: 12, color: theme.textMuted, fontWeight: '600' },
   divBadge:     { backgroundColor: `${theme.accent}20`, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: `${theme.accent}40` },
-  divBadgeText: { fontSize: 10, fontWeight: '800', color: theme.accent, letterSpacing: 0.2 },
+  divBadgeText: { fontSize: 10, fontWeight: '800', color: theme.accentText, letterSpacing: 0.2 },
   divSubInfo:   { fontSize: 11, color: theme.textMuted, marginTop: 2 },
   rankSubTab:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: theme.border },
   rankSubTabActive:     { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
   rankSubTabText:       { fontSize: 12, fontWeight: '700', color: theme.textMuted },
-  rankSubTabTextActive: { color: theme.accent },
+  rankSubTabTextActive: { color: theme.accentText },
   wodRankHeader:        { backgroundColor: theme.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8 },
   wodRankHeaderText:    { fontSize: 13, fontWeight: '800', color: theme.text },
   rankRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: theme.card, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: theme.cardBorder },
@@ -1143,9 +1146,9 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   rankInfo:     { flex: 1 },
   rankName:     { fontSize: 14, fontWeight: '800', color: theme.text },
   rankElo:      { fontSize: 11, color: theme.textMuted, marginTop: 2 },
-  rankScore:    { fontSize: 16, fontWeight: '900', color: theme.accent },
+  rankScore:    { fontSize: 16, fontWeight: '900', color: theme.accentText },
   adminBanner:     { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${theme.accent}15`, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${theme.accent}25` },
-  adminBannerText: { fontSize: 12, fontWeight: '700', color: theme.accent, flex: 1 },
+  adminBannerText: { fontSize: 12, fontWeight: '700', color: theme.accentText, flex: 1 },
   partRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: theme.card, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: theme.cardBorder },
   partRowMe:    { borderColor: theme.accent, backgroundColor: `${theme.accent}08` },
   partAvatar:   { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.border },
@@ -1161,11 +1164,11 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   partDate:     { fontSize: 11, color: theme.textMuted, marginTop: 1 },
   kickBtn:      { width: 36, height: 36, borderRadius: 10, backgroundColor: `${theme.error}12`, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: `${theme.error}30` },
   recalcBtn:     { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, backgroundColor: `${theme.accent}12`, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${theme.accent}25` },
-  recalcBtnText: { fontSize: 13, fontWeight: '700' as const, color: theme.accent },
+  recalcBtnText: { fontSize: 13, fontWeight: '700' as const, color: theme.accentText },
   scoreCard:       { backgroundColor: theme.card, borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: theme.cardBorder, gap: 10 },
   scoreCardHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
   scoreAvatarWrap: { width: 38, height: 38, borderRadius: 19, backgroundColor: `${theme.accent}20`, justifyContent: 'center' as const, alignItems: 'center' as const },
-  scoreAvatarText: { fontSize: 15, fontWeight: '800' as const, color: theme.accent },
+  scoreAvatarText: { fontSize: 15, fontWeight: '800' as const, color: theme.accentText },
   scoreUsername:   { fontSize: 14, fontWeight: '800' as const, color: theme.text },
   scoreWodTitle:   { fontSize: 11, color: theme.textMuted, marginTop: 2 },
   scoreStatusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },

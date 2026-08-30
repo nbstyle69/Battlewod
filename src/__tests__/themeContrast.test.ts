@@ -70,6 +70,20 @@ describe('contraste — le contrôle sait échouer', () => {
     expect(contrast('#ffffff', lightTheme.ctaBg, lightTheme.background)).toBeLessThan(2);
   });
 
+  it('mesure le défaut historique : theme.card pris pour encre sur l\'accent', () => {
+    expect(contrast(lightTheme.card, lightTheme.accent, lightTheme.background)).toBeLessThan(TEXT_MIN);
+  });
+
+  it('mesure le défaut historique : une puce désactivée par opacity 0.5', () => {
+    const muted = lightTheme.textMuted.replace(
+      /^#(..)(..)(..)$/,
+      (_m, r, g, b) => `rgba(${parseInt(r, 16)},${parseInt(g, 16)},${parseInt(b, 16)},0.5)`,
+    );
+    expect(contrast(muted, lightTheme.surface, lightTheme.background)).toBeLessThan(TEXT_MIN);
+    expect(contrast(lightTheme.textMuted, lightTheme.surfaceAlt, lightTheme.background))
+      .toBeGreaterThanOrEqual(TEXT_MIN);
+  });
+
   it('compose bien les cartes translucides (sinon tout passerait)', () => {
     expect(contrast('#ffffff', darkTheme.card, darkTheme.background)).toBeGreaterThan(10);
     expect(contrast('#ffffff', lightTheme.card, lightTheme.background)).toBeLessThan(1.2);

@@ -1945,7 +1945,7 @@ export default function TimerRunScreen() {
                     <View style={{ paddingHorizontal: 18, paddingVertical: 4, borderRadius: 12,
                       backgroundColor: innerPhase === 'work' ? 'rgba(245,158,11,0.15)' : 'rgba(96,165,250,0.15)' }}>
                       <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 2.5,
-                        color: innerPhase === 'work' ? '#F59E0B' : '#60A5FA' }}>
+                        color: ensureContrast(innerPhase === 'work' ? '#F59E0B' : '#60A5FA', currentBg) }}>
                         {innerPhase === 'work' ? '● TRAVAIL' : '● REPOS'}
                       </Text>
                     </View>
@@ -2051,18 +2051,18 @@ export default function TimerRunScreen() {
                   </View>
                   {showEndWorkBtn && (
                     <TouchableOpacity onPress={ywyrEndWork} style={styles.ywyrBtn} activeOpacity={0.8}>
-                      <Text style={styles.ywyrBtnText}>FIN DU TRAVAIL</Text>
+                      <Text style={[styles.ywyrBtnText, { color: ensureContrast('#4ADE80', currentBg) }]}>FIN DU TRAVAIL</Text>
                     </TouchableOpacity>
                   )}
                   {showYwyrEndBtn && (
                     <TouchableOpacity onPress={handleStop}
                       style={[styles.ywyrBtn, { backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.5)' }]} activeOpacity={0.8}>
-                      <Text style={[styles.ywyrBtnText, { color: '#EF4444' }]}>TERMINER</Text>
+                      <Text style={[styles.ywyrBtnText, { color: ensureContrast('#EF4444', currentBg) }]}>TERMINER</Text>
                     </TouchableOpacity>
                   )}
                   {showEndBlockBtn && (
                     <TouchableOpacity onPress={libreEndForTimeBlock} style={styles.ywyrBtn} activeOpacity={0.8}>
-                      <Text style={styles.ywyrBtnText}>FIN DU BLOC</Text>
+                      <Text style={[styles.ywyrBtnText, { color: ensureContrast('#4ADE80', currentBg) }]}>FIN DU BLOC</Text>
                     </TouchableOpacity>
                   )}
                 </View>

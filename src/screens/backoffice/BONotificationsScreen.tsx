@@ -129,7 +129,7 @@ export default function BONotificationsScreen() {
                   onPress={() => setTarget('all')}
                   activeOpacity={0.8}
                 >
-                  <Users color={target === 'all' ? theme.card : theme.textMuted} size={14} />
+                  <Users color={target === 'all' ? theme.onAccent : theme.textMuted} size={14} />
                   <Text style={[S.targetPillText, target === 'all' && S.targetPillTextActive]}>
                     {t('bo.notifications.allCount', { count: members.length })}
                   </Text>
@@ -141,7 +141,7 @@ export default function BONotificationsScreen() {
                     onPress={() => setTarget(m.user_id)}
                     activeOpacity={0.8}
                   >
-                    <User color={target === m.user_id ? theme.card : theme.textMuted} size={14} />
+                    <User color={target === m.user_id ? theme.onAccent : theme.textMuted} size={14} />
                     <Text style={[S.targetPillText, target === m.user_id && S.targetPillTextActive]}>
                       {m.username}
                     </Text>
@@ -179,7 +179,7 @@ export default function BONotificationsScreen() {
               disabled={!title.trim() || sending}
               activeOpacity={0.8}
             >
-              <Send color={theme.card} size={16} />
+              <Send color={theme.onAccent} size={16} />
               <Text style={S.sendBtnText}>{sending ? t('bo.notifications.sending') : t('bo.notifications.send')}</Text>
             </TouchableOpacity>
           </View>
@@ -246,7 +246,7 @@ function styles(theme: AppTheme) { return StyleSheet.create({
   },
   targetPillActive: { backgroundColor: theme.accent, borderColor: theme.accent },
   targetPillText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary },
-  targetPillTextActive: { color: theme.card },
+  targetPillTextActive: { color: theme.onAccent },
   input: {
     backgroundColor: theme.surface, borderRadius: 12, padding: 14,
     fontSize: 14, color: theme.text, marginBottom: 12,
@@ -256,7 +256,7 @@ function styles(theme: AppTheme) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: theme.accent, borderRadius: 12, padding: 14,
   },
-  sendBtnText: { fontSize: 14, fontWeight: '800', color: theme.card },
+  sendBtnText: { fontSize: 14, fontWeight: '800', color: theme.onAccent },
   section: { paddingHorizontal: 16, marginTop: 20 },
   sectionTitle: { fontSize: 15, fontWeight: '900', color: theme.text, marginBottom: 10 },
   listCard: {
@@ -277,5 +277,5 @@ function styles(theme: AppTheme) { return StyleSheet.create({
   historyTitle: { fontSize: 13, fontWeight: '800', color: theme.text },
   historyBody: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
   historyDate: { fontSize: 10, color: theme.textMuted },
-  historyTarget: { fontSize: 10, fontWeight: '700', color: theme.accent },
+  historyTarget: { fontSize: 10, fontWeight: '700', color: theme.accentText },
 }); }
