@@ -77,6 +77,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Suivi des prospects après une séance d'essai : feedback, RDV, relances push et e-mail | 16 août 2026 |
 | Socle serveur de l'offre Essai : un visiteur sans compte réserve un cours, l'essai est gratuit parce que la base refuse un essai payant, un cours complet est refusé au lieu de faire espérer | 24 août 2026 |
 | Tunnel Essai complet : le visiteur réserve depuis la page publique de la box, la place se décompte réellement, le doublon est refusé, le prospect arrive dans Prospects et en liste de présence — constaté en production le 30 août | 30 août 2026 |
+| Récapitulatif hebdomadaire du gérant : un essai ne compte plus comme une présence d'adhérent, et les essais réservés ont leur propre ligne | 30 août 2026 |
 
 ### Sécurité et rôles
 
@@ -140,9 +141,12 @@ en liste d'attente), le même e-mail sur le même cours est refusé par son mess
 prospect apparaît dans Prospects et en liste de présence, et le pointage « présent » le fait
 passer à « venu ». Cette ligne monte donc dans « En production ».
 
-**Ce qui reste :** le récapitulatif hebdomadaire du gérant, qui compte encore un essai
-comme une présence d'adhérent et n'affiche pas la ligne « X essais réservés ». Le correctif
-est écrit et mesuré sur base jetable ; il n'est pas encore appliqué à la production.
+**Le récapitulatif hebdomadaire est corrigé et appliqué à la production le 30 août**, avec
+la mesure qui distingue : sur Crossfit NBS2, la seule présence pointée de la semaine est un
+essai, et le récapitulatif affiche désormais 0 présence d'adhérent et 2 essais réservés —
+avant l'application, cette même semaine aurait affiché 1 présence d'adhérent qui n'existe
+pas. Le pipeline de relance historique refuse explicitement les essais au lieu de tenir par
+accident de schéma.
 
 **Ce qui bloque :** rien.
 
