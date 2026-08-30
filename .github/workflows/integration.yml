@@ -205,6 +205,14 @@ jobs:
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'essai' }}
         run: node scripts/test-essai-lot-base.mjs ${{ steps.flags.outputs.extra_flag }}
 
+      # Le récapitulatif du gérant confondait un essai avec une présence
+      # d'adhérent. La suite mesure le CONTENU du lot, avec son contrôle
+      # négatif : sans le filtre, le même périmètre compte 2 — sinon un vert
+      # ne distinguerait pas « le filtre trie » de « rien à trier ».
+      - name: Suite — Récapitulatif hebdo (essais comptés à part)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'essai' }}
+        run: node scripts/test-essai-digest.mjs ${{ steps.flags.outputs.extra_flag }}
+
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.
       - name: Suite — Grants EXECUTE (schéma public)

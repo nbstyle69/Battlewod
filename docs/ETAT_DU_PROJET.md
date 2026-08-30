@@ -127,18 +127,21 @@ depuis le 24 août, et il y est constaté sur la vraie base : le type d'offre «
 accepté à 0 €, refusé à 30 € ; une réservation sans adhérent et sans prospect est refusée ;
 la table des prospects est fermée à la clé publique, en lecture comme en écriture.
 
-**Ce qui reste :** les écrans. Le bouton « Essai » et le calendrier sur la page publique de
-la box, le 4e type d'offre dans « Nouvelle offre », l'affichage des prospects sans compte
-dans Prospects, la mention « Essai » dans la liste de présence du coach, l'e-mail de
-confirmation, et le fait de ne plus compter un essai comme un adhérent dans les
-statistiques.
+**Les écrans sont écrits et livrés côté web** (le 4e type d'offre « Essai », le bouton et le
+calendrier public sur la page de la box, les prospects sans compte dans Prospects, la
+mention « Essai » en liste de présence, l'e-mail de confirmation, et l'essai qui ne compte
+plus comme un adhérent actif dans les statistiques).
+
+**Ce qui reste :** le récapitulatif hebdomadaire du gérant, qui compte encore un essai
+comme une présence d'adhérent et n'affiche pas la ligne « X essais réservés ».
 
 **Ce qui bloque :** rien.
 
 **Ce qui n'est pas constaté en production, et je ne le compte pas :** une réservation
 d'essai réussie. Aucune box n'a encore d'offre Essai active, donc la production répond
 `offre_essai_absente` — un refus nommé, pas une panne. Le chemin heureux est prouvé sur une
-base jetable, pas sur la vraie : il le sera au premier essai réservé depuis les écrans.
+base jetable, pas sur la vraie : il le sera au premier essai réservé depuis les écrans. Tant
+que ce clic n'a pas eu lieu, cette ligne reste ici et ne monte pas dans « En production ».
 
 **Une limite nommée plutôt que supposée :** le plafond par adresse e-mail est tenu par la
 base (donc prouvable). Le plafond par adresse Internet du visiteur sera tenu par le site
