@@ -76,6 +76,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Facturation du gérant : Solo, puis Multi à +29 €/box au-delà de la première | 16 août 2026 |
 | Suivi des prospects après une séance d'essai : feedback, RDV, relances push et e-mail | 16 août 2026 |
 | Socle serveur de l'offre Essai : un visiteur sans compte réserve un cours, l'essai est gratuit parce que la base refuse un essai payant, un cours complet est refusé au lieu de faire espérer | 24 août 2026 |
+| Tunnel Essai complet : le visiteur réserve depuis la page publique de la box, la place se décompte réellement, le doublon est refusé, le prospect arrive dans Prospects et en liste de présence — constaté en production le 30 août | 30 août 2026 |
 
 ### Sécurité et rôles
 
@@ -132,16 +133,23 @@ calendrier public sur la page de la box, les prospects sans compte dans Prospect
 mention « Essai » en liste de présence, l'e-mail de confirmation, et l'essai qui ne compte
 plus comme un adhérent actif dans les statistiques).
 
+**Le chemin heureux est constaté en production le 30 août**, au clic et sur la vraie base :
+offre Essai créée sur Crossfit NBS2, réservation anonyme sur le cours du dimanche 10:00, le
+créneau passe de 15 à 14 places restantes, la réservation est écrite en `confirmed` (jamais
+en liste d'attente), le même e-mail sur le même cours est refusé par son message nommé, le
+prospect apparaît dans Prospects et en liste de présence, et le pointage « présent » le fait
+passer à « venu ». Cette ligne monte donc dans « En production ».
+
 **Ce qui reste :** le récapitulatif hebdomadaire du gérant, qui compte encore un essai
-comme une présence d'adhérent et n'affiche pas la ligne « X essais réservés ».
+comme une présence d'adhérent et n'affiche pas la ligne « X essais réservés ». Le correctif
+est écrit et mesuré sur base jetable ; il n'est pas encore appliqué à la production.
 
 **Ce qui bloque :** rien.
 
-**Ce qui n'est pas constaté en production, et je ne le compte pas :** une réservation
-d'essai réussie. Aucune box n'a encore d'offre Essai active, donc la production répond
-`offre_essai_absente` — un refus nommé, pas une panne. Le chemin heureux est prouvé sur une
-base jetable, pas sur la vraie : il le sera au premier essai réservé depuis les écrans. Tant
-que ce clic n'a pas eu lieu, cette ligne reste ici et ne monte pas dans « En production ».
+**Ce qui n'est pas constaté, et je ne le compte pas :** le refus d'un cours complet en
+production (le provoquer demanderait de remplir un vrai cours ou d'en créer un factice sur
+le planning), les plafonds anti-abus par IP et par e-mail sur la vraie base, et la réception
+effective de l'e-mail de confirmation — seule la phrase affichée à l'écran est constatée.
 
 **Une limite nommée plutôt que supposée :** le plafond par adresse e-mail est tenu par la
 base (donc prouvable). Le plafond par adresse Internet du visiteur sera tenu par le site
