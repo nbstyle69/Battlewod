@@ -356,7 +356,7 @@ export default function TimerScreen() {
         </View>
       ))}
       <TouchableOpacity style={S.addBlockBtn} onPress={addBlock} activeOpacity={0.8}>
-        <Plus color={theme.accent} size={18} />
+        <Plus color={theme.accentText} size={18} />
         <Text style={S.addBlockBtnText}>Ajouter un bloc</Text>
       </TouchableOpacity>
     </>
@@ -384,7 +384,7 @@ export default function TimerScreen() {
           <Text style={S.typeSelectorText}>
             {TABS.find(t => t.key === activeTab)?.emoji} {TABS.find(t => t.key === activeTab)?.label || 'FOR TIME'}
           </Text>
-          <ChevronLeft color={theme.accent} size={20} style={{ transform: [{ rotate: '-90deg' }] }} />
+          <ChevronLeft color={theme.accentText} size={20} style={{ transform: [{ rotate: '-90deg' }] }} />
         </TouchableOpacity>
       </View>
 
@@ -414,14 +414,14 @@ export default function TimerScreen() {
                     <Text style={[S.pickerItemText, activeTab === key && S.pickerItemTextActive]}>
                       {label}
                     </Text>
-                    <Text style={{ fontSize: 11, color: activeTab === key ? theme.accent + 'BB' : theme.textMuted, marginTop: 1 }}>
+                    <Text style={{ fontSize: 11, color: activeTab === key ? theme.accentText : theme.textMuted, marginTop: 1 }}>
                       {desc}
                     </Text>
                   </View>
                 </View>
                 {activeTab === key && (
                   <View style={S.pickerCheck}>
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text>
+                    <Text style={{ color: theme.onAccent, fontSize: 12, fontWeight: '900' }}>✓</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -485,7 +485,7 @@ export default function TimerScreen() {
 
         <View style={{ height: 16 }} />
         <TouchableOpacity style={S.btnPrimary} onPress={launch} activeOpacity={0.85}>
-          {withCamera ? <Video color="#fff" size={20} /> : <Timer color="#fff" size={20} />}
+          {withCamera ? <Video color={theme.text} size={20} /> : <Timer color={theme.text} size={20} />}
           <Text style={S.btnPrimaryText}>DÉMARRER</Text>
         </TouchableOpacity>
         <View style={{ height: 20 }} />
@@ -515,7 +515,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderRadius: 8, borderWidth: 1, borderColor: theme.border,
     backgroundColor: theme.surface,
   },
-  setMaxBtnText: { fontSize: 12, fontWeight: '700', color: theme.accent },
+  setMaxBtnText: { fontSize: 12, fontWeight: '700', color: theme.accentText },
   cardHint: { fontSize: 12, color: theme.textMuted, textAlign: 'center' },
   infoCard: {
     backgroundColor: theme.card, borderRadius: 16, padding: 24,
@@ -539,7 +539,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
   chipText: { fontSize: 12, fontWeight: '800', color: theme.textMuted },
-  chipTextActive: { color: '#FFFFFF' },
+  chipTextActive: { color: theme.onAccent },
   cdRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   cdChip: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10,
@@ -547,7 +547,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   cdChipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
   cdChipText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
-  cdChipTextActive: { color: '#FFFFFF' },
+  cdChipTextActive: { color: theme.onAccent },
   seqCard: {
     backgroundColor: theme.card, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: theme.border, gap: 10,
@@ -557,7 +557,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     width: 26, height: 26, borderRadius: 13,
     backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center',
   },
-  seqBlockNumText: { fontSize: 12, fontWeight: '900', color: '#fff' },
+  seqBlockNumText: { fontSize: 12, fontWeight: '900', color: theme.onAccent },
   seqTypeRow: { flexDirection: 'row', gap: 6, paddingRight: 4 },
   seqTypeChip: {
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
@@ -565,13 +565,13 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   seqTypeChipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
   seqTypeText: { fontSize: 10, fontWeight: '800', color: theme.textMuted },
-  seqTypeTextActive: { color: '#fff' },
+  seqTypeTextActive: { color: theme.onAccent },
   seqTypeBadge: {
     flex: 1, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
     backgroundColor: theme.accent + '20', borderWidth: 1, borderColor: theme.accent + '60',
     alignSelf: 'flex-start',
   },
-  seqTypeBadgeText: { fontSize: 11, fontWeight: '900', color: theme.accent, letterSpacing: 1 },
+  seqTypeBadgeText: { fontSize: 11, fontWeight: '900', color: theme.accentText, letterSpacing: 1 },
   seqRemoveBtn: {
     width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center',
     backgroundColor: `${theme.error}12`, borderWidth: 1, borderColor: `${theme.error}30`,
@@ -586,20 +586,20 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     borderRadius: 14, padding: 16,
     borderWidth: 2, borderColor: theme.accent, borderStyle: 'dashed',
   },
-  addBlockBtnText: { fontSize: 14, fontWeight: '800', color: theme.accent },
+  addBlockBtnText: { fontSize: 14, fontWeight: '800', color: theme.accentText },
   btnPrimary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: `${theme.accent}28`,
     borderRadius: 16, paddingVertical: 18, paddingHorizontal: 28, gap: 10,
     borderWidth: 2, borderColor: `${theme.accent}CC`,
   },
-  btnPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  btnPrimaryText: { color: theme.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
   btnSecondary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.background, borderRadius: 16, padding: 18, gap: 10,
-    borderWidth: 2, borderColor: theme.accent, marginTop: 10,
+    backgroundColor: theme.card, borderRadius: 16, padding: 18, gap: 10,
+    borderWidth: 2, borderColor: theme.ctaBorder, marginTop: 10,
   },
-  btnSecondaryText: { color: theme.accent, fontSize: 16, fontWeight: '900' },
+  btnSecondaryText: { color: theme.accentText, fontSize: 16, fontWeight: '900' },
   recOptRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   recOptIcon: {
     width: 32, height: 32, borderRadius: 8,
@@ -622,7 +622,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     width: 20, height: 20, borderRadius: 10,
     backgroundColor: theme.textMuted, alignSelf: 'flex-start',
   },
-  toggleThumbOn: { backgroundColor: '#fff', alignSelf: 'flex-end' },
+  toggleThumbOn: { backgroundColor: theme.onAccent, alignSelf: 'flex-end' },
 
   // Type Selector Styles
   typeSelector: {
@@ -633,7 +633,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   typeSelectorLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: 'rgba(255,255,255,0.5)',
+    color: theme.textMuted,
     letterSpacing: 1,
     marginBottom: 8,
   },
@@ -651,7 +651,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   typeSelectorText: {
     fontSize: 16,
     fontWeight: '800',
-    color: theme.accent,
+    color: theme.accentText,
     letterSpacing: 0.5,
   },
   
@@ -686,7 +686,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: theme.textMuted,
     alignSelf: 'center',
     marginBottom: 16,
   },
@@ -716,7 +716,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   },
   pickerItemTextActive: {
     fontWeight: '800',
-    color: theme.accent,
+    color: theme.accentText,
   },
   pickerCheck: {
     width: 24,

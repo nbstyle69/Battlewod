@@ -37,6 +37,15 @@ import i18n from '../../i18n';
 type Nav   = NativeStackNavigationProp<CompetitionStackParamList, 'Tournament'>;
 type Route = RouteProp<CompetitionStackParamList, 'Tournament'>;
 
+/**
+ * L'en-tête reste un panneau sombre dans les deux thèmes (l'encre du titre et des
+ * métadonnées y est blanche) : sur la coque de verre, une carte translucide posée
+ * sous le blob du coin haut-gauche fait tomber l'encre atténuée à 2,92:1 en sombre.
+ * Ses deux arrêts viennent de la famille du dégradé de la coque, pas d'un bleu-noir
+ * isolé.
+ */
+const HEADER_GRADIENT: [string, string] = ['#0d1f17', '#022c22'];
+
 function wodStatusColor(status: string, theme: AppTheme) {
   if (status === 'active')  return theme.success;
   if (status === 'closed')  return theme.textMuted;
@@ -342,7 +351,7 @@ export default function TournamentScreen() {
     <View style={S.container}>
       <GlassBackground />
       {/* ── Header ── */}
-      <LinearGradient colors={['#12121A', '#0A0A0F']} style={S.header}>
+      <LinearGradient colors={HEADER_GRADIENT} style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color="rgba(255,255,255,0.7)" size={24} />
         </TouchableOpacity>
@@ -387,16 +396,16 @@ export default function TournamentScreen() {
           {/* ── Personal registration status (persistent, all tabs) ── */}
           {user && (
             isRegistered ? (
-              <View style={[S.myStatusPill, { backgroundColor: `${theme.success}22`, borderColor: `${theme.success}55` }]}>
-                <CheckCircle color={theme.success} size={15} />
-                <Text style={[S.myStatusText, { color: theme.success }]}>
+              <View style={[S.myStatusPill, { backgroundColor: `${darkTheme.success}22`, borderColor: `${darkTheme.success}55` }]}>
+                <CheckCircle color={darkTheme.success} size={15} />
+                <Text style={[S.myStatusText, { color: darkTheme.success }]}>
                   {myScores.length > 0 ? t('tournament.registeredScoreSubmitted') : t('tournament.youAreRegistered')}
                 </Text>
               </View>
             ) : isFull ? (
-              <View style={[S.myStatusPill, { backgroundColor: `${theme.error}22`, borderColor: `${theme.error}55` }]}>
-                <Lock color={theme.error} size={15} />
-                <Text style={[S.myStatusText, { color: theme.error }]}>{t('tournament.full')}</Text>
+              <View style={[S.myStatusPill, { backgroundColor: `${darkTheme.error}22`, borderColor: `${darkTheme.error}55` }]}>
+                <Lock color={darkTheme.error} size={15} />
+                <Text style={[S.myStatusText, { color: darkTheme.error }]}>{t('tournament.full')}</Text>
               </View>
             ) : tournament.status === 'open' ? (
               <View style={[S.myStatusPill, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.2)' }]}>
@@ -1058,7 +1067,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   myStatusText:  { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
   metaItem:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText:    { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
-  prize:       { fontSize: 13, color: theme.gold, fontWeight: '700' },
+  prize:       { fontSize: 13, color: darkTheme.gold, fontWeight: '700' },
   tabsBar:     { height: 46, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   tabsContent: { flexDirection: 'row', paddingHorizontal: 8, alignItems: 'stretch' },
   tab:           { paddingHorizontal: 16, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
