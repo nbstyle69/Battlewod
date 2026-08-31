@@ -183,6 +183,23 @@ Deux appels à l'action du Compte écrivaient la couleur du fond sur la surface 
 du bouton (1,23:1). **Ce n'est pas constaté à l'écran** : la coque et l'encre se prouvent à
 l'œil, dans les deux thèmes, et la ligne ne montera qu'après ce constat.
 
+**Phase 1 design, troisième passe : les deux écrans que la charte n'avait pas atteints
+(détail tournoi, minuteur).** Le détail tournoi montait déjà la coque, mais son en-tête
+était un dégradé bleu-noir écrit en dur, orphelin de la charte, et ses trois pastilles
+(inscrit, complet, prix) prenaient leurs teintes au thème **clair** alors que l'en-tête est
+sombre dans les deux thèmes : 3,12:1, 3,55:1 et 3,48:1 mesurés sur son arrêt le plus clair.
+Les arrêts viennent maintenant de la famille du dégradé de la coque, et l'encre des
+pastilles du thème sombre (6,76:1, 6,19:1, 12,22:1). L'en-tête **reste** un panneau sombre :
+son encre blanche y est mesurée haut (titre 17,14:1, métadonnées 7,82:1, glyphes 5,15:1), ce
+qu'une carte translucide posée sous le blob du coin haut-gauche ne garantit pas.
+L'écran de réglage du minuteur, lui, était resté hors de toutes les passes : blanc en dur
+sur l'aplat d'accent (2,56:1), blanc sur l'appel à l'action translucide (1,23:1), libellé et
+poignée de modale en blanc translucide sur fond clair (1,05:1 et 1,00:1), et l'accent
+employé onze fois comme encre ou glyphe (2,46:1 sur carte). Le minuteur **en course** n'est
+pas touché : son fond est choisi par l'athlète. Neuf contrôles mécaniques ajoutés, qui échouent tous sur
+l'état d'avant. **Ce n'est pas constaté à l'écran** : la ligne ne montera qu'après le
+constat dans les deux thèmes.
+
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
 service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie cause) est
