@@ -9,6 +9,7 @@ import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { openExternalUrl, pollUntilTrue } from '../../lib/openCheckout';
 import { supabase } from '../../lib/supabase';
 import { PRICING_URL } from '../../lib/urls';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 export default function BOSubscriptionScreen({ navigation }: any) {
   const { currentBox, boxSubscription, isBoxActive, daysLeftTrial, refreshSubscription } = useAuth();
@@ -81,6 +82,7 @@ export default function BOSubscriptionScreen({ navigation }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <ArrowLeft color={theme.text} size={22} />
@@ -188,7 +190,7 @@ export default function BOSubscriptionScreen({ navigation }: any) {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border,

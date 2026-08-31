@@ -26,6 +26,7 @@ import {
   normalizeMovement, formatDateTime,
 } from '../../utils/tournamentUtils';
 import { computeCompletedMovements } from '../../utils/movementParser';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function StatusPill({ status, theme: th }: { status: string; theme: AppTheme }) {
@@ -413,6 +414,7 @@ export default function BOTournamentScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       {/* ── Header ── */}
       <LinearGradient colors={['#12121A', '#0A0A0F']} style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
@@ -828,7 +830,7 @@ export default function BOTournamentScreen() {
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  container:   { flex: 1, backgroundColor: t.background },
+  container:   { flex: 1, backgroundColor: 'transparent' },
   loadingWrap: { flex: 1, backgroundColor: t.background, justifyContent: 'center', alignItems: 'center' },
 
   header:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface MonthlyReport {
   month: string;
@@ -140,6 +141,7 @@ export default function BOReportScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -147,6 +149,7 @@ export default function BOReportScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <FileText color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.report.title')}</Text>
@@ -239,7 +242,7 @@ export default function BOReportScreen() {
 }
 
 function styles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

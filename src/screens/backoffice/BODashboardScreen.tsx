@@ -15,6 +15,7 @@ import { formatScoreValue } from '../../utils/scoreFormat';
 import UserAvatar from '../../components/UserAvatar';
 import InteractiveTour, { BO_TOUR_STEPS } from '../../components/InteractiveTour';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface Stats {
   memberCount: number;
@@ -138,6 +139,7 @@ export default function BODashboardScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -145,6 +147,7 @@ export default function BODashboardScreen({ navigation }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <View>
           <Text style={S.headerTop}>{t('bo.dashboard.backOffice')}</Text>
@@ -376,7 +379,7 @@ export default function BODashboardScreen({ navigation }: any) {
 }
 
 function createStyles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

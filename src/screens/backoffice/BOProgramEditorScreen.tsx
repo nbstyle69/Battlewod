@@ -14,6 +14,7 @@ import {
   listProgramWods, createProgramWod, updateProgramWod, deleteProgramWod,
   duplicateProgramWeek, ProgramWod,
 } from '../../services/programContent';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 /** Lundi (ISO) de la semaine d'une date `YYYY-MM-DD`. */
 function lundiDe(iso: string): string {
@@ -176,6 +177,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.text} size={22} />
@@ -321,7 +323,7 @@ export default function BOProgramEditorScreen({ navigation, route }: any) {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12, backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border },
     back: { padding: 4, marginRight: 8 },
     headerTitle: { fontSize: 18, fontWeight: '800', color: t.text },

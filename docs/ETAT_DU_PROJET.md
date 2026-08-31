@@ -170,6 +170,19 @@ et échouent sur l'état d'avant. **Ce n'est pas constaté à l'écran** : la li
 prouve à l'œil, sur un vrai appareil, dans les deux thèmes — la ligne ne montera qu'après
 ce constat, et après un binaire qui porte le correctif.
 
+**Coque de verre étendue aux écrans denses (21 écrans).** Les 18 écrans de back-office,
+les préférences de notification, le détail de programme et la carte des box posaient leur
+fond à plat — blanc pur en mode clair — pendant que l'accueil, Ma Box et le Compte
+montaient le dégradé argenté. Une mesure a contredit une justification déjà écrite dans le
+code : le contrôle interdisait le verre sur Notifications au motif que l'encre atténuée n'y
+tient pas 4,5:1, ce qui est vrai **à même le dégradé** et faux **sur une carte** posée
+dessus (4,89 à 5,25:1 en clair). Le même contrôle, réécrit sur la règle réelle, a trouvé un
+défaut **déjà en production** sur l'accueil et Ma Box : sur le troisième arrêt émeraude,
+l'encre atténuée sur carte tombait à 3,03:1 — l'arrêt est assombri, elle remonte à 4,85:1.
+Deux appels à l'action du Compte écrivaient la couleur du fond sur la surface translucide
+du bouton (1,23:1). **Ce n'est pas constaté à l'écran** : la coque et l'encre se prouvent à
+l'œil, dans les deux thèmes, et la ligne ne montera qu'après ce constat.
+
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
 service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie cause) est

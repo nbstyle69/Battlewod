@@ -30,6 +30,7 @@ import {
   LeagueRound, LeagueStanding,
   SwissRound, SwissPairing, SwissStanding,
 } from './inter-competition';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 export default function BOInterCompetitionScreen() {
   const { theme } = useTheme();
@@ -580,6 +581,7 @@ export default function BOInterCompetitionScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       {/* Header */}
       <View style={S.header}>
         <Globe2 color={theme.accent} size={22} />
@@ -933,7 +935,7 @@ export default function BOInterCompetitionScreen() {
 // ═════════════════════════════════════════════════════════════════════════════
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
     header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12 },
     headerTitle: { flex: 1, fontSize: 20, fontWeight: '900', color: theme.text },

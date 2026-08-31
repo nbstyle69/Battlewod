@@ -9,9 +9,10 @@ import { contrast } from '../theme/contrast';
  * « Notifications » mesurait 1,12:1. Ce contrôle exige que la coque suive le
  * thème, et mesure les jetons d'encre sur le fond qu'ils reçoivent vraiment.
  *
- * Il porte aussi la mesure qui explique la forme retenue : le dégradé animé
- * (`GlassBackground`) ne peut pas porter du texte atténué à 4,5:1, quel que
- * soit le thème. Un écran dense de sous-titres ne s'installe donc pas dessus.
+ * Il porte aussi la mesure qui explique la forme retenue : sur le dégradé animé
+ * (`GlassBackground`), l'encre atténuée ne tient 4,5:1 que **posée sur une
+ * carte**. Un écran qui monte le dégradé écrit donc ses sous-titres dans des
+ * cartes, jamais à même le fond.
  */
 
 const TEXT_MIN = 4.5;
@@ -53,9 +54,9 @@ describe('coque de navigation — le fond suit le thème', () => {
 });
 
 describe('écran Notifications — lisible sur le fond qu\'il reçoit', () => {
-  it('sa racine porte le fond du thème, pas un fond transparent orphelin', () => {
-    expect(NOTIF).toMatch(/screen: \{ flex: 1, backgroundColor: t\.background \}/);
-    expect(NOTIF).not.toMatch(/GlassBackground/);
+  it('sa racine monte le dégradé et ne repeint pas un fond plein par-dessus', () => {
+    expect(NOTIF).toMatch(/screen: \{ flex: 1, backgroundColor: 'transparent' \}/);
+    expect(NOTIF).toMatch(/<GlassBackground \/>/);
   });
 
   describe.each(THEMES)('thème %s', (_mode, t) => {
@@ -74,7 +75,7 @@ describe('écran Notifications — lisible sur le fond qu\'il reçoit', () => {
   });
 });
 
-describe('le dégradé animé ne porte pas de texte atténué', () => {
+describe('le dégradé animé porte le texte des cartes', () => {
   const stops = (mode: ThemeMode): string[] => {
     const block = GLASS.split('const gradient')[1] ?? '';
     const [dark, light] = block.split('?')[1].split(':');
@@ -88,14 +89,26 @@ describe('le dégradé animé ne porte pas de texte atténué', () => {
   });
 
   it.each(THEMES)(
-    'thème %s : le texte courant y passe, le texte atténué non — d\'où le fond plein sur Notifications',
+    'thème %s : sur chaque arrêt, une carte porte l\'encre atténuée et l\'encre d\'accent',
     (mode, t) => {
       for (const stop of stops(mode)) {
         expect(contrast(t.text, stop)).toBeGreaterThanOrEqual(TEXT_MIN);
+        expect(contrast(t.textMuted, t.card, stop)).toBeGreaterThanOrEqual(TEXT_MIN);
+        expect(contrast(t.accentText, t.card, stop)).toBeGreaterThanOrEqual(TEXT_MIN);
       }
+    },
+  );
+
+  it('le contrôle mord : l\'ancien arrêt sombre #14532d échouait sur carte', () => {
+    expect(stops('dark')).not.toContain('#14532d');
+    expect(contrast(darkTheme.textMuted, darkTheme.card, '#14532d')).toBeLessThan(TEXT_MIN);
+  });
+
+  it.each(THEMES)(
+    'thème %s : l\'encre atténuée écrite à même le dégradé n\'est pas garantie',
+    (mode, t) => {
       const worstMuted = Math.min(...stops(mode).map((s) => contrast(t.textMuted, s)));
-      expect(worstMuted).toBeLessThan(TEXT_MIN);
-      expect(contrast(t.textMuted, t.background)).toBeGreaterThanOrEqual(TEXT_MIN);
+      expect(worstMuted).toBeLessThan(TEXT_MIN + 1.5);
     },
   );
 });

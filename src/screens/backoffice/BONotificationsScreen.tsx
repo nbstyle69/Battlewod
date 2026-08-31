@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 interface Member { user_id: string; username: string }
 interface SentNotif { id: string; title: string; body: string; target: string; created_at: string }
@@ -98,6 +99,7 @@ export default function BONotificationsScreen() {
   if (loading) {
     return (
       <View style={[S.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <GlassBackground />
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
@@ -105,6 +107,7 @@ export default function BONotificationsScreen() {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <Bell color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.notifications.title')}</Text>
@@ -226,7 +229,7 @@ export default function BONotificationsScreen() {
 }
 
 function styles(theme: AppTheme) { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,

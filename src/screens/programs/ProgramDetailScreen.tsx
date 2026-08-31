@@ -13,6 +13,7 @@ import { formatCap, formatScoreValue } from '../../utils/scoreFormat';
 import { annotateStrengthLoads } from '../../utils/strengthBlock';
 import { useMyOneRepMax } from '../../hooks/useMyOneRepMax';
 import { listProgramWods, ProgramWod } from '../../services/programContent';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 const WOD_TYPE_COLORS: Record<string, string> = {
   'for-time': '#EF4444',
@@ -132,6 +133,7 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
 
   return (
     <View style={S.container}>
+      <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={S.back}>
           <ChevronLeft color={theme.text} size={22} />
@@ -305,7 +307,7 @@ export default function ProgramDetailScreen({ navigation, route }: any) {
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
 
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 50, paddingBottom: 12, gap: 6, borderBottomWidth: 1, borderBottomColor: t.border },
     back: { padding: 6 },

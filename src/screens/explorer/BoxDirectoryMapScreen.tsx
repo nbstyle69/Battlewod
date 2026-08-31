@@ -8,6 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { ExplorerStackParamList } from '../../navigation';
 import { Box } from '../../types';
+import GlassBackground from '../../components/glass/GlassBackground';
 
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 type Route = RouteProp<ExplorerStackParamList, 'BoxDirectoryMap'>;
@@ -46,6 +47,7 @@ export default function BoxDirectoryMapScreen() {
   if (!MapView) {
     return (
       <View style={[s.container, s.center]}>
+        <GlassBackground />
         <View style={s.headerAbs}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
             <ChevronLeft color={theme.text} size={22} />
@@ -61,6 +63,7 @@ export default function BoxDirectoryMapScreen() {
 
   return (
     <View style={s.container}>
+      <GlassBackground />
       {/* Header floating */}
       <View style={s.headerAbs}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
@@ -150,7 +153,7 @@ const darkMapStyle = [
 
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     center: { alignItems: 'center', justifyContent: 'center' },
     headerAbs: {
       position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
