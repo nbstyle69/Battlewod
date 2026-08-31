@@ -160,6 +160,16 @@ base (donc prouvable). Le plafond par adresse Internet du visiteur sera tenu par
 web : la base n'a pas accès à cette information, et une limite supposée n'est pas une
 limite.
 
+**Phase 1 design, deuxième passe mobile (Notifications, détail tournoi, minuteur).** Les
+défauts sont mesurés, pas supposés : blanc sur la surface du bouton d'appel à l'action à
+1,23:1 en clair, l'accent employé en texte sur une carte blanche à 2,56:1, la couleur de la
+carte prise pour encre sur un aplat d'accent, l'heure de rappel réduite à 2,06:1 par une
+opacité posée sur tout le conteneur, et deux teintes de domaine pensées pour le sombre
+posées sur une carte claire (2,17:1 et 2,23:1). Deux cas sont ajoutés au contrôle mécanique
+et échouent sur l'état d'avant. **Ce n'est pas constaté à l'écran** : la lisibilité se
+prouve à l'œil, sur un vrai appareil, dans les deux thèmes — la ligne ne montera qu'après
+ce constat, et après un binaire qui porte le correctif.
+
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
 service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie cause) est

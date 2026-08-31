@@ -135,7 +135,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             <View style={S.infoCard}>
               <Text style={S.infoCardTitle}>{t('compDetail.datesRegistrations')}</Text>
               <View style={S.infoRow}>
-                <Calendar color={theme.accent} size={16} />
+                <Calendar color={theme.accentText} size={16} />
                 <Text style={S.infoRowText}>{t('compDetail.start', { date: competition.startDate })}</Text>
               </View>
               <View style={S.infoRow}>
@@ -162,7 +162,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             {/* CTA */}
             {competition.status === 'open' && (
               <TouchableOpacity style={S.registerBtn} activeOpacity={0.85}>
-                <Zap color="#fff" size={18} />
+                <Zap color={theme.onAccent} size={18} />
                 <Text style={S.registerBtnText}>{t('compDetail.register')}</Text>
               </TouchableOpacity>
             )}
@@ -226,7 +226,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
                     size={38}
                     borderRadius={19}
                     backgroundColor={`${theme.accent}20`}
-                    textColor={theme.accent}
+                    textColor={theme.accentText}
                     fontSize={16}
                   />
                   <View style={{ flex: 1 }}>
@@ -266,7 +266,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: theme.accent },
   tabText: { fontSize: 13, fontWeight: '700', color: theme.textMuted },
-  tabTextActive: { color: theme.accent },
+  tabTextActive: { color: theme.accentText },
   content: { padding: 16, gap: 14, paddingBottom: 140 },
   heroCard: {
     backgroundColor: theme.card, borderRadius: 18,
@@ -298,7 +298,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: theme.accent, borderRadius: 14, padding: 16,
   },
-  registerBtnText: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  registerBtnText: { color: theme.onAccent, fontSize: 15, fontWeight: '900' },
   sectionTitle: { fontSize: 16, fontWeight: '900', color: theme.text, marginBottom: 4 },
   wodCard: {
     backgroundColor: theme.card, borderRadius: 14,
@@ -308,7 +308,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   wodIndexCircle: {
     backgroundColor: `${theme.accent}15`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
-  wodIndex: { fontSize: 11, fontWeight: '800', color: theme.accent },
+  wodIndex: { fontSize: 11, fontWeight: '800', color: theme.accentText },
   wodTypeBadge: { backgroundColor: theme.surface, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3 },
   wodTypeText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
   wodDuration: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -336,7 +336,7 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: `${theme.accent}20`, justifyContent: 'center', alignItems: 'center',
   },
-  participantAvatarText: { fontSize: 16, fontWeight: '900', color: theme.accent },
+  participantAvatarText: { fontSize: 16, fontWeight: '900', color: theme.accentText },
   participantAvatarImg: {
     width: 38, height: 38, borderRadius: 19,
   },
