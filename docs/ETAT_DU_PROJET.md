@@ -200,6 +200,20 @@ pas touché : son fond est choisi par l'athlète. Neuf contrôles mécaniques aj
 l'état d'avant. **Ce n'est pas constaté à l'écran** : la ligne ne montera qu'après le
 constat dans les deux thèmes.
 
+**Build de soumission 1.0.51 (47) et vérification de l'artefact réel.** Le binaire iOS de
+soumission est produit par EAS depuis `master` et **téléversé** sur App Store Connect ; son
+traitement par Apple n'est pas constaté (voir résiduels). Ce qui est constaté, c'est
+l'artefact lui-même, pas ce que la machine locale sait bundler : l'IPA publié par EAS est
+téléchargé, ouvert, et son JS embarqué lu — 17 assertions vraies sur 17
+(`npm run verify:ipa`). Le contrôle est **discriminant**, et c'est ce qui le rend
+utilisable : rejoué sur l'IPA du build 43, il tombe à 10/17 et nomme exactement les cinq
+défauts de la fenêtre d'avant-OTA — la RPC `get_my_profile` absente du bundle et les trois
+colonnes révoquées encore demandées dans des listes de colonnes. Le bytecode Hermes ne
+contient plus de source : les assertions portent sur sa table de chaînes (nom de RPC,
+messages d'erreur de la branche, listes de colonnes littérales), et le nombre de listes
+lisibles est compté avant de conclure à une absence. La clé Supabase embarquée est décodée
+sans être affichée : rôle `anon`, même référence de projet que l'URL embarquée.
+
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
 service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie cause) est
@@ -251,6 +265,7 @@ qu'aucune de ces limites ne soit découverte par surprise.
 | --- | --- |
 | **Le rendu natif n'est pas simulé.** Les écrans mobiles sont vérifiés dans un navigateur et par la mesure des contrastes, pas sur un iPhone. | Aucun simulateur iOS n'est disponible sur la machine de vérification. Ce qui se constate reste vrai (couleurs, textes, chemins de données) ; le rendu final sur appareil ne l'est pas. |
 | **Le traitement Apple du build 1.0.51 n'est pas constaté.** L'envoi est confirmé par Apple, le traitement ne l'est pas. | L'accès passe par une clé serveur, qui ne voit pas l'état de traitement. C'est là que se manifestent les refus tardifs (permissions, conformité export). Visible sur App Store Connect. |
+| **Le compte de démo du reviewer Apple n'est pas vérifié.** Aucun compte `demo`/`review`/`apple` n'existe en base, et le seul compte de test survivant (`zz.design@athlex.test`) n'est rattaché à aucune box — un reviewer qui s'y connecte voit une app vide. | La fiche « App Review Information » n'est lisible que depuis App Store Connect, et aucune clé ASC n'est disponible sur la machine de vérification (l'envoi passe par une clé côté serveur EAS, qui ne lit pas la fiche). Aucun compte n'a été créé sans accord. |
 | **Le fichier Android n'est pas soumis.** Il est produit et signé, il se téléverse à la main. | Aucune clé de compte de service Google Play (voir backlog). |
 | **Un défaut de droits `supabase_admin` reste sous surveillance.** | Il est constaté par l'audit nocturne des droits sur la production, jugé sans conséquence exploitable en l'état, et surveillé plutôt que corrigé à l'aveugle. |
 | **La cause première de la perte de session navigateur du 24 août n'est pas établie.** | Le symptôme est réparé (la session se réaligne, et un échec se nomme au lieu de rendre un écran vide), mais ce qui a tué la session ce jour-là n'est pas connu. Si le cas revient, il se nommera. |
