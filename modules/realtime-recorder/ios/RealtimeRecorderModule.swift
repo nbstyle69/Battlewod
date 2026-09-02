@@ -23,11 +23,23 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
   private var isSessionStarted = false
   private var outputURL: URL?
   var currentFacing: AVCaptureDevice.Position = .back
-  var isLandscape = false
-  // Tracks the actual device orientation (last valid interface orientation).
-  // Used to distinguish landscape-left vs landscape-right and to keep the
-  // preview upright when the user rotates the phone before recording.
+  /// Derived from the rotation actually applied to the video output (see
+  /// `refreshOutputGeometry`), never from `UIDeviceOrientation` alone.
+  private(set) var isLandscape = false
+  private var currentDevice: AVCaptureDevice?
+  /// Legacy path only (iOS < 17). Unverified: no device below iOS 17 in the fleet.
   private var currentDeviceOrientation: UIDeviceOrientation = .portrait
+
+  /// `AVCaptureDevice.RotationCoordinator` (iOS 17+), typed as `NSObject` because
+  /// stored properties cannot be availability-gated. Recreated on every session
+  /// setup so it always points at the active device and preview layer.
+  private var rotationCoordinator: NSObject?
+  private var rotationObservation: NSKeyValueObservation?
+
+  /// Temporary diagnostic: logs device name + preview/capture angles at session
+  /// start (`[RealtimeRecorder][orientation]` in Console). Flip to `false` once
+  /// the iPhone 17 / 16 values have been collected.
+  static let orientationDebugLog = true
 
   private let renderer = OverlayRenderer()
   var overlayState = OverlayState()
@@ -64,70 +76,82 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       // capture connection while the asset writer is consuming frames.
       if self.isRecording { return }
       self.currentDeviceOrientation = orientation
-      self.isLandscape = orientation.isLandscape
-      self.applyOrientationToConnections()
+      if #available(iOS 17.0, *) { return } // RotationCoordinator KVO drives iOS 17+
+      self.applyLegacyOrientation()
     }
   }
 
-  // MARK: Orientation helpers
+  // MARK: Orientation (iOS 17+: asked to iOS, never guessed)
 
-  /// Clockwise rotation (in degrees) needed to display an upright image for a
-  /// given device orientation. Used on iOS 17+ via `videoRotationAngle`.
-  ///
-  /// The front camera sensor on iPhone is mounted with the opposite "native"
-  /// landscape orientation than the back camera. Combined with the horizontal
-  /// mirroring we apply for selfie mode (`isVideoMirrored = true`), the
-  /// landscape angles must be swapped (180° offset) for the front camera,
-  /// otherwise the live feed appears upside-down in both landscape directions.
-  private func videoRotationAngle(for orientation: UIDeviceOrientation) -> CGFloat {
-    let isFront = (currentFacing == .front)
-    switch orientation {
-    case .portrait:            return 90
-    case .portraitUpsideDown:  return 270
-    case .landscapeLeft:       return isFront ? 180 : 0
-    case .landscapeRight:      return isFront ? 0   : 180
-    default:                   return 90
+  /// Builds a fresh coordinator for the active device + preview layer, wires the
+  /// KVO that keeps the preview level while the user rotates the phone before
+  /// recording, and applies the initial angles. Main thread.
+  @available(iOS 17.0, *)
+  private func installRotationCoordinator(device: AVCaptureDevice, preview: AVCaptureVideoPreviewLayer) {
+    rotationObservation?.invalidate()
+    let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: preview)
+    rotationCoordinator = coordinator
+    rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.new]) { [weak self] _, _ in
+      self?.applyCoordinatorAngles(logReason: "rotation")
     }
+    applyCoordinatorAngles(logReason: "session start")
   }
 
-  /// Legacy `AVCaptureVideoOrientation` for iOS < 17. Note: the mapping is
-  /// inverted between `UIDeviceOrientation` and `AVCaptureVideoOrientation`,
-  /// and front camera landscape values are also swapped vs back camera (see
-  /// `videoRotationAngle(for:)` for the rationale).
-  private func captureVideoOrientation(for orientation: UIDeviceOrientation) -> AVCaptureVideoOrientation {
-    let isFront = (currentFacing == .front)
-    switch orientation {
-    case .portrait:            return .portrait
-    case .portraitUpsideDown:  return .portraitUpsideDown
-    case .landscapeLeft:       return isFront ? .landscapeLeft  : .landscapeRight
-    case .landscapeRight:      return isFront ? .landscapeRight : .landscapeLeft
-    default:                   return .portrait
-    }
-  }
-
-  /// Live-update both the video output connection and the preview layer to the
-  /// current device orientation. Safe to call from `captureQueue`.
-  private func applyOrientationToConnections() {
-    let angle = videoRotationAngle(for: currentDeviceOrientation)
-    let avOrientation = captureVideoOrientation(for: currentDeviceOrientation)
-
-    if let conn = videoOutput?.connection(with: .video) {
-      if #available(iOS 17.0, *) {
-        if conn.isVideoRotationAngleSupported(angle) { conn.videoRotationAngle = angle }
-      } else {
-        if conn.isVideoOrientationSupported { conn.videoOrientation = avOrientation }
-      }
-    }
+  /// Preview → `videoRotationAngleForHorizonLevelPreview`, video output (writer)
+  /// → `videoRotationAngleForHorizonLevelCapture`. Frozen while recording.
+  @available(iOS 17.0, *)
+  private func applyCoordinatorAngles(logReason: String) {
+    guard let coordinator = rotationCoordinator as? AVCaptureDevice.RotationCoordinator else { return }
+    let previewAngle = coordinator.videoRotationAngleForHorizonLevelPreview
+    let captureAngle = coordinator.videoRotationAngleForHorizonLevelCapture
 
     DispatchQueue.main.async { [weak self] in
-      guard let self = self,
-            let preview = self.hostView?.currentPreviewLayer,
-            let conn = preview.connection else { return }
-      if #available(iOS 17.0, *) {
-        if conn.isVideoRotationAngleSupported(angle) { conn.videoRotationAngle = angle }
-      } else {
-        if conn.isVideoOrientationSupported { conn.videoOrientation = avOrientation }
+      guard let self = self, !self.isRecording,
+            let conn = self.hostView?.currentPreviewLayer?.connection else { return }
+      if conn.isVideoRotationAngleSupported(previewAngle) { conn.videoRotationAngle = previewAngle }
+    }
+
+    captureQueue.async { [weak self] in
+      guard let self = self, !self.isRecording else { return }
+      if let conn = self.videoOutput?.connection(with: .video),
+         conn.isVideoRotationAngleSupported(captureAngle) {
+        conn.videoRotationAngle = captureAngle
       }
+      self.refreshOutputGeometry(appliedAngle: captureAngle)
+      if RecorderEngine.orientationDebugLog {
+        let name = self.currentDevice?.localizedName ?? "?"
+        print("[RealtimeRecorder][orientation] \(logReason) device=\(name) facing=\(self.currentFacing == .front ? "front" : "back") previewAngle=\(previewAngle) captureAngle=\(captureAngle) isLandscape=\(self.isLandscape)")
+      }
+    }
+  }
+
+  /// Derives `isLandscape` from the native format dimensions rotated by the
+  /// angle really applied to the output connection, so the writer's
+  /// 1080×1920 / 1920×1080 always matches the buffers it receives. captureQueue.
+  private func refreshOutputGeometry(appliedAngle: CGFloat) {
+    guard let device = currentDevice else { return }
+    let dims = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
+    let quarterTurn = Int(appliedAngle.rounded()) % 180 != 0
+    let outW = quarterTurn ? Int(dims.height) : Int(dims.width)
+    let outH = quarterTurn ? Int(dims.width)  : Int(dims.height)
+    isLandscape = outW > outH
+    if RecorderEngine.orientationDebugLog {
+      print("[RealtimeRecorder][orientation] native=\(dims.width)x\(dims.height) applied=\(appliedAngle) → output=\(outW)x\(outH)")
+    }
+  }
+
+  /// iOS < 17 only (deployment target 15.1). Unverified on device: the standard
+  /// UIDeviceOrientation → AVCaptureVideoOrientation mapping via raw values
+  /// (landscape is inverted between the two enums, which the raw values encode).
+  private func applyLegacyOrientation() {
+    let avOrientation = AVCaptureVideoOrientation(rawValue: currentDeviceOrientation.rawValue) ?? .portrait
+    if let conn = videoOutput?.connection(with: .video), conn.isVideoOrientationSupported {
+      conn.videoOrientation = avOrientation
+    }
+    isLandscape = currentDeviceOrientation.isLandscape
+    DispatchQueue.main.async { [weak self] in
+      guard let conn = self?.hostView?.currentPreviewLayer?.connection, conn.isVideoOrientationSupported else { return }
+      conn.videoOrientation = avOrientation
     }
   }
 
@@ -137,16 +161,14 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     captureQueue.async { [weak self] in
       guard let self = self else { return }
 
-      // Auto-detect actual device orientation (incl. landscape direction) so
-      // we can pick the correct rotation angle for both the capture connection
-      // and the preview layer. Falls back to the previously known orientation
-      // for .unknown / .faceUp / .faceDown.
       DispatchQueue.main.sync {
         let orientation = UIDevice.current.orientation
         if orientation.isValidInterfaceOrientation {
           self.currentDeviceOrientation = orientation
-          self.isLandscape = orientation.isLandscape
         }
+        self.rotationObservation?.invalidate()
+        self.rotationObservation = nil
+        self.rotationCoordinator = nil
       }
 
       if let existing = self.captureSession, existing.isRunning {
@@ -179,6 +201,7 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         return
       }
       session.addInput(videoInput)
+      self.currentDevice = camera
 
       if let mic = AVCaptureDevice.default(for: .audio),
          let audioInput = try? AVCaptureDeviceInput(device: mic),
@@ -194,17 +217,10 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       vOutput.setSampleBufferDelegate(self, queue: self.captureQueue)
       if session.canAddOutput(vOutput) { session.addOutput(vOutput) }
 
-      if let connection = vOutput.connection(with: .video) {
-        let angle = self.videoRotationAngle(for: self.currentDeviceOrientation)
-        let avOrientation = self.captureVideoOrientation(for: self.currentDeviceOrientation)
-        if #available(iOS 17.0, *) {
-          if connection.isVideoRotationAngleSupported(angle) { connection.videoRotationAngle = angle }
-        } else {
-          if connection.isVideoOrientationSupported { connection.videoOrientation = avOrientation }
-        }
-        if self.currentFacing == .front {
-          connection.isVideoMirrored = true
-        }
+      if let connection = vOutput.connection(with: .video), self.currentFacing == .front {
+        // Only the writer output is mirrored; the preview layer mirrors itself
+        // (`automaticallyAdjustsVideoMirroring`), so we never double it.
+        connection.isVideoMirrored = true
       }
 
       let aOutput = AVCaptureAudioDataOutput()
@@ -217,23 +233,17 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
       self.videoOutput = vOutput
       self.audioOutput = aOutput
 
-      // Attach preview on main thread
+      // Attach preview on main thread, then let iOS decide the angles.
       DispatchQueue.main.async {
         let preview = AVCaptureVideoPreviewLayer(session: session)
         preview.videoGravity = .resizeAspectFill
-
-        // Match preview orientation to the actual device orientation
-        if let conn = preview.connection {
-          let angle = self.videoRotationAngle(for: self.currentDeviceOrientation)
-          let avOrientation = self.captureVideoOrientation(for: self.currentDeviceOrientation)
-          if #available(iOS 17.0, *) {
-            if conn.isVideoRotationAngleSupported(angle) { conn.videoRotationAngle = angle }
-          } else {
-            if conn.isVideoOrientationSupported { conn.videoOrientation = avOrientation }
-          }
-        }
-
         self.hostView?.attachPreview(preview)
+
+        if #available(iOS 17.0, *) {
+          self.installRotationCoordinator(device: camera, preview: preview)
+        } else {
+          self.captureQueue.async { self.applyLegacyOrientation() }
+        }
       }
 
       session.startRunning()
@@ -418,10 +428,10 @@ public class RealtimeRecorderModule: Module {
     AsyncFunction("startRecording") { (options: [String: Any], promise: Promise) in
       let outputPath = options["outputPath"] as? String ?? ""
       let facing = options["facing"] as? String ?? "back"
-      let landscape = options["isLandscape"] as? Bool ?? false
+      // `isLandscape` from JS is ignored on purpose: the writer geometry is
+      // derived from the rotation angle actually applied by the engine.
 
       self.engine.currentFacing = facing == "front" ? .front : .back
-      self.engine.isLandscape = landscape
 
       guard !outputPath.isEmpty else {
         promise.reject("ERR", "outputPath is required")
@@ -435,7 +445,7 @@ public class RealtimeRecorderModule: Module {
         url = URL(fileURLWithPath: outputPath)
       }
 
-      // Always re-setup session so video orientation matches isLandscape
+      // Always re-setup session so the rotation coordinator matches the device
       self.engine.setupSession()
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
         do {
@@ -475,8 +485,9 @@ public class RealtimeRecorderModule: Module {
       }
 
       Prop("isLandscape") { (view: RealtimeRecorderHostView, landscape: Bool) in
+        // Kept for API compatibility with the JS side; geometry now follows the
+        // rotation angle applied by iOS, so the JS hint only triggers a refresh.
         if landscape != self.engine.isLandscape {
-          self.engine.isLandscape = landscape
           self.engine.setupSession()
         }
       }

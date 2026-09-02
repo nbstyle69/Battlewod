@@ -214,6 +214,33 @@ messages d'erreur de la branche, listes de colonnes littérales), et le nombre d
 lisibles est compté avant de conclure à une absence. La clé Supabase embarquée est décodée
 sans être affichée : rôle `anon`, même référence de projet que l'URL embarquée.
 
+**Caméra avant couchée et zoomée sur iPhone 17 Pro Max (minuteur vidéo, bascule selfie).**
+Constaté par Nab en vidéo sur le 17 Pro Max (iOS 26.6.1), absent sur le 16 Pro (26.6) : même
+OS, comportement différent, donc montage du capteur et non version d'iOS. Cause lue dans le
+module natif : deux tables en dur (orientation de l'appareil → angle, avec les valeurs
+paysage inversées pour la face avant) qui encodaient le montage des iPhones ≤ 16 ; le
+nouveau capteur avant du 17 livre une autre orientation native, l'image prend 90° de trop
+et `resizeAspectFill` la zoome pour remplir le portrait. Le même angle était posé sur la
+sortie vidéo : le fichier enregistré en selfie était couché aussi. Correctif : les tables
+sont supprimées, l'angle est **demandé à iOS** (`AVCaptureDevice.RotationCoordinator`,
+preview et capture séparées, coordinator recréé à chaque changement de caméra, gel pendant
+l'enregistrement conservé) ; la géométrie du writer (1080×1920 / 1920×1080) se déduit de
+l'angle réellement appliqué, plus de `UIDeviceOrientation` seul. Un contrôle mécanique
+échoue si une table réapparaît dans le fichier Swift. **Non constaté sur appareil** : c'est
+natif, il faut le build 48 ; un journal de diagnostic derrière un flag affiche nom du
+device, angle preview et angle capture pour comparer les deux téléphones, et une liste de
+16 cas à cliquer (2 téléphones × avant/arrière × portrait/paysage) est dans la PR. Le chemin
+iOS < 17 (cible 15.1) est gardé sous sa forme standard, non vérifié : aucun appareil sous
+iOS 17 dans le parc.
+
+**WOD GEN retiré de l'app par un interrupteur, pas supprimé.** La carte « WOD GEN — 3
+séances adaptées à ton profil » des Outils de l'accueil (route `WODGenPro`) était le seul
+point d'accès ; `FEATURES.wodGen = false` (`src/lib/features.ts`) la masque. L'écran, la
+route, l'écran de suggestions et les services restent dans le code, inchangés. Le contrôle
+prouve les deux sens : la carte absente à `false`, présente à `true` à sa place historique ;
+et qu'aucun autre fichier (Explorer, recherche, deep link, notifications) ne mène à la route.
+Le premier générateur (« Générateur WOD — For Time · AMRAP · Tabata ») reste.
+
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
 service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie cause) est
@@ -252,6 +279,7 @@ précise ; le faire avant casse quelque chose. Le détail technique est dans
 | Dette de vocabulaire `member` / `athlete` | Quand une table ou une API devra être ouverte à l'extérieur. Les deux mots désignent la même personne dans le code, ce qui se paie à chaque relecture. |
 | Provenance des encaissements au comptoir | Quand un gérant devra justifier un chiffre auprès de son comptable : le journal existe et compte juste, mais il ne dit pas encore qui a saisi la ligne ni sur quelle pièce. |
 | Bouton d'offre payante resté en français dans l'interface anglaise (« S'abonner — 59.00 €/month ») | Le prochain lot web qui touche la page publique de box. Un bouton mi-français mi-anglais sur une page de vente se corrige vite, mais pas en urgence. |
+| WOD GEN retiré de l'app (flag), à retravailler | Quand le contenu des « 3 séances adaptées à ton profil » sera revu : remettre `FEATURES.wodGen` à `true` suffit, l'écran et la route n'ont pas bougé. |
 | Soumission automatique sur Google Play | Quand une clé de compte de service Google Play est fournie. Aujourd'hui le fichier Android est produit signé, et téléversé à la main. |
 
 ---
