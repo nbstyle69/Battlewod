@@ -19,6 +19,7 @@
     "test:rls": "node scripts/test-rls.mjs",
     "test:templates": "node scripts/test-templates.mjs",
     "test:strength": "node scripts/test-strength-journal.mjs",
+    "verify:ipa": "node scripts/ipa-verify-bundle.mjs",
     "test:stack:up": "./scripts/test-stack.sh up",
     "test:stack:down": "./scripts/test-stack.sh down"
   },
