@@ -25,7 +25,7 @@
         "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos.",
         "NSPhotoLibraryAddUsageDescription": "AthleX enregistre tes vidéos de performance dans ta galerie."
       },
-      "buildNumber": "47"
+      "buildNumber": "48"
     },
     "android": {
       "adaptiveIcon": {

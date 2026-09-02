@@ -4,7 +4,7 @@ import {
   RefreshControl, LayoutAnimation, UIManager, Platform, Animated,
 } from 'react-native';
 import {
-  Trophy, Timer, BarChart2, Sparkles, Target, User, Users, Bell, ChevronDown,
+  Trophy, User, Users, Bell, ChevronDown,
   Building2, Check, Flame,
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -33,6 +33,7 @@ import GlassCard from '../../components/glass/GlassCard';
 import GlassButton from '../../components/glass/GlassButton';
 import GlassIconBox from '../../components/glass/GlassIconBox';
 import InteractiveTour from '../../components/InteractiveTour';
+import { homeTools } from './homeTools';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'HomeList'>;
 
@@ -55,13 +56,7 @@ export default function HomeScreen() {
   const S = createStyles(theme);
   const isDark = theme.mode === 'dark';
 
-  const TOOLS = [
-    { icon: BarChart2, label: t('home.tools.leaderboard'),   desc: t('home.tools.leaderboardDesc'), screen: 'Leaderboard'     },
-    { icon: Timer,     label: t('home.tools.timer'),         desc: 'For Time · AMRAP · EMOM…',      screen: 'Timer'           },
-    { icon: Sparkles,  label: t('home.tools.wodGenerator'),  desc: 'For Time · AMRAP · Tabata',     screen: 'WODGenerator'    },
-    { icon: Sparkles,  label: 'WOD GEN',                     desc: '3 séances adaptées à ton profil', screen: 'WODGenPro'     },
-    { icon: Target,    label: t('home.tools.oneRM'),         desc: t('home.tools.oneRMDesc'),       screen: 'OneRMCalculator' },
-  ];
+  const TOOLS = homeTools(t);
 
   const [competitions,   setCompetitions]   = useState<CompetitionSummary[]>([]);
   const [recentScores,   setRecentScores]   = useState<RecentScore[]>([]);
