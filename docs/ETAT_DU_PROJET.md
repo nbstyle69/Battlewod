@@ -227,9 +227,13 @@ preview et capture séparées, coordinator recréé à chaque changement de cam�
 l'enregistrement conservé) ; la géométrie du writer (1080×1920 / 1920×1080) se déduit de
 l'angle réellement appliqué, plus de `UIDeviceOrientation` seul. Un contrôle mécanique
 échoue si une table réapparaît dans le fichier Swift. **Non constaté sur appareil** : c'est
-natif, il faut le build 48 ; un journal de diagnostic derrière un flag affiche nom du
-device, angle preview et angle capture pour comparer les deux téléphones, et une liste de
-16 cas à cliquer (2 téléphones × avant/arrière × portrait/paysage) est dans la PR. Le chemin
+natif, il faut un nouveau build — le correctif part dans **1.0.52 (49)** ; **1.0.51 (47) et
+(48) : non soumis, obsolètes** (le 48 embarquait le correctif mais sous le runtime 1.0.51,
+que les appareils déjà installés partagent : un changement natif impose une nouvelle
+version, donc un nouveau runtime OTA, `runtimeVersion.policy = appVersion`). Un journal de
+diagnostic derrière un flag affiche nom du device, angle preview et angle capture pour
+comparer les deux téléphones, et une liste de 16 cas à cliquer (2 téléphones ×
+avant/arrière × portrait/paysage) est dans la PR. Le chemin
 iOS < 17 (cible 15.1) est gardé sous sa forme standard, non vérifié : aucun appareil sous
 iOS 17 dans le parc.
 
