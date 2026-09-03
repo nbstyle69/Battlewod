@@ -103,6 +103,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Une mise à jour ne peut plus partir sans les clés d'accès à la base (l'app arrivait intacte mais inerte) | 19 août 2026 |
 | Rejeu du schéma de base de données en CI à chaque PR | 16 août 2026 |
 | Version `1.0.51` construite pour iOS et Android, IPA envoyé sur App Store Connect | 24 août 2026 |
+| Version `1.0.52` (49) iOS construite depuis `master`, IPA vérifié 17/17, traitée par Apple et installable depuis TestFlight (groupe interne) — non soumise à App Review, en attente de la matrice caméra | 3 septembre 2026 |
 
 ### Site public et lisibilité
 
