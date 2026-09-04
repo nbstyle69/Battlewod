@@ -752,7 +752,17 @@
     "cguLink": "CGU et la Politique de Confidentialité",
     "joinBattle": "REJOINDRE LA BATAILLE",
     "ownerPrompt": "Vous gérez une box ?",
-    "ownerLink": "Créez votre compte sur athlexapp.eu"
+    "ownerLink": "Créez votre compte sur athlexapp.eu",
+    "errors": {
+      "generic": "Une erreur est survenue. Réessaie dans un instant.",
+      "sendingConfirmation": "L'e-mail de confirmation n'a pas pu être envoyé. Réessaie dans un instant.",
+      "emailNotConfirmed": "Ton e-mail n'est pas encore confirmé. Ouvre le lien reçu par e-mail, puis reconnecte-toi.",
+      "alreadyRegistered": "Un compte existe déjà avec cet e-mail. Connecte-toi ou utilise « Mot de passe oublié ».",
+      "invalidCredentials": "E-mail ou mot de passe incorrect.",
+      "rateLimited": "Trop d'e-mails envoyés. Patiente quelques minutes avant de réessayer.",
+      "invalidEmail": "Cette adresse e-mail n'est pas valide.",
+      "weakPassword": "Mot de passe trop court (6 caractères min)"
+    }
   },
   "forgot": {
     "title": "Mot de passe oublié",

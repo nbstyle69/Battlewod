@@ -14,6 +14,7 @@ import { AuthStackParamList } from '../../navigation';
 import { Gender } from '../../types';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { OWNER_ONBOARDING_URL } from '../../lib/urls';
+import { translateAuthError } from '../../lib/authErrorMessage';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'> };
 
@@ -52,7 +53,7 @@ export default function RegisterScreen({ navigation }: Props) {
         [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
       );
     } else if (error) {
-      Alert.alert(t('auth.registerFailed'), error);
+      Alert.alert(t('auth.registerFailed'), translateAuthError(t, error));
     } else if (pseudoChanged) {
       Alert.alert('Pseudo modifié', `Le pseudo « ${requestedUsername} » était déjà pris, le tien est devenu « ${finalUsername} ». Tu peux le changer plus tard dans ton profil.`);
     }

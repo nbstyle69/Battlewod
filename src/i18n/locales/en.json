@@ -752,7 +752,17 @@
     "cguLink": "Terms and Privacy Policy",
     "joinBattle": "JOIN THE BATTLE",
     "ownerPrompt": "You run a box?",
-    "ownerLink": "Create your account on athlexapp.eu"
+    "ownerLink": "Create your account on athlexapp.eu",
+    "errors": {
+      "generic": "Something went wrong. Please try again shortly.",
+      "sendingConfirmation": "The confirmation email could not be sent. Please try again shortly.",
+      "emailNotConfirmed": "Your email is not confirmed yet. Open the link you received by email, then sign in again.",
+      "alreadyRegistered": "An account already exists with this email. Sign in or use “Forgot password”.",
+      "invalidCredentials": "Incorrect email or password.",
+      "rateLimited": "Too many emails sent. Please wait a few minutes before trying again.",
+      "invalidEmail": "This email address is not valid.",
+      "weakPassword": "Password too short (6 characters min)"
+    }
   },
   "forgot": {
     "title": "Forgot password",

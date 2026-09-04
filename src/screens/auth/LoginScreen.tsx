@@ -13,6 +13,7 @@ import { AuthStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { buildIdentity } from '../../lib/buildIdentity';
+import { translateAuthError } from '../../lib/authErrorMessage';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
@@ -31,7 +32,7 @@ export default function LoginScreen({ navigation }: Props) {
     setLoading(true);
     const { error } = await signIn(email.trim(), password);
     setLoading(false);
-    if (error) Alert.alert(t('auth.loginFailed'), error);
+    if (error) Alert.alert(t('auth.loginFailed'), translateAuthError(t, error));
   }
 
   return (
