@@ -10,6 +10,8 @@ import { awardLevelBadge } from '../services/gamification';
 import { setUserContext, clearUserContext, captureError } from '../lib/sentry';
 import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackDeleteAccount } from '../lib/analytics';
 import { isPurgedAtSignOut } from '../lib/storageKeys';
+import { runSignOutSequence } from '../lib/signOutSequence';
+import { EMAIL_CONFIRMED_URL } from '../lib/urls';
 
 const BOX_SKIPPED_KEY = '@athlex:boxSkipped';
 const ACTIVE_BOX_KEY = '@athlex:activeBoxId';
@@ -308,7 +310,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username: finalUsername, level, gender: gender || null } },
+      options: {
+        data: { username: finalUsername, level, gender: gender || null },
+        emailRedirectTo: EMAIL_CONFIRMED_URL,
+      },
     });
     if (error) return { error: error.message };
     if (data.user) {
@@ -437,10 +442,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
-    if (user) removePushToken(user.id).catch(e => captureError(e, { action: 'removePushSignOut' }));
+    const userId = user?.id ?? null;
+    await runSignOutSequence({
+      removePushToken: userId ? () => removePushToken(userId) : null,
+      signOut: () => supabase.auth.signOut(),
+      onRemovePushError: e => captureError(e, { action: 'removePushSignOut', userId }),
+    });
     clearUserContext();
     resetUser();
-    await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setCurrentBox(null);
@@ -466,7 +475,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function deleteAccount(): Promise<{ error: string | null }> {
     try {
-      if (user) removePushToken(user.id).catch(e => captureError(e, { action: 'removePushDelete' }));
+      if (user) await removePushToken(user.id).catch(e => captureError(e, { action: 'removePushDelete' }));
       const { error } = await supabase.rpc('delete_user_account');
       if (error) return { error: error.message };
       trackDeleteAccount();

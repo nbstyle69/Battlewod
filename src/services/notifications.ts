@@ -105,11 +105,12 @@ export async function removePushToken(userId: string) {
   }).catch(() => null);
 
   if (tokenData?.data) {
-    await supabase
+    const { error } = await supabase
       .from('push_tokens')
       .delete()
       .eq('user_id', userId)
       .eq('token', tokenData.data);
+    if (error) throw error;
   }
 }
 
