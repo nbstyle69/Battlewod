@@ -24,6 +24,7 @@ import { spacing, borderRadius, typography, shadows } from '../../theme/designTo
 import { HomeStackParamList, CompetitionSummary } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { readRows } from '../../lib/db';
 import { countUnreadChangelog } from '../../lib/changelog';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import { getStreak, StreakInfo, readBadgeQueue, clearBadgeQueue, BadgeQueueItem } from '../../services/gamification';
@@ -126,13 +127,18 @@ export default function HomeScreen() {
       const unreadCl = await countUnreadChangelog(user.id, { screen: 'Home', action: 'countUnreadChangelog' });
 
       const boxFilter = currentBox?.id;
-      const { data: tourns } = await supabase
-        .from('tournaments')
-        .select('id, name, description, level, status, start_date, end_date, max_participants, prize, tournament_participants(count)')
-        .in('status', ['open', 'active'])
-        .eq('box_id', boxFilter ?? '')
-        .order('start_date')
-        .limit(6);
+      const tourns = boxFilter
+        ? await readRows(
+            supabase
+              .from('tournaments')
+              .select('id, name, description, level, status, start_date, end_date, max_participants, prize, tournament_participants(count)')
+              .in('status', ['open', 'active'])
+              .eq('box_id', boxFilter)
+              .order('start_date')
+              .limit(6),
+            { screen: 'Home', action: 'tournaments' },
+          )
+        : [];
 
       const mapped: CompetitionSummary[] = (tourns ?? []).map((t: any) => ({
         id: t.id, name: t.name, description: t.description ?? '', level: t.level ?? 'rx',

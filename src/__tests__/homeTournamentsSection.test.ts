@@ -29,3 +29,20 @@ describe('HomeScreen — section Tournois (L1)', () => {
     expect(section).not.toMatch(/'Ouvert'|'En cours'|'Terminé'|} participants</);
   });
 });
+
+// Sans box sélectionnée, la requête partait avec `box_id=eq.` (filtre vide) :
+// PostgREST répondait 400 et l'erreur n'était jamais lue.
+describe('HomeScreen — chargement des tournois sans box', () => {
+  const query = SRC.slice(SRC.indexOf('const boxFilter = currentBox?.id'), SRC.indexOf('const mapped: CompetitionSummary[]'));
+
+  it("ne requête pas `tournaments` sans boxFilter, et jamais avec un filtre vide", () => {
+    expect(query).toMatch(/boxFilter\s*\?\s*await readRows\(/);
+    expect(query).toMatch(/\.eq\('box_id', boxFilter\)/);
+    expect(query).not.toMatch(/boxFilter \?\? ''/);
+  });
+
+  it("l'erreur PostgREST passe par readRows au lieu d'être avalée", () => {
+    expect(query).toContain("{ screen: 'Home', action: 'tournaments' }");
+    expect(query).not.toMatch(/const \{ data: tourns \} = await supabase/);
+  });
+});
