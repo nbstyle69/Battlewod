@@ -55,6 +55,7 @@ on:
           - essai
           - elo
           - group-messages
+          - onboarding
           - grants
 
 concurrency:
@@ -237,6 +238,13 @@ jobs:
       - name: Suite — group_messages, mutation inverse
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'group-messages' }}
         run: ./scripts/test-group-messages-sender-mutation.sh
+
+      # « Présentation vue » côté compte : profiles.onboarding_completed_at, écrite
+      # par mark_onboarding_completed (idempotente, authenticated seulement), relue
+      # par get_my_profile. Compte neuf NULL, autre compte intact, anon refusé.
+      - name: Suite — onboarding_completed_at (présentation vue côté compte)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'onboarding' }}
+        run: node scripts/test-onboarding-completed.mjs
 
       # Liens e-mail Auth : GoTrue génère le vrai lien (verify?token=…&type=…&
       # redirect_to=…), on suit le 303 et on lit le Location. signup → /email-confirme,

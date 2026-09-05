@@ -6,17 +6,17 @@ import {
 } from 'react-native';
 import { Dumbbell, Clock, Trophy, Building2, Camera, ChevronRight, Hash, ArrowRight, Zap } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { awardLevelBadge } from '../../services/gamification';
 import { trackOnboardingStep, trackOnboardingComplete, trackOnboardingBoxJoin, trackOnboardingSkipBox } from '../../lib/analytics';
 import { captureError } from '../../lib/sentry';
+import { markOnboardingCompleted } from '../../lib/onboardingStatus';
 import GlassBackground from '../../components/glass/GlassBackground';
 
 const { width, height } = Dimensions.get('window');
 
-export const ONBOARDING_KEY = '@athlex:onboardingDone';
+export { ONBOARDING_KEY } from '../../lib/onboardingStatus';
 
 interface Slide {
   id: string;
@@ -243,7 +243,7 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
   }
 
   async function handleDone() {
-    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+    if (user?.id) await markOnboardingCompleted(user.id);
     trackOnboardingComplete();
     // Auto-skip box if user is logged in but didn't join a box during onboarding
     if (isLoggedIn && !currentBox && !boxJoined) {

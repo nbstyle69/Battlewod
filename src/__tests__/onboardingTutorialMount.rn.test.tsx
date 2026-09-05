@@ -24,6 +24,7 @@ jest.mock('../context/AuthContext', () => ({
   }),
 }));
 jest.mock('../services/gamification', () => ({ awardLevelBadge: jest.fn(async () => true) }));
+jest.mock('../lib/supabase', () => ({ supabase: { rpc: jest.fn(async () => ({ data: null, error: null })) } }));
 
 import '../i18n';
 import { ThemeProvider } from '../context/ThemeContext';

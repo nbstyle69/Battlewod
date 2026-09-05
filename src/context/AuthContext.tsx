@@ -11,6 +11,7 @@ import { setUserContext, clearUserContext, captureError } from '../lib/sentry';
 import { identifyUser, resetUser, forgetUser, trackLogin, trackSignUp, trackBoxJoin, trackDeleteAccount } from '../lib/analytics';
 import { isPurgedAtSignOut } from '../lib/storageKeys';
 import { runSignOutSequence } from '../lib/signOutSequence';
+import { ONBOARDING_KEY } from '../lib/onboardingStatus';
 import { EMAIL_CONFIRMED_URL, UPDATE_PASSWORD_URL } from '../lib/urls';
 
 const BOX_SKIPPED_KEY = '@athlex:boxSkipped';
@@ -317,8 +318,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) return { error: error.message };
     if (data.user) {
-      // Reset onboarding tutorial flag — every new account sees the presentation
-      await AsyncStorage.removeItem('@athlex:onboardingDone');
+      // Cache local de la présentation : un compte neuf a onboarding_completed_at
+      // NULL côté serveur, le cache d'un précédent compte ne doit pas le masquer.
+      await AsyncStorage.removeItem(ONBOARDING_KEY);
       const role = 'member';
       const referral_code = Math.random().toString(36).substring(2, 8).toUpperCase();
       // Le profil est désormais créé SERVEUR par le trigger. On garde un upsert
