@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl,
   ActivityIndicator, Alert,
 } from 'react-native';
-import { ArrowLeft, Heart, Clock, Zap, Trash2, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ArrowLeft, Heart, Clock, Zap, Trash2, ChevronDown, ChevronUp, CheckCircle2, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
@@ -17,6 +17,7 @@ import { HomeStackParamList } from '../../navigation';
 import { AthleteLevel } from '../../types';
 import { formatScoreValue } from '../../utils/scoreFormat';
 import GlassBackground from '../../components/glass/GlassBackground';
+import { buildHistoryEntries, countScores, HistoryEntry, BoxScoreRow, CompletionRow } from '../../lib/wodHistoryEntries';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -49,6 +50,10 @@ interface WODScore {
 }
 
 type FilterType = 'all' | 'favorites' | 'benchmark';
+type Entry = HistoryEntry<SavedWOD>;
+
+const HISTORY_FETCH_LIMIT = 200;
+const PAGE_SIZE = 30;
 
 function formatScore(score: WODScore): string {
   return formatScoreValue(score.score_value, score.score_type);
@@ -75,60 +80,72 @@ export default function WodHistoryScreen() {
   const { t } = useTranslation();
   const S = createStyles(theme);
 
-  const [wods, setWods] = useState<SavedWOD[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const WOD_PAGE_SIZE = 30;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const load = useCallback(async () => {
     if (!user) return;
-    let query = supabase
+    let generatedQuery = supabase
       .from('generated_wods')
       .select('*, scores:generated_wod_scores(*)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(WOD_PAGE_SIZE);
+      .limit(HISTORY_FETCH_LIMIT);
+    if (filter === 'favorites') generatedQuery = generatedQuery.eq('is_favorite', true);
+    if (filter === 'benchmark') generatedQuery = generatedQuery.eq('is_benchmark', true);
 
-    if (filter === 'favorites') query = query.eq('is_favorite', true);
-    if (filter === 'benchmark') query = query.eq('is_benchmark', true);
+    // Favoris / benchmark n'existent que sur les WOD générés : les lignes de box
+    // ne rejoignent la liste que dans l'onglet « Tous ».
+    const boxScoresQuery = filter === 'all'
+      ? supabase
+        .from('wod_scores')
+        .select('id, wod_id, score_value, score_type, rx, submitted_at, wod:box_wods(title, wod_type, scheduled_date)')
+        .eq('member_id', user.id)
+        .order('submitted_at', { ascending: false })
+        .limit(HISTORY_FETCH_LIMIT)
+      : Promise.resolve({ data: [], error: null });
+    const completionsQuery = filter === 'all'
+      ? supabase
+        .from('wod_completions')
+        .select('id, wod_id, completed_at, wod:box_wods(title, wod_type, scheduled_date)')
+        .eq('member_id', user.id)
+        .order('completed_at', { ascending: false })
+        .limit(HISTORY_FETCH_LIMIT)
+      : Promise.resolve({ data: [], error: null });
 
-    const { data, error } = await query;
-    if (error) { captureError(error, { screen: 'WodHistory', action: 'loadWods' }); }
-    setWods((data ?? []) as SavedWOD[]);
-    setHasMore((data ?? []).length >= WOD_PAGE_SIZE);
+    const [generated, boxScores, completions] = await Promise.all([generatedQuery, boxScoresQuery, completionsQuery]);
+    if (generated.error) captureError(generated.error, { screen: 'WodHistory', action: 'loadWods' });
+    if (boxScores.error) captureError(boxScores.error, { screen: 'WodHistory', action: 'loadBoxScores' });
+    if (completions.error) captureError(completions.error, { screen: 'WodHistory', action: 'loadCompletions' });
+
+    setEntries(buildHistoryEntries(
+      (generated.data ?? []) as SavedWOD[],
+      (boxScores.data ?? []) as unknown as BoxScoreRow[],
+      (completions.data ?? []) as unknown as CompletionRow[],
+    ));
+    setVisibleCount(PAGE_SIZE);
     setLoading(false);
     setRefreshing(false);
   }, [user, filter]);
 
   useEffect(() => { load(); }, [load]);
 
-  const loadMore = useCallback(async () => {
-    if (!user || loadingMore || !hasMore || wods.length === 0) return;
-    setLoadingMore(true);
-    const lastCreated = wods[wods.length - 1].created_at;
-    let query = supabase
-      .from('generated_wods')
-      .select('*, scores:generated_wod_scores(*)')
-      .eq('user_id', user.id)
-      .lt('created_at', lastCreated)
-      .order('created_at', { ascending: false })
-      .limit(WOD_PAGE_SIZE);
-    if (filter === 'favorites') query = query.eq('is_favorite', true);
-    if (filter === 'benchmark') query = query.eq('is_benchmark', true);
-    const { data } = await query;
-    const newItems = (data ?? []) as SavedWOD[];
-    setWods(prev => [...prev, ...newItems]);
-    setHasMore(newItems.length >= WOD_PAGE_SIZE);
-    setLoadingMore(false);
-  }, [user, filter, wods, loadingMore, hasMore]);
+  const visibleEntries = entries.slice(0, visibleCount);
+  const loadMore = useCallback(() => {
+    if (visibleCount < entries.length) setVisibleCount(c => c + PAGE_SIZE);
+  }, [visibleCount, entries.length]);
+
+  function patchGenerated(id: string, patch: Partial<SavedWOD>) {
+    setEntries(prev => prev.map(e => e.kind === 'generated' && e.wod.id === id ? { ...e, wod: { ...e.wod, ...patch } } : e));
+  }
 
   async function toggleFav(wod: SavedWOD) {
     const newVal = !wod.is_favorite;
-    setWods(prev => prev.map(w => w.id === wod.id ? { ...w, is_favorite: newVal } : w));
+    patchGenerated(wod.id, { is_favorite: newVal });
     await supabase.from('generated_wods').update({ is_favorite: newVal }).eq('id', wod.id);
   }
 
@@ -138,7 +155,7 @@ export default function WodHistoryScreen() {
       {
         text: t('common.delete'), style: 'destructive',
         onPress: async () => {
-          setWods(prev => prev.filter(w => w.id !== wod.id));
+          setEntries(prev => prev.filter(e => !(e.kind === 'generated' && e.wod.id === wod.id)));
           await supabase.from('generated_wods').delete().eq('id', wod.id);
         },
       },
@@ -146,10 +163,10 @@ export default function WodHistoryScreen() {
   }
 
   // Stats
-  const totalWods = wods.length;
-  const totalScores = wods.reduce((acc, w) => acc + (w.scores?.length ?? 0), 0);
+  const totalWods = entries.length;
+  const totalScores = countScores(entries);
   const streak = (() => {
-    const days = new Set(wods.map(w => new Date(w.created_at).toISOString().split('T')[0]));
+    const days = new Set(entries.map(e => new Date(e.date).toISOString().split('T')[0]));
     let count = 0;
     const today = new Date();
     for (let i = 0; i < 365; i++) {
@@ -161,7 +178,54 @@ export default function WodHistoryScreen() {
     return count;
   })();
 
-  function renderWod({ item }: { item: SavedWOD }) {
+  function renderBoxEntry(entry: Extract<Entry, { kind: 'boxScore' | 'completion' }>) {
+    const title = entry.wod?.title ?? t('wodHistory.boxWodFallback');
+    const wodType = entry.wod?.wod_type ?? null;
+    return (
+      <TouchableOpacity
+        style={S.wodCard}
+        onPress={() => navigation.navigate('WODDetail', { wodId: entry.wodId })}
+        activeOpacity={0.8}
+        testID={`history-${entry.kind}-${entry.wodId}`}
+      >
+        <View style={S.wodTop}>
+          <View style={S.wodBadges}>
+            <View style={[S.badge, { backgroundColor: `${theme.accent}18` }]}>
+              <Text style={[S.badgeTxt, { color: theme.accent }]}>{t('wodHistory.boxTag')}</Text>
+            </View>
+            {wodType && (
+              <View style={[S.badge, { backgroundColor: theme.surface }]}>
+                <Text style={[S.badgeTxt, { color: theme.textMuted }]}>{wodType.toUpperCase()}</Text>
+              </View>
+            )}
+          </View>
+          <ChevronRight color={theme.textMuted} size={16} />
+        </View>
+        <Text style={S.wodName}>{title}</Text>
+        <Text style={S.wodDate}>{formatDate(entry.date)}</Text>
+        {entry.kind === 'boxScore' ? (
+          <View style={S.bestScoreRow}>
+            <Zap color={theme.gold} size={12} />
+            <Text style={S.bestScoreTxt}>
+              {formatScoreValue(entry.score.score_value, entry.score.score_type ?? 'time')} {entry.score.rx ? t('wodHistory.rxTag') : t('wodHistory.scaledTag')}
+            </Text>
+          </View>
+        ) : (
+          <View style={S.bestScoreRow}>
+            <CheckCircle2 color={theme.textMuted} size={12} />
+            <Text style={S.completedTxt}>{t('wodHistory.completedNoScore')}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }
+
+  function renderEntry({ item }: { item: Entry }) {
+    if (item.kind !== 'generated') return renderBoxEntry(item);
+    return renderWod(item.wod);
+  }
+
+  function renderWod(item: SavedWOD) {
     const isExpanded = expandedId === item.id;
     const levelColor = LevelColors[item.level as AthleteLevel] ?? theme.textMuted;
     const bestScore = item.scores && item.scores.length > 0
@@ -305,13 +369,12 @@ export default function WodHistoryScreen() {
         </View>
       ) : (
         <FlatList
-          data={wods}
-          keyExtractor={w => w.id}
-          renderItem={renderWod}
+          data={visibleEntries}
+          keyExtractor={e => e.id}
+          renderItem={renderEntry}
           contentContainerStyle={S.list}
           onEndReached={loadMore}
           onEndReachedThreshold={0.3}
-          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color={theme.accent} /> : null}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           ListEmptyComponent={
             <View style={S.empty}>
@@ -368,6 +431,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   wodDate: { fontSize: 11, fontWeight: '600', color: t.textMuted },
   bestScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   bestScoreTxt: { fontSize: 12, fontWeight: '700', color: t.gold },
+  completedTxt: { fontSize: 12, fontWeight: '700', color: t.textMuted },
   expandedContent: { gap: 10, marginTop: 8, borderTopWidth: 1, borderTopColor: t.border, paddingTop: 10 },
   movBox: { backgroundColor: t.surface, borderRadius: 8, padding: 10, gap: 2 },
   movHeader: { fontSize: 11, fontWeight: '800', color: t.textSecondary },
