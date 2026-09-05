@@ -44,7 +44,7 @@ describe('clé Google Maps Android — dépôt public, aucune clé embarquée', 
   it('verify:aab affirme la clé Maps du manifeste et le refus du préfixe interdit', () => {
     const s = read('scripts/aab-verify-bundle.mjs');
     expect(s).toContain("meta('com.google.android.geo.API_KEY')");
-    expect(s).toContain('MAPS_KEY_FORBIDDEN_PREFIX');
-    expect(s).toContain('MAPS_KEY_EXPECTED_PREFIX');
+    expect(s).toContain('MAPS_KEY_FORBIDDEN_SUFFIX');
+    expect(s).toContain('MAPS_KEY_EXPECTED_SUFFIX');
   });
 });

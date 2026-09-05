@@ -180,20 +180,20 @@ check('aucune permission de localisation', !permissions.some((p) => /LOCATION/.t
   permissions.filter((p) => /LOCATION/.test(p)).join(', ') || 'aucune');
 
 // 6. Clé Google Maps Android : présente (sinon carte grise) et jamais l'ancienne
-//    clé ouverte de juin. Les préfixes (6 premiers caractères) sont passés par
+//    clé ouverte de juin. Les fins de clé (derniers caractères) sont passées par
 //    variables d'environnement : la clé attendue ne vit pas dans le dépôt public.
 const mapsKey = meta('com.google.android.geo.API_KEY');
 check('clé Google Maps Android présente dans le manifeste', !!mapsKey && mapsKey.length > 20,
   mapsKey ? `${mapsKey.slice(0, 6)}… (${mapsKey.length} car.)` : 'absente (GOOGLE_MAPS_ANDROID_API_KEY vide au build)');
-const badPrefix = process.env.MAPS_KEY_FORBIDDEN_PREFIX || '';
-if (badPrefix) {
-  check(`clé Maps ≠ ancienne clé ouverte (${badPrefix}…)`, !!mapsKey && !mapsKey.startsWith(badPrefix),
-    mapsKey ? `${mapsKey.slice(0, 6)}…` : 'absente');
+const badSuffix = process.env.MAPS_KEY_FORBIDDEN_SUFFIX || '';
+if (badSuffix) {
+  check(`clé Maps ≠ ancienne clé ouverte (…${badSuffix})`, !!mapsKey && !mapsKey.endsWith(badSuffix),
+    mapsKey ? `…${mapsKey.slice(-5)}` : 'absente');
 }
-const goodPrefix = process.env.MAPS_KEY_EXPECTED_PREFIX || '';
-if (goodPrefix) {
-  check(`clé Maps = clé restreinte attendue (${goodPrefix}…)`, !!mapsKey && mapsKey.startsWith(goodPrefix),
-    mapsKey ? `${mapsKey.slice(0, 6)}…` : 'absente');
+const goodSuffix = process.env.MAPS_KEY_EXPECTED_SUFFIX || '';
+if (goodSuffix) {
+  check(`clé Maps = clé restreinte attendue (…${goodSuffix})`, !!mapsKey && mapsKey.endsWith(goodSuffix),
+    mapsKey ? `…${mapsKey.slice(-5)}` : 'absente');
 }
 
 const failed = results.filter((r) => !r.ok);
