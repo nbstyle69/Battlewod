@@ -716,6 +716,9 @@
       "payOnWeb": "Payer sur le web"
     }
   },
+  "messages": {
+    "deletedAccount": "Compte supprimé"
+  },
   "eloHistory": {
     "deletedWod": "WOD supprimé",
     "deletedTournament": "Tournoi supprimé",
