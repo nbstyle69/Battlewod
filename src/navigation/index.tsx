@@ -664,6 +664,7 @@ function BODashboardNavigator() {
 
 function BoxOwnerTabs() {
   const { theme, mode } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   useAndroidNavBar(theme.tabBar, mode);
   const tabStyle = {
@@ -699,7 +700,7 @@ function BoxOwnerTabs() {
         },
       })}
     >
-      <BOTab.Screen name="BODashboard" component={BODashboardNavigator} options={{ tabBarLabel: 'Dashboard' }} />
+      <BOTab.Screen name="BODashboard" component={BODashboardNavigator} options={{ tabBarLabel: t('tabs.boTracking') }} />
       <BOTab.Screen name="BOWODs"      component={BOWODsScreen}          options={{ tabBarLabel: 'WODs' }} />
       <BOTab.Screen name="BOSchedule"  component={BOScheduleScreen}      options={{ tabBarLabel: 'Horaires' }} />
       <BOTab.Screen name="BOMembers"   component={BOMembersScreen}       options={{ tabBarLabel: 'Membres' }} />
