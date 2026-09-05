@@ -84,6 +84,12 @@ const GIPHY_TAG_RE = /giphy-key:[A-Za-z0-9]{16,}:giphy-end/;
 // sans `@`) : elle ne compte pas. Sans DSN, `Sentry.init({ dsn: '' })` ne remonte rien.
 const SENTRY_DSN_RE = /https:\/\/[0-9a-f]{32}@o\d+\.ingest(?:\.[a-z]{2})?\.sentry\.io\/\d+/;
 const sentryFailures = [];
+// Token Mixpanel : `'mixpanel-token:' + EXPO_PUBLIC_MIXPANEL_TOKEN + ':mixpanel-end'`
+// est plié au bundle en un littéral ; sans token il reste `mixpanel-token::mixpanel-end`
+// et `analytics.ts` désactive le tracking. Le SDK doit aussi viser le serveur EU du projet.
+const MIXPANEL_TAG_RE = /mixpanel-token:[0-9a-f]{32}:mixpanel-end/;
+const MIXPANEL_EU_URL = 'https://api-eu.mixpanel.com';
+const mixpanelFailures = [];
 
 for (const platform of PLATFORMS) {
   const { updateId, bundle } = await fetchLaunchBundle(platform);
@@ -94,16 +100,19 @@ for (const platform of PLATFORMS) {
   // est plié au bundle en un seul littéral ; sans clé il reste `giphy-key::giphy-end`.
   const hasGiphy = GIPHY_TAG_RE.test(bundle);
   const hasSentry = SENTRY_DSN_RE.test(bundle);
+  const hasMixpanel = MIXPANEL_TAG_RE.test(bundle) && bundle.includes(MIXPANEL_EU_URL);
 
   console.log(
     `${platform} : update ${updateId} — ${(bundle.length / 1024 / 1024).toFixed(1)} Mo — `
     + `URL Supabase ${hasUrl ? 'présente' : 'ABSENTE'}, clé anon ${hasKey ? 'présente' : 'ABSENTE'}, `
-    + `clé GIPHY ${hasGiphy ? 'présente' : 'ABSENTE'}, DSN Sentry ${hasSentry ? 'présent' : 'ABSENT'}`,
+    + `clé GIPHY ${hasGiphy ? 'présente' : 'ABSENTE'}, DSN Sentry ${hasSentry ? 'présent' : 'ABSENT'}, `
+    + `token Mixpanel + serveur EU ${hasMixpanel ? 'présents' : 'ABSENTS'}`,
   );
 
   if (!hasUrl || !hasKey) failures.push(platform);
   if (!hasGiphy) giphyFailures.push(platform);
   if (!hasSentry) sentryFailures.push(platform);
+  if (!hasMixpanel) mixpanelFailures.push(platform);
 }
 
 if (failures.length > 0) {
@@ -129,6 +138,16 @@ if (sentryFailures.length > 0) {
     `::error::Bundle publié sans DSN Sentry (${sentryFailures.join(', ')}) : `
     + "aucune erreur ni crash ne remonterait. EXPO_PUBLIC_SENTRY_DSN doit être présente "
     + "dans l'environnement EAS `production` au moment du bundle.",
+  );
+  process.exit(1);
+}
+
+if (mixpanelFailures.length > 0) {
+  console.error(
+    `::error::Bundle publié sans token Mixpanel ou sans serveur EU (${mixpanelFailures.join(', ')}) : `
+    + "aucun événement n'arriverait dans le projet. EXPO_PUBLIC_MIXPANEL_TOKEN doit être "
+    + "présente dans l'environnement EAS `production` au moment du bundle et "
+    + `analytics.ts doit viser ${MIXPANEL_EU_URL}.`,
   );
   process.exit(1);
 }

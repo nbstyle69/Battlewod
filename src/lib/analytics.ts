@@ -1,12 +1,23 @@
 import { Mixpanel } from 'mixpanel-react-native';
 
-const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN || '';
+// Encadré de marqueurs pour que les garde-fous de bundle (OTA / verify:ipa /
+// verify:aab) puissent affirmer la présence du token : un token Mixpanel est
+// 32 hexadécimaux, indiscernable d'un hash sans ces bornes.
+const MIXPANEL_TOKEN_TAG = 'mixpanel-token:' + (process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ?? '') + ':mixpanel-end';
+const MIXPANEL_TOKEN = MIXPANEL_TOKEN_TAG.slice('mixpanel-token:'.length, -':mixpanel-end'.length);
+
+// Le projet Mixpanel « NBS Innovation » est hébergé en résidence EU : le serveur
+// US par défaut (api.mixpanel.com) accepte les requêtes mais ne les rattache à
+// aucun projet, et rien n'apparaît jamais dans Events.
+export const MIXPANEL_SERVER_URL = 'https://api-eu.mixpanel.com';
 
 // Sans token (dev/CI/Expo Go sans .env), le SDK lève « token is not a valid string »
 // au chargement du module et empêche l'app de démarrer : on désactive le tracking.
 const mixpanel = MIXPANEL_TOKEN ? new Mixpanel(MIXPANEL_TOKEN, true) : null;
 if (mixpanel) {
-  mixpanel.init();
+  // init(optOutTrackingDefault, superProperties, serverURL) : l'URL passée ici
+  // équivaut à setServerURL() et vaut dès le premier événement.
+  mixpanel.init(false, {}, MIXPANEL_SERVER_URL);
   // Minimisation : pas de ville/région déduites de l'IP côté Mixpanel.
   mixpanel.setUseIpAddressForGeolocation(false);
 } else {
