@@ -7350,6 +7350,34 @@ export type Database = {
           },
         ]
       }
+      physical_competitions_served: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          date: string | null
+          description: string | null
+          end_date: string | null
+          end_time: string | null
+          format: string | null
+          has_individual: boolean | null
+          has_team: boolean | null
+          id: string | null
+          individual_genders: Json | null
+          location: string | null
+          logo_url: string | null
+          mode: string | null
+          name: string | null
+          price: string | null
+          registration_url: string | null
+          start_date: string | null
+          start_time: string | null
+          status: string | null
+          team_genders: Json | null
+          team_size: number | null
+          team_sizes: Json | null
+        }
+        Relationships: []
+      }
       public_leaderboard: {
         Row: {
           avatar_url: string | null

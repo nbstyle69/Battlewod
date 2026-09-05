@@ -56,6 +56,7 @@ on:
           - elo
           - group-messages
           - onboarding
+          - phys-served
           - grants
 
 concurrency:
@@ -245,6 +246,14 @@ jobs:
       - name: Suite — onboarding_completed_at (présentation vue côté compte)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'onboarding' }}
         run: node scripts/test-onboarding-completed.mjs
+
+      # Compétitions physiques : la vue physical_competitions_served recalcule le
+      # statut par date — passée → closed (absente du filtre open/active), à venir →
+      # open. La table brute n'est pas écrite. Mutation inverse : lire la table
+      # brute à la place de la vue → la passée revient « open » → rouge.
+      - name: Suite — physical_competitions_served (passée ≠ ouverte)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'phys-served' }}
+        run: node scripts/test-physical-competitions-served.mjs
 
       # Liens e-mail Auth : GoTrue génère le vrai lien (verify?token=…&type=…&
       # redirect_to=…), on suit le 303 et on lit le Location. signup → /email-confirme,
