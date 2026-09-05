@@ -39,6 +39,14 @@ describe('RealtimeRecorderModule.swift — orientation demandée à iOS, pas dev
     expect(src).not.toMatch(/self\.engine\.isLandscape = landscape/);
   });
 
+  it('la géométrie suit l’angle relu sur la connexion, pas l’angle demandé', () => {
+    const block = src.slice(src.indexOf('func applyCoordinatorAngles'), src.indexOf('func refreshOutputGeometry'));
+    expect(block).toMatch(/appliedAngle = conn\.videoRotationAngle/);
+    expect(block).toMatch(/refreshOutputGeometry\(appliedAngle:\s*appliedAngle\)/);
+    expect(block).not.toMatch(/refreshOutputGeometry\(appliedAngle:\s*captureAngle\)/);
+    expect(block).toMatch(/appliedAngle=\\\(appliedAngle\)/);
+  });
+
   it('mirroring selfie : sortie vidéo seulement, pas la preview', () => {
     expect(src.match(/isVideoMirrored = true/g)?.length).toBe(1);
     expect(src).not.toMatch(/preview[\s\S]{0,80}isVideoMirrored/);
@@ -63,8 +71,8 @@ describe('RealtimeRecorderModule.swift — orientation demandée à iOS, pas dev
     expect(src).not.toMatch(/switch orientation \{[\s\S]*?return \d+/);
   });
 
-  it('log de diagnostic derrière un flag (nom du device, angle preview, angle capture)', () => {
-    expect(src).toMatch(/static let orientationDebugLog = (true|false)/);
+  it('log de diagnostic derrière un flag éteint en production (nom du device, angle preview, angle capture)', () => {
+    expect(src).toMatch(/static let orientationDebugLog = false/);
     expect(src).toMatch(/\[orientation\][\s\S]*device=\\\(name\)[\s\S]*previewAngle=\\\(previewAngle\)[\s\S]*captureAngle=\\\(captureAngle\)/);
     expect(src).toMatch(/localizedName/);
   });

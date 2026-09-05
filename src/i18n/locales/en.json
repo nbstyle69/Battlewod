@@ -837,7 +837,14 @@
       "wodGenerator": "WOD generator",
       "oneRM": "1RM calculator",
       "oneRMDesc": "50% → 130% · Zones"
-    }
+    },
+    "seeAllTournaments": "All tournaments",
+    "tournamentStatus": {
+      "open": "Open",
+      "active": "In progress",
+      "closed": "Finished"
+    },
+    "tournamentParticipants": "{{n}}/{{max}} participants"
   },
   "profile": {
     "appearance": "Appearance",

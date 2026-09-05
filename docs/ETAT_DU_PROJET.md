@@ -128,6 +128,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Une lecture publique refusée se voit : elle ne se rend plus en liste vide plausible | 24 août 2026 |
 | Une relance de prospect fautive ne coupe plus les relances de toutes les box | 24 août 2026 |
 | Fiche adhérent du back-office mobile (`BOMembers`) : fiche opaque (`modalCard`, encre atténuée 2,77:1 → 5,36:1 en clair), formule, statut et échéance servis par `get_box_billing` au gérant/co-gérant (le coach n'y voit pas de bloc formule) — 1.0.52 I4 | 5 septembre 2026 |
+| Accueil, section Tournois : « Tous les tournois » ouvre l'onglet Tournois de Compétitions (le bouton ne faisait rien), libellé et statuts des cartes via i18n FR/EN (plus de chaînes en dur) — 1.0.52 L1 | 5 septembre 2026 |
 | Profil gérant mobile : bloc « Abonnement AthleX » (Solo/Multi depuis `owner_subscriptions`, état de la box) avec bouton vers `BOSubscription` — jusque-là joignable seulement depuis le Dashboard — 1.0.52 I5 | 5 septembre 2026 |
 
 ---
@@ -243,7 +244,11 @@ que les appareils déjà installés partagent : un changement natif impose une n
 version, donc un nouveau runtime OTA, `runtimeVersion.policy = appVersion`). Un journal de
 diagnostic derrière un flag affiche nom du device, angle preview et angle capture pour
 comparer les deux téléphones, et une liste de 16 cas à cliquer (2 téléphones ×
-avant/arrière × portrait/paysage) est dans la PR. Le chemin
+avant/arrière × portrait/paysage) est dans la PR. **Constaté par Nab (revue 1.0.52, C4) :
+les 16 cas passent.** Suite : `orientationDebugLog` repassé à `false`, et la géométrie du
+writer suit désormais l'angle **relu** sur `conn.videoRotationAngle` après affectation (un
+angle non supporté n'est pas appliqué en silence) plutôt que l'angle demandé ; le log
+affiche les deux (`captureAngle` demandé, `appliedAngle` relu). Le chemin
 iOS < 17 (cible 15.1) est gardé sous sa forme standard, non vérifié : aucun appareil sous
 iOS 17 dans le parc.
 
