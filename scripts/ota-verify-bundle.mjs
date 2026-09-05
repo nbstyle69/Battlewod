@@ -79,6 +79,11 @@ async function fetchLaunchBundle(platform) {
 const failures = [];
 const giphyFailures = [];
 const GIPHY_TAG_RE = /giphy-key:[A-Za-z0-9]{16,}:giphy-end/;
+// DSN Sentry : `https://<clé publique>@o<org>.ingest[.<région>].sentry.io/<projet>`. Le
+// SDK embarque aussi sa propre URL de télémétrie (`o447951.ingest.sentry.io`,
+// sans `@`) : elle ne compte pas. Sans DSN, `Sentry.init({ dsn: '' })` ne remonte rien.
+const SENTRY_DSN_RE = /https:\/\/[0-9a-f]{32}@o\d+\.ingest(?:\.[a-z]{2})?\.sentry\.io\/\d+/;
+const sentryFailures = [];
 
 for (const platform of PLATFORMS) {
   const { updateId, bundle } = await fetchLaunchBundle(platform);
@@ -88,15 +93,17 @@ for (const platform of PLATFORMS) {
   // Même mécanisme pour GIPHY : `'giphy-key:' + EXPO_PUBLIC_GIPHY_KEY + ':giphy-end'`
   // est plié au bundle en un seul littéral ; sans clé il reste `giphy-key::giphy-end`.
   const hasGiphy = GIPHY_TAG_RE.test(bundle);
+  const hasSentry = SENTRY_DSN_RE.test(bundle);
 
   console.log(
     `${platform} : update ${updateId} — ${(bundle.length / 1024 / 1024).toFixed(1)} Mo — `
     + `URL Supabase ${hasUrl ? 'présente' : 'ABSENTE'}, clé anon ${hasKey ? 'présente' : 'ABSENTE'}, `
-    + `clé GIPHY ${hasGiphy ? 'présente' : 'ABSENTE'}`,
+    + `clé GIPHY ${hasGiphy ? 'présente' : 'ABSENTE'}, DSN Sentry ${hasSentry ? 'présent' : 'ABSENT'}`,
   );
 
   if (!hasUrl || !hasKey) failures.push(platform);
   if (!hasGiphy) giphyFailures.push(platform);
+  if (!hasSentry) sentryFailures.push(platform);
 }
 
 if (failures.length > 0) {
@@ -113,6 +120,15 @@ if (giphyFailures.length > 0) {
     `::error::Bundle publié sans clé GIPHY (${giphyFailures.join(', ')}) : `
     + "le sélecteur de GIF afficherait « GIF indisponibles ». EXPO_PUBLIC_GIPHY_KEY "
     + "doit être présente dans l'environnement EAS `production` au moment du bundle.",
+  );
+  process.exit(1);
+}
+
+if (sentryFailures.length > 0) {
+  console.error(
+    `::error::Bundle publié sans DSN Sentry (${sentryFailures.join(', ')}) : `
+    + "aucune erreur ni crash ne remonterait. EXPO_PUBLIC_SENTRY_DSN doit être présente "
+    + "dans l'environnement EAS `production` au moment du bundle.",
   );
   process.exit(1);
 }
