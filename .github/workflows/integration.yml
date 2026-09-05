@@ -54,6 +54,7 @@ on:
           - heures
           - essai
           - elo
+          - group-messages
           - grants
 
 concurrency:
@@ -226,6 +227,16 @@ jobs:
       - name: Suite — Clôture ELO, mutation inverse
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'elo' }}
         run: ./scripts/test-finalize-elo-mutation.sh
+
+      # Messagerie de groupe : group_messages.sender_id → profiles ON DELETE SET NULL.
+      # Suppression d'un compte par delete_user_account → ses messages restent,
+      # sender_id NULL. La mutation inverse retire la clé : la suite doit rougir.
+      - name: Suite — group_messages.sender_id survit à la suppression du compte
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'group-messages' }}
+        run: node scripts/test-group-messages-sender.mjs
+      - name: Suite — group_messages, mutation inverse
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'group-messages' }}
+        run: ./scripts/test-group-messages-sender-mutation.sh
 
       # Liens e-mail Auth : GoTrue génère le vrai lien (verify?token=…&type=…&
       # redirect_to=…), on suit le 303 et on lit le Location. signup → /email-confirme,

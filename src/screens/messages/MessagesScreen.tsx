@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import i18n from '../../i18n';
 import { resolveStorageUrls, isExternalValue } from '../../lib/storageUrl';
 import { lastSeenMessagesKey, markMessagesSeen } from '../../lib/unreadMessages';
 import { useAuth } from '../../context/AuthContext';
@@ -41,7 +42,7 @@ interface Reaction {
 interface MsgRow {
   id: string;
   box_id: string;
-  sender_id: string;
+  sender_id: string | null;
   receiver_id?: string;
   group_id?: string | null;
   content: string;
@@ -158,7 +159,7 @@ export default function MessagesScreen() {
         .order('created_at', { ascending: true })
         .limit(100);
       const gcMsgs = gcData ?? [];
-      const senderIds = [...new Set(gcMsgs.map((m: any) => m.sender_id))];
+      const senderIds = [...new Set(gcMsgs.map((m: any) => m.sender_id).filter((id: string | null) => id !== null))];
       let profMap: Record<string, { username: string; avatar_url?: string }> = {};
       if (senderIds.length > 0) {
         const { data: profs } = await supabase.from('profiles').select('id, username, avatar_url').in('id', senderIds);
@@ -175,7 +176,9 @@ export default function MessagesScreen() {
         is_announcement: false,
         created_at:      m.created_at,
         read_by:         [],
-        sender:          profMap[m.sender_id] ?? { username: 'Inconnu' },
+        sender:          m.sender_id === null
+          ? { username: i18n.t('messages.deletedAccount') }
+          : (profMap[m.sender_id] ?? { username: 'Inconnu' }),
       }));
     }
 
@@ -184,7 +187,7 @@ export default function MessagesScreen() {
     setBlockedIds(blocked);
     const blockedSet = new Set(blocked);
     const all = [...adminRows, ...groupChatRows]
-      .filter(m => m.sender_id === 'admin' || !blockedSet.has(m.sender_id))
+      .filter(m => m.sender_id === 'admin' || m.sender_id === null || !blockedSet.has(m.sender_id))
       .sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
@@ -531,7 +534,7 @@ export default function MessagesScreen() {
       lastSenderId = '';
     }
     const showSender = msg.sender_id !== lastSenderId;
-    lastSenderId = msg.sender_id;
+    lastSenderId = msg.sender_id ?? '';
     grouped.push({ ...msg, _showSender: showSender });
   });
 
@@ -655,7 +658,7 @@ export default function MessagesScreen() {
                   )}
                   <Text style={[S.timeText, isMe && S.timeTextMe]}>{formatTime(msg.created_at)}</Text>
                 </View>
-                {!isMe && msg.sender_id !== 'admin' && !msg.id.startsWith('temp-') && (
+                {!isMe && msg.sender_id !== 'admin' && msg.sender_id !== null && !msg.id.startsWith('temp-') && (
                   <View style={{ position: 'absolute', top: 6, right: -18, opacity: 0.4 }}>
                     <ReportMenu
                       contentType="message"

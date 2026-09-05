@@ -61,6 +61,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | « Appliquer une programmation » sur le Whiteboard, avec option d'application automatique | 18 août 2026 |
 | Import d'une programmation depuis un fichier CSV, JSON ou PDF | 18 août 2026 |
 | Un seul éditeur de WOD pour deux contextes (Whiteboard et programmation) | 18 août 2026 |
+| Libellés « Functional » / « Hybrid » partout où le gérant voyait « CrossFit » / « Hyrox » comme catégorie ou filtre (catalogue de programmation mobile `BOProgrammingScreen` et web `programming/page.tsx`, annuaire des box `BoxDirectory*`) — libellés seuls, les valeurs internes `crossfit`/`hyrox`/`functional`/`hybrid` et les noms de box sont inchangés ; test `disciplineLabels.test.ts` dans chaque dépôt | 5 septembre 2026 |
 
 ### Adhérents, argent et programmes
 
@@ -116,6 +117,43 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Version `1.0.53` (50) : `app.json` `version`/`buildNumber` posés ; build iOS depuis `master` mergé, `verify:ipa`, `eas submit` — rien vers App Review | 5 septembre 2026 |
 | GIF dans Messages : Tenor (API fermée le 30 juin 2026) remplacé par GIPHY (`api.giphy.com/v1/gifs/search` et `/trending`, `rating=pg-13`, clé `EXPO_PUBLIC_GIPHY_KEY` posée dans GitHub Actions et EAS). Clé absente du bundle → « GIF indisponibles » lisible ; « Powered by GIPHY » dans le sélecteur (CGU GIPHY). Garde-fous : `ota.yml` (bundle servi), `verify:ipa`, `verify:aab` échouent si la clé n'est pas embarquée, via le marqueur `giphy-key:<clé>:giphy-end` plié au bundle. Plus aucune référence à Tenor (test qui échoue si une réapparaît) | 5 septembre 2026 |
 | `verify:aab` (`scripts/aab-verify-bundle.mjs`) : pendant Android de `verify:ipa` sur l'AAB réel (bundle Hermes, URL/clé anon Supabase, `versionName`/`versionCode`/runtime/canal OTA via bundletool, aucune permission de localisation) — 16/16 sur l'AAB 1.0.51 (64) hors les deux écarts de version attendus | 5 septembre 2026 |
+| Minimisation avant le build 50 : Sentry sans capture d'écran (`attachScreenshot: false`) et `setUser({ id })` seul ; Mixpanel sans géolocalisation IP (`setUseIpAddressForGeolocation(false)`) et sans e-mail dans `people.set` ; à la suppression du compte, `people.deleteUser()` + `flush()` avant `reset()` et `signOut` (échec → Sentry, la suppression ne dépend pas de Mixpanel). Test `dataMinimisation.test.ts`, mutation inverse (ordre inversé) rouge | 5 septembre 2026 |
+
+### Soumission — App Privacy (Apple) et Data Safety (Google Play)
+
+Inventaire lu dans le code (fichier-preuve par ligne), état du build `1.0.53` (50). Ce qui n'est pas
+visible dans le code (réglages des consoles Sentry/Mixpanel/GIPHY) est **non vérifié** et dit tel quel.
+Réponses globales : collecte = oui ; **suivi (ATT) = non** (pas d'IDFA, pas de courtier de données,
+aucune régie) ; chiffrement en transit = oui (HTTPS partout) ; suppression dans l'app = oui.
+
+| Donnée | Part vers | Apple — catégorie · usage · liée à l'identité | Google Play — type · usage | Preuve |
+| --- | --- | --- | --- | --- |
+| E-mail | Supabase Auth + `profiles.email` uniquement (plus Sentry ni Mixpanel) | Contact Info → Email Address · Fonctionnement · **liée** | Personal info → Email address · App functionality | `src/context/AuthContext.tsx` (`auth.signUp`, `setUserContext(profile.id)`, `identifyUser` sans `email`) |
+| Nom / pseudo (`username`, `full_name`) | Supabase `profiles` ; Mixpanel (`username`) | Contact Info → Name · Fonctionnement, Analytics · liée | Personal info → Name · App functionality, Analytics | `AuthContext.tsx`, `src/screens/profile/ProfileScreen.tsx`, `src/lib/analytics.ts` |
+| Genre, bio | Supabase `profiles` | Other Data Types / Other User Content · Fonctionnement · liée | Personal info → Other info · App functionality | `ProfileScreen.tsx` |
+| Photo de profil, images de messages/articles/logo | Supabase Storage (`avatars`, `message-attachments`, `box-assets`, `box-logos`) | User Content → Photos or Videos · Fonctionnement · liée | Photos and videos → Photos · App functionality | `ProfileScreen.tsx`, `MessagesScreen.tsx`, `BOArticlesScreen.tsx`, `BOBoxInfoScreen.tsx` |
+| Vidéos de performance | **Jamais envoyées** : galerie locale ; seule une URL saisie est stockée (`*.video_url`) | Vidéo : rien ; URL : Other User Content · liée | Photos and videos → non collecté | `TimerRunScreen.tsx` (`MediaLibrary.saveToLibraryAsync`), `InterScoreSubmitScreen.tsx` ; aucun `upload` de vidéo dans `src/` |
+| Documents (PDF) | Storage `documents` | User Content → Other User Content · Fonctionnement · liée | Files and docs · App functionality | `DocumentsScreen.tsx` |
+| Performance sportive (scores, temps, charges, PR, ELO, séances) | Supabase | **Health & Fitness → Fitness** · Fonctionnement · liée | Health and fitness → Fitness info · App functionality | `src/services/strengthPR.ts`, `strengthSets.ts`, `myProfile.ts`, `gamification.ts` |
+| Messages (privés, groupes, commentaires) | Supabase | User Content → Other User Content · Fonctionnement · liée | Messages → Other in-app messages · App functionality | `MessagesScreen.tsx` |
+| Identifiant utilisateur | Supabase ; Sentry `user.id` ; Mixpanel `distinct_id` | Identifiers → User ID · Fonctionnement, Analytics · liée | Personal info → User IDs · App functionality, Analytics | `src/lib/sentry.ts`, `src/lib/analytics.ts` |
+| Jeton push (Expo) | Supabase `push_tokens` ; serveur Expo via `send-push` | Identifiers → Device ID · Fonctionnement · liée | Device or other IDs · App functionality | `src/services/notifications.ts`, `supabase/functions/send-push` |
+| IDFA / Advertising ID | **Non** (pas d'ATT, pas d'`AD_ID`) | — | non collecté | `app.json`, manifeste AAB (`verify:aab`) |
+| Identifiant d'installation généré par les SDK | Sentry, Mixpanel | Identifiers → Device ID · Analytics · liée | Device or other IDs · Analytics | `App.tsx`, `analytics.ts` (défaut SDK) |
+| Crash et performance | Sentry (`@sentry/react-native`) — **sans capture d'écran** | Diagnostics → Crash Data, Performance Data · Fonctionnement · liée (`id` seul) | App activity → Crash logs, Diagnostics · App functionality | `App.tsx` (`attachScreenshot: false`), `src/lib/sentry.ts` |
+| Événements d'usage (liste exhaustive dans `src/lib/analytics.ts`, identifiants techniques et catégories, jamais de contenu libre) | Mixpanel — **sans géolocalisation IP** | Usage Data → Product Interaction · Analytics · liée (`identify` + `people.set` username/role/level) | App activity → App interactions · Analytics | `src/lib/analytics.ts` |
+| Localisation | **Non demandée** : aucune permission iOS/Android, pas d'`expo-location` ; `showsUserLocation` inopérant ; la carte se centre sur la moyenne des box | — | Location → non collecté | `app.json`, `BoxDirectoryMapScreen.tsx`, `verify:aab` |
+| Recherche de GIF (termes saisis, IP) | GIPHY (`api.giphy.com`) — Tenor fermé | Usage Data → Search History · Fonctionnement · **non liée** (pas d'identifiant transmis) | App activity → In-app search history · App functionality | `MessagesScreen.tsx` |
+| Données saisies par le gérant sur des tiers (prospects, invitations) | Supabase | Contact Info → Email, Phone · Fonctionnement · liée | Personal info → Email, Phone · App functionality | `src/screens/backoffice/` |
+| Côté serveur : analyse d'un score par IA (pseudo, valeur, notes), texte de PDF de programmation ; e-mails transactionnels | Anthropic ; Resend | Processeurs, déclarés avec les données ci-dessus | Processeurs (« partagé » ou exemption service provider selon DPA) | `supabase/functions/analyze-tournament-score`, `parse-wod-pdf`, `weekly-owner-digest`, `session-followup-cron` |
+
+Suppression de compte (`delete_user_account`, définition lue en prod) : compte Auth, profil et
+90 tables en `ON DELETE CASCADE` supprimés, Storage (`avatars`, `documents`, `message-attachments`)
+purgé ; 44 clés `ON DELETE SET NULL` anonymisent les références dans le contenu des autres (matchs,
+`created_by`, journal comptoir de la box) ; profil Mixpanel effacé par `people.deleteUser()` ;
+`group_messages.sender_id` passe en `SET NULL` par migration (lot du 5 septembre). Reste hors de
+portée de l'app : événements Sentry déjà envoyés (rétention du plan, non vérifiée) et journaux
+Supabase/Resend.
 
 ### Site public et lisibilité
 
@@ -138,6 +176,8 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Tunnel d'invitation, confirmation visible (cas `nbstylz+r2`, `email_not_confirmed` à la connexion) : web `/rejoindre` lit `needsConfirmation` et annonce le mail « Confirme ton adresse » avec l'adresse, avant « télécharge l'app », `accept` passe `emailRedirectTo` `/email-confirme` explicite (AthleX-Manager #308) ; app, écran de connexion : sur `email_not_confirmed` seulement, « Confirme d'abord ton e-mail » + « Renvoyer le mail » (`auth.resend({ type: 'signup' })`), retour « Mail renvoyé à <e-mail> » ou erreur traduite dont la limite 60 s de GoTrue. Test : bouton présent pour cette erreur, absent pour un mauvais mot de passe, `resend` appelé avec l'e-mail saisi. | 5 septembre 2026 |
 | Profil gérant mobile : bloc « Abonnement AthleX » (Solo/Multi depuis `owner_subscriptions`, état de la box) avec bouton vers `BOSubscription` — jusque-là joignable seulement depuis le Dashboard — 1.0.52 I5 | 5 septembre 2026 |
 | Pile Dashboard gérant : chevron retour standard (`ChevronLeft`, `goBack`) sur les 15 écrans empilés — ajouté sur Stats, Rapport, Notifications, Gamification, Articles, Inter-box ; harmonisé sur Réglages, Infos box, Abonnement (flèche) et Tournoi (« ← » texte) ; test qui énumère la pile — 1.0.52 I6 | 5 septembre 2026 |
+| Historique d'entraînement, deux points d'entrée vers `WodHistory` : « Mes entraînements » dans le Profil (athlète et gérant — `WodHistory` ajouté à `BOProfileStack`), et après l'enregistrement d'un score dans le générateur, confirmation avec « Voir mon historique ». Test : les deux points d'entrée naviguent vers `WodHistory`. | 5 septembre 2026 |
+| Messagerie de groupe : `group_messages.sender_id` reçoit sa clé étrangère vers `profiles` en `ON DELETE SET NULL` (migration `20261130_group_messages_sender_set_null.sql`, appliquée en prod avant merge, preuve `pg_constraint` `confdeltype='n'`) — la suppression d'un compte laissait ses messages orphelins (24 sur 39 purgés le 4 septembre), elle les anonymise désormais ; `MessagesScreen` affiche « Compte supprimé » pour un expéditeur `NULL`. Suite `group-messages` d'`integration.yml` : `delete_user_account()` sous l'identité de l'athlète → ses messages restent avec `sender_id NULL`, ceux des autres intacts (7/7) ; mutation inverse (clé retirée) rouge sur `GM_ORPHELIN` | 5 septembre 2026 |
 
 ---
 
@@ -308,7 +348,6 @@ précise ; le faire avant casse quelque chose. Le détail technique est dans
 | Bouton d'offre payante resté en français dans l'interface anglaise (« S'abonner — 59.00 €/month ») | Le prochain lot web qui touche la page publique de box. Un bouton mi-français mi-anglais sur une page de vente se corrige vite, mais pas en urgence. |
 | WOD GEN retiré de l'app (flag), à retravailler | Quand le contenu des « 3 séances adaptées à ton profil » sera revu : remettre `FEATURES.wodGen` à `true` suffit, l'écran et la route n'ont pas bougé. |
 | Soumission automatique sur Google Play | Quand une clé de compte de service Google Play est fournie. Aujourd'hui le fichier Android est produit signé, et téléversé à la main. |
-| Clé étrangère `group_messages.sender_id → profiles` (`ON DELETE SET NULL`) et affichage « Compte supprimé » pour un expéditeur `NULL` | Quand un lot touche la messagerie de groupe. La colonne n'a aucune clé étrangère aujourd'hui : la suppression d'un compte laissait ses messages orphelins (24 sur 39 purgés le 4 septembre 2026). |
 
 ---
 

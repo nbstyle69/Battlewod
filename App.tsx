@@ -37,7 +37,7 @@ Sentry.init({
   debug: __DEV__,
   enabled: !__DEV__,
   tracesSampleRate: 0.2,
-  attachScreenshot: true,
+  attachScreenshot: false,
   enableAutoSessionTracking: true,
 });
 

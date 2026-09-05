@@ -18,7 +18,7 @@ import GlassBackground from '../../components/glass/GlassBackground';
 type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 
 const SPORT_LABELS: Record<string, string> = {
-  crossfit: 'CrossFit',
+  crossfit: 'Functional',
   weightlifting: 'Haltérophilie',
   gymnastics: 'Gymnastique',
   hiit: 'HIIT',
@@ -26,7 +26,7 @@ const SPORT_LABELS: Record<string, string> = {
   boxing: 'Boxe',
   mma: 'MMA',
   functional: 'Functional',
-  hyrox: 'Hyrox',
+  hyrox: 'Hybrid',
 };
 
 export default function BoxDirectoryScreen() {

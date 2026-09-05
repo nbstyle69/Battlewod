@@ -16,7 +16,7 @@ import { computeCompletedMovements } from '../utils/movementParser';
 import { maskTimeInput, timeStringToSeconds } from '../utils/tournamentUtils';
 import { captureError } from '../lib/sentry';
 import { hapticSuccess } from '../lib/haptics';
-import { useToast } from './Toast';
+import i18n from '../i18n';
 import GlassBackground from './glass/GlassBackground';
 import { generateFunctionalDisplay, generateHyroxDisplay, CF_LEVEL_MAP, CF_INTENT_MAP } from '../utils/wod/adapter';
 
@@ -1376,7 +1376,6 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
   const navHook = useNavigation<Nav>();
   const navigation = navProp ?? navHook;
   const { theme } = useTheme();
-  const { showToast: toast } = useToast();
   const s = createStyles(theme);
 
   const [sport,       setSport]       = useState<Sport>('functional');
@@ -1546,7 +1545,14 @@ export default function WodGeneratorCard({ navigation: navProp }: { navigation?:
     setScoreModal(false);
     setScoreInput('');
     setScoreNotes('');
-    toast('Score enregistré !');
+    Alert.alert(
+      i18n.t('wodGenerator.scoreSavedTitle'),
+      i18n.t('wodGenerator.scoreSavedBody'),
+      [
+        { text: i18n.t('common.ok'), style: 'cancel' },
+        { text: i18n.t('wodGenerator.seeMyHistory'), onPress: () => navigation.navigate('WodHistory') },
+      ],
+    );
   }
 
   function openScoreModal(currentWod: GeneratedWOD | null) {
