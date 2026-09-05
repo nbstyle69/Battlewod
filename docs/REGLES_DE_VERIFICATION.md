@@ -28,6 +28,7 @@ prescrit **ce qu'il faut aller vérifier avant de dire qu'une chose marche**.
 | Grants de fonction | règle écrite « `REVOKE … FROM anon` », appliquée 20 fois | `anon` hérite de `PUBLIC` : la règle prescrivait la moitié sans effet |
 | Grants — filet de CI | « R1/R2 tournent en CI, la règle est tenue » | la CI rejoue nos migrations sur une base neuve : elle ne voit pas la prod |
 | Audit de prod — 1er run | job **rouge** (donc « une garde a sauté ») | l'audit est mort à l'import : zéro assertion exécutée, rien de constaté |
+| Clôture de tournoi (web) | historique ELO écrit, « ELO distribué » | le `PATCH profiles` d'un autre athlète rendait 204 et 0 ligne (RLS) : profil figé, historique en avance de 25 points |
 
 ---
 
@@ -454,9 +455,50 @@ après chacune — puisque, précisément, l'état sabotté produit des lignes q
 
 ---
 
+## 19. Un 204 de PostgREST ne prouve pas une écriture — et deux requêtes client ne font pas une transaction
+
+> un 204 de PostgREST ne prouve pas une écriture ; on vérifie le nombre de lignes
+> (`Prefer: return=representation` ou relecture), et une écriture métier en deux requêtes
+> client n'est pas une transaction
+
+Le 10 août, deux clôtures de tournoi ont écrit `tournament_elo_history.elo_after = 1062`
+puis `1064` pendant que `profiles.elo` restait à `1039`. Le bouton web faisait deux appels :
+`profiles.update({ elo })` sur le profil d'un **autre** athlète, puis `upsert` de l'historique.
+Le premier passait la RLS `Users can update own profile` avec **zéro ligne visible** — PostgREST
+rend `204 No Content`, le client lit « pas d'erreur » et continue. Le second passait par
+`elo_history_admin_write`. Résultat : un grand livre qui dit une chose, un profil qui en affiche
+une autre, et aucun rouge nulle part.
+
+```
+PATCH /rest/v1/profiles?id=eq.<autre>            → 204, 0 ligne     ← « succès »
+PATCH … Prefer: return=representation&select=id  → 200, []          ← la vérité
+```
+
+Deux conséquences, pas une :
+
+1. **Un code de retour n'est pas un résultat** (règle 9, ici côté HTTP). On demande la
+   représentation ou on relit, et on **assert** le nombre de lignes. La suite
+   `scripts/test-finalize-elo.mjs` contient l'assertion positive du piège : un gérant qui
+   `PATCH` le profil d'un autre athlète reçoit 204 **et** 0 ligne — pour que le piège reste
+   documenté par un contrôle, pas par une phrase.
+2. **Une écriture métier qui touche deux tables se fait dans une seule fonction serveur.**
+   `finalize_tournament_elo(p_tournament_id)` calcule le classement (tous formats), écrit
+   `tournament_elo_history`, `profiles.elo` et le statut du tournoi dans la même transaction,
+   et vérifie avant de sortir que chaque profil vaut son dernier `elo_after` (`ELO_INCOHERENT`
+   sinon, tout est annulé). Le client n'écrit plus ni `profiles` ni `tournament_elo_history`
+   pour l'ELO de tournoi : un grep en CI du dépôt web (`scripts/check-no-client-elo-writes.mjs`)
+   rougit si l'un des deux réapparaît dans `components/` ou `app/`.
+
+La mutation inverse (retirer l'`UPDATE profiles` de la fonction) est rejouée en CI : la suite
+doit rougir sur `ELO_INCOHERENT`, puis, garde retirée aussi, sur l'égalité profil = dernier
+`elo_after`. Un contrôle qui ne rougit pas sous mutation ne contrôle rien (règle 18).
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
+- [ ] Aucune écriture n'est tenue pour faite sur un 204 : nombre de lignes relu ou représenté.
 - [ ] Aucun `??` ne fabrique un droit, un montant ou un compte.
 - [ ] Les listes de colonnes des tables touchées sont à jour chez **tous** les appelants.
 - [ ] Aucun `select('*')` sur une table à colonnes sensibles ; l'export inspecte ses colonnes.

@@ -7637,6 +7637,17 @@ export type Database = {
         Args: { p_tournament_id: string }
         Returns: number
       }
+      finalize_tournament_elo: {
+        Args: { p_tournament_id: string }
+        Returns: {
+          athlete_id: string
+          username: string | null
+          final_rank: number
+          elo_before: number
+          elo_after: number
+          elo_change: number
+        }[]
+      }
       generate_class_schedules_from_templates: {
         Args: { p_box_id: string; p_weeks_ahead?: number }
         Returns: number

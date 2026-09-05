@@ -34,6 +34,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Compétitions entre box (inter-box) : divisions, ELO de départ, notifications aux participants | 16 août 2026 |
 | Un WOD fermé ou non encore révélé n'accepte plus de score (refus prononcé par le serveur) | 19 août 2026 |
 | Fin de tournoi en deux temps : on termine les WODs, on révise les scores contestés, puis on distribue l'ELO | 16 août 2026 |
+| La clôture d'un tournoi (web et mobile) est une seule opération serveur, tous formats : classement, historique ELO, profils et statut écrits ensemble ou pas du tout ; une seconde clôture est refusée par son nom ; l'écran ne calcule ni n'écrit plus d'ELO | 4 septembre 2026 |
 | Le classement affiché suit exactement l'ordre du serveur : secondes, sens du tri, scores au time cap, ex aequo signalés | 23 août 2026 |
 | Le vainqueur d'un match de bracket est calculé par une seule règle, partagée avec le reste de l'app | 23 août 2026 |
 | Preuve vidéo disponible sur tous les formats de tournoi | 16 août 2026 |
@@ -291,6 +292,8 @@ précise ; le faire avant casse quelque chose. Le détail technique est dans
 | Bouton d'offre payante resté en français dans l'interface anglaise (« S'abonner — 59.00 €/month ») | Le prochain lot web qui touche la page publique de box. Un bouton mi-français mi-anglais sur une page de vente se corrige vite, mais pas en urgence. |
 | WOD GEN retiré de l'app (flag), à retravailler | Quand le contenu des « 3 séances adaptées à ton profil » sera revu : remettre `FEATURES.wodGen` à `true` suffit, l'écran et la route n'ont pas bougé. |
 | Soumission automatique sur Google Play | Quand une clé de compte de service Google Play est fournie. Aujourd'hui le fichier Android est produit signé, et téléversé à la main. |
+| Historique ELO conservé quand un WOD ou un tournoi est supprimé (`ON DELETE SET NULL` sur les sept tables d'historique, « tournoi supprimé » à l'écran), et sort de la colonne `losses` (jamais incrémentée) | Dès que la clôture serveur unique (4 septembre 2026) est en production : la même suite prouve alors que supprimer un tournoi clôturé laisse profils et historique égaux. |
+| Réalignement des deux profils dont l'historique a été supprimé par notre purge (JCVD, in the bar) : `profiles.elo` := dernier `elo_after`, compteurs de JCVD 12→8 / 5→4 | Après la mise en production de la clôture serveur, en une transaction sur GO. Principe : historique supprimé par nous → on aligne sur l'historique ; historique jamais écrit (Samir, chemin client de mars) → on garde le profil. |
 | Clé étrangère `group_messages.sender_id → profiles` (`ON DELETE SET NULL`) et affichage « Compte supprimé » pour un expéditeur `NULL` | Quand un lot touche la messagerie de groupe. La colonne n'a aucune clé étrangère aujourd'hui : la suppression d'un compte laissait ses messages orphelins (24 sur 39 purgés le 4 septembre 2026). |
 
 ---
@@ -312,6 +315,7 @@ qu'aucune de ces limites ne soit découverte par surprise.
 | **Les plafonds anti-abus par e-mail et par adresse Internet ne sont pas rejoués en production.** | Même décision : prouvés sur pile jetable. Provoquer un blocage anti-abus sur la vraie base fabriquerait du bruit pour confirmer du déjà-mesuré. |
 | **La réception effective de l'e-mail de confirmation d'essai n'est pas constatée.** | Seule la phrase affichée à l'écran l'est. La preuve appartient à un test de bout en bout avec une vraie adresse de réception ; déclencher un envoi de masse depuis la production toucherait des gérants qui n'ont rien demandé. |
 | **Un compte créé à la demande de Nab (test, reviewer, démo) suit une règle fixe.** | Création par l'API admin Supabase avec `email_confirm: true` (aucun e-mail de confirmation envoyé), adresse toujours de la forme `nbstylz+…@gmail.com`, mot de passe jamais transmis par écrit (Nab le pose lui-même via « Mot de passe oublié » ou le choisit), et annonce préalable avant toute création — jamais de compte créé sans accord. |
+| **Deux profils affichent encore un ELO qui ne correspond plus à leur historique** (JCVD 1039 pour un dernier `elo_after` de 1064, in the bar 1057 pour 1032). | Cause connue et fermée : l'ancien bouton web écrivait l'historique sans pouvoir écrire le profil (RLS, 204 et 0 ligne — règle 19). Le chemin n'existe plus ; le réalignement est au backlog à déclencheur, il attend un GO. |
 | **Les dates de fermeture antérieures au 16 août 2026 sont approximatives.** | Elles sont reconstruites depuis les PRs mergées, pas depuis un journal tenu à l'époque. |
 | **Une capacité serveur n'est pas toujours atteignable depuis l'interface.** | C'est une distinction assumée et documentée : le serveur sait faire, l'écran ne l'expose pas encore. Chaque cas connu porte cette mention dans son en-tête. |
 

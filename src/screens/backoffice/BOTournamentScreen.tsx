@@ -96,8 +96,14 @@ export default function BOTournamentScreen() {
       const endDate = new Date(currentTourn.end_date + 'T00:00:00');
       endDate.setDate(endDate.getDate() + 1); // end of end_date day
       if (new Date() >= endDate) {
-        await performTournamentClose(selectedId);
-        setTournaments(prev => prev.map(tt => tt.id === selectedId ? { ...tt, status: 'completed' } : tt));
+        try {
+          await performTournamentClose(selectedId);
+          setTournaments(prev => prev.map(tt => tt.id === selectedId ? { ...tt, status: 'completed' } : tt));
+        } catch (e) {
+          // Refus nommé de la RPC (scores en attente, tableau non terminé…) : le
+          // tournoi reste ouvert, le gérant clôture à la main quand c'est prêt.
+          captureError(e, { screen: 'BOTournament', action: 'autoClose' });
+        }
       }
     }
 
@@ -292,31 +298,18 @@ export default function BOTournamentScreen() {
 
   // ── Core tournament close: compute ELO, gamification, notifications ──────
   async function performTournamentClose(tournId: string): Promise<{ name: string; rank: number; change: number }[]> {
-    // Check if ELO already computed
-    const { data: existingHist } = await supabase
-      .from('tournament_elo_history')
-      .select('id')
-      .eq('tournament_id', tournId)
-      .limit(1);
-    if ((existingHist ?? []).length > 0) return []; // Already done
-
-    const { data: tp } = await supabase.from('tournament_participants')
-      .select('athlete_id, score')
-      .eq('tournament_id', tournId).order('score', { ascending: false });
-    if (!tp || tp.length < 2) {
-      await supabase.from('tournaments').update({ status: 'completed' }).eq('id', tournId);
-      return [];
+    // Une seule écriture, côté serveur : classement (tous formats), historique
+    // ELO, profils et statut dans la même transaction. Le client ne fournit
+    // aucune valeur d'ELO et n'écrit ni profiles ni tournament_elo_history.
+    // Seconde clôture : la RPC refuse (TOURNOI_DEJA_CLOTURE), rien n'est redistribué.
+    const { data: eloRows, error: eloErr } = await supabase.rpc('finalize_tournament_elo', { p_tournament_id: tournId });
+    if (eloErr) {
+      if (/TOURNOI_DEJA_CLOTURE/.test(eloErr.message)) return [];
+      captureError(eloErr, { screen: 'BOTournament', action: 'finalizeElo' });
+      throw eloErr;
     }
-
-    const tpIds = tp.map((p: any) => p.athlete_id);
-    const { data: tpProfs } = await supabase.from('profiles').select('id, username').in('id', tpIds);
     const nameMap: Record<string, string> = {};
-    (tpProfs ?? []).forEach((p: any) => { nameMap[p.id] = p.username ?? '?'; });
-
-    // ELO is computed and persisted entirely server-side (idempotent RPC).
-    // The client never supplies ELO values; it only triggers the close.
-    const { data: eloRows, error: eloErr } = await supabase.rpc('compute_tournament_elo', { p_tournament_id: tournId });
-    if (eloErr) { captureError(eloErr, { screen: 'BOTournament', action: 'computeElo' }); }
+    (eloRows ?? []).forEach(r => { nameMap[r.athlete_id] = r.username ?? '?'; });
 
     const eloChanges: { name: string; rank: number; change: number }[] = (eloRows ?? [])
       .sort((a, b) => a.final_rank - b.final_rank)
@@ -363,7 +356,14 @@ export default function BOTournamentScreen() {
       [{ text: t('common.cancel'), style: 'cancel' }, {
         text: t('bo.tournament.close'), style: 'destructive', onPress: async () => {
           setClosingTourn(true);
-          const eloChanges = await performTournamentClose(selectedId);
+          let eloChanges: { name: string; rank: number; change: number }[];
+          try {
+            eloChanges = await performTournamentClose(selectedId);
+          } catch (e) {
+            setClosingTourn(false);
+            Alert.alert(t('common.error'), e instanceof Error ? e.message : String(e));
+            return;
+          }
           setClosingTourn(false);
           setTournaments(prev => prev.map(tt => tt.id === selectedId ? { ...tt, status: 'completed' } : tt));
 
