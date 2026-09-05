@@ -14,6 +14,8 @@ import GlassBackground from '../../components/glass/GlassBackground';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
 import { buildIdentity } from '../../lib/buildIdentity';
 import { translateAuthError } from '../../lib/authErrorMessage';
+import { isEmailNotConfirmed, resendConfirmationMail } from '../../lib/loginConfirmation';
+import { supabase } from '../../lib/supabase';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
@@ -26,13 +28,33 @@ export default function LoginScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendFeedback, setResendFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function handleLogin() {
     if (!email || !password) { Alert.alert(t('common.error'), t('auth.fillAllFields')); return; }
     setLoading(true);
     const { error } = await signIn(email.trim(), password);
     setLoading(false);
-    if (error) Alert.alert(t('auth.loginFailed'), translateAuthError(t, error));
+    setResendFeedback(null);
+    if (!error) return;
+    if (isEmailNotConfirmed(error)) {
+      setUnconfirmedEmail(email.trim());
+      return;
+    }
+    setUnconfirmedEmail(null);
+    Alert.alert(t('auth.loginFailed'), translateAuthError(t, error));
+  }
+
+  async function handleResend() {
+    if (!unconfirmedEmail || resending) return;
+    setResending(true);
+    const result = await resendConfirmationMail(supabase.auth, unconfirmedEmail);
+    setResending(false);
+    setResendFeedback(result.ok
+      ? { ok: true, text: t('auth.resendSent', { email: result.email }) }
+      : { ok: false, text: t(result.key, { seconds: result.seconds }) });
   }
 
   return (
@@ -58,6 +80,29 @@ export default function LoginScreen({ navigation }: Props) {
               <View style={S.profileErrorBox}>
                 <Text style={S.profileErrorText}>{t('auth.profileLoadFailed')}</Text>
                 <Text style={S.profileErrorDetail}>{profileError}</Text>
+              </View>
+            )}
+
+            {unconfirmedEmail && (
+              <View style={S.confirmBox} accessibilityLabel="Confirme d'abord ton e-mail">
+                <Text style={S.confirmTitle}>{t('auth.confirmEmailFirst')}</Text>
+                <Text style={S.confirmHint}>{t('auth.confirmEmailHint', { email: unconfirmedEmail })}</Text>
+                <TouchableOpacity
+                  onPress={handleResend}
+                  disabled={resending}
+                  style={S.resendButton}
+                  accessibilityLabel="Renvoyer le mail"
+                  accessibilityRole="button"
+                >
+                  {resending
+                    ? <ActivityIndicator color={theme.text} size="small" />
+                    : <Text style={S.resendText}>{t('auth.resendMail')}</Text>}
+                </TouchableOpacity>
+                {resendFeedback && (
+                  <Text style={[S.confirmHint, resendFeedback.ok ? S.resendOk : S.resendKo]}>
+                    {resendFeedback.text}
+                  </Text>
+                )}
               </View>
             )}
 
@@ -236,6 +281,40 @@ function createStyles(theme: AppTheme) {
       color: theme.textSecondary,
       marginTop: spacing.xs,
     },
+    confirmBox: {
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.10)',
+      borderWidth: 1,
+      borderColor: 'rgba(245, 158, 11, 0.5)',
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    confirmTitle: {
+      ...typography.body,
+      fontWeight: '700',
+      color: theme.text,
+    },
+    confirmHint: {
+      ...typography.caption,
+      color: theme.textSecondary,
+      marginTop: spacing.xs,
+    },
+    resendButton: {
+      alignSelf: 'flex-start',
+      marginTop: spacing.sm,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.text,
+    },
+    resendText: {
+      ...typography.caption,
+      fontWeight: '700',
+      color: theme.text,
+    },
+    resendOk: { color: theme.text },
+    resendKo: { color: '#dc2626' },
     buildIdentity: {
       ...typography.caption,
       color: theme.textMuted,
