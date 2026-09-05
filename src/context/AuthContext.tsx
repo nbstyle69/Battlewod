@@ -8,7 +8,7 @@ import { Session } from '@supabase/supabase-js';
 import { registerForPushNotifications, savePushToken, removePushToken, scheduleDailyReminder, scheduleScoreReminder, getNotificationPrefs, clearCachedPrefs, cancelAllLocalReminders } from '../services/notifications';
 import { awardLevelBadge } from '../services/gamification';
 import { setUserContext, clearUserContext, captureError } from '../lib/sentry';
-import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackDeleteAccount } from '../lib/analytics';
+import { identifyUser, resetUser, forgetUser, trackLogin, trackSignUp, trackBoxJoin, trackDeleteAccount } from '../lib/analytics';
 import { isPurgedAtSignOut } from '../lib/storageKeys';
 import { runSignOutSequence } from '../lib/signOutSequence';
 import { EMAIL_CONFIRMED_URL, UPDATE_PASSWORD_URL } from '../lib/urls';
@@ -149,8 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const email = authData?.user?.email ?? '';
       const profile = { ...data, email } as User;
       setUser(profile);
-      setUserContext(profile.id, email, profile.username);
-      identifyUser(profile.id, { email, username: profile.username, role: profile.role, level: profile.level });
+      setUserContext(profile.id);
+      identifyUser(profile.id, { username: profile.username, role: profile.role, level: profile.level });
       await fetchBox(userId);
       // Register push token silently
       registerForPushNotifications().then(token => {
@@ -481,6 +481,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.rpc('delete_user_account');
       if (error) return { error: error.message };
       trackDeleteAccount();
+      const forgotten = forgetUser();
+      if (forgotten.error) captureError(forgotten.error, { action: 'mixpanelDeleteUser' });
       clearUserContext();
       resetUser();
       await supabase.auth.signOut();
