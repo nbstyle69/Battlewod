@@ -22,9 +22,10 @@ describe('GIPHY remplace Tenor', () => {
     expect(fn).toContain('json.data ?? []');
   });
 
-  it('plus aucune référence à Tenor dans le code, l’env et les scripts', () => {
+  it('plus aucune référence à Tenor dans le code, l’env, les scripts et les workflows', () => {
+    // Les docs gardent la trace historique du remplacement ; le code, non.
     const out = execSync(
-      "git grep -il tenor -- ':!package-lock.json' ':!src/__tests__/giphyGifPicker.test.ts' || true",
+      "git grep -il tenor -- src scripts .github App.tsx app.json eas.json .env.example ':!src/__tests__/giphyGifPicker.test.ts' || true",
       { cwd: ROOT, encoding: 'utf8' },
     ).trim();
     expect(out).toBe('');
