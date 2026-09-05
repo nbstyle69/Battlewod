@@ -319,7 +319,7 @@
       "change": "Change",
       "generalInfo": "General information",
       "nameLabel": "BOX NAME *",
-      "namePlaceholder": "CrossFit Lyon, Box Forge…",
+      "namePlaceholder": "Functional Lyon, Box Forge…",
       "addressLabel": "ADDRESS",
       "addressPlaceholder": "12 rue du Sport, 69001 Lyon",
       "websiteLabel": "WEBSITE",
@@ -902,7 +902,7 @@
       "categories": {
         "weightlifting": "Weightlifting",
         "gymnastics": "Gymnastics",
-        "benchmarks": "CrossFit benchmarks",
+        "benchmarks": "Functional benchmarks",
         "cardio": "Cardio & Endurance"
       }
     },
@@ -959,7 +959,7 @@
       "bioLabel": "Bio",
       "bioEmpty": "Not set",
       "bioHashtags": "Bio (with #hashtags)",
-      "bioPlaceholder": "Tell us about you... #crossfit #rx #motivation",
+      "bioPlaceholder": "Tell us about you... #functional #rx #motivation",
       "photoLabel": "Photo",
       "photoSet": "Set",
       "photoUnset": "Not set",
