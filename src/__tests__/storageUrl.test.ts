@@ -50,7 +50,7 @@ describe('storagePathFromValue', () => {
 
   it('renvoie null pour une URL externe (GIF Giphy)', () => {
     expect(storagePathFromValue('https://media.giphy.com/media/xyz/giphy.gif', PJ)).toBeNull();
-    expect(storagePathFromValue('https://media.tenor.com/abc.gif', PJ)).toBeNull();
+    expect(storagePathFromValue('https://media.example.com/abc.gif', PJ)).toBeNull();
   });
 
   it('renvoie null pour un objet d’un AUTRE bucket', () => {

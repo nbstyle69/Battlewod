@@ -115,6 +115,12 @@ if (keyMatch) {
     check('la clé embarquée est décodable', false, String(e));
   }
 }
+// Clé GIPHY : `'giphy-key:' + EXPO_PUBLIC_GIPHY_KEY + ':giphy-end'` est plié au
+// bundle en un littéral ; sans clé il reste `giphy-key::giphy-end` et le
+// sélecteur de GIF dit « GIF indisponibles ».
+const giphyMatch = js.match(/giphy-key:([A-Za-z0-9]{16,}):giphy-end/);
+check('clé GIPHY embarquée', !!giphyMatch,
+  giphyMatch ? `${giphyMatch[1].length} caractères` : "absente (`giphy-key::giphy-end` ou marqueur manquant)");
 
 // 5. Identité du binaire : le manifeste d'un AAB est en protobuf, bundletool
 //    le rend en XML texte. Les réglages OTA d'Expo y sont des <meta-data>.

@@ -114,6 +114,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Version `1.0.51` construite pour iOS et Android, IPA envoyé sur App Store Connect | 24 août 2026 |
 | Version `1.0.52` (49) iOS construite depuis `master`, IPA vérifié 17/17, traitée par Apple et installable depuis TestFlight (groupe interne) — **obsolète, non soumise** : la revue 1.0.52 (A4, I4, I5, L1, I6, C4, tunnel d'invitation) part dans `1.0.53` (50), nouveau runtime OTA | 3 septembre 2026 |
 | Version `1.0.53` (50) : `app.json` `version`/`buildNumber` posés ; build iOS depuis `master` mergé, `verify:ipa`, `eas submit` — rien vers App Review | 5 septembre 2026 |
+| GIF dans Messages : Tenor (API fermée le 30 juin 2026) remplacé par GIPHY (`api.giphy.com/v1/gifs/search` et `/trending`, `rating=pg-13`, clé `EXPO_PUBLIC_GIPHY_KEY` posée dans GitHub Actions et EAS). Clé absente du bundle → « GIF indisponibles » lisible ; « Powered by GIPHY » dans le sélecteur (CGU GIPHY). Garde-fous : `ota.yml` (bundle servi), `verify:ipa`, `verify:aab` échouent si la clé n'est pas embarquée, via le marqueur `giphy-key:<clé>:giphy-end` plié au bundle. Plus aucune référence à Tenor (test qui échoue si une réapparaît) | 5 septembre 2026 |
 | `verify:aab` (`scripts/aab-verify-bundle.mjs`) : pendant Android de `verify:ipa` sur l'AAB réel (bundle Hermes, URL/clé anon Supabase, `versionName`/`versionCode`/runtime/canal OTA via bundletool, aucune permission de localisation) — 16/16 sur l'AAB 1.0.51 (64) hors les deux écarts de version attendus | 5 septembre 2026 |
 
 ### Site public et lisibilité

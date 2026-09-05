@@ -77,19 +77,26 @@ async function fetchLaunchBundle(platform) {
 }
 
 const failures = [];
+const giphyFailures = [];
+const GIPHY_TAG_RE = /giphy-key:[A-Za-z0-9]{16,}:giphy-end/;
 
 for (const platform of PLATFORMS) {
   const { updateId, bundle } = await fetchLaunchBundle(platform);
 
   const hasUrl = /https:\/\/[a-z0-9]+\.supabase\.co/.test(bundle);
   const hasKey = bundle.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9');
+  // Même mécanisme pour GIPHY : `'giphy-key:' + EXPO_PUBLIC_GIPHY_KEY + ':giphy-end'`
+  // est plié au bundle en un seul littéral ; sans clé il reste `giphy-key::giphy-end`.
+  const hasGiphy = GIPHY_TAG_RE.test(bundle);
 
   console.log(
     `${platform} : update ${updateId} — ${(bundle.length / 1024 / 1024).toFixed(1)} Mo — `
-    + `URL Supabase ${hasUrl ? 'présente' : 'ABSENTE'}, clé anon ${hasKey ? 'présente' : 'ABSENTE'}`,
+    + `URL Supabase ${hasUrl ? 'présente' : 'ABSENTE'}, clé anon ${hasKey ? 'présente' : 'ABSENTE'}, `
+    + `clé GIPHY ${hasGiphy ? 'présente' : 'ABSENTE'}`,
   );
 
   if (!hasUrl || !hasKey) failures.push(platform);
+  if (!hasGiphy) giphyFailures.push(platform);
 }
 
 if (failures.length > 0) {
@@ -97,6 +104,15 @@ if (failures.length > 0) {
     `::error::Bundle publié sans configuration Supabase (${failures.join(', ')}) : `
     + "l'app ne pourra pas se connecter. Les variables EXPO_PUBLIC_* doivent être "
     + "présentes AU MOMENT du bundle (`eas update --environment production`).",
+  );
+  process.exit(1);
+}
+
+if (giphyFailures.length > 0) {
+  console.error(
+    `::error::Bundle publié sans clé GIPHY (${giphyFailures.join(', ')}) : `
+    + "le sélecteur de GIF afficherait « GIF indisponibles ». EXPO_PUBLIC_GIPHY_KEY "
+    + "doit être présente dans l'environnement EAS `production` au moment du bundle.",
   );
   process.exit(1);
 }
