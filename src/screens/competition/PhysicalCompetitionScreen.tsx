@@ -91,7 +91,7 @@ export default function PhysicalCompetitionScreen() {
   const load = useCallback(async () => {
     try {
     const { data } = await supabase
-      .from('physical_competitions')
+      .from('physical_competitions_served')
       .select('*')
       .order('date', { ascending: true });
     const list = (data ?? []) as PhysComp[];

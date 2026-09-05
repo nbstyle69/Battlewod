@@ -286,7 +286,7 @@ export default function HomeScreen() {
       }));
 
       const { data: physData } = await supabase
-        .from('physical_competitions')
+        .from('physical_competitions_served')
         .select('id, name, logo_url, mode')
         .in('status', ['open', 'active'])
         .order('date', { ascending: true })
