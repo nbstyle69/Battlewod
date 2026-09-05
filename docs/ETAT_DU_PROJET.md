@@ -115,6 +115,43 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Version `1.0.52` (49) iOS construite depuis `master`, IPA vérifié 17/17, traitée par Apple et installable depuis TestFlight (groupe interne) — **obsolète, non soumise** : la revue 1.0.52 (A4, I4, I5, L1, I6, C4, tunnel d'invitation) part dans `1.0.53` (50), nouveau runtime OTA | 3 septembre 2026 |
 | Version `1.0.53` (50) : `app.json` `version`/`buildNumber` posés ; build iOS depuis `master` mergé, `verify:ipa`, `eas submit` — rien vers App Review | 5 septembre 2026 |
 | `verify:aab` (`scripts/aab-verify-bundle.mjs`) : pendant Android de `verify:ipa` sur l'AAB réel (bundle Hermes, URL/clé anon Supabase, `versionName`/`versionCode`/runtime/canal OTA via bundletool, aucune permission de localisation) — 16/16 sur l'AAB 1.0.51 (64) hors les deux écarts de version attendus | 5 septembre 2026 |
+| Minimisation avant le build 50 : Sentry sans capture d'écran (`attachScreenshot: false`) et `setUser({ id })` seul ; Mixpanel sans géolocalisation IP (`setUseIpAddressForGeolocation(false)`) et sans e-mail dans `people.set` ; à la suppression du compte, `people.deleteUser()` + `flush()` avant `reset()` et `signOut` (échec → Sentry, la suppression ne dépend pas de Mixpanel). Test `dataMinimisation.test.ts`, mutation inverse (ordre inversé) rouge | 5 septembre 2026 |
+
+### Soumission — App Privacy (Apple) et Data Safety (Google Play)
+
+Inventaire lu dans le code (fichier-preuve par ligne), état du build `1.0.53` (50). Ce qui n'est pas
+visible dans le code (réglages des consoles Sentry/Mixpanel/GIPHY) est **non vérifié** et dit tel quel.
+Réponses globales : collecte = oui ; **suivi (ATT) = non** (pas d'IDFA, pas de courtier de données,
+aucune régie) ; chiffrement en transit = oui (HTTPS partout) ; suppression dans l'app = oui.
+
+| Donnée | Part vers | Apple — catégorie · usage · liée à l'identité | Google Play — type · usage | Preuve |
+| --- | --- | --- | --- | --- |
+| E-mail | Supabase Auth + `profiles.email` uniquement (plus Sentry ni Mixpanel) | Contact Info → Email Address · Fonctionnement · **liée** | Personal info → Email address · App functionality | `src/context/AuthContext.tsx` (`auth.signUp`, `setUserContext(profile.id)`, `identifyUser` sans `email`) |
+| Nom / pseudo (`username`, `full_name`) | Supabase `profiles` ; Mixpanel (`username`) | Contact Info → Name · Fonctionnement, Analytics · liée | Personal info → Name · App functionality, Analytics | `AuthContext.tsx`, `src/screens/profile/ProfileScreen.tsx`, `src/lib/analytics.ts` |
+| Genre, bio | Supabase `profiles` | Other Data Types / Other User Content · Fonctionnement · liée | Personal info → Other info · App functionality | `ProfileScreen.tsx` |
+| Photo de profil, images de messages/articles/logo | Supabase Storage (`avatars`, `message-attachments`, `box-assets`, `box-logos`) | User Content → Photos or Videos · Fonctionnement · liée | Photos and videos → Photos · App functionality | `ProfileScreen.tsx`, `MessagesScreen.tsx`, `BOArticlesScreen.tsx`, `BOBoxInfoScreen.tsx` |
+| Vidéos de performance | **Jamais envoyées** : galerie locale ; seule une URL saisie est stockée (`*.video_url`) | Vidéo : rien ; URL : Other User Content · liée | Photos and videos → non collecté | `TimerRunScreen.tsx` (`MediaLibrary.saveToLibraryAsync`), `InterScoreSubmitScreen.tsx` ; aucun `upload` de vidéo dans `src/` |
+| Documents (PDF) | Storage `documents` | User Content → Other User Content · Fonctionnement · liée | Files and docs · App functionality | `DocumentsScreen.tsx` |
+| Performance sportive (scores, temps, charges, PR, ELO, séances) | Supabase | **Health & Fitness → Fitness** · Fonctionnement · liée | Health and fitness → Fitness info · App functionality | `src/services/strengthPR.ts`, `strengthSets.ts`, `myProfile.ts`, `gamification.ts` |
+| Messages (privés, groupes, commentaires) | Supabase | User Content → Other User Content · Fonctionnement · liée | Messages → Other in-app messages · App functionality | `MessagesScreen.tsx` |
+| Identifiant utilisateur | Supabase ; Sentry `user.id` ; Mixpanel `distinct_id` | Identifiers → User ID · Fonctionnement, Analytics · liée | Personal info → User IDs · App functionality, Analytics | `src/lib/sentry.ts`, `src/lib/analytics.ts` |
+| Jeton push (Expo) | Supabase `push_tokens` ; serveur Expo via `send-push` | Identifiers → Device ID · Fonctionnement · liée | Device or other IDs · App functionality | `src/services/notifications.ts`, `supabase/functions/send-push` |
+| IDFA / Advertising ID | **Non** (pas d'ATT, pas d'`AD_ID`) | — | non collecté | `app.json`, manifeste AAB (`verify:aab`) |
+| Identifiant d'installation généré par les SDK | Sentry, Mixpanel | Identifiers → Device ID · Analytics · liée | Device or other IDs · Analytics | `App.tsx`, `analytics.ts` (défaut SDK) |
+| Crash et performance | Sentry (`@sentry/react-native`) — **sans capture d'écran** | Diagnostics → Crash Data, Performance Data · Fonctionnement · liée (`id` seul) | App activity → Crash logs, Diagnostics · App functionality | `App.tsx` (`attachScreenshot: false`), `src/lib/sentry.ts` |
+| Événements d'usage (liste exhaustive dans `src/lib/analytics.ts`, identifiants techniques et catégories, jamais de contenu libre) | Mixpanel — **sans géolocalisation IP** | Usage Data → Product Interaction · Analytics · liée (`identify` + `people.set` username/role/level) | App activity → App interactions · Analytics | `src/lib/analytics.ts` |
+| Localisation | **Non demandée** : aucune permission iOS/Android, pas d'`expo-location` ; `showsUserLocation` inopérant ; la carte se centre sur la moyenne des box | — | Location → non collecté | `app.json`, `BoxDirectoryMapScreen.tsx`, `verify:aab` |
+| Recherche de GIF (termes saisis, IP) | GIPHY (`api.giphy.com`) — Tenor fermé | Usage Data → Search History · Fonctionnement · **non liée** (pas d'identifiant transmis) | App activity → In-app search history · App functionality | `MessagesScreen.tsx` |
+| Données saisies par le gérant sur des tiers (prospects, invitations) | Supabase | Contact Info → Email, Phone · Fonctionnement · liée | Personal info → Email, Phone · App functionality | `src/screens/backoffice/` |
+| Côté serveur : analyse d'un score par IA (pseudo, valeur, notes), texte de PDF de programmation ; e-mails transactionnels | Anthropic ; Resend | Processeurs, déclarés avec les données ci-dessus | Processeurs (« partagé » ou exemption service provider selon DPA) | `supabase/functions/analyze-tournament-score`, `parse-wod-pdf`, `weekly-owner-digest`, `session-followup-cron` |
+
+Suppression de compte (`delete_user_account`, définition lue en prod) : compte Auth, profil et
+90 tables en `ON DELETE CASCADE` supprimés, Storage (`avatars`, `documents`, `message-attachments`)
+purgé ; 44 clés `ON DELETE SET NULL` anonymisent les références dans le contenu des autres (matchs,
+`created_by`, journal comptoir de la box) ; profil Mixpanel effacé par `people.deleteUser()` ;
+`group_messages.sender_id` passe en `SET NULL` par migration (lot du 5 septembre). Reste hors de
+portée de l'app : événements Sentry déjà envoyés (rétention du plan, non vérifiée) et journaux
+Supabase/Resend.
 
 ### Site public et lisibilité
 

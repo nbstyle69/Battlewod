@@ -7,13 +7,17 @@ const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN || '';
 const mixpanel = MIXPANEL_TOKEN ? new Mixpanel(MIXPANEL_TOKEN, true) : null;
 if (mixpanel) {
   mixpanel.init();
+  // Minimisation : pas de ville/région déduites de l'IP côté Mixpanel.
+  mixpanel.setUseIpAddressForGeolocation(false);
 } else {
   console.warn('[analytics] EXPO_PUBLIC_MIXPANEL_TOKEN absent — tracking désactivé.');
 }
 
 // ── Identity ────────────────────────────────────────────
 
-export function identifyUser(userId: string, props?: Record<string, any>) {
+export type UserProfileProps = { username?: string; role?: string; level?: string };
+
+export function identifyUser(userId: string, props?: UserProfileProps) {
   mixpanel?.identify(userId);
   if (props) {
     mixpanel?.getPeople().set(props);
@@ -22,6 +26,21 @@ export function identifyUser(userId: string, props?: Record<string, any>) {
 
 export function resetUser() {
   mixpanel?.reset();
+}
+
+/**
+ * Efface le profil People côté Mixpanel (suppression de compte) et vide la
+ * file d'envoi. Ne lève jamais : l'échec est rendu à l'appelant, la
+ * suppression du compte ne dépend pas de Mixpanel.
+ */
+export function forgetUser(): { error: unknown | null } {
+  try {
+    mixpanel?.getPeople().deleteUser();
+    mixpanel?.flush();
+    return { error: null };
+  } catch (e) {
+    return { error: e };
+  }
 }
 
 // ── Events ──────────────────────────────────────────────
