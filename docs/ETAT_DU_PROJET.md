@@ -61,6 +61,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | « Appliquer une programmation » sur le Whiteboard, avec option d'application automatique | 18 août 2026 |
 | Import d'une programmation depuis un fichier CSV, JSON ou PDF | 18 août 2026 |
 | Un seul éditeur de WOD pour deux contextes (Whiteboard et programmation) | 18 août 2026 |
+| Libellés « Functional » / « Hybrid » partout où le gérant voyait « CrossFit » / « Hyrox » comme catégorie ou filtre (catalogue de programmation mobile `BOProgrammingScreen` et web `programming/page.tsx`, annuaire des box `BoxDirectory*`) — libellés seuls, les valeurs internes `crossfit`/`hyrox`/`functional`/`hybrid` et les noms de box sont inchangés ; test `disciplineLabels.test.ts` dans chaque dépôt | 5 septembre 2026 |
 
 ### Adhérents, argent et programmes
 
