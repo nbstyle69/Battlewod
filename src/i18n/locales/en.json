@@ -1018,7 +1018,8 @@
       "solo": "Solo plan",
       "multi": "Multi plan · {{n}} boxes",
       "manage": "Manage"
-    }
+    },
+    "myTrainings": "My workouts"
   },
   "reservation": {
     "title": "Booking",
@@ -1194,7 +1195,10 @@
       "off": "No vest",
       "on": "With vest",
       "optional": "Optional"
-    }
+    },
+    "scoreSavedTitle": "Score saved!",
+    "scoreSavedBody": "Your score is in your history.",
+    "seeMyHistory": "See my history"
   },
   "competition": {
     "title": "Competitions",
