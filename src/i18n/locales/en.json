@@ -704,6 +704,11 @@
       "payOnWeb": "Pay on the web"
     }
   },
+  "eloHistory": {
+    "deletedWod": "Deleted WOD",
+    "deletedTournament": "Deleted tournament",
+    "deletedDaily": "Deleted mini-tournament"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
