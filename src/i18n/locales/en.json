@@ -1020,7 +1020,9 @@
       "title": "AthleX subscription",
       "solo": "Solo plan",
       "multi": "Multi plan · {{n}} boxes",
-      "manage": "Manage"
+      "manage": "Manage",
+      "none": "No active subscription",
+      "subscribe": "Subscribe"
     },
     "myTrainings": "My workouts"
   },

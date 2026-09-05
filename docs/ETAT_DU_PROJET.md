@@ -317,6 +317,18 @@ prouve les deux sens : la carte absente à `false`, présente à `true` à sa pl
 et qu'aucun autre fichier (Explorer, recherche, deep link, notifications) ne mène à la route.
 Le premier générateur (« Générateur WOD — For Time · AMRAP · Tabata ») reste.
 
+**Bloc « Abonnement AthleX » du profil gérant (#241), à merger après la soumission Apple.**
+Chemin : barre gérant → onglet **Profil** → onglet interne **Compte** (4e) → carte après
+« Mes amis », avant « Mes entraînements ». Il n'apparaissait que sous
+`isOwnerAdmin && currentBox`, et la lecture de `owner_subscriptions` exigeait aussi une box
+courante : un gérant sans box courante ne le voyait pas. Désormais visible pour tout gérant
+(`boxRole === 'owner'` ou `role === 'box_owner'`) ; avec abonnement (box ou Multi actif) :
+formule + statut + « Gérer » ; sans : « Aucun abonnement actif » + « S'abonner ». Les deux
+états ouvrent `BOSubscription`. Test `profileAthlexSubscriptionBlock.test.ts` (position,
+condition, deux états ; mutation inverse : le `&& currentBox` rétabli est rouge). Non fait :
+un compte `admin`/`super_admin` voit `AdminScreen` à la place du Profil (`navigation/index.tsx`),
+donc jamais ce bloc — dit, non changé.
+
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
 service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie cause) est
