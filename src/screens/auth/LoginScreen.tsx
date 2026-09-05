@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthStackParamList } from '../../navigation';
 import GlassBackground from '../../components/glass/GlassBackground';
 import { spacing, borderRadius, typography, shadows } from '../../theme/designTokens';
-import { buildIdentity } from '../../lib/buildIdentity';
+import { versionDisplay } from '../../lib/buildIdentity';
 import { translateAuthError } from '../../lib/authErrorMessage';
 import { isEmailNotConfirmed, resendConfirmationMail } from '../../lib/loginConfirmation';
 import { supabase } from '../../lib/supabase';
@@ -31,6 +31,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [resendFeedback, setResendFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [showBuildIdentity, setShowBuildIdentity] = useState(false);
 
   async function handleLogin() {
     if (!email || !password) { Alert.alert(t('common.error'), t('auth.fillAllFields')); return; }
@@ -168,8 +169,14 @@ export default function LoginScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
 
-          <Text style={S.buildIdentity} accessibilityLabel={`Version ${buildIdentity()}`}>
-            {buildIdentity()}
+          <Text
+            style={S.buildIdentity}
+            testID="login-version"
+            accessibilityRole="button"
+            accessibilityLabel={`Version ${versionDisplay(showBuildIdentity)}`}
+            onPress={() => setShowBuildIdentity(v => !v)}
+          >
+            {versionDisplay(showBuildIdentity)}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
