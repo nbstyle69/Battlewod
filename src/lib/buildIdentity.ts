@@ -9,13 +9,23 @@ import Constants from 'expo-constants';
  * bundle en place sans le dire. Ce que l'on compare, c'est cet identifiant et
  * celui du résumé de publication.
  */
-export function buildIdentity(): string {
-  const version = Constants.expoConfig?.version ?? '?';
+export function versionLabel(): string {
+  return `v${Constants.expoConfig?.version ?? '?'}`;
+}
 
-  // `updateId` est nul quand c'est le bundle embarqué dans le build natif qui
-  // tourne : c'est une information, pas une absence d'information.
+// `updateId` est nul quand c'est le bundle embarqué dans le build natif qui
+// tourne : c'est une information, pas une absence d'information.
+export function updateSource(): string {
   const updateId = Updates.updateId;
-  const source = updateId ? updateId.slice(0, 8) : 'embarqué';
+  return updateId ? updateId.slice(0, 8) : 'embarqué';
+}
 
-  return `v${version} · ${source}`;
+/** Forme complète, révélée au toucher de la version sur l'écran de connexion. */
+export function buildIdentity(): string {
+  return `${versionLabel()} · ${updateSource()}`;
+}
+
+/** Texte du pied de l'écran de connexion : la version seule, l'identifiant au toucher. */
+export function versionDisplay(revealed: boolean): string {
+  return revealed ? buildIdentity() : versionLabel();
 }

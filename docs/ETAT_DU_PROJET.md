@@ -137,6 +137,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Tunnel d'invitation, confirmation visible (cas `nbstylz+r2`, `email_not_confirmed` à la connexion) : web `/rejoindre` lit `needsConfirmation` et annonce le mail « Confirme ton adresse » avec l'adresse, avant « télécharge l'app », `accept` passe `emailRedirectTo` `/email-confirme` explicite (AthleX-Manager #308) ; app, écran de connexion : sur `email_not_confirmed` seulement, « Confirme d'abord ton e-mail » + « Renvoyer le mail » (`auth.resend({ type: 'signup' })`), retour « Mail renvoyé à <e-mail> » ou erreur traduite dont la limite 60 s de GoTrue. Test : bouton présent pour cette erreur, absent pour un mauvais mot de passe, `resend` appelé avec l'e-mail saisi. | 5 septembre 2026 |
 | Profil gérant mobile : bloc « Abonnement AthleX » (Solo/Multi depuis `owner_subscriptions`, état de la box) avec bouton vers `BOSubscription` — jusque-là joignable seulement depuis le Dashboard — 1.0.52 I5 | 5 septembre 2026 |
 | Pile Dashboard gérant : chevron retour standard (`ChevronLeft`, `goBack`) sur les 15 écrans empilés — ajouté sur Stats, Rapport, Notifications, Gamification, Articles, Inter-box ; harmonisé sur Réglages, Infos box, Abonnement (flèche) et Tournoi (« ← » texte) ; test qui énumère la pile — 1.0.52 I6 | 5 septembre 2026 |
+| Écran de connexion : `v1.0.53` seul au rendu, l'identifiant OTA (`· 01a01acc` ou `· embarqué`) apparaît au toucher du texte de version (`versionDisplay`). Test : masqué au rendu, visible après appui. | 5 septembre 2026 |
 
 ---
 
