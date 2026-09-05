@@ -502,7 +502,7 @@ export default function WODGenProScreen() {
             <Text style={S.modalSub}>Ton plan d'entraînement s'organise automatiquement autour de cette date.</Text>
             <TextInput
               style={S.input}
-              placeholder="Nom (ex. Hyrox Paris)"
+              placeholder="Nom (ex. Hybrid Paris)"
               placeholderTextColor={theme.textMuted}
               value={raceName}
               onChangeText={setRaceName}

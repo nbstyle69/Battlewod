@@ -8,8 +8,9 @@ export function captureError(error: unknown, context?: Record<string, any>) {
   }
 }
 
-export function setUserContext(userId: string, email?: string, username?: string) {
-  Sentry.setUser({ id: userId, email, username });
+// Minimisation : l'identifiant seul, jamais l'e-mail ni le pseudo.
+export function setUserContext(userId: string) {
+  Sentry.setUser({ id: userId });
 }
 
 export function clearUserContext() {

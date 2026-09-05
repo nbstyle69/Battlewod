@@ -14,6 +14,15 @@ import { WEB_URL } from '../../lib/urls';
 import GlassBackground from '../../components/glass/GlassBackground';
 
 const DISCIPLINES = ['crossfit', 'hyrox', 'hybrid', 'haltero', 'endurance'];
+export const DISCIPLINE_LABEL: Record<string, string> = {
+  crossfit: 'Functional',
+  hyrox: 'Hybrid',
+  hybrid: 'Hybrid',
+  functional: 'Functional',
+  haltero: 'Haltéro',
+  endurance: 'Endurance',
+};
+export const disciplineLabel = (d: string) => DISCIPLINE_LABEL[d] ?? d;
 
 interface CatalogueItem {
   id: string;
@@ -200,7 +209,7 @@ export default function BOProgrammingScreen({ navigation }: any) {
                 style={[S.filterChip, fDiscipline === d && S.filterChipActive]}
                 activeOpacity={0.8}
               >
-                <Text style={[S.filterChipText, fDiscipline === d && S.filterChipTextActive]}>{d}</Text>
+                <Text style={[S.filterChipText, fDiscipline === d && S.filterChipTextActive]}>{disciplineLabel(d)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -227,7 +236,7 @@ export default function BOProgrammingScreen({ navigation }: any) {
                   <Text style={S.publisher}>{t('bo.programming.by', { name: p.publisher_name })}</Text>
                   {p.description ? <Text style={S.desc} numberOfLines={3}>{p.description}</Text> : null}
                   <View style={S.tagRow}>
-                    {p.discipline ? <Tag theme={theme}>{p.discipline}</Tag> : null}
+                    {p.discipline ? <Tag theme={theme}>{disciplineLabel(p.discipline)}</Tag> : null}
                     <Tag theme={theme}>{levelLabel(p.level)}</Tag>
                     {p.days_per_week ? <Tag theme={theme}>{t('bo.programming.daysPerWeek', { n: p.days_per_week })}</Tag> : null}
                     <Tag theme={theme}>{t('bo.programming.weeks', { n: p.weeks_count })}</Tag>

@@ -1261,6 +1261,19 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             )}
 
+            {/* ── Mes entraînements ───────────────────── */}
+            <TouchableOpacity
+              style={S.compteCard}
+              onPress={() => navigation.navigate('WodHistory' as never)}
+              activeOpacity={0.8}
+              testID="profile-my-trainings"
+            >
+              <View style={S.themeRow}>
+                <Text style={S.compteCardTitle}>{t('profile.myTrainings')}</Text>
+                <ChevronRight color={theme.textMuted} size={16} />
+              </View>
+            </TouchableOpacity>
+
             {/* ── CGU + Confidentialité ──────────────── */}
             <TouchableOpacity
               style={S.compteCard}

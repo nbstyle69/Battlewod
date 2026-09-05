@@ -169,6 +169,7 @@ export type ProgramDetailParams = {
 export type BOProfileStackParamList = {
   ProfileMain: undefined;
   EloHistory: undefined;
+  WodHistory: undefined;
   BlockedUsers: undefined;
   WODDetail: { wodId: string; scrollToLeaderboard?: boolean };
   Legal: undefined;
@@ -713,6 +714,7 @@ function BOProfileNavigator() {
     <BOProfileStack.Navigator screenOptions={shell}>
       <BOProfileStack.Screen name="ProfileMain" component={user?.role === 'admin' || user?.role === 'super_admin' ? AdminScreen : ProfileScreen} />
       <BOProfileStack.Screen name="EloHistory" component={EloHistoryScreen} />
+      <BOProfileStack.Screen name="WodHistory" component={WodHistoryScreen} />
       <BOProfileStack.Screen name="WODDetail" component={WODDetailScreen} />
       <BOProfileStack.Screen name="Legal" component={LegalScreen} />
       <BOProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
