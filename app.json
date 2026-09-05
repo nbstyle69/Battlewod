@@ -2,7 +2,7 @@
   "expo": {
     "name": "AthleX",
     "slug": "TheHub",
-    "version": "1.0.52",
+    "version": "1.0.53",
     "orientation": "portrait",
     "icon": "./assets/athex-logo.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,7 @@
         "NSPhotoLibraryUsageDescription": "AthleX accède à ta galerie pour soumettre tes vidéos.",
         "NSPhotoLibraryAddUsageDescription": "AthleX enregistre tes vidéos de performance dans ta galerie."
       },
-      "buildNumber": "49"
+      "buildNumber": "50"
     },
     "android": {
       "adaptiveIcon": {

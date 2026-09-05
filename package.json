@@ -20,6 +20,7 @@
     "test:templates": "node scripts/test-templates.mjs",
     "test:strength": "node scripts/test-strength-journal.mjs",
     "verify:ipa": "node scripts/ipa-verify-bundle.mjs",
+    "verify:aab": "node scripts/aab-verify-bundle.mjs",
     "test:stack:up": "./scripts/test-stack.sh up",
     "test:stack:down": "./scripts/test-stack.sh down"
   },
