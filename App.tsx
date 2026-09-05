@@ -20,6 +20,7 @@ import { ToastProvider } from './src/components/Toast';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initLanguage } from './src/i18n';
+import { sendSentrySmoke } from './src/lib/sentrySmoke';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ Sentry.init({
   attachScreenshot: false,
   enableAutoSessionTracking: true,
 });
+sendSentrySmoke();
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },

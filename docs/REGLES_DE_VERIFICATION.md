@@ -495,6 +495,41 @@ doit rougir sur `ELO_INCOHERENT`, puis, garde retirée aussi, sur l'égalité pr
 
 ---
 
+## 20. Un tableau de bord vide n'est une preuve que si on a prouvé qu'il reçoit
+
+> « Sentry n'affiche rien sur 14 jours » ne dit pas « il n'y a pas eu de crash » ; ça dit
+> « rien n'est arrivé » — et rien n'arrive aussi quand rien ne part
+
+Le 5 septembre, Sentry (`athlex-mobile`) était vide sur 14 jours pendant que Nab voyait
+l'app se fermer à la première ouverture de la présentation. Le tableau de bord ne mentait
+pas : `Sentry.init({ dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '' })`, et la variable
+n'existait pas dans l'environnement EAS `production`. Aucun DSN dans l'OTA servie, aucun
+dans l'IPA 1.0.52 (49) : le SDK s'initialisait, capturait, et n'envoyait à personne. Un
+silence parfaitement propre, lu comme un « zéro erreur ».
+
+Un canal d'observation est un contrôle comme un autre (règle 18) : il ne vaut que si on l'a
+vu rougir. Trois conséquences :
+
+1. **Le DSN se vérifie dans l'artefact servi**, pas dans la config : `ota.yml`, `verify:ipa`
+   et `verify:aab` cherchent un DSN public Sentry dans le bundle JS comme ils cherchent l'URL
+   Supabase et la clé GIPHY (règle 11), et rougissent sinon. L'URL de télémétrie interne du
+   SDK (`o447951.ingest.sentry.io`) ressemble à un DSN et n'en est pas un — la regex l'ignore.
+2. **La réception se prouve par un envoi volontaire**, une fois par canal : sur la première
+   publication qui embarque le DSN, `EXPO_PUBLIC_SENTRY_SMOKE=1` fait partir au démarrage
+   `captureMessage('sentry-smoke <version · update>')` (`src/lib/sentrySmoke.ts`). L'événement
+   doit apparaître dans Sentry **dans la minute**, avec l'identifiant d'update attendu ; on
+   retire alors la variable. Sans cet événement vu, on ne conclut rien de « Sentry est vide »
+   — ni qu'il y a eu des crashs, ni qu'il n'y en a pas eu.
+3. **Un crash natif n'est pas une exception JS** : `enableNative` / `enableNativeCrashHandling`
+   doivent être actifs (défauts du SDK), sinon une fermeture nette de l'app ne laisse rien
+   même avec un DSN valide. Le smoke ne prouve que le canal JS ; le canal natif se prouve
+   à part (`Sentry.nativeCrash()` sur une build de test), jamais en production courante.
+
+Et la lecture inverse, à garder : un canal prouvé qui reste vide **est** une preuve — c'est
+ce qu'on veut pouvoir dire, et c'est pour ça qu'on paie le smoke.
+
+---
+
 ## Check-list avant de dire « ça marche »
 
 - [ ] Les erreurs Supabase sont remontées à l'écran, pas avalées en tableau vide.
