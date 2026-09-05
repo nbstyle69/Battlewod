@@ -716,6 +716,11 @@
       "payOnWeb": "Payer sur le web"
     }
   },
+  "eloHistory": {
+    "deletedWod": "WOD supprimé",
+    "deletedTournament": "Tournoi supprimé",
+    "deletedDaily": "Mini-tournoi supprimé"
+  },
   "common": {
     "save": "Enregistrer",
     "cancel": "Annuler",

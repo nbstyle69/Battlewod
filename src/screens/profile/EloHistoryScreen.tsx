@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Line, Text as SvgText } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Zap, ChevronRight } from 'lucide-react-native';
 import { HomeStackParamList } from '../../navigation';
@@ -32,6 +33,7 @@ type Nav = NativeStackNavigationProp<HomeStackParamList>;
 export default function EloHistoryScreen() {
   const nav = useNavigation<Nav>();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const { theme, mode } = useTheme();
   const isDark = mode === 'dark';
   const S = createStyles(theme, isDark);
@@ -67,7 +69,7 @@ export default function EloHistoryScreen() {
         id: h.id,
         type: 'wod',
         refId: h.wod_id,
-        label: wod?.title ?? 'WOD',
+        label: h.wod_id === null ? t('eloHistory.deletedWod') : (wod?.title ?? 'WOD'),
         delta: h.elo_delta,
         eloBefore: h.elo_before,
         eloAfter: h.elo_after,
@@ -92,7 +94,7 @@ export default function EloHistoryScreen() {
         id: h.id,
         type: 'tournament',
         refId: h.tournament_id,
-        label: tourn?.name ?? 'Tournoi',
+        label: h.tournament_id === null ? t('eloHistory.deletedTournament') : (tourn?.name ?? 'Tournoi'),
         delta: h.elo_change,
         eloBefore: h.elo_before,
         eloAfter: h.elo_after,
@@ -115,7 +117,7 @@ export default function EloHistoryScreen() {
         id: h.id,
         type: 'daily',
         refId: h.tournament_id,
-        label: dt?.wod_name ?? 'Mini-Tournoi',
+        label: h.tournament_id === null ? t('eloHistory.deletedDaily') : (dt?.wod_name ?? 'Mini-Tournoi'),
         delta: h.elo_delta,
         eloBefore: h.elo_before,
         eloAfter: h.elo_after,
@@ -130,7 +132,7 @@ export default function EloHistoryScreen() {
     } catch (e) { captureError(e, { screen: 'EloHistory', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
-  }, [user]);
+  }, [user, t]);
 
   useEffect(() => { load(); }, [load]);
 

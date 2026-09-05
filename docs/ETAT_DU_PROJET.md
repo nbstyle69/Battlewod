@@ -1,6 +1,6 @@
 # État du projet AthleX
 
-Dernière mise à jour : **4 septembre 2026**.
+Dernière mise à jour : **5 septembre 2026**.
 
 Ce fichier est écrit pour être lu en deux minutes, sans être développeur. Il dit ce qui
 marche aujourd'hui, ce qui est en train de se faire, ce qui vient ensuite, et ce qui est
@@ -35,6 +35,8 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Un WOD fermé ou non encore révélé n'accepte plus de score (refus prononcé par le serveur) | 19 août 2026 |
 | Fin de tournoi en deux temps : on termine les WODs, on révise les scores contestés, puis on distribue l'ELO | 16 août 2026 |
 | La clôture d'un tournoi (web et mobile) est une seule opération serveur, tous formats : classement, historique ELO, profils et statut écrits ensemble ou pas du tout ; une seconde clôture est refusée par son nom ; l'écran ne calcule ni n'écrit plus d'ELO | 4 septembre 2026 |
+| L'historique ELO survit à la suppression de son événement : les sept clés d'historique (`elo_history.wod_id`, `box_elo_history.wod_id`, `tournament_elo_history.tournament_id`, `tournament_match_elo_history.match_id`, `tournament_wod_elo_history.tournament_wod_id`, `daily_tournament_elo_history.tournament_id`, `inter_elo_history.competition_id`) passent d'`ON DELETE CASCADE` à `ON DELETE SET NULL` ; l'écran d'historique affiche « Tournoi supprimé » / « WOD supprimé » / « Mini-tournoi supprimé » ; suite `elo` : supprimer un tournoi clôturé laisse l'historique, `profiles.elo` inchangé, égalité profil = dernier `elo_after` vraie. `profiles.losses` est déclarée **colonne morte** (jamais incrémentée par aucune fonction ni aucun écran ; commentaire SQL posé) : les défaites affichées restent `total_matches − wins`, la colonne ne doit plus être lue | 5 septembre 2026 |
+| Réalignement des deux profils dont l'historique avait été supprimé par notre purge : JCVD 1039 → 1064 (compteurs 12 → 8, 5 → 4), in the bar 1057 → 1032, en une transaction gardée ; Samir intact (historique jamais écrit → le profil est le seul témoin) ; relecture : les six profils à historique ont `profiles.elo` = dernier `elo_after` | 4 septembre 2026 |
 | Le classement affiché suit exactement l'ordre du serveur : secondes, sens du tri, scores au time cap, ex aequo signalés | 23 août 2026 |
 | Le vainqueur d'un match de bracket est calculé par une seule règle, partagée avec le reste de l'app | 23 août 2026 |
 | Preuve vidéo disponible sur tous les formats de tournoi | 16 août 2026 |
@@ -301,8 +303,6 @@ précise ; le faire avant casse quelque chose. Le détail technique est dans
 | Bouton d'offre payante resté en français dans l'interface anglaise (« S'abonner — 59.00 €/month ») | Le prochain lot web qui touche la page publique de box. Un bouton mi-français mi-anglais sur une page de vente se corrige vite, mais pas en urgence. |
 | WOD GEN retiré de l'app (flag), à retravailler | Quand le contenu des « 3 séances adaptées à ton profil » sera revu : remettre `FEATURES.wodGen` à `true` suffit, l'écran et la route n'ont pas bougé. |
 | Soumission automatique sur Google Play | Quand une clé de compte de service Google Play est fournie. Aujourd'hui le fichier Android est produit signé, et téléversé à la main. |
-| Historique ELO conservé quand un WOD ou un tournoi est supprimé (`ON DELETE SET NULL` sur les sept tables d'historique, « tournoi supprimé » à l'écran), et sort de la colonne `losses` (jamais incrémentée) | Dès que la clôture serveur unique (4 septembre 2026) est en production : la même suite prouve alors que supprimer un tournoi clôturé laisse profils et historique égaux. |
-| Réalignement des deux profils dont l'historique a été supprimé par notre purge (JCVD, in the bar) : `profiles.elo` := dernier `elo_after`, compteurs de JCVD 12→8 / 5→4 | Après la mise en production de la clôture serveur, en une transaction sur GO. Principe : historique supprimé par nous → on aligne sur l'historique ; historique jamais écrit (Samir, chemin client de mars) → on garde le profil. |
 | Clé étrangère `group_messages.sender_id → profiles` (`ON DELETE SET NULL`) et affichage « Compte supprimé » pour un expéditeur `NULL` | Quand un lot touche la messagerie de groupe. La colonne n'a aucune clé étrangère aujourd'hui : la suppression d'un compte laissait ses messages orphelins (24 sur 39 purgés le 4 septembre 2026). |
 
 ---
