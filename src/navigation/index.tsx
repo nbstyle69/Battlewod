@@ -25,6 +25,7 @@ import { View, Image, ActivityIndicator, Platform, StyleSheet } from 'react-nati
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import OnboardingTutorialScreen, { ONBOARDING_KEY } from '../screens/onboarding/OnboardingTutorialScreen';
+import OnboardingErrorBoundary from '../components/OnboardingErrorBoundary';
 import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock, Compass } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
 
@@ -872,7 +873,17 @@ export default function AppNavigator() {
 
   // Show tutorial AFTER login (user must be authenticated first)
   if (isAuthenticated && !onboardingDone) {
-    return <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />;
+    // Si la présentation casse, on tombe sur l'accueil : la clé locale est
+    // posée pour ne pas la remonter à chaque lancement sur le même appareil.
+    const leaveOnboarding = () => {
+      AsyncStorage.setItem(ONBOARDING_KEY, 'true').catch(() => {});
+      setOnboardingDone(true);
+    };
+    return (
+      <OnboardingErrorBoundary onError={leaveOnboarding}>
+        <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />
+      </OnboardingErrorBoundary>
+    );
   }
   const isSuperAdmin    = user?.role === 'super_admin' || user?.role === 'admin';
   // Le titre vient de la box ACTIVE, prononcé par le serveur (get_my_admin_boxes).
