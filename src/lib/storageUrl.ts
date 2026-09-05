@@ -11,7 +11,7 @@
 // formes qui cohabitent en base et rend une URL affichable :
 //   1. URL publique historique  → on en extrait le chemin, puis on signe.
 //   2. Chemin nu (nouveaux écrits, ex. `<uid>/1712345.pdf`) → on signe.
-//   3. URL externe (GIF Giphy/Tenor, transitant par la même colonne) → rendue
+//   3. URL externe (GIF GIPHY, transitant par la même colonne) → rendue
 //      telle quelle, jamais signée.
 //
 // Les fonctions de parsing sont pures et testées ; la signature réseau est

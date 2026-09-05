@@ -8,7 +8,10 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Send, Megaphone, ImagePlus, X, Search, ChevronLeft } from 'lucide-react-native';
 
-const TENOR_API_KEY = process.env.EXPO_PUBLIC_TENOR_KEY ?? '';
+// Marqueur repérable dans le bundle publié (ota.yml, verify:ipa/aab) : le
+// préfixe suit la clé inlinée au moment du bundle, comme l'URL Supabase.
+const GIPHY_KEY_TAG = 'giphy-key:' + (process.env.EXPO_PUBLIC_GIPHY_KEY ?? '') + ':giphy-end';
+const GIPHY_API_KEY = GIPHY_KEY_TAG.slice('giphy-key:'.length, -':giphy-end'.length);
 interface GifResult { id: string; url: string; preview: string; }
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -83,9 +86,11 @@ export default function MessagesScreen() {
   const [gifSearch,  setGifSearch]  = useState('');
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
   const [gifLoading, setGifLoading] = useState(false);
-  // Distingue « Tenor n'a rien trouvé » de « l'appel a échoué » (clé absente,
-  // réseau, quota) : avant, les deux affichaient la même page vide.
+  // Distingue « GIPHY n'a rien trouvé » de « l'appel a échoué » (réseau, quota) :
+  // avant, les deux affichaient la même page vide. La clé absente est un
+  // troisième état, affiché tel quel plutôt qu'un sélecteur vide.
   const [gifError,   setGifError]   = useState(false);
+  const gifUnavailable = !GIPHY_API_KEY;
   const listRef = useRef<FlatList>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
   const [kbOpen, setKbOpen] = useState(false);
@@ -308,17 +313,17 @@ export default function MessagesScreen() {
     setGifLoading(true);
     setGifError(false);
     try {
-      if (!TENOR_API_KEY) throw new Error('EXPO_PUBLIC_TENOR_KEY absente du bundle');
+      if (!GIPHY_API_KEY) throw new Error('EXPO_PUBLIC_GIPHY_KEY absente du bundle');
       const endpoint = query.trim()
-        ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&limit=20&media_filter=tinygif,gif`
-        : `https://tenor.googleapis.com/v2/featured?key=${TENOR_API_KEY}&limit=20&media_filter=tinygif,gif`;
+        ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=20&rating=pg-13`
+        : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=20&rating=pg-13`;
       const res = await fetch(endpoint);
-      if (!res.ok) throw new Error(`Tenor HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`GIPHY HTTP ${res.status}`);
       const json = await res.json();
-      const results: GifResult[] = (json.results ?? []).map((r: any) => ({
+      const results: GifResult[] = (json.data ?? []).map((r: any) => ({
         id: r.id,
-        url: r.media_formats?.gif?.url ?? r.media_formats?.tinygif?.url ?? '',
-        preview: r.media_formats?.tinygif?.url ?? r.media_formats?.gif?.url ?? '',
+        url: r.images?.fixed_height?.url ?? r.images?.fixed_height_small?.url ?? '',
+        preview: r.images?.fixed_height_small?.url ?? r.images?.fixed_height?.url ?? '',
       }));
       setGifResults(results);
     } catch (e) {
@@ -332,7 +337,7 @@ export default function MessagesScreen() {
   function openGifPicker() {
     setGifOpen(true);
     setGifSearch('');
-    searchGifs('');
+    if (!gifUnavailable) searchGifs('');
   }
 
   async function sendGif(gifUrl: string) {
@@ -634,7 +639,7 @@ export default function MessagesScreen() {
                   {(() => {
                     const raw = msg.attachment_url;
                     if (!raw) return null;
-                    // Une URL externe (GIF Tenor/Giphy) s'affiche IMMÉDIATEMENT :
+                    // Une URL externe (GIF GIPHY) s'affiche IMMÉDIATEMENT :
                     // elle n'a jamais besoin d'être signée, donc elle ne doit pas
                     // attendre la résolution asynchrone. Seuls les objets du
                     // bucket privé attendent leur URL signée.
@@ -785,9 +790,15 @@ export default function MessagesScreen() {
               value={gifSearch}
               onChangeText={t => { setGifSearch(t); searchGifs(t); }}
               autoFocus
+              editable={!gifUnavailable}
             />
           </View>
-          {gifLoading ? (
+          {gifUnavailable ? (
+            <View style={S.gifUnavailable} accessibilityLabel="GIF indisponibles">
+              <Text style={S.gifUnavailableTitle}>GIF indisponibles</Text>
+              <Text style={S.gifUnavailableHint}>La recherche de GIF n'est pas configurée dans cette version de l'app.</Text>
+            </View>
+          ) : gifLoading ? (
             <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.accent} />
           ) : (
             <FlatList
@@ -811,6 +822,7 @@ export default function MessagesScreen() {
               }
             />
           )}
+          <Text style={S.gifAttribution} accessibilityLabel="Powered by GIPHY">Powered by GIPHY</Text>
         </View>
       </Modal>
     </KeyboardAvoidingView>
@@ -919,6 +931,10 @@ function createStyles(theme: AppTheme) {
   gifSearchInput:  { flex: 1, fontSize: 15, color: theme.text },
   gifItem:         { flex: 1, margin: 4, borderRadius: 10, overflow: 'hidden', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
   gifImage:        { width: '100%', height: (SCREEN_W - 36) / 2 * 0.75, borderRadius: 10 },
+  gifUnavailable:  { marginTop: 40, paddingHorizontal: 24, alignItems: 'center', gap: 8 },
+  gifUnavailableTitle: { fontSize: 17, fontWeight: '800', color: theme.text, textAlign: 'center' },
+  gifUnavailableHint:  { fontSize: 14, color: theme.textMuted, textAlign: 'center' },
+  gifAttribution:  { fontSize: 11, fontWeight: '700', color: theme.textMuted, textAlign: 'center', paddingVertical: 10, letterSpacing: 0.5 },
 
   charCounterBar:  { alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 2, backgroundColor: theme.card, borderTopWidth: 1, borderTopColor: theme.border },
   charCounterText: { fontSize: 11, fontWeight: '600', color: theme.textMuted },
