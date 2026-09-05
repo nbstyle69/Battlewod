@@ -24,7 +24,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Image, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
-import OnboardingTutorialScreen, { ONBOARDING_KEY } from '../screens/onboarding/OnboardingTutorialScreen';
+import OnboardingTutorialScreen from '../screens/onboarding/OnboardingTutorialScreen';
+import { ONBOARDING_KEY, readOnboardingCache, resolveOnboardingDone } from '../lib/onboardingStatus';
 import OnboardingErrorBoundary from '../components/OnboardingErrorBoundary';
 import { Dumbbell, Trophy, Layout, User, Building2, ClipboardList, Users, MessageCircle, Home, CalendarClock, Compass } from 'lucide-react-native';
 import KettlebellIcon from '../components/KettlebellIcon';
@@ -845,7 +846,11 @@ export default function AppNavigator() {
   // edge-to-edge bar with readable buttons — no more per-page variance.
   useAndroidNavBar('', mode);
   const [splashDone, setSplashDone] = React.useState(false);
-  const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
+  // Présentation vue : le serveur (profiles.onboarding_completed_at, relu par
+  // get_my_profile) décide ; la clé locale n'est qu'un cache pour la session
+  // en cours (id du compte). `undefined` = cache pas encore lu.
+  const [onboardingCache, setOnboardingCache] = React.useState<string | null | undefined>(undefined);
+  const [onboardingJustDone, setOnboardingJustDone] = React.useState(false);
 
   React.useEffect(() => {
     const t = setTimeout(() => setSplashDone(true), 1500);
@@ -853,11 +858,20 @@ export default function AppNavigator() {
   }, []);
 
   React.useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_KEY).then(v => setOnboardingDone(v === 'true'));
-    // Re-read whenever the authenticated user changes so a freshly registered account sees the tutorial
+    setOnboardingJustDone(false);
+    setOnboardingCache(undefined);
+    readOnboardingCache().then(setOnboardingCache);
   }, [user?.id]);
 
-  if (loading || !splashDone || onboardingDone === null) {
+  const onboardingDone = !user
+    || onboardingJustDone
+    || (onboardingCache !== undefined && resolveOnboardingDone({
+      serverCompletedAt: user.onboarding_completed_at,
+      cachedUserId: onboardingCache,
+      userId: user.id,
+    }));
+
+  if (loading || !splashDone || (user && onboardingCache === undefined)) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0A0A0F', justifyContent: 'center', alignItems: 'center', gap: 32 }}>
         <Image
@@ -873,15 +887,15 @@ export default function AppNavigator() {
 
   // Show tutorial AFTER login (user must be authenticated first)
   if (isAuthenticated && !onboardingDone) {
-    // Si la présentation casse, on tombe sur l'accueil : la clé locale est
-    // posée pour ne pas la remonter à chaque lancement sur le même appareil.
+    // Si la présentation casse, on tombe sur l'accueil : le cache local couvre
+    // la session en cours, le serveur reste NULL (elle sera reproposée).
     const leaveOnboarding = () => {
-      AsyncStorage.setItem(ONBOARDING_KEY, 'true').catch(() => {});
-      setOnboardingDone(true);
+      AsyncStorage.setItem(ONBOARDING_KEY, user.id).catch(() => {});
+      setOnboardingJustDone(true);
     };
     return (
       <OnboardingErrorBoundary onError={leaveOnboarding}>
-        <OnboardingTutorialScreen onDone={() => setOnboardingDone(true)} />
+        <OnboardingTutorialScreen onDone={() => setOnboardingJustDone(true)} />
       </OnboardingErrorBoundary>
     );
   }

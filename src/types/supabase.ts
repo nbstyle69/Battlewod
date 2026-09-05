@@ -5055,6 +5055,7 @@ export type Database = {
           id: string
           level: string
           losses: number
+          onboarding_completed_at: string | null
           personal_records: Json | null
           referral_code: string | null
           referred_by: string | null
@@ -5082,6 +5083,7 @@ export type Database = {
           id: string
           level?: string
           losses?: number
+          onboarding_completed_at?: string | null
           personal_records?: Json | null
           referral_code?: string | null
           referred_by?: string | null
@@ -5109,6 +5111,7 @@ export type Database = {
           id?: string
           level?: string
           losses?: number
+          onboarding_completed_at?: string | null
           personal_records?: Json | null
           referral_code?: string | null
           referred_by?: string | null
@@ -7877,6 +7880,7 @@ export type Database = {
           id: string
           level: string
           losses: number
+          onboarding_completed_at: string | null
           personal_records: Json | null
           referral_code: string | null
           referred_by: string | null
@@ -7899,6 +7903,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      mark_onboarding_completed: { Args: never; Returns: string | null }
       get_total_box_count: { Args: never; Returns: number }
       get_tournament_participants: {
         Args: { p_tournament_id: string }

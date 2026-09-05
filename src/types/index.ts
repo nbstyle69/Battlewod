@@ -310,6 +310,8 @@ export interface User {
   wins: number;
   losses: number;
   created_at: string;
+  /** Présentation terminée (serveur, source d'autorité). NULL/absent = jamais vue. */
+  onboarding_completed_at?: string | null;
 }
 
 export interface WOD {

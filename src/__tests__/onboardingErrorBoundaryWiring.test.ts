@@ -17,8 +17,8 @@ describe('présentation sous ErrorBoundary', () => {
   it('AppNavigator enveloppe OnboardingTutorialScreen et retombe sur l’accueil', () => {
     expect(nav).toContain("import OnboardingErrorBoundary from '../components/OnboardingErrorBoundary';");
     expect(block).toMatch(/<OnboardingErrorBoundary onError=\{leaveOnboarding\}>\s*<OnboardingTutorialScreen/);
-    expect(block).toContain("AsyncStorage.setItem(ONBOARDING_KEY, 'true')");
-    expect(block).toContain('setOnboardingDone(true);');
+    expect(block).toContain('AsyncStorage.setItem(ONBOARDING_KEY, user.id)');
+    expect(block).toContain('setOnboardingJustDone(true);');
   });
 
   it('la frontière remonte à Sentry et ne rend rien après l’erreur', () => {
