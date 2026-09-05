@@ -97,6 +97,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Les coordonnées d'un prospect sont hors de la table que tout adhérent de la box peut lire, et la clé publique n'y a aucun droit — même en lecture | 24 août 2026 |
 | Validation d'e-mail à l'inscription activée en production (Confirm email + SMTP Resend `noreply@athlexapp.eu`, port 465, username `resend` en minuscules) ; première inscription confirmée constatée par Nab | 4 septembre 2026 |
 | Le lien « Confirm signup » atterrit sur la page publique `athlexapp.eu/email-confirme` (sans session ni formulaire) ; seul un lien `recovery` ouvre le formulaire de mot de passe ; l'app passe `emailRedirectTo` (OTA) | 4 septembre 2026 |
+| Chaque flux e-mail porte sa page, aucun routage par `type` : `signUp` → `emailRedirectTo` `/email-confirme`, `resetPasswordForEmail` → `redirectTo` `athlexapp.eu/update-password` (sans lui GoTrue renvoie vers le Site URL = `/email-confirme`, sans formulaire — régression 1.0.52 A4). Suite `auth-links` : vrai lien GoTrue généré puis 303 suivi, pour les deux flux et pour l'absence de `redirectTo` | 5 septembre 2026 |
 | Le jeton de notification s'efface **avant** la fermeture de session (sinon 401 et l'ancien compte garde ses notifications sur le téléphone) ; un échec d'effacement est remonté dans Sentry | 4 septembre 2026 |
 | Les erreurs Supabase Auth connues (« Error sending confirmation email », « Email not confirmed », « User already registered », « Invalid login credentials »…) sont traduites FR/EN, repli générique en français — plus de message brut en anglais | 4 septembre 2026 |
 | **Compte reviewer Apple `nbstylz+apple@gmail.com` — ne pas supprimer, ne jamais promouvoir.** Athlète `member` rattaché à Crossfit NBS2 avec la formule « Illimité » attribuée par le chemin staff (`box_members.plan_id`, 0 €, aucun abonnement Stripe, aucune ligne `box_cash_payments`) pour pouvoir réserver des cours, e-mail confirmé à la création, aucun mot de passe transmis (Nab passe par « mot de passe oublié »). Frontière prouvée depuis son JWT : `is_box_owner_admin` = false, `get_my_admin_boxes()` vide, tables d'argent vides ou refusées, promotion de rôle sans effet, réservation puis annulation d'un cours NBS2 OK, `program_members` en écriture refusé (403). Créé le 4 septembre 2026 après la purge des 11 comptes jetables (`@athlex-test.local`, `@e2e.local`, `@audit.athlex.io`, `zz.design@athlex.test`) et du tournoi de démo « Test Bracket 16 » | 4 septembre 2026 |
@@ -126,6 +127,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | `/compte` montre l'adhésion même sans abonnement en ligne (formule attribuée ou payée à la box) | 24 août 2026 |
 | Une lecture publique refusée se voit : elle ne se rend plus en liste vide plausible | 24 août 2026 |
 | Une relance de prospect fautive ne coupe plus les relances de toutes les box | 24 août 2026 |
+| Fiche adhérent du back-office mobile (`BOMembers`) : fiche opaque (`modalCard`, encre atténuée 2,77:1 → 5,36:1 en clair), formule, statut et échéance servis par `get_box_billing` au gérant/co-gérant (le coach n'y voit pas de bloc formule) — 1.0.52 I4 | 5 septembre 2026 |
 | Accueil, section Tournois : « Tous les tournois » ouvre l'onglet Tournois de Compétitions (le bouton ne faisait rien), libellé et statuts des cartes via i18n FR/EN (plus de chaînes en dur) — 1.0.52 L1 | 5 septembre 2026 |
 
 ---
@@ -241,7 +243,11 @@ que les appareils déjà installés partagent : un changement natif impose une n
 version, donc un nouveau runtime OTA, `runtimeVersion.policy = appVersion`). Un journal de
 diagnostic derrière un flag affiche nom du device, angle preview et angle capture pour
 comparer les deux téléphones, et une liste de 16 cas à cliquer (2 téléphones ×
-avant/arrière × portrait/paysage) est dans la PR. Le chemin
+avant/arrière × portrait/paysage) est dans la PR. **Constaté par Nab (revue 1.0.52, C4) :
+les 16 cas passent.** Suite : `orientationDebugLog` repassé à `false`, et la géométrie du
+writer suit désormais l'angle **relu** sur `conn.videoRotationAngle` après affectation (un
+angle non supporté n'est pas appliqué en silence) plutôt que l'angle demandé ; le log
+affiche les deux (`captureAngle` demandé, `appliedAngle` relu). Le chemin
 iOS < 17 (cible 15.1) est gardé sous sa forme standard, non vérifié : aucun appareil sous
 iOS 17 dans le parc.
 
@@ -317,6 +323,7 @@ qu'aucune de ces limites ne soit découverte par surprise.
 | **La réception effective de l'e-mail de confirmation d'essai n'est pas constatée.** | Seule la phrase affichée à l'écran l'est. La preuve appartient à un test de bout en bout avec une vraie adresse de réception ; déclencher un envoi de masse depuis la production toucherait des gérants qui n'ont rien demandé. |
 | **Un compte créé à la demande de Nab (test, reviewer, démo) suit une règle fixe.** | Création par l'API admin Supabase avec `email_confirm: true` (aucun e-mail de confirmation envoyé), adresse toujours de la forme `nbstylz+…@gmail.com`, mot de passe jamais transmis par écrit (Nab le pose lui-même via « Mot de passe oublié » ou le choisit), et annonce préalable avant toute création — jamais de compte créé sans accord. |
 | **Deux profils affichent encore un ELO qui ne correspond plus à leur historique** (JCVD 1039 pour un dernier `elo_after` de 1064, in the bar 1057 pour 1032). | Cause connue et fermée : l'ancien bouton web écrivait l'historique sans pouvoir écrire le profil (RLS, 204 et 0 ligne — règle 19). Le chemin n'existe plus ; le réalignement est au backlog à déclencheur, il attend un GO. |
+| **Le format suisse (double élimination) ne converge qu'à 4 joueurs.** À 8, `advance_bracket_round` apparie les vainqueurs du tableau des perdants avec les perdants du tableau principal en une seule passe par tour, sans tour où les vainqueurs du LB se rencontrent : au tour 3, deux vainqueurs de LB pour un seul perdant de finale, l'un des deux n'a plus jamais d'adversaire ni de défaite. À 5, 6 ou 7, un vainqueur impair est oublié (pas de bye). La clôture refuse alors, à raison (« 1 athlète encore en lice »), et rien n'est écrit. | Aucun tournoi suisse n'existe en production (formats présents : 4 classiques, 1 bracket). Le défaut est affirmé par un test **attendu-rouge** (`test-finalize-elo.mjs`, suite « swiss à 8 ») qui rougira le jour où la fonction est corrigée. **Déclencheur : avant le premier tournoi suisse réel.** |
 | **Les dates de fermeture antérieures au 16 août 2026 sont approximatives.** | Elles sont reconstruites depuis les PRs mergées, pas depuis un journal tenu à l'époque. |
 | **Une capacité serveur n'est pas toujours atteignable depuis l'interface.** | C'est une distinction assumée et documentée : le serveur sait faire, l'écran ne l'expose pas encore. Chaque cas connu porte cette mention dans son en-tête. |
 

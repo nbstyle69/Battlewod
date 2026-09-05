@@ -43,4 +43,9 @@ describe('traduction des erreurs Supabase Auth', () => {
     const ctx = fs.readFileSync(path.join(__dirname, '..', 'context', 'AuthContext.tsx'), 'utf8');
     expect(ctx).toContain('emailRedirectTo: EMAIL_CONFIRMED_URL');
   });
+
+  it('resetPasswordForEmail passe redirectTo vers la page de mot de passe, pas le Site URL', () => {
+    const ctx = fs.readFileSync(path.join(__dirname, '..', 'context', 'AuthContext.tsx'), 'utf8');
+    expect(ctx).toMatch(/resetPasswordForEmail\(email, \{\s*redirectTo: UPDATE_PASSWORD_URL,?\s*\}\)/);
+  });
 });
