@@ -52,6 +52,7 @@ on:
           - espace-coach
           - heures
           - essai
+          - elo
           - grants
 
 concurrency:
@@ -212,6 +213,18 @@ jobs:
       - name: Suite — Récapitulatif hebdo (essais comptés à part)
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'essai' }}
         run: node scripts/test-essai-digest.mjs ${{ steps.flags.outputs.extra_flag }}
+
+      # Clôture de tournoi : une seule fonction serveur (tous formats) écrit
+      # historique + profils dans la même transaction. La suite prouve
+      # profiles.elo = dernier elo_after, le refus de seconde clôture, et le
+      # piège PostgREST (PATCH d'un autre profil → 204 et 0 ligne). La mutation
+      # inverse retire l'UPDATE du profil dans la fonction : la suite doit rougir.
+      - name: Suite — Clôture ELO serveur (finalize_tournament_elo)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'elo' }}
+        run: node scripts/test-finalize-elo.mjs
+      - name: Suite — Clôture ELO, mutation inverse
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'elo' }}
+        run: ./scripts/test-finalize-elo-mutation.sh
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.
