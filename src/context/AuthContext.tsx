@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { BOX_COLUMNS, BOX_MEMBERSHIP_COLUMNS } from '../lib/boxColumns';
@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [boxSubscription, setBoxSubscription] = useState<BoxSubscription | null>(null);
   const [loading, setLoading]       = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const pendingLoginTrack = useRef(false);
 
   const isBoxActive = (() => {
     if (!boxSubscription) return true;
@@ -152,6 +153,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(profile);
       setUserContext(profile.id);
       identifyUser(profile.id, { username: profile.username, role: profile.role, level: profile.level });
+      // `Login` ne part qu'une fois l'utilisateur identifié : émis depuis signIn,
+      // il arriverait anonyme (identify vient de la lecture asynchrone du profil).
+      if (pendingLoginTrack.current) {
+        pendingLoginTrack.current = false;
+        trackLogin();
+      }
       await fetchBox(userId);
       // Register push token silently
       registerForPushNotifications().then(token => {
@@ -258,7 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error) trackLogin();
+    if (!error) pendingLoginTrack.current = true;
     return { error: error?.message ?? null };
   }
 

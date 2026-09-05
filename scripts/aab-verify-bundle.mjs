@@ -126,6 +126,14 @@ check('clé GIPHY embarquée', !!giphyMatch,
 const dsnMatch = js.match(/https:\/\/[0-9a-f]{32}@o(\d+)\.ingest(?:\.[a-z]{2})?\.sentry\.io\/(\d+)/);
 check('DSN Sentry embarqué', !!dsnMatch,
   dsnMatch ? `org o${dsnMatch[1]}, projet ${dsnMatch[2]}` : 'absent (EXPO_PUBLIC_SENTRY_DSN vide au moment du bundle)');
+// Token Mixpanel : `'mixpanel-token:' + EXPO_PUBLIC_MIXPANEL_TOKEN + ':mixpanel-end'` est
+// plié au bundle en un littéral ; sans token il reste `mixpanel-token::mixpanel-end`.
+// Le projet est en résidence EU : sans `api-eu.mixpanel.com`, rien n'arrive dans Events.
+const mixpanelMatch = js.match(/mixpanel-token:([0-9a-f]{32}):mixpanel-end/);
+check('token Mixpanel embarqué', !!mixpanelMatch,
+  mixpanelMatch ? `${mixpanelMatch[1].slice(0, 4)}…${mixpanelMatch[1].slice(-4)}` : 'absent (`mixpanel-token::mixpanel-end` ou marqueur manquant)');
+check('serveur Mixpanel EU embarqué', js.includes('https://api-eu.mixpanel.com'),
+  js.includes('https://api-eu.mixpanel.com') ? 'api-eu.mixpanel.com' : 'absent (le SDK viserait le serveur US par défaut)');
 
 // 5. Identité du binaire : le manifeste d'un AAB est en protobuf, bundletool
 //    le rend en XML texte. Les réglages OTA d'Expo y sont des <meta-data>.
