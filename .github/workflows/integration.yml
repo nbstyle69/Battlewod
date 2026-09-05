@@ -38,6 +38,7 @@ on:
           - agents
           - formats
           - league
+          - auth-links
           - bo-owner
           - athlete
           - rls
@@ -225,6 +226,13 @@ jobs:
       - name: Suite — Clôture ELO, mutation inverse
         if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'elo' }}
         run: ./scripts/test-finalize-elo-mutation.sh
+
+      # Liens e-mail Auth : GoTrue génère le vrai lien (verify?token=…&type=…&
+      # redirect_to=…), on suit le 303 et on lit le Location. signup → /email-confirme,
+      # recovery avec redirectTo → /update-password, recovery sans → Site URL (A4).
+      - name: Suite — Liens e-mail GoTrue (signup / recovery)
+        if: ${{ steps.flags.outputs.suite == 'all' || steps.flags.outputs.suite == 'auth-links' }}
+        run: node scripts/test-auth-links.mjs
 
       # Contrôle de catalogue : ce que la base accorde réellement, pas ce que
       # les migrations avaient l'intention d'accorder.
