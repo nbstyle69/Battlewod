@@ -317,6 +317,12 @@ prouve les deux sens : la carte absente à `false`, présente à `true` à sa pl
 et qu'aucun autre fichier (Explorer, recherche, deep link, notifications) ne mène à la route.
 Le premier générateur (« Générateur WOD — For Time · AMRAP · Tabata ») reste.
 
+**Onglet gérant « Dashboard » → « Suivi », à merger après la soumission Apple.** Le premier
+des 6 onglets de la barre gérant était tronqué ; libellé seulement, via i18n
+(`tabs.boTracking` : « Suivi » / « Tracking »), route `BODashboard` et écran `Dashboard`
+inchangés. Les cinq autres libellés restent en dur comme avant. Test `boTabTrackingLabel.test.ts`
+(mutation inverse : `tabBarLabel: 'Dashboard'` rétabli est rouge).
+
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
 service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie cause) est
