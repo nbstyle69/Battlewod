@@ -21,9 +21,9 @@ type Nav = NativeStackNavigationProp<ExplorerStackParamList>;
 type Route = RouteProp<ExplorerStackParamList, 'BoxDirectoryDetail'>;
 
 const SPORT_LABELS: Record<string, string> = {
-  crossfit: 'CrossFit', weightlifting: 'Haltérophilie', gymnastics: 'Gymnastique',
+  crossfit: 'Functional', weightlifting: 'Haltérophilie', gymnastics: 'Gymnastique',
   hiit: 'HIIT', yoga: 'Yoga', boxing: 'Boxe', mma: 'MMA',
-  functional: 'Functional', hyrox: 'Hyrox',
+  functional: 'Functional', hyrox: 'Hybrid',
 };
 
 const SERVICE_LABELS: Record<string, string> = {
