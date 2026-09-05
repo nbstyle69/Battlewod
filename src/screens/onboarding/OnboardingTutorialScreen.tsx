@@ -226,6 +226,12 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
   }, [badgeAwarded]);
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+  // Chaque slide fait la largeur de l'écran : la position est connue sans mesure,
+  // `scrollToIndex` n'a jamais à attendre le layout d'une cellule.
+  const getItemLayout = useCallback(
+    (_: ArrayLike<Slide> | null | undefined, index: number) => ({ length: width, offset: width * index, index }),
+    [],
+  );
 
   async function awardFirstStepBadge() {
     if (!user?.id) return;
@@ -311,6 +317,8 @@ export default function OnboardingTutorialScreen({ onDone }: Props) {
           )}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
+          getItemLayout={getItemLayout}
+          onScrollToIndexFailed={({ index }) => flatListRef.current?.scrollToOffset({ offset: width * index, animated: true })}
           renderItem={({ item, index }) => {
             const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
             const opacity = scrollX.interpolate({ inputRange, outputRange: [0, 1, 0], extrapolate: 'clamp' });
