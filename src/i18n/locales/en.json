@@ -366,7 +366,19 @@
       "confirmed": "Confirmed",
       "waiting": "Waiting",
       "inactiveBadge": "INACTIVE",
-      "ownerBadge": "OWNER"
+      "ownerBadge": "OWNER",
+      "plan": {
+        "none": "No plan",
+        "active": "Active",
+        "pastDue": "Past due",
+        "cancelled": "Cancelled",
+        "paused": "Paused",
+        "staffAssigned": "Assigned by the box",
+        "renewsOn": "renews on {{date}}",
+        "endsOn": "ends on {{date}}",
+        "resumesOn": "resumes on {{date}}",
+        "commitmentUntil": "committed until {{date}}"
+      }
     },
     "gamification": {
       "title": "Gamification",
