@@ -126,6 +126,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | `/compte` montre l'adhésion même sans abonnement en ligne (formule attribuée ou payée à la box) | 24 août 2026 |
 | Une lecture publique refusée se voit : elle ne se rend plus en liste vide plausible | 24 août 2026 |
 | Une relance de prospect fautive ne coupe plus les relances de toutes les box | 24 août 2026 |
+| Accueil, section Tournois : « Tous les tournois » ouvre l'onglet Tournois de Compétitions (le bouton ne faisait rien), libellé et statuts des cartes via i18n FR/EN (plus de chaînes en dur) — 1.0.52 L1 | 5 septembre 2026 |
 
 ---
 
