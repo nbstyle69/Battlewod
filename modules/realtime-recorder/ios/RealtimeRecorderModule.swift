@@ -36,10 +36,10 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
   private var rotationCoordinator: NSObject?
   private var rotationObservation: NSKeyValueObservation?
 
-  /// Temporary diagnostic: logs device name + preview/capture angles at session
-  /// start (`[RealtimeRecorder][orientation]` in Console). Flip to `false` once
-  /// the iPhone 17 / 16 values have been collected.
-  static let orientationDebugLog = true
+  /// Diagnostic: logs device name + preview/capture angles at session start
+  /// (`[RealtimeRecorder][orientation]` in Console). Off in production; flip to
+  /// `true` to compare two phones.
+  static let orientationDebugLog = false
 
   private let renderer = OverlayRenderer()
   var overlayState = OverlayState()
@@ -113,14 +113,20 @@ final class RecorderEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 
     captureQueue.async { [weak self] in
       guard let self = self, !self.isRecording else { return }
-      if let conn = self.videoOutput?.connection(with: .video),
-         conn.isVideoRotationAngleSupported(captureAngle) {
-        conn.videoRotationAngle = captureAngle
+      // The angle really applied is the one re-read from the connection after
+      // assignment (unsupported angles are silently not applied), and it is the
+      // one the writer geometry must follow.
+      var appliedAngle = captureAngle
+      if let conn = self.videoOutput?.connection(with: .video) {
+        if conn.isVideoRotationAngleSupported(captureAngle) {
+          conn.videoRotationAngle = captureAngle
+        }
+        appliedAngle = conn.videoRotationAngle
       }
-      self.refreshOutputGeometry(appliedAngle: captureAngle)
+      self.refreshOutputGeometry(appliedAngle: appliedAngle)
       if RecorderEngine.orientationDebugLog {
         let name = self.currentDevice?.localizedName ?? "?"
-        print("[RealtimeRecorder][orientation] \(logReason) device=\(name) facing=\(self.currentFacing == .front ? "front" : "back") previewAngle=\(previewAngle) captureAngle=\(captureAngle) isLandscape=\(self.isLandscape)")
+        print("[RealtimeRecorder][orientation] \(logReason) device=\(name) facing=\(self.currentFacing == .front ? "front" : "back") previewAngle=\(previewAngle) captureAngle=\(captureAngle) appliedAngle=\(appliedAngle) isLandscape=\(self.isLandscape)")
       }
     }
   }

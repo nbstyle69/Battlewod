@@ -240,7 +240,11 @@ que les appareils déjà installés partagent : un changement natif impose une n
 version, donc un nouveau runtime OTA, `runtimeVersion.policy = appVersion`). Un journal de
 diagnostic derrière un flag affiche nom du device, angle preview et angle capture pour
 comparer les deux téléphones, et une liste de 16 cas à cliquer (2 téléphones ×
-avant/arrière × portrait/paysage) est dans la PR. Le chemin
+avant/arrière × portrait/paysage) est dans la PR. **Constaté par Nab (revue 1.0.52, C4) :
+les 16 cas passent.** Suite : `orientationDebugLog` repassé à `false`, et la géométrie du
+writer suit désormais l'angle **relu** sur `conn.videoRotationAngle` après affectation (un
+angle non supporté n'est pas appliqué en silence) plutôt que l'angle demandé ; le log
+affiche les deux (`captureAngle` demandé, `appliedAngle` relu). Le chemin
 iOS < 17 (cible 15.1) est gardé sous sa forme standard, non vérifié : aucun appareil sous
 iOS 17 dans le parc.
 
