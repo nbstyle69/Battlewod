@@ -24,3 +24,25 @@ describe('Libellés gérant : Functional / Hybrid (valeurs internes inchangées)
     }
   });
 });
+
+describe('Libellés athlète : une seule terminologie (les 3 occurrences laissées par #250)', () => {
+  it('i18n FR/EN : benchmarks, exemple de nom de box, bio — plus de CrossFit/Hyrox visibles', () => {
+    for (const f of ['i18n/locales/fr.json', 'i18n/locales/en.json']) {
+      const json = JSON.parse(read(f));
+      expect(json.profile.pr.categories.benchmarks).toMatch(/Functional/);
+      expect(json.bo.boxInfo.namePlaceholder).toMatch(/^Functional Lyon/);
+      expect(json.profile.account.bioPlaceholder).toContain('#functional');
+      expect(read(f)).not.toMatch(/CrossFit|Hyrox|#crossfit/);
+    }
+  });
+
+  it("TimerRun : le prompt d'analyse vidéo dit Functional", () => {
+    const src = read('screens/timer/TimerRunScreen.tsx');
+    expect(src).toContain('Analyse cette vidéo Functional AthleX');
+    expect(src).not.toMatch(/vidéo CrossFit/);
+  });
+
+  it('la clé de stockage historique des PR « Benchmarks CrossFit » est conservée (migration des données)', () => {
+    expect(read('screens/profile/prStorage.ts')).toContain("'Benchmarks CrossFit': 'benchmarks'");
+  });
+});
