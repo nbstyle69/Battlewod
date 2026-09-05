@@ -319,7 +319,7 @@
       "change": "Changer",
       "generalInfo": "Informations générales",
       "nameLabel": "NOM DE LA BOX *",
-      "namePlaceholder": "CrossFit Lyon, Box Forge…",
+      "namePlaceholder": "Functional Lyon, Box Forge…",
       "addressLabel": "ADRESSE",
       "addressPlaceholder": "12 rue du Sport, 69001 Lyon",
       "websiteLabel": "SITE WEB",
@@ -902,7 +902,7 @@
       "categories": {
         "weightlifting": "Haltérophilie",
         "gymnastics": "Gymnastique",
-        "benchmarks": "Benchmarks CrossFit",
+        "benchmarks": "Benchmarks Functional",
         "cardio": "Cardio & Endurance"
       }
     },
@@ -959,7 +959,7 @@
       "bioLabel": "Bio",
       "bioEmpty": "Non renseignée",
       "bioHashtags": "Bio (avec #hashtags)",
-      "bioPlaceholder": "Parle de toi... #crossfit #rx #motivation",
+      "bioPlaceholder": "Parle de toi... #functional #rx #motivation",
       "photoLabel": "Photo",
       "photoSet": "Définie",
       "photoUnset": "Non définie",
