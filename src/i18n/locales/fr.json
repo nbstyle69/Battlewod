@@ -837,7 +837,14 @@
       "wodGenerator": "Générateur WOD",
       "oneRM": "Calculateur 1RM",
       "oneRMDesc": "50% → 130% · Zones"
-    }
+    },
+    "seeAllTournaments": "Tous les tournois",
+    "tournamentStatus": {
+      "open": "Ouvert",
+      "active": "En cours",
+      "closed": "Terminé"
+    },
+    "tournamentParticipants": "{{n}}/{{max}} participants"
   },
   "profile": {
     "appearance": "Apparence",

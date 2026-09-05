@@ -128,6 +128,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | Une lecture publique refusée se voit : elle ne se rend plus en liste vide plausible | 24 août 2026 |
 | Une relance de prospect fautive ne coupe plus les relances de toutes les box | 24 août 2026 |
 | Fiche adhérent du back-office mobile (`BOMembers`) : fiche opaque (`modalCard`, encre atténuée 2,77:1 → 5,36:1 en clair), formule, statut et échéance servis par `get_box_billing` au gérant/co-gérant (le coach n'y voit pas de bloc formule) — 1.0.52 I4 | 5 septembre 2026 |
+| Accueil, section Tournois : « Tous les tournois » ouvre l'onglet Tournois de Compétitions (le bouton ne faisait rien), libellé et statuts des cartes via i18n FR/EN (plus de chaînes en dur) — 1.0.52 L1 | 5 septembre 2026 |
 
 ---
 

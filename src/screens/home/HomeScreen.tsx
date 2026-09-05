@@ -737,8 +737,16 @@ export default function HomeScreen() {
           <>
             <View style={[S.sectionHeader, { marginTop: 28, marginBottom: 12 }]}>
               <Text style={S.sectionTitleOutside}>{t('home.tournaments')}</Text>
-              <TouchableOpacity activeOpacity={0.7}>
-                <Text style={S.linkText}>{t('home.seeAll')} ›</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  const nav = navigation.getParent?.();
+                  if (nav) nav.navigate('Competitions', { screen: 'CompetitionList', params: { initialTab: 0 } });
+                }}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('home.seeAllTournaments')}
+              >
+                <Text style={S.linkText}>{t('home.seeAllTournaments')} ›</Text>
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
@@ -752,10 +760,10 @@ export default function HomeScreen() {
                     <View style={S.compInner}>
                       <View style={S.compBadgeRow}>
                         <View style={[S.compDot, { backgroundColor: comp.status === 'open' ? theme.accent : '#9ca3af' }]} />
-                        <Text style={S.compStatus}>{comp.status === 'open' ? 'Ouvert' : comp.status === 'active' ? 'En cours' : 'Terminé'}</Text>
+                        <Text style={S.compStatus}>{comp.status === 'open' ? t('home.tournamentStatus.open') : comp.status === 'active' ? t('home.tournamentStatus.active') : t('home.tournamentStatus.closed')}</Text>
                       </View>
                       <Text style={S.compName} numberOfLines={2}>{comp.name}</Text>
-                      <Text style={S.compMeta}>{comp.participants}/{comp.maxParticipants} participants</Text>
+                      <Text style={S.compMeta}>{t('home.tournamentParticipants', { n: comp.participants, max: comp.maxParticipants })}</Text>
                       <Text style={S.compDate}>{comp.startDate}</Text>
                     </View>
                   </GlassCard>
