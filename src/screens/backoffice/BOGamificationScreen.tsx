@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
-import { Award, Flame, Users, ChevronRight, TrendingUp, AlertTriangle } from 'lucide-react-native';
+import { Award, Flame, Users, ChevronRight, TrendingUp, AlertTriangle, ChevronLeft } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -39,6 +40,7 @@ interface MemberMovementStat {
 }
 
 export default function BOGamificationScreen() {
+  const navigation = useNavigation();
   const { currentBox } = useAuth();
   const { theme } = useTheme();
   const { t } = useTranslation();
@@ -183,6 +185,9 @@ export default function BOGamificationScreen() {
     <View style={S.container}>
       <GlassBackground />
       <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.back} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+          <ChevronLeft color={theme.text} size={22} />
+        </TouchableOpacity>
         <Award color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.gamification.title')}</Text>
       </View>
@@ -343,6 +348,7 @@ function styles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
     flexDirection: 'row', alignItems: 'center', gap: 10,
   },
+  back: { marginRight: 2 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
   kpiRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginTop: 16 },
   kpiCard: {

@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Image, Alert, ActivityIndicator,
 } from 'react-native';
-import { ArrowLeft, Save, Building2, Camera, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, Save, Building2, Camera, Trash2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
@@ -161,7 +161,7 @@ export default function BOBoxInfoScreen({ navigation }: any) {
       <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <ArrowLeft color={theme.text} size={22} />
+          <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>{t('bo.boxInfo.title')}</Text>
         <View style={{ width: 22 }} />

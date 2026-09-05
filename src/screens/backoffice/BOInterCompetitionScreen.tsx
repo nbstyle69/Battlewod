@@ -4,8 +4,9 @@ import {
   ActivityIndicator, Alert, Modal, TextInput, RefreshControl,
 } from 'react-native';
 import {
-  Plus, Globe2, CheckCircle, XCircle, Play, Youtube,
+  Plus, Globe2, CheckCircle, XCircle, Play, Youtube, ChevronLeft,
 } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -33,6 +34,7 @@ import {
 import GlassBackground from '../../components/glass/GlassBackground';
 
 export default function BOInterCompetitionScreen() {
+  const navigation = useNavigation();
   const { theme } = useTheme();
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -584,6 +586,9 @@ export default function BOInterCompetitionScreen() {
       <GlassBackground />
       {/* Header */}
       <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.back} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+          <ChevronLeft color={theme.text} size={22} />
+        </TouchableOpacity>
         <Globe2 color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.interComp.header')}</Text>
         <TouchableOpacity style={S.addBtn} onPress={() => setCreateModal(true)}>
@@ -979,6 +984,7 @@ function createStyles(theme: AppTheme) {
       flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: 8,
       paddingHorizontal: 10, paddingVertical: 6, fontSize: 12, color: theme.text,
     },
+    back: { marginRight: 2 },
     scoreCard: { backgroundColor: theme.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border },
     scoreHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     scoreName: { fontSize: 14, fontWeight: '700', color: theme.text },

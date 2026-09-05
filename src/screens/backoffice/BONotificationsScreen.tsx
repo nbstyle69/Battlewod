@@ -3,7 +3,8 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
   Alert, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { Bell, Send, Users, User, Clock, CheckCircle } from 'lucide-react-native';
+import { Bell, Send, Users, User, Clock, CheckCircle, ChevronLeft } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -15,6 +16,7 @@ interface Member { user_id: string; username: string }
 interface SentNotif { id: string; title: string; body: string; target: string; created_at: string }
 
 export default function BONotificationsScreen() {
+  const navigation = useNavigation();
   const { currentBox } = useAuth();
   const { theme } = useTheme();
   const { t, i18n } = useTranslation();
@@ -109,6 +111,9 @@ export default function BONotificationsScreen() {
     <View style={S.container}>
       <GlassBackground />
       <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.back} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+          <ChevronLeft color={theme.text} size={22} />
+        </TouchableOpacity>
         <Bell color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.notifications.title')}</Text>
       </View>
@@ -235,6 +240,7 @@ function styles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
     flexDirection: 'row', alignItems: 'center', gap: 10,
   },
+  back: { marginRight: 2 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
   composeCard: {
     margin: 16, backgroundColor: theme.card, borderRadius: 16,
