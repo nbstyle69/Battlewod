@@ -11,7 +11,7 @@ import { setUserContext, clearUserContext, captureError } from '../lib/sentry';
 import { identifyUser, resetUser, trackLogin, trackSignUp, trackBoxJoin, trackDeleteAccount } from '../lib/analytics';
 import { isPurgedAtSignOut } from '../lib/storageKeys';
 import { runSignOutSequence } from '../lib/signOutSequence';
-import { EMAIL_CONFIRMED_URL } from '../lib/urls';
+import { EMAIL_CONFIRMED_URL, UPDATE_PASSWORD_URL } from '../lib/urls';
 
 const BOX_SKIPPED_KEY = '@athlex:boxSkipped';
 const ACTIVE_BOX_KEY = '@athlex:activeBoxId';
@@ -437,7 +437,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function resetPassword(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: UPDATE_PASSWORD_URL,
+    });
     return { error: error?.message ?? null };
   }
 
