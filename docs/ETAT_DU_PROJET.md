@@ -126,6 +126,7 @@ Une ligne par capacité, avec la date du lot qui l'a fermée.
 | `/compte` montre l'adhésion même sans abonnement en ligne (formule attribuée ou payée à la box) | 24 août 2026 |
 | Une lecture publique refusée se voit : elle ne se rend plus en liste vide plausible | 24 août 2026 |
 | Une relance de prospect fautive ne coupe plus les relances de toutes les box | 24 août 2026 |
+| Pile Dashboard gérant : chevron retour standard (`ChevronLeft`, `goBack`) sur les 15 écrans empilés — ajouté sur Stats, Rapport, Notifications, Gamification, Articles, Inter-box ; harmonisé sur Réglages, Infos box, Abonnement (flèche) et Tournoi (« ← » texte) ; test qui énumère la pile — 1.0.52 I6 | 5 septembre 2026 |
 
 ---
 

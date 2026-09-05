@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   Trophy, Clock, CheckCircle, XCircle, Youtube,
   ChevronDown, ChevronUp, Bot, BarChart2, Lock, Zap,
-  RotateCcw, AlertTriangle, Users, UserX, Star,
+  RotateCcw, AlertTriangle, Users, UserX, Star, ChevronLeft,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -418,7 +418,7 @@ export default function BOTournamentScreen() {
       {/* ── Header ── */}
       <LinearGradient colors={['#12121A', '#0A0A0F']} style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Text style={s.backTxt}>←</Text>
+          <ChevronLeft color="#fff" size={22} />
         </TouchableOpacity>
         <View style={s.headerTexts}>
           <Text style={s.headerLabel}>{t('bo.tournament.backOffice')}</Text>
@@ -835,7 +835,6 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
 
   header:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn:     { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  backTxt:     { fontSize: 22, color: '#fff' },
   headerTexts: { flex: 1 },
   headerLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.35)', letterSpacing: 1.5 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: '#fff' },

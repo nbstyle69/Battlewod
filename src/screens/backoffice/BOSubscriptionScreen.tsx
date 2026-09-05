@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, AppState, Platform,
 } from 'react-native';
-import { ArrowLeft, Crown, Clock, CreditCard, ExternalLink, Shield, Zap, Check } from 'lucide-react-native';
+import { ChevronLeft, Crown, Clock, CreditCard, ExternalLink, Shield, Zap, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
@@ -85,7 +85,7 @@ export default function BOSubscriptionScreen({ navigation }: any) {
       <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <ArrowLeft color={theme.text} size={22} />
+          <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>{t('bo.subscription.title')}</Text>
         <View style={{ width: 22 }} />

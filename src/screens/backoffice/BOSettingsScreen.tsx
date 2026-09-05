@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, ActivityIndicator,
 } from 'react-native';
-import { Settings, ArrowLeft, Save } from 'lucide-react-native';
+import { Settings, ChevronLeft, Save } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { readRows } from '../../lib/db';
@@ -76,7 +76,7 @@ export default function BOSettingsScreen({ navigation }: any) {
       <GlassBackground />
       <View style={S.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <ArrowLeft color={theme.text} size={22} />
+          <ChevronLeft color={theme.text} size={22} />
         </TouchableOpacity>
         <Settings color={theme.accent} size={20} />
         <Text style={S.headerTitle}>{t('bo.settings.title')}</Text>

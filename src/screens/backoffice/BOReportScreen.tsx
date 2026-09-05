@@ -3,7 +3,8 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, Share,
 } from 'react-native';
-import { FileText, Download, Users, Trophy, ClipboardList, TrendingUp, Flame } from 'lucide-react-native';
+import { FileText, Download, Users, Trophy, ClipboardList, TrendingUp, Flame, ChevronLeft } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -24,6 +25,7 @@ interface MonthlyReport {
 }
 
 export default function BOReportScreen() {
+  const navigation = useNavigation();
   const { currentBox } = useAuth();
   const { theme } = useTheme();
   const { t, i18n } = useTranslation();
@@ -151,6 +153,9 @@ export default function BOReportScreen() {
     <View style={S.container}>
       <GlassBackground />
       <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.back} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+          <ChevronLeft color={theme.text} size={22} />
+        </TouchableOpacity>
         <FileText color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.report.title')}</Text>
       </View>
@@ -248,6 +253,7 @@ function styles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
     flexDirection: 'row', alignItems: 'center', gap: 10,
   },
+  back: { marginRight: 2 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: theme.text },
   monthPill: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,

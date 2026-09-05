@@ -3,7 +3,8 @@ import {
   View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator,
   TouchableOpacity, TextInput, Alert, Image, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { Newspaper, Plus, Trash2, X, Image as ImageIcon } from 'lucide-react-native';
+import { Newspaper, Plus, Trash2, X, Image as ImageIcon, ChevronLeft } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
@@ -23,6 +24,7 @@ interface Article {
 }
 
 export default function BOArticlesScreen() {
+  const navigation = useNavigation();
   const { currentBox, user } = useAuth();
   const { theme } = useTheme();
   const { t, i18n } = useTranslation();
@@ -147,6 +149,9 @@ export default function BOArticlesScreen() {
     <KeyboardAvoidingView style={S.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <GlassBackground />
       <View style={S.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={S.back} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+          <ChevronLeft color={theme.text} size={22} />
+        </TouchableOpacity>
         <Newspaper color={theme.accent} size={22} />
         <Text style={S.headerTitle}>{t('bo.articles.title')}</Text>
         <TouchableOpacity
@@ -235,6 +240,7 @@ function styles(theme: AppTheme) { return StyleSheet.create({
     backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border,
     flexDirection: 'row', alignItems: 'center', gap: 10,
   },
+  back: { marginRight: 2 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: theme.text, flex: 1 },
   addBtn: {
     width: 36, height: 36, borderRadius: 10, backgroundColor: theme.accent,
