@@ -179,6 +179,23 @@ check('URL OTA = projet EAS de app.json', updateUrl === expected.updates.url, up
 check('aucune permission de localisation', !permissions.some((p) => /LOCATION/.test(p)),
   permissions.filter((p) => /LOCATION/.test(p)).join(', ') || 'aucune');
 
+// 6. Clé Google Maps Android : présente (sinon carte grise) et jamais l'ancienne
+//    clé ouverte de juin. Les préfixes (6 premiers caractères) sont passés par
+//    variables d'environnement : la clé attendue ne vit pas dans le dépôt public.
+const mapsKey = meta('com.google.android.geo.API_KEY');
+check('clé Google Maps Android présente dans le manifeste', !!mapsKey && mapsKey.length > 20,
+  mapsKey ? `${mapsKey.slice(0, 6)}… (${mapsKey.length} car.)` : 'absente (GOOGLE_MAPS_ANDROID_API_KEY vide au build)');
+const badPrefix = process.env.MAPS_KEY_FORBIDDEN_PREFIX || '';
+if (badPrefix) {
+  check(`clé Maps ≠ ancienne clé ouverte (${badPrefix}…)`, !!mapsKey && !mapsKey.startsWith(badPrefix),
+    mapsKey ? `${mapsKey.slice(0, 6)}…` : 'absente');
+}
+const goodPrefix = process.env.MAPS_KEY_EXPECTED_PREFIX || '';
+if (goodPrefix) {
+  check(`clé Maps = clé restreinte attendue (${goodPrefix}…)`, !!mapsKey && mapsKey.startsWith(goodPrefix),
+    mapsKey ? `${mapsKey.slice(0, 6)}…` : 'absente');
+}
+
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} assertions vraies`);
 if (failed.length) {
