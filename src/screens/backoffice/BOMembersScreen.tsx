@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Alert, Modal, ScrollView,
 } from 'react-native';
-import { UserX, UserCheck, ChevronLeft, ChevronRight, X, Calendar, Clock, Check, Timer, ShieldCheck } from 'lucide-react-native';
+import { UserX, UserCheck, ChevronLeft, ChevronRight, X, Calendar, Clock, Check, Timer, ShieldCheck, CreditCard } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { readRows } from '../../lib/db';
@@ -27,6 +27,23 @@ interface MemberRow {
   role: 'member' | 'coach' | 'owner';
   profile: { username: string; email?: string; level: string; elo: number; avatar_url?: string };
 }
+
+// Une ligne de `get_box_billing` (gérant / co-gérant seulement : le coach reçoit
+// 42501 et la fiche n'affiche pas de bloc formule — l'argent est hors de son
+// périmètre).
+interface MemberBilling {
+  member_id: string;
+  plan_id: string | null;
+  subscription_status: string | null;
+  subscription_current_period_end: string | null;
+  subscription_cancel_at_period_end: boolean | null;
+  subscription_paused: boolean | null;
+  pause_resumes_at: string | null;
+  commitment_end_date: string | null;
+  has_stripe_sub: boolean | null;
+}
+
+interface PlanRow { id: string; name: string; price_cents: number | null }
 
 interface MemberReservation {
   id: string;
@@ -55,6 +72,8 @@ export default function BOMembersScreen({ navigation }: any) {
   const [selectedMember, setSelectedMember] = useState<MemberRow | null>(null);
   const [memberRes,      setMemberRes]      = useState<MemberReservation[]>([]);
   const [resLoading,     setResLoading]     = useState(false);
+  const [billing,        setBilling]        = useState<Map<string, MemberBilling> | null>(null);
+  const [plans,          setPlans]          = useState<Map<string, PlanRow>>(new Map());
 
   const load = useCallback(async () => {
     if (!currentBox) { setLoading(false); return; }
@@ -85,6 +104,22 @@ export default function BOMembersScreen({ navigation }: any) {
     if (emailsError) captureError(emailsError, { screen: 'BOMembers', action: 'emails' });
     const byMember = new Map((emails ?? []).map(e => [e.member_id, e.email]));
     setMembers(rows.map(m => ({ ...m, profile: { ...m.profile, email: byMember.get(m.member_id) } })));
+
+    // Formule / statut / échéance : colonnes fermées à `authenticated` (lot 6),
+    // servies par get_box_billing au gérant et au co-gérant. Le refus du coach
+    // (42501) est attendu : pas de bloc formule, pas d'alerte.
+    const { data: billingRaw, error: billingError } = await supabase.rpc('get_box_billing', { p_box_id: currentBox.id });
+    if (billingError) {
+      if (billingError.code !== '42501') captureError(billingError, { screen: 'BOMembers', action: 'billing' });
+      setBilling(null);
+    } else {
+      setBilling(new Map(((billingRaw ?? []) as MemberBilling[]).map(b => [b.member_id, b])));
+      const planRows = await readRows(
+        supabase.from('membership_plans').select('id, name, price_cents').eq('box_id', currentBox.id),
+        { screen: 'BOMembers', action: 'plans' },
+      );
+      setPlans(new Map(((planRows ?? []) as PlanRow[]).map(p => [p.id, p])));
+    }
     } catch (e) { captureError(e, { screen: 'BOMembers', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
@@ -173,6 +208,36 @@ export default function BOMembersScreen({ navigation }: any) {
   }
 
   const todayISO = new Date().toISOString().slice(0, 10);
+
+  function formatDay(iso: string) {
+    return new Date(iso).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  // Statut lisible d'un abonnement : Stripe quand il y en a un, sinon la
+  // formule a été attribuée par le staff (0 €, sans échéance Stripe).
+  function membershipStatus(b: MemberBilling): { label: string; color: string } {
+    if (b.subscription_paused) return { label: t('bo.members.plan.paused'), color: theme.warning };
+    switch (b.subscription_status) {
+      case 'active':    return { label: t('bo.members.plan.active'), color: theme.success };
+      case 'past_due':  return { label: t('bo.members.plan.pastDue'), color: theme.warning };
+      case 'cancelled':
+      case 'canceled':  return { label: t('bo.members.plan.cancelled'), color: theme.error };
+      default:
+        return b.plan_id
+          ? { label: t('bo.members.plan.staffAssigned'), color: theme.textSecondary }
+          : { label: t('bo.members.plan.none'), color: theme.textMuted };
+    }
+  }
+
+  function membershipDue(b: MemberBilling): string | null {
+    if (b.subscription_paused && b.pause_resumes_at) return t('bo.members.plan.resumesOn', { date: formatDay(b.pause_resumes_at) });
+    if (b.subscription_current_period_end) {
+      const d = formatDay(b.subscription_current_period_end);
+      return b.subscription_cancel_at_period_end ? t('bo.members.plan.endsOn', { date: d }) : t('bo.members.plan.renewsOn', { date: d });
+    }
+    if (b.commitment_end_date) return t('bo.members.plan.commitmentUntil', { date: formatDay(b.commitment_end_date) });
+    return null;
+  }
 
   if (loading) {
     return (
@@ -278,6 +343,30 @@ export default function BOMembersScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
+            {/* Formule / statut / échéance (gérant et co-gérant) */}
+            {selectedMember && billing && (() => {
+              const b = billing.get(selectedMember.member_id);
+              const plan = b?.plan_id ? plans.get(b.plan_id) : undefined;
+              const st = b ? membershipStatus(b) : { label: t('bo.members.plan.none'), color: theme.textMuted };
+              const due = b ? membershipDue(b) : null;
+              return (
+                <View style={S.planCard}>
+                  <View style={S.planIcon}><CreditCard color={theme.accentText} size={16} /></View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={S.planName} numberOfLines={1}>
+                      {plan ? plan.name : t('bo.members.plan.none')}
+                      {plan?.price_cents != null && plan.price_cents > 0 ? ` · ${(plan.price_cents / 100).toFixed(2)} €` : ''}
+                    </Text>
+                    <View style={S.planMetaRow}>
+                      <View style={[S.planDot, { backgroundColor: st.color }]} />
+                      <Text style={[S.planStatus, { color: st.color }]}>{st.label}</Text>
+                      {due && <Text style={S.planDue}> · {due}</Text>}
+                    </View>
+                  </View>
+                </View>
+              );
+            })()}
+
             {/* Coach promote/demote + Ban/Unban actions */}
             {selectedMember && selectedMember.status === 'active' && selectedMember.role !== 'owner' && (
               <TouchableOpacity
@@ -285,8 +374,8 @@ export default function BOMembersScreen({ navigation }: any) {
                 onPress={() => toggleCoach(selectedMember)}
                 activeOpacity={0.8}
               >
-                <ShieldCheck color="#3B82F6" size={15} />
-                <Text style={[S.banBtnText, { color: '#3B82F6' }]}>
+                <ShieldCheck color={theme.accentText} size={15} />
+                <Text style={[S.banBtnText, { color: theme.accentText }]}>
                   {selectedMember.role === 'coach' ? t('bo.members.demoteCoach') : t('bo.members.promoteCoach')}
                 </Text>
               </TouchableOpacity>
@@ -327,13 +416,13 @@ export default function BOMembersScreen({ navigation }: any) {
                   const isConfirmed = r.status === 'confirmed';
                   return (
                     <View key={r.id} style={[S.resCard, isPast && S.resCardPast]}>
-                      <View style={[S.resDot, { backgroundColor: isConfirmed ? theme.accent : '#f59e0b' }]} />
+                      <View style={[S.resDot, { backgroundColor: isConfirmed ? theme.accentText : theme.warning }]} />
                       <View style={S.resBody}>
                         <View style={S.resTop}>
                           <Text style={S.resTitle}>{s.title}</Text>
                           <View style={[S.resBadge, isConfirmed ? S.resBadgeOk : S.resBadgeWait]}>
-                            {isConfirmed ? <Check color="#C9A227" size={10} /> : <Timer color="#f59e0b" size={10} />}
-                            <Text style={[S.resBadgeText, isConfirmed ? { color: '#C9A227' } : { color: '#f59e0b' }]}>
+                            {isConfirmed ? <Check color={theme.accentText} size={10} /> : <Timer color={theme.warning} size={10} />}
+                            <Text style={[S.resBadgeText, { color: isConfirmed ? theme.accentText : theme.warning }]}>
                               {isConfirmed ? t('bo.members.confirmed') : t('bo.members.waiting')}
                             </Text>
                           </View>
@@ -392,8 +481,10 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   emptyText:   { fontSize: 14, color: theme.textMuted, textAlign: 'center', lineHeight: 22 },
 
   // Modal
-  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalSheet:      { backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 34, maxHeight: '80%' },
+  // Fiche opaque (modalCard), pas la carte translucide : posée sur le voile
+  // sombre, `theme.card` laissait l'encre atténuée à 2,77:1 en clair.
+  modalOverlay:    { flex: 1, backgroundColor: theme.modalBackdrop, justifyContent: 'flex-end' },
+  modalSheet:      { backgroundColor: theme.modalCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 34, maxHeight: '80%' },
   modalHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: theme.border },
   modalHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   modalAvatar:     { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
@@ -401,6 +492,18 @@ function createStyles(theme: AppTheme) { return StyleSheet.create({
   modalName:       { fontSize: 16, fontWeight: '900', color: theme.text },
   modalSub:        { fontSize: 12, color: theme.textMuted, marginTop: 1 },
   modalClose:      { padding: 6 },
+
+  planCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 20, marginTop: 14, padding: 12, borderRadius: 12,
+    backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+  },
+  planIcon:    { width: 32, height: 32, borderRadius: 10, backgroundColor: `${theme.accent}12`, justifyContent: 'center', alignItems: 'center' },
+  planName:    { fontSize: 14, fontWeight: '800', color: theme.text },
+  planMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
+  planDot:     { width: 6, height: 6, borderRadius: 3 },
+  planStatus:  { fontSize: 12, fontWeight: '700' },
+  planDue:     { fontSize: 12, color: theme.textSecondary, fontWeight: '600' },
 
   banBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
