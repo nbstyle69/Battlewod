@@ -1001,6 +1001,12 @@
       "deleteLastMsg": "Es-tu vraiment sûr ? Il n'y a aucun moyen de récupérer ton compte.",
       "deleteNo": "Non, annuler",
       "deleteYes": "Oui, supprimer"
+    },
+    "athlexSub": {
+      "title": "Abonnement AthleX",
+      "solo": "Formule Solo",
+      "multi": "Formule Multi · {{n}} box",
+      "manage": "Gérer"
     }
   },
   "reservation": {

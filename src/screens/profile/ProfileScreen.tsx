@@ -5,13 +5,14 @@ import {
   TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
   Image, Share, Switch, Linking, RefreshControl,
 } from 'react-native';
-import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen, Search, ExternalLink, Lock } from 'lucide-react-native';
+import { Trophy, Zap, TrendingUp, Award, LogOut, Star, Flame, ChevronRight, Hash, Building2, Edit3, Check, X, Camera, Copy, Share2, Bell, BookOpen, Search, ExternalLink, Lock, CreditCard } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
+import { readRows } from '../../lib/db';
 import { getMyBoxInviteCode } from '../../lib/boxInviteCode';
 import { WEB_URL } from '../../lib/urls';
 import { useAuth } from '../../context/AuthContext';
@@ -106,8 +107,36 @@ const CATEGORY_ORDER = ['activity', 'tournament', 'wod', 'elo', 'Classement', 's
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
-  const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser, myBoxes, switchBox } = useAuth();
+  const { user, signOut, deleteAccount, currentBox, joinBox, leaveBox, updateUser, myBoxes, switchBox, boxRole, boxSubscription, daysLeftTrial } = useAuth();
   const { theme, mode, toggleTheme } = useTheme();
+
+  // Abonnement AthleX du gérant (1.0.52 I5). Solo/Multi vient de
+  // owner_subscriptions (RLS : sa propre ligne), l'état de la box de
+  // boxSubscription. Le coach et l'athlète ne voient pas ce bloc.
+  const isOwnerAdmin = boxRole === 'owner' || user?.role === 'box_owner';
+  const { data: ownerSub } = useFocusQuery(
+    ['owner-subscription', user?.id],
+    async () => {
+      if (!user) return null;
+      return readRows(
+        supabase.from('owner_subscriptions').select('status, box_quota').eq('owner_id', user.id).maybeSingle(),
+        { screen: 'Profile', action: 'ownerSubscription' },
+      );
+    },
+    { enabled: !!user && isOwnerAdmin && !!currentBox },
+  );
+  const isMulti = !!ownerSub && ['active', 'trialing', 'past_due'].includes(ownerSub.status);
+  const athlexPlanLabel = isMulti
+    ? t('profile.athlexSub.multi', { n: ownerSub?.box_quota ?? myBoxes.length })
+    : t('profile.athlexSub.solo');
+  const athlexStatus = (() => {
+    const s = boxSubscription?.status;
+    if (s === 'active') return { text: t('bo.subscription.statusActive'), color: theme.success };
+    if (s === 'past_due') return { text: t('bo.subscription.statusPastDue'), color: theme.error };
+    if (s === 'trialing' && daysLeftTrial > 0) return { text: t('bo.subscription.statusTrial', { n: daysLeftTrial }), color: theme.accentText };
+    if (s === 'trialing' || s === 'expired' || s === 'canceled') return { text: t('bo.subscription.statusExpired'), color: theme.error };
+    return { text: t('bo.subscription.statusNone'), color: theme.textMuted };
+  })();
   const navigation = useNavigation<Nav>();
   const S = useMemo(() => createStyles(theme), [theme]);
   const [activeTab, setActiveTab]   = useState(0);
@@ -1206,6 +1235,32 @@ export default function ProfileScreen() {
               )}
             </View>
 
+            {/* ── Abonnement AthleX (gérant) ─────────── */}
+            {isOwnerAdmin && currentBox && (
+              <TouchableOpacity
+                style={S.compteCard}
+                onPress={() => navigation.getParent()?.navigate('BODashboard', { screen: 'BOSubscription' })}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.athlexSub.manage')}
+              >
+                <Text style={S.compteCardTitle}>{t('profile.athlexSub.title')}</Text>
+                <View style={S.themeRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                    <CreditCard color={theme.accentText} size={18} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={S.themeLabel}>{athlexPlanLabel}</Text>
+                      <Text style={[S.athlexSubStatus, { color: athlexStatus.color }]}>{athlexStatus.text}</Text>
+                    </View>
+                  </View>
+                  <View style={S.athlexSubBtn}>
+                    <Text style={S.athlexSubBtnText}>{t('profile.athlexSub.manage')}</Text>
+                    <ChevronRight color={theme.accentText} size={16} />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+
             {/* ── CGU + Confidentialité ──────────────── */}
             <TouchableOpacity
               style={S.compteCard}
@@ -1599,6 +1654,9 @@ function createStyles(t: AppTheme) {
   editIconText: { fontSize: 12, fontWeight: '700', color: t.accent },
   themeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   themeLabel: { fontSize: 14, fontWeight: '600', color: t.text },
+  athlexSubStatus:  { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  athlexSubBtn:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  athlexSubBtnText: { fontSize: 13, fontWeight: '700', color: t.accentText },
   langBtn: { flex: 1, borderWidth: 1.5, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   langBtnText: { fontSize: 14, fontWeight: '700' },
 
