@@ -982,6 +982,12 @@
       "deleteLastMsg": "Are you really sure? There is no way to recover your account.",
       "deleteNo": "No, cancel",
       "deleteYes": "Yes, delete"
+    },
+    "athlexSub": {
+      "title": "AthleX subscription",
+      "solo": "Solo plan",
+      "multi": "Multi plan · {{n}} boxes",
+      "manage": "Manage"
     }
   },
   "reservation": {
