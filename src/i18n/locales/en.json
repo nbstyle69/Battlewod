@@ -1103,7 +1103,10 @@
     "rxTag": "(RX)",
     "scaledTag": "(Scaled)",
     "myScores": "My scores ({{count}})",
-    "deleteConfirmTitle": "Delete this WOD?"
+    "deleteConfirmTitle": "Delete this WOD?",
+    "boxTag": "BOX",
+    "boxWodFallback": "Box WOD",
+    "completedNoScore": "Completed, no score"
   },
   "whiteboard": {
     "title": "My Box",

@@ -317,6 +317,22 @@ prouve les deux sens : la carte absente à `false`, présente à `true` à sa pl
 et qu'aucun autre fichier (Explorer, recherche, deep link, notifications) ne mène à la route.
 Le premier générateur (« Générateur WOD — For Time · AMRAP · Tabata ») reste.
 
+**Historique unifié « Mes entraînements » (`WodHistory`), à merger après la soumission
+Apple.** Recon : l'écran ne lisait que `generated_wods` + `generated_wod_scores` ; les scores
+saisis sur les WOD de box (`wod_scores`) et les WOD marqués « réalisés » par le bouton du
+bloc (`wod_completions`) n'y étaient pas. Désormais trois lectures (toutes `member_id` /
+`user_id` = soi), fusionnées côté client (`src/lib/wodHistoryEntries.ts`) en une seule liste
+chronologique : une ligne de box ouvre `WODDetail`, porte le score ou la mention « Réalisé,
+sans score » ; un score sur un WOD déjà marqué réalisé remplace la ligne « réalisé » (le
+détail supprime d'ailleurs la completion à la saisie du score). Les filtres Favoris /
+Benchmark restent propres aux WOD générés. Limite assumée : les policies serveur
+(`box_members_see_scores`, `box_member_see_completions`) ne rendent lisibles que les lignes
+des box dont on est encore membre actif. **Séances du minuteur : rien n'est persisté**
+(`TimerRunScreen` ne garde que les options d'affichage en AsyncStorage, aucune table) ;
+les inclure demande une table + RLS, chantier à part, non fait ici. Test
+`wodHistoryUnified.test.ts` : un WOD réalisé sans score apparaît ; mutation inverse (sans
+`wod_completions`) il disparaît.
+
 **Analyse de PDF de plus de 100 pages.** Cause établie le 24 août : le prestataire d'IA
 refuse au-delà de 100 pages, et le message affiché dit « service indisponible » alors que le
 service a répondu. Le correctif (compter les pages avant l'envoi, dire la vraie cause) est
