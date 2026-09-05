@@ -1021,7 +1021,8 @@
       "solo": "Formule Solo",
       "multi": "Formule Multi · {{n}} box",
       "manage": "Gérer"
-    }
+    },
+    "myTrainings": "Mes entraînements"
   },
   "reservation": {
     "title": "Réservation",
@@ -1197,7 +1198,10 @@
       "off": "Sans gilet",
       "on": "Avec gilet",
       "optional": "Optionnel"
-    }
+    },
+    "scoreSavedTitle": "Score enregistré !",
+    "scoreSavedBody": "Ton score est dans ton historique.",
+    "seeMyHistory": "Voir mon historique"
   },
   "competition": {
     "title": "Compétitions",
