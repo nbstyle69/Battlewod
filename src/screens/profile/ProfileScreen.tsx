@@ -112,7 +112,8 @@ export default function ProfileScreen() {
 
   // Abonnement AthleX du gérant (1.0.52 I5). Solo/Multi vient de
   // owner_subscriptions (RLS : sa propre ligne), l'état de la box de
-  // boxSubscription. Le coach et l'athlète ne voient pas ce bloc.
+  // boxSubscription. Le coach et l'athlète ne voient pas ce bloc ; tout
+  // gérant le voit, box ou pas, abonnement ou pas.
   const isOwnerAdmin = boxRole === 'owner' || user?.role === 'box_owner';
   const { data: ownerSub } = useFocusQuery(
     ['owner-subscription', user?.id],
@@ -123,9 +124,10 @@ export default function ProfileScreen() {
         { screen: 'Profile', action: 'ownerSubscription' },
       );
     },
-    { enabled: !!user && isOwnerAdmin && !!currentBox },
+    { enabled: !!user && isOwnerAdmin },
   );
   const isMulti = !!ownerSub && ['active', 'trialing', 'past_due'].includes(ownerSub.status);
+  const hasAthlexSub = !!boxSubscription || isMulti;
   const athlexPlanLabel = isMulti
     ? t('profile.athlexSub.multi', { n: ownerSub?.box_quota ?? myBoxes.length })
     : t('profile.athlexSub.solo');
@@ -1236,25 +1238,32 @@ export default function ProfileScreen() {
             </View>
 
             {/* ── Abonnement AthleX (gérant) ─────────── */}
-            {isOwnerAdmin && currentBox && (
+            {isOwnerAdmin && (
               <TouchableOpacity
                 style={S.compteCard}
                 onPress={() => navigation.getParent()?.navigate('BODashboard', { screen: 'BOSubscription' })}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel={t('profile.athlexSub.manage')}
+                accessibilityLabel={hasAthlexSub ? t('profile.athlexSub.manage') : t('profile.athlexSub.subscribe')}
+                testID={hasAthlexSub ? 'profile-athlex-sub' : 'profile-athlex-sub-empty'}
               >
                 <Text style={S.compteCardTitle}>{t('profile.athlexSub.title')}</Text>
                 <View style={S.themeRow}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                     <CreditCard color={theme.accentText} size={18} />
                     <View style={{ flex: 1 }}>
-                      <Text style={S.themeLabel}>{athlexPlanLabel}</Text>
-                      <Text style={[S.athlexSubStatus, { color: athlexStatus.color }]}>{athlexStatus.text}</Text>
+                      {hasAthlexSub ? (
+                        <>
+                          <Text style={S.themeLabel}>{athlexPlanLabel}</Text>
+                          <Text style={[S.athlexSubStatus, { color: athlexStatus.color }]}>{athlexStatus.text}</Text>
+                        </>
+                      ) : (
+                        <Text style={S.themeLabel}>{t('profile.athlexSub.none')}</Text>
+                      )}
                     </View>
                   </View>
                   <View style={S.athlexSubBtn}>
-                    <Text style={S.athlexSubBtnText}>{t('profile.athlexSub.manage')}</Text>
+                    <Text style={S.athlexSubBtnText}>{hasAthlexSub ? t('profile.athlexSub.manage') : t('profile.athlexSub.subscribe')}</Text>
                     <ChevronRight color={theme.accentText} size={16} />
                   </View>
                 </View>
