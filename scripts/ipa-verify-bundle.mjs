@@ -113,6 +113,11 @@ if (keyMatch) {
 const giphyMatch = js.match(/giphy-key:([A-Za-z0-9]{16,}):giphy-end/);
 check('clé GIPHY embarquée', !!giphyMatch,
   giphyMatch ? `${giphyMatch[1].length} caractères` : "absente (`giphy-key::giphy-end` ou marqueur manquant)");
+// DSN Sentry (`EXPO_PUBLIC_SENTRY_DSN`, inliné dans `Sentry.init`). Le SDK embarque
+// sa propre URL de télémétrie (`o447951.ingest.sentry.io`, sans `@`) : elle ne compte pas.
+const dsnMatch = js.match(/https:\/\/[0-9a-f]{32}@o(\d+)\.ingest(?:\.[a-z]{2})?\.sentry\.io\/(\d+)/);
+check('DSN Sentry embarqué', !!dsnMatch,
+  dsnMatch ? `org o${dsnMatch[1]}, projet ${dsnMatch[2]}` : 'absent (EXPO_PUBLIC_SENTRY_DSN vide au moment du bundle)');
 
 // 5. Identité du binaire : version, build, runtime, canal de mise à jour.
 // Les plists d'un IPA sont binaires : on les convertit pour les lire. La
