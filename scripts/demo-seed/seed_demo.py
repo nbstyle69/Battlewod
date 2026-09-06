@@ -345,7 +345,7 @@ def invite_code(db):
 
 
 def lot2(db, args):
-    log(f"== LOT 2 ({db.target}) : WODs, créneaux, réservations, scores + ELO (mode A)")
+    log(f"== LOT 2 ({db.target}) : WODs, créneaux, réservations, tournois, inscriptions (structure, sans ELO)")
     require_lot(db, 1)
     refuse_if_done(db, 2)
     anchor = anchor_of(db)
@@ -357,29 +357,41 @@ def lot2(db, args):
     log(f"  {n}")
     if int(n["waiting"]) != 0:
         die("des réservations sont passées en 'waiting' (capacité) : le générateur a tort")
-
-    # Scores WOD par WOD, ordre chronologique, un WOD = une transaction (les RPC créent des
-    # TEMP TABLE ON COMMIT DROP). Les WODs postérieurs au jour d'exécution sont filtrés.
-    wods = db.run(f"select id::text id, scheduled_date::text d, title from public.box_wods "
-                  f"where box_id = '{BOX_ID}' and scheduled_date <= current_date "
-                  f"and not exists (select 1 from public.wod_scores ws where ws.wod_id = box_wods.id) "
-                  f"order by scheduled_date, sort_order, id")
-    owner = db.scalar("select user_id::text from demo_stg.member_map where member_ref = 'owner'")
-    log(f"  {len(wods)} WODs à scorer (≤ current_date)")
-    for i, w in enumerate(wods, 1):
-        db.run(sql_file("21_lot2_scores_one_wod.sql", WOD_ID=w["id"], OWNER_ID=owner))
-        if i % 10 == 0:
-            log(f"    {i}/{len(wods)} WODs")
-    db.run(sql_file("22_lot2_after_scores.sql"))
+    t = db.one(sql_file("25_lot2_tournaments.sql", ANCHOR=anchor))
+    log(f"  {t}")
     set_param(db, "lot2_done", "1")
     log("LOT 2 OK")
 
 
 def lot3(db, args):
-    log(f"== LOT 3 ({db.target}) : tournois, inscriptions, matchs (trigger ELO), classement de box")
+    """Un seul flux d'événements trié par date : chaque WOD (scores puis compute_wod_elo + compute_box_elo)
+    et chaque match de bracket (trigger trg_bracket_match_elo) sont rejoués dans l'ordre réel, un événement
+    = une transaction. Les événements postérieurs au jour d'exécution sont filtrés."""
+    log(f"== LOT 3 ({db.target}) : flux chronologique WODs + matchs (mode A, ordre réel)")
     require_lot(db, 2)
     refuse_if_done(db, 3)
-    db.run(sql_file("30_lot3_tournaments.sql", ANCHOR=anchor_of(db)))
+    events = db.run(
+        f"select 'wod' kind, (bw.scheduled_date::timestamptz + interval '21 hours') ts, bw.id::text ref, bw.title label "
+        f"  from public.box_wods bw where bw.box_id = '{BOX_ID}' and bw.scheduled_date <= current_date "
+        f"   and not exists (select 1 from public.wod_scores ws where ws.wod_id = bw.id) "
+        f"union all "
+        f"select 'match', mp.event_at, mp.match_ref, mp.status "
+        f"  from demo_stg.match_plan mp "
+        f" where not exists (select 1 from public.tournament_bracket_matches bm where bm.id = mp.match_id) "
+        f"   and (mp.status <> 'completed' or mp.completed_at <= now()) "
+        f"order by 2, 1, 3")
+    owner = db.scalar("select user_id::text from demo_stg.member_map where member_ref = 'owner'")
+    n_wod = sum(1 for e in events if e["kind"] == "wod")
+    log(f"  {len(events)} événements : {n_wod} WODs à scorer, {len(events) - n_wod} matchs (≤ maintenant)")
+    for i, e in enumerate(events, 1):
+        if e["kind"] == "wod":
+            db.run(sql_file("21_lot2_scores_one_wod.sql", WOD_ID=e["ref"], OWNER_ID=owner))
+        else:
+            db.run(sql_file("31_lot3_one_match.sql", MATCH_REF=e["ref"]))
+        if i % 25 == 0:
+            log(f"    {i}/{len(events)} ({e['ts'][:16]})")
+    r = db.one(sql_file("32_lot3_after.sql"))
+    log(f"  {r}")
     set_param(db, "lot3_done", "1")
     log("LOT 3 OK")
 
@@ -461,6 +473,25 @@ def rollback(db, auth, args):
     log("ROLLBACK OK — box, données, comptes et journal supprimés")
 
 
+def rollback_lots23(db, args):
+    """Annule les lots 2 et 3 seulement : box, comptes Auth (et leurs mots de passe), profils et adhésions
+    du lot 1 sont conservés ; profiles/box_elo remis à elo_start."""
+    log(f"== ROLLBACK PARTIEL lots 2+3 ({db.target})")
+    if not args.yes:
+        die("rollback-lots23 : ajouter --yes pour confirmer")
+    require_lot(db, 1)
+    nbs2_before = nbs2_snapshot(db)
+    left = {r["t"]: int(r["n"]) for r in db.run(sql_file("93_rollback_lots23.sql"))}
+    log(f"  reste : {left}")
+    if any(v != 0 for v in left.values()):
+        die("état de fin de lot 1 non retrouvé")
+    nbs2_after = nbs2_snapshot(db)
+    if json.loads(nbs2_before) != json.loads(nbs2_after):
+        die(f"NBS2 a changé pendant le rollback ! avant={nbs2_before} après={nbs2_after}")
+    log(f"  NBS2 inchangée : {nbs2_after}")
+    log("ROLLBACK PARTIEL OK — lots 2 et 3 annulés, lot 1 intact")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--target", required=True, choices=["local", "prod"])
@@ -470,6 +501,7 @@ def main():
         sub.add_parser(c)
     sub.add_parser("check").add_argument("what")
     sub.add_parser("rollback").add_argument("--yes", action="store_true")
+    sub.add_parser("rollback-lots23").add_argument("--yes", action="store_true")
     args = ap.parse_args()
 
     db = Db(args.target)
@@ -489,6 +521,8 @@ def main():
         status(db, args)
     elif args.cmd == "rollback":
         rollback(db, AuthAdmin(args.target), args)
+    elif args.cmd == "rollback-lots23":
+        rollback_lots23(db, args)
 
 
 if __name__ == "__main__":
