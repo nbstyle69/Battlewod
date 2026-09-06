@@ -1,0 +1,8 @@
+tournament_ref,box_id,nom,format,categorie,places,inscrits,statut,date_debut,date_fin
+t001,d3d0b0a0-0000-4000-a000-000000000001,Battle AthleX #2,double_elimination,RX,32,32,termine,2026-08-17,2026-08-22
+t002,d3d0b0a0-0000-4000-a000-000000000001,Battle AthleX #3,double_elimination,RX,32,32,live,2026-09-03,
+t003,d3d0b0a0-0000-4000-a000-000000000001,Inter-box Rhone,inter_box,RX,64,47,ouvert,2026-09-18,
+t004,d3d0b0a0-0000-4000-a000-000000000001,Sprint du jeudi #7,mini_tournoi,Open,8,8,termine,2026-08-24,2026-08-24
+t005,d3d0b0a0-0000-4000-a000-000000000001,Sprint du jeudi #8,mini_tournoi,Open,8,8,termine,2026-08-31,2026-08-31
+t006,d3d0b0a0-0000-4000-a000-000000000001,Sprint du jeudi #9,mini_tournoi,Open,8,6,ouvert,2026-09-10,
+t007,d3d0b0a0-0000-4000-a000-000000000001,Throwdown AthleX Automne,competition_physique,RX+,40,40,termine,2026-08-03,2026-08-03
