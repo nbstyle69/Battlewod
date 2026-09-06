@@ -23,6 +23,15 @@ N_MEMBERS = 150
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 
 rng = random.Random(SEED)
+# Flux separe pour les placements WOD du compte demo : la meme graine, sans decaler les tirages
+# des 149 autres membres (planning, scores, brackets restent identiques).
+rng_demo = random.Random(SEED + 1)
+
+# Percentile vise sur le whiteboard pour chaque WOD passe auquel le demo participe, dans l'ordre
+# chronologique : quelques podiums, une majorite de milieu de tableau, deux ou trois en seconde
+# moitie -> en mode A (compute_wod_elo) la courbe monte ET descend, et le demo sort du top 9.
+DEMO_PLACEMENTS = [0.35, 0.03, 0.95, 0.30, 0.97, 0.45, 0.05, 0.95, 0.40, 0.50,
+                   0.02, 0.47, 0.65, 0.42, 0.33, 0.52, 0.04, 0.44, 0.60, 0.36]
 
 # Lundi de la semaine de reference. Le loader SQL recale tout sur
 # date_trunc('week', now()), ces dates ne servent que de squelette relatif.
@@ -82,6 +91,8 @@ PLAFOND_SEMAINE = {"1x/sem": 1, "2x/sem": 2, "3x/sem": 3, "illimité": None}
 # Pseudo du compte de demo : profiles.username est UNIQUE en prod et
 # « JCVD » y existe deja (box Crossfit NBS2).
 DEMO_PSEUDO = "[Apple_User]"
+# Nom de personne affiche (profiles.full_name), au meme format que les 149 autres.
+DEMO_NOM = "Camille Roux"
 
 
 def nom_affiche():
@@ -165,6 +176,7 @@ def build_members():
             i, m["victoires"], m["matchs"], m["streak"], m["wods"],
             m["reservations"], m["formule"], m["cible_sem"],
             "true" if is_demo else "false",
+            DEMO_NOM if is_demo else m["pseudo"],
         ])
     return rows
 
@@ -361,9 +373,17 @@ for semaine in range(-6, 0):
     PROGRAMME_PASSE.append((semaine * 7 + 5, "TEAM SATURDAY", "team",
                             "En binome, format variable", None))
 
+def cle_tri_score(unite, valeur):
+    if unite == "temps":
+        m, sec = valeur.split(":")
+        return int(m) * 60 + int(sec)
+    return -int(valeur)
+
+
 wods_rows = []
 scores_rows = []
 wod_seq = 0
+demo_wod_idx = 0
 
 for offset, nom, fmt, detail, unite in PROGRAMME_PASSE + PROGRAMME:
     wod_seq += 1
@@ -382,6 +402,7 @@ for offset, nom, fmt, detail, unite in PROGRAMME_PASSE + PROGRAMME:
     elif not demo_present and DEMO_ID in participants:
         participants.remove(DEMO_ID)
 
+    scores_wod = []
     for mid in participants:
         elo = ELO_BY_ID[mid]
         facteur = (elo - 900) / 600.0            # 0 -> 1
@@ -394,8 +415,32 @@ for offset, nom, fmt, detail, unite in PROGRAMME_PASSE + PROGRAMME:
             valeur = f"{secondes // 60:02d}:{secondes % 60:02d}"
         else:
             valeur = str(int(5 * round((70 + facteur * 90 + rng.gauss(0, 9)) / 5)))
-        scores_rows.append([wod_id, mid, d(offset), unite, valeur,
-                            rng.choice(["RX", "RX", "RX", "Scaled"])])
+        scores_wod.append([wod_id, mid, d(offset), unite, valeur,
+                           rng.choice(["RX", "RX", "RX", "Scaled"])])
+
+    # Placement impose du demo sur les WODs passes : sa valeur est recalee juste devant le
+    # score qui occupe le percentile vise parmi les autres participants.
+    if offset < 0 and DEMO_ID in participants:
+        # Le percentile se lit dans le champ RX : compute_wod_elo classe tous les Scaled apres les RX.
+        autres = sorted((r for r in scores_wod if r[1] != DEMO_ID and r[5] == "RX"),
+                        key=lambda r: cle_tri_score(r[3], r[4]))
+        pct = DEMO_PLACEMENTS[demo_wod_idx % len(DEMO_PLACEMENTS)]
+        demo_wod_idx += 1
+        idx = min(len(autres) - 1, int(round(pct * len(autres))))
+        ref = autres[idx][4]
+        if unite == "temps":
+            m, sec = ref.split(":")
+            secondes = max(300, int(m) * 60 + int(sec) - rng_demo.randint(1, 6))
+            valeur = f"{secondes // 60:02d}:{secondes % 60:02d}"
+        elif unite == "reps":
+            valeur = str(int(ref) + rng_demo.randint(1, 3))
+        else:
+            valeur = str(int(ref) + 5)
+        for r in scores_wod:
+            if r[1] == DEMO_ID:
+                r[4] = valeur
+                r[5] = "RX"   # compute_wod_elo classe les Scaled apres tous les RX : placement impose = RX
+    scores_rows.extend(scores_wod)
 
 
 # ---------------------------------------------------------------------
@@ -565,11 +610,7 @@ def delta_wod(rang, n):
     return rng.randint(-12, -8)
 
 
-def cle_tri(unite, valeur):
-    if unite == "temps":
-        m, sec = valeur.split(":")
-        return int(m) * 60 + int(sec)
-    return -int(valeur)
+cle_tri = cle_tri_score
 
 
 events = []   # (jour, ordre, member_ref, delta_provisoire, source_type, source_ref)
@@ -640,9 +681,10 @@ for mid in MEMBER_IDS:
 
 ELO_DEPART = depart
 # Levier de calibration mode A (prod : compute_wod_elo + trg_bracket_match_elo recalculent l'ELO a partir de
-# elo_start). Mesure sur la pile jetable : -60 ici ne deplace l'ELO final du demo que de ~-11 (les gains
-# de bracket augmentent quand il part plus bas). A n'ajuster que sur decision explicite.
-DEMO_ELO_DEPART_AJUST = 0
+# elo_start, avec des deltas plus forts que ce simulateur). Mesure sur la pile jetable avec DEMO_PLACEMENTS :
+# 0 -> 1300 / #5 ; -40 -> 1287 / #8 ; -60 -> 1284 / #9 (cible rang 8-15, ELO 1200-1320).
+# A n'ajuster que sur decision explicite.
+DEMO_ELO_DEPART_AJUST = -60
 ELO_DEPART[DEMO_ID] += DEMO_ELO_DEPART_AJUST
 
 # Bilan victoires / matchs recalcule depuis les matchs seedes
@@ -751,7 +793,7 @@ print(f"Generation des donnees de demonstration — {BOX_NAME}\n")
 write("members.csv",
       ["member_ref", "email", "pseudo", "role", "elo", "tier", "rang",
        "victoires", "matchs", "streak", "wods_total", "reservations_total",
-       "formule", "seances_cible_semaine", "is_demo_account"],
+       "formule", "seances_cible_semaine", "is_demo_account", "nom_complet"],
       members_rows)
 
 write("class_slots.csv",

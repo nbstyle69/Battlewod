@@ -54,7 +54,7 @@ select p.elo between 1100 and 1320 as ok, 'B7 ELO démo après WODs, avant brack
 -- @@ B8 rang démo
 with r as (select p.id, rank() over (order by p.elo desc) rk from public.profiles p
              join public.box_members bm on bm.member_id = p.id and bm.box_id = '{{BOX_ID}}' and bm.role <> 'owner')
-select rk between 5 and 40 as ok, 'B8 rang démo après WODs, avant brackets (tolérance 5–20 contrôlée en C8)' as controle, format('rang=#%s/150', rk) as detail
+select rk between 5 and 60 as ok, 'B8 rang démo après WODs, avant brackets (cible 8–15 contrôlée en C8)' as controle, format('rang=#%s/150', rk) as detail
   from r where id = (select id from public.profiles where email = 'nbstylz+appledemo@gmail.com');
 -- @@ B9 plage ELO
 select min(p.elo) >= 900 and max(p.elo) <= 1500 as ok, 'B9 ELO membres dans [900, 1500]' as controle,

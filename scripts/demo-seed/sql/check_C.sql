@@ -43,7 +43,7 @@ select p.elo between 1200 and 1320 as ok, 'C7 ELO démo dans [1200, 1320] après
 -- @@ C8 rang démo
 with r as (select p.id, rank() over (order by p.elo desc) rk from public.profiles p
              join public.box_members bm on bm.member_id = p.id and bm.box_id = '{{BOX_ID}}' and bm.role <> 'owner')
-select rk between 5 and 20 as ok, 'C8 rang démo dans la box entre 5 et 20' as controle, format('rang=#%s/150', rk) as detail
+select rk between 8 and 15 as ok, 'C8 rang démo dans la box entre 8 et 15' as controle, format('rang=#%s/150', rk) as detail
   from r where id = (select id from public.profiles where email = 'nbstylz+appledemo@gmail.com');
 -- @@ C9 cohérence victoires
 select p.wins = (select count(*) from public.elo_history eh where eh.member_id = p.id and eh.rank = 1)

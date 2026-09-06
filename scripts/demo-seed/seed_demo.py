@@ -50,7 +50,7 @@ NO_PASSWORD_EMAILS = {OWNER_EMAIL, DEMO_EMAIL}
 STAGING = {
     "members": ["member_ref", "email", "pseudo", "role", "elo", "tier", "rang", "victoires", "matchs",
                 "streak", "wods_total", "reservations_total", "formule", "seances_cible_semaine",
-                "is_demo_account"],
+                "is_demo_account", "nom_complet"],
     "elo_start": ["member_ref", "elo_depart", "jour"],
     "class_slots": ["slot_ref", "box_id", "jour", "heure", "type", "capacite"],
     "reservations": ["slot_ref", "member_ref", "statut"],
@@ -292,7 +292,7 @@ def lot1(db, auth, args):
     refuse_if_done(db, 1)
     members = read_csv("members")
     wanted = [(OWNER_EMAIL, OWNER_USERNAME, "rx", "AthleX Fitness", "owner")]
-    wanted += [(m["email"], m["pseudo"], tier_to_level(m["tier"]), m["pseudo"], m["member_ref"]) for m in members]
+    wanted += [(m["email"], m["pseudo"], tier_to_level(m["tier"]), m["nom_complet"], m["member_ref"]) for m in members]
 
     # Comptes déjà présents (reprise après interruption) : on ne recrée pas, on complète.
     existing = {r["email"]: r["id"] for r in db.run(

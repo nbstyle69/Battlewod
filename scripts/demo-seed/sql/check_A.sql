@@ -23,9 +23,9 @@ select count(*) = 151 and count(*) filter (where p.username is null or p.usernam
               (select username from public.profiles where email = 'nbstylz+appledemo@gmail.com')) as detail
   from public.profiles p join demo_stg.member_map mm on mm.user_id = p.id;
 -- @@ A4 demo
-select p.username = '[Apple_User]' and p.level = 'rx' and p.elo = (select e.elo_depart::int from demo_stg.elo_start e join demo_stg.members m on m.member_ref = e.member_ref where m.email = p.email) as ok,
-       'A4 compte démo : pseudo [Apple_User], ELO = elo_start.csv' as controle,
-       format('username=%s level=%s elo=%s role=%s', p.username, p.level, p.elo, p.role) as detail
+select p.username = '[Apple_User]' and p.full_name = 'Camille Roux' and p.level = 'rx' and p.elo = (select e.elo_depart::int from demo_stg.elo_start e join demo_stg.members m on m.member_ref = e.member_ref where m.email = p.email) as ok,
+       'A4 compte démo : pseudo [Apple_User], nom Camille Roux, ELO = elo_start.csv' as controle,
+       format('username=%s full_name=%s level=%s elo=%s role=%s', p.username, p.full_name, p.level, p.elo, p.role) as detail
   from public.profiles p where p.email = 'nbstylz+appledemo@gmail.com';
 -- @@ A5 adhésions
 select count(*) = 151 and count(*) filter (where role = 'owner') = 1 and count(*) filter (where role = 'coach') = 3

@@ -31,7 +31,7 @@ create table if not exists demo_stg.member_map (
 create table if not exists demo_stg.members (
   member_ref text, email text, pseudo text, role text, elo text, tier text, rang text, victoires text,
   matchs text, streak text, wods_total text, reservations_total text, formule text,
-  seances_cible_semaine text, is_demo_account text);
+  seances_cible_semaine text, is_demo_account text, nom_complet text);
 create table if not exists demo_stg.elo_start (member_ref text, elo_depart text, jour text);
 create table if not exists demo_stg.class_slots (slot_ref text, box_id text, jour text, heure text, type text, capacite text);
 create table if not exists demo_stg.reservations (slot_ref text, member_ref text, statut text);

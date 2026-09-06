@@ -57,7 +57,7 @@ begin
 
   update public.profiles p
      set elo = es.elo_depart::int,
-         full_name = m.pseudo,
+         full_name = m.nom_complet,
          onboarding_completed_at = (demo_stg.d('2026-07-27') - (abs(hashtext(m.member_ref)) % 60))::timestamptz,
          created_at = (demo_stg.d('2026-07-27') - (abs(hashtext(m.member_ref)) % 60))::timestamptz
     from demo_stg.member_map mm

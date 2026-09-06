@@ -20,7 +20,7 @@ un relevé (comptes + md5) est pris au lot 0 et comparé après chaque lot et ap
   par la formule ; toute ligne `waiting` fait échouer le lot 2).
 - Formules via `membership_plans` (sans Stripe) ; `box_subscriptions` `complete/active` +1 an sans identifiants Stripe.
 - `invite_code` : 6 alphanumériques majuscules générés (unicité vérifiée), même format que les codes existants.
-- Compte démo `[Apple_User]` (`nbstylz+appledemo@gmail.com`) et owner (`nbstylz+athlexfitness@gmail.com`) créés
+- Compte démo `[Apple_User]` / `full_name` « Camille Roux » (`nbstylz+appledemo@gmail.com`) et owner (`nbstylz+athlexfitness@gmail.com`) créés
   sans mot de passe transmis : GoTrue pose un hash aléatoire inconnu de tous → à définir par « mot de passe oublié ».
 - `box_id` fixe `d3d0b0a0-0000-4000-a000-000000000001` (celui du pack, `d3m0b0x0-…`, n'est pas un uuid valide).
 - Dates : les CSV sont relatifs au lundi `2026-09-07` ; `--anchor` (par défaut le lundi de la semaine en cours,
@@ -51,15 +51,17 @@ l'API Admin, vérifie 0 reste et l'égalité du relevé NBS2, puis supprime stag
 | 0 | OK — 14 tables staging = CSV | — |
 | 1 | OK — 151 comptes, 151 profils, 151 adhésions, 4 formules, subscription | A1–A11 tous OK |
 | 2 | OK — 48 WODs, 132 créneaux, 1100 résas (0 waiting, 0 dépassement de formule), scores filtrés à la date | B1–B12 tous OK |
-| 3 | OK — 7 tournois, 173 inscrits, 135 matchs, 266 lignes `tournament_match_elo_history` (trigger), 0 `tournament_elo_history` | C7/C8 **KO** (voir ci-dessous), reste OK |
+| 3 | OK — 7 tournois, 173 inscrits, 135 matchs, 266 lignes `tournament_match_elo_history` (trigger), 0 `tournament_elo_history` | C1–C10 tous OK (C7 ELO 1284, C8 rang #9/150) |
 | 4 | OK — badges catalogue prod, 681 compteurs de reps, 23 amis, 3 actus, streak 6 | D1–D9 tous OK |
 | E | isolation RLS : démo ↔ NBS2 0 ligne (hors `tournaments`, lisibles par tous par RLS prod), anon refusé, staging/journal refusés | E1–E4 tous OK |
 | Rollback | OK — 0 reste sur 20 tables + Auth, relevé NBS2 identique, staging/journal supprimés | — |
 
-### Écart remonté : ELO du compte démo après recalcul mode A
+### Calibration ELO du compte démo (mode A)
 
-Tolérance demandée : ELO 1200–1320, rang 5–20. Mesuré après lot 3 : **ELO 1338, rang #4/150** (ancre 2026-09-07 ;
-1332 / #6 avec l'ancre 2026-08-31 qui charge une semaine de scores de plus). Cause : `compute_wod_elo` est plus
-généreux que le modèle du générateur pour les places 1–9 que prend le démo (+20 à +42 par WOD) et les gains de
-bracket compensent toute baisse de l'ELO de départ (`DEMO_ELO_DEPART_AJUST = -60` → final seulement −11).
-Le levier `elo_start` seul est donc faible ; décision attendue avant la prod (voir PR).
+Cible : rang 8–15, ELO 1200–1320, courbe qui monte et descend. Deux leviers, tous deux dans le générateur :
+`DEMO_PLACEMENTS` (percentile visé dans le champ RX pour chacun de ses WODs passés : 2 podiums, majorité en
+milieu de tableau, 3 en seconde moitié) et `DEMO_ELO_DEPART_AJUST = -60`. Mesuré sur la pile jetable (ancre
+2026-09-07) : ELO **1284**, rang **#9/150** ; historique WOD `1057 → 1077 → 1111 → 1097 → 1115 → 1112 → 1123 →
+1153 → 1146 → 1162 → 1170`, puis 10 V / 1 D en bracket ; dernier `elo_after` (WOD + matchs) = `profiles.elo`.
+La courbe de l'app n'intègre les matchs de bracket qu'avec la PR #268 (`EloHistoryScreen` lit
+`tournament_match_elo_history`), à embarquer dans le build des captures.
