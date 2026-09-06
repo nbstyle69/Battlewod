@@ -20,7 +20,7 @@ un relevé (comptes + md5) est pris au lot 0 et comparé après chaque lot et ap
   par la formule ; toute ligne `waiting` fait échouer le lot 2).
 - Formules via `membership_plans` (sans Stripe) ; `box_subscriptions` `complete/active` +1 an sans identifiants Stripe.
 - `invite_code` : 6 alphanumériques majuscules générés (unicité vérifiée), même format que les codes existants.
-- Compte démo `[Apple_User]` / `full_name` « Camille Roux » (`nbstylz+appledemo@gmail.com`) et owner (`nbstylz+athlexfitness@gmail.com`) créés
+- Compte démo « Camille Roux » (username et `full_name`) (`nbstylz+appledemo@gmail.com`) et owner (`nbstylz+athlexfitness@gmail.com`) créés
   sans mot de passe transmis : GoTrue pose un hash aléatoire inconnu de tous → à définir par « mot de passe oublié ».
 - `box_id` fixe `d3d0b0a0-0000-4000-a000-000000000001` (celui du pack, `d3m0b0x0-…`, n'est pas un uuid valide).
 - Dates : les CSV sont relatifs au lundi `2026-09-07` ; `--anchor` (par défaut le lundi de la semaine en cours,

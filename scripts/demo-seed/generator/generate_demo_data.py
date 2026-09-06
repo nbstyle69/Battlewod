@@ -88,11 +88,10 @@ FORMULES = [("1x/sem", 1, 15), ("2x/sem", 2, 40), ("3x/sem", 3, 30), ("illimité
 # trigger prod trg_enforce_weekly_limit rejette toute reservation au-dela.
 PLAFOND_SEMAINE = {"1x/sem": 1, "2x/sem": 2, "3x/sem": 3, "illimité": None}
 
-# Pseudo du compte de demo : profiles.username est UNIQUE en prod et
-# « JCVD » y existe deja (box Crossfit NBS2).
-DEMO_PSEUDO = "[Apple_User]"
-# Nom de personne affiche (profiles.full_name), au meme format que les 149 autres.
-DEMO_NOM = "Camille Roux"
+# Pseudo du compte de demo : un nom de personne au meme format que les 149 autres (le username
+# s'affiche en grand sur HomeScreen). profiles.username est UNIQUE en prod et « JCVD » y existe deja.
+DEMO_PSEUDO = "Camille Roux"
+DEMO_NOM = DEMO_PSEUDO
 
 
 def nom_affiche():
