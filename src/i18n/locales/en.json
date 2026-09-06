@@ -722,7 +722,10 @@
   "eloHistory": {
     "deletedWod": "Deleted WOD",
     "deletedTournament": "Deleted tournament",
-    "deletedDaily": "Deleted mini-tournament"
+    "deletedDaily": "Deleted mini-tournament",
+    "deletedMatch": "Deleted match",
+    "unknownOpponent": "unknown opponent",
+    "versus": "vs {{opponent}}"
   },
   "common": {
     "save": "Save",

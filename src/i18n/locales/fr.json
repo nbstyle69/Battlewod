@@ -722,7 +722,10 @@
   "eloHistory": {
     "deletedWod": "WOD supprimé",
     "deletedTournament": "Tournoi supprimé",
-    "deletedDaily": "Mini-tournoi supprimé"
+    "deletedDaily": "Mini-tournoi supprimé",
+    "deletedMatch": "Match supprimé",
+    "unknownOpponent": "adversaire inconnu",
+    "versus": "vs {{opponent}}"
   },
   "common": {
     "save": "Enregistrer",

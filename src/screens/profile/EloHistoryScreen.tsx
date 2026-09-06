@@ -7,7 +7,7 @@ import Svg, { Path, Circle, Defs, LinearGradient, Stop, Line, Text as SvgText } 
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Zap, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Zap, Swords, ChevronRight } from 'lucide-react-native';
 import { HomeStackParamList } from '../../navigation';
 import { supabase } from '../../lib/supabase';
 import { captureError } from '../../lib/sentry';
@@ -15,18 +15,9 @@ import { log } from '../../lib/logger';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, AppTheme } from '../../context/ThemeContext';
 import GlassBackground from '../../components/glass/GlassBackground';
-
-interface EloEntry {
-  id: string;
-  type: 'wod' | 'tournament' | 'daily';
-  refId: string;
-  label: string;
-  delta: number;
-  eloBefore: number;
-  eloAfter: number;
-  rank: number;
-  date: string;
-}
+import {
+  EloEntry, MatchEloRow, matchEloRowToEntry, sortEloEntries, eloCurvePoints,
+} from '../../utils/eloHistoryEntries';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -126,9 +117,36 @@ export default function EloHistoryScreen() {
       });
     }
 
-    // Sort by date descending
-    results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setEntries(results);
+    // 4. Matchs de bracket (trg_bracket_match_elo) — sans eux le dernier point de la courbe
+    // ne retombe pas sur l'ELO du profil.
+    const { data: matchHistory, error: matchErr } = await supabase
+      .from('tournament_match_elo_history')
+      .select('id, match_id, opponent_id, result, elo_before, elo_after, elo_delta, created_at, tournament_bracket_matches(tournament_id, tournaments(name))')
+      .eq('athlete_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    log.debug('[EloHistory] matchHistory count=', matchHistory?.length ?? 0, 'error=', matchErr?.message);
+
+    const matchRows = (matchHistory ?? []) as unknown as MatchEloRow[];
+    const opponentIds = [...new Set(matchRows.map(r => r.opponent_id).filter((id): id is string => id !== null))];
+    const opponentNames: Record<string, string | undefined> = {};
+    if (opponentIds.length > 0) {
+      const { data: opponents, error: oppErr } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', opponentIds);
+      log.debug('[EloHistory] opponents count=', opponents?.length ?? 0, 'error=', oppErr?.message);
+      for (const o of opponents ?? []) opponentNames[o.id] = o.username ?? undefined;
+    }
+    const matchLabels = {
+      deletedMatch: t('eloHistory.deletedMatch'),
+      unknownOpponent: t('eloHistory.unknownOpponent'),
+      versus: (opponent: string) => t('eloHistory.versus', { opponent }),
+    };
+    for (const r of matchRows) results.push(matchEloRowToEntry(r, opponentNames, matchLabels));
+
+    setEntries(sortEloEntries(results));
     } catch (e) { captureError(e, { screen: 'EloHistory', action: 'load' }); }
     setLoading(false);
     setRefreshing(false);
@@ -160,7 +178,8 @@ export default function EloHistoryScreen() {
     return `${day}/${month} à ${hours}:${mins}`;
   }
 
-  function rankLabel(rank: number) {
+  function rankLabel(rank: number | null) {
+    if (rank === null) return '';
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
     if (rank === 3) return '🥉';
@@ -244,9 +263,11 @@ export default function EloHistoryScreen() {
                   }
                 }}
               >
-                <View style={[S.rowIcon, { backgroundColor: entry.type === 'tournament' ? '#8b5cf620' : entry.type === 'daily' ? '#ef444420' : `${theme.accent}20` }]}>
+                <View style={[S.rowIcon, { backgroundColor: entry.type === 'tournament' || entry.type === 'match' ? '#8b5cf620' : entry.type === 'daily' ? '#ef444420' : `${theme.accent}20` }]}>
                   {entry.type === 'tournament'
                     ? <Trophy color="#8b5cf6" size={18} />
+                    : entry.type === 'match'
+                    ? <Swords color="#8b5cf6" size={18} />
                     : entry.type === 'daily'
                     ? <Zap color="#ef4444" size={18} />
                     : <Dumbbell color={theme.accent} size={18} />
@@ -290,23 +311,14 @@ function EloChart({ entries, currentElo, theme, isDark }: {
 }) {
   // Build chronological data points (oldest → newest, then current)
   const sorted = [...entries].reverse();
-  const points: { elo: number; label: string }[] = [];
-
-  // Start with elo_before of the oldest entry
-  if (sorted.length > 0) {
-    const oldest = sorted[0];
-    const d = new Date(oldest.date);
-    points.push({ elo: oldest.eloBefore, label: `${d.getDate()}/${d.getMonth() + 1}` });
-  }
-
-  for (const e of sorted) {
-    const d = new Date(e.date);
-    points.push({ elo: e.eloAfter, label: `${d.getDate()}/${d.getMonth() + 1}` });
-  }
+  const dayLabel = (iso: string) => { const d = new Date(iso); return `${d.getDate()}/${d.getMonth() + 1}`; };
+  const elos = eloCurvePoints(entries);
+  const points: { elo: number; label: string }[] = elos.map((elo, i) => ({
+    elo, label: dayLabel(sorted[Math.max(0, i - 1)].date),
+  }));
 
   if (points.length < 2) return null;
 
-  const elos = points.map(p => p.elo);
   const minElo = Math.min(...elos);
   const maxElo = Math.max(...elos);
   const eloRange = maxElo - minElo || 50;
