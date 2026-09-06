@@ -62,7 +62,7 @@ WODs/matchs postérieurs au jour d'exécution sont filtrés. `rollback-lots23 --
 | 2 | OK — 48 WODs, 132 créneaux, 1100 résas (0 waiting, 0 dépassement de formule), 7 tournois, 173 inscrits, plan de 135 matchs, 0 ELO | B1–B11 tous OK |
 | 3 | OK — 171 événements (36 WODs ≤ jour J + 135 matchs) rejoués par date, 1128 scores, 266 lignes `tournament_match_elo_history` (trigger), 0 `tournament_elo_history` | C1–C15 tous OK (C7 ELO 1272, C8 rang #12/150, C9 chaîne 0 rupture sur 150 membres) |
 | Rollback partiel 2+3 | OK — 0 reste hors lot 0/1, profils/box_elo = elo_start, hash Auth identiques, contrôles A OK ; rejeu lots 2+3 → mêmes chiffres | — |
-| 4 | OK — badges catalogue prod, 681 compteurs de reps, 23 amis, 3 actus, streak 6 | D1–D9 tous OK |
+| 4 | OK — badges catalogue prod, 681 compteurs de reps, 23 amis, 3 actus, streak 6 | D1–D9 tous OK (D7 : BRUTAL GAUNTLET à venir → 0 score) |
 | E | isolation RLS : démo ↔ NBS2 0 ligne (hors `tournaments`, lisibles par tous par RLS prod), anon refusé, staging/journal refusés | E1–E4 tous OK |
 | Rollback | OK — 0 reste sur 20 tables + Auth, relevé NBS2 identique, staging/journal supprimés | — |
 

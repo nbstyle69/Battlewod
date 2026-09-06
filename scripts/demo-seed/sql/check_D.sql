@@ -34,10 +34,11 @@ select s.current_streak = 6 and s.week_start = '{{ANCHOR}}'::date as ok, 'D6 str
        format('current=%s longest=%s week_sessions=%s week_start=%s', s.current_streak, s.longest_streak, s.week_session_count, s.week_start) as detail
   from public.athlete_streaks s where s.athlete_id = (select id from public.profiles where email = 'nbstylz+appledemo@gmail.com');
 -- @@ D7 BRUTAL GAUNTLET
-select count(*) >= 20 and count(*) filter (where ws.member_id = (select id from public.profiles where email = 'nbstylz+appledemo@gmail.com')) = 1 as ok,
-       'D7 BRUTAL GAUNTLET : scores présents, dont celui du démo' as controle,
-       format('wod=%s date=%s scores=%s', w.title, w.scheduled_date, count(*)) as detail
-  from public.box_wods w join public.wod_scores ws on ws.wod_id = w.id
+select case when w.scheduled_date > current_date then count(ws.id) = 0
+            else count(ws.id) >= 20 and count(ws.id) filter (where ws.member_id = (select id from public.profiles where email = 'nbstylz+appledemo@gmail.com')) = 1 end as ok,
+       'D7 BRUTAL GAUNTLET : scores présents (dont celui du démo) si le WOD est passé, aucun s''il est à venir' as controle,
+       format('wod=%s date=%s scores=%s', w.title, w.scheduled_date, count(ws.id)) as detail
+  from public.box_wods w left join public.wod_scores ws on ws.wod_id = w.id
  where w.box_id = '{{BOX_ID}}' and w.title = 'BRUTAL GAUNTLET' group by w.id;
 -- @@ D8 compteurs profil démo
 select p.total_scores_submitted > 0 and p.total_tournaments = 4 and p.total_friends = 23 as ok,
